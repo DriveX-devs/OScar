@@ -1,0 +1,9 @@
+# OCABS binary
+OCABS
+
+# Compiled source
+obj/*.o
+obj
+
+# nohup.out file, if the user launches OCABS with nohup
+nohup.out
