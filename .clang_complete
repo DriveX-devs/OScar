@@ -1,0 +1,6 @@
+-pthread
+-m
+-Iinclude
+-Iasn1/include
+-Itclap
+
