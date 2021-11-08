@@ -1,5 +1,7 @@
 EXECNAME=OCABS
 
+OPENWRT_STAGING_DIR=/home/phd/Desktop/Francesco51/OpenWrt-V2X/staging_dir/target-x86_64_musl/usr/include
+
 SRC_DIR=src
 OBJ_DIR=obj
 
@@ -17,7 +19,7 @@ OBJ_CC+=$(OBJ_ASN1)
 
 CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Iasn1/include -I.
 CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include
-LDLIBS += -lpthread -lm
+LDLIBS += -lpthread -lm -lgps
 
 .PHONY: all clean
 
@@ -25,11 +27,19 @@ all: compilePC
 
 compilePC: CXX = g++
 compilePC: CC = gcc
+
+compileAPU: CXX = x86_64-openwrt-linux-musl-g++
+compileAPU: CC = x86_64-openwrt-linux-musl-gcc
+compileAPU: LD = x86_64-openwrt-linux-musl-ld
+compileAPU: CFLAGS += $(OPENWRT_STAGING_DIR)
 	
 compilePCdebug: CXXFLAGS += -g
 compilePCdebug: compilePC
 
-compilePC compilePCdebug: $(EXECNAME)
+compileAPUdebug: CXXFLAGS += -g
+compileAPUdebug: compileAPU
+
+compilePC compilePCdebug compileAPU compileAPUdebug: $(EXECNAME)
 
 # Standard targets
 $(EXECNAME): $(OBJ_CC)
