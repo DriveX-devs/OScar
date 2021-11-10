@@ -4,7 +4,10 @@
 #include <gps.h>
 #include <string>
 #include "asn_utils.h"
-#include "CAM.h"
+
+extern "C" {
+	#include "CAM.h"
+}
 
 template <class V = int, class C = int>
 class VDPValueConfidence
@@ -50,20 +53,28 @@ class VDPGPSClient {
       	} CAM_mandatory_data_t;
 
 		VDPGPSClient(std::string server, long port) :
-			m_server(server), m_port(port) {
-				VDPGPSClient();
-		};
+			m_server(server), m_port(port) {};
 
-		// The constructor will also set up the connection to the GNSS device via gps_open() and gps_stream()
-		VDPGPSClient();
+		VDPGPSClient() {};
 
 		// The connection to the GNSS device is terminated when the object is destroyed
-		~VDPGPSClient();
+		~VDPGPSClient() {};
+
+		// The method will set up the connection to the GNSS device via gps_open() and gps_stream(), using the server and port stored as private attributes
+		void openConnection();
+
+		// This method shall be called after we no longer need to receive new data, and will take care of closing the connection to gpsd
+		void closeConnection();
 
 		// Function to retrieve the mandatory data for CAM messages
 		// For the time being, it fills only the main data needed to enable basic V2X applications
 		// It will be updated in the future to fill in more fields of CAM_mandatory_data_t with available information from the GNSS device
 		CAM_mandatory_data_t getCAMMandatoryData();
+
+		VDPValueConfidence<> getHeadingValue();
+		VDPValueConfidence<> getSpeedValue();
+		// This function returns the current position in terms of <Lat [0.1 microdegrees],Lon [0.1 microdegrees]>
+		std::pair<long,long> getCurrentPosition();
 
 		void setFixedVehicleLength(VDPValueConfidence<long,long> vehicle_length) {
 			m_vehicle_length=vehicle_length;

@@ -7,6 +7,12 @@
 #include "tclap/CmdLine.h"
 // VDP GPS Client
 #include "gpsc.h"
+// CA Basic Service (TX only, for the time being)
+#include "caBasicService.h"
+// Linux net includes
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 
 #define INVALID_LONLAT -DBL_MAX
 #define GNSS_DEFAULT_PORT 3000
@@ -68,24 +74,82 @@ int main (int argc, char *argv[]) {
 		return 1;
 	}
 
-	// VDP (Vehicle Data Provider) GPS Client object test
-	try {
-		VDPGPSClient vdpgpsc(gnss_device,gnss_port);
+	// Create the UDP socket for the transmission of CAMs
+	int sockfd=-1;
+	sockfd=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
 
-		while (1) {
+	if(sockfd<0) {
+		std::cerr << "Critical error: cannot open UDP socket for CAM dissemination.\n" << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	// Get the IP address of the dissemination interface
+	struct ifreq ifreq;
+	struct in_addr dissem_vif_addr;
+	strncpy(ifreq.ifr_name,dissem_vif.c_str(),IFNAMSIZ);
+
+	ifreq.ifr_addr.sa_family=AF_INET;
+
+	if(ioctl(sockfd,SIOCGIFADDR,&ifreq)!=-1) {
+		dissem_vif_addr=((struct sockaddr_in*)&ifreq.ifr_addr)->sin_addr;
+	} else {
+		std::cerr << "Critical error: cannot find an IP address for interface: " << dissem_vif << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	// Enable broadcast on the UDP socket
+	int enableBcast=1;
+	if(setsockopt(sockfd,SOL_SOCKET,SO_BROADCAST,&enableBcast,sizeof(enableBcast))<0) {
+		std::cerr << "Critical error: cannot set broadcast permission on UDP socket for CAM dissemination.\n" << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	// Bind UDP socket
+	struct sockaddr_in bindSockAddr;
+	memset(&bindSockAddr,0,sizeof(struct sockaddr_in));
+	bindSockAddr.sin_family=AF_INET;
+	bindSockAddr.sin_port=htons(0);
+	bindSockAddr.sin_addr.s_addr=dissem_vif_addr.s_addr;
+
+	errno=0;
+	if(bind(sockfd,(struct sockaddr *) &bindSockAddr,sizeof(struct sockaddr_in))<0) {
+		std::cerr << "Critical error: cannot bind the UDP slave discovery socket to the '" << dissem_vif << "' interface. IP: " << inet_ntoa(dissem_vif_addr) << "." << std::endl
+			<< "Socket: " << sockfd << ". Error: " << strerror(errno) << "." << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	// VDP (Vehicle Data Provider) GPS Client object test
+	int cnt = 0;
+	VDPGPSClient vdpgpsc(gnss_device,gnss_port);
+	try {
+		vdpgpsc.openConnection();
+
+		while (cnt<5) {
 			VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
 			std::cout << "[INFO] VDP GPS Client test: getting GNSS data..." << std::endl;
 
 			CAMdata = vdpgpsc.getCAMMandatoryData();
 
-			std::cout << "[INFO] VDP GPS Client test result: Lat: " << CAMdata.latitude << " deg - Lon: " << CAMdata.longitude << " deg." << std::endl;
+			std::cout << "[INFO] [" << cnt << "] VDP GPS Client test result: Lat: " << CAMdata.latitude << " deg - Lon: " << CAMdata.longitude << " deg - Heading: " << CAMdata.heading.getValue() << std::endl;
 
 			sleep(1);
+			cnt++;
 		}
+
+		CABasicService CABS;
+		CABS.setStationProperties(2398471,StationType_passengerCar);
+		CABS.setSocketTx(sockfd);
+		CABS.setVDP(&vdpgpsc);
+		CABS.startCamDissemination();
 	} catch(const std::exception& e) {
-		std::cerr << "Error in creating a new VDP GPS Client object: " << e.what() << std::endl;
+		std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
 	}
+
+	while(1);
+
+	vdpgpsc.closeConnection();
+	close(sockfd);
 
 	return 0;
 }

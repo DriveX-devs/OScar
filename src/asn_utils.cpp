@@ -14,7 +14,7 @@ long compute_timestampIts (bool real_time) {
 
 double haversineDist(double lat_a, double lon_a, double lat_b, double lon_b) {
 	// 12742000 is the mean Earth radius (6371 km) * 2 * 1000 (to convert from km to m)
-	return 12742000.0*asin(sqrt(sin(DEG_2_RAD(lat_b-lat_a)/2)*sin(DEG_2_RAD(lat_b-lat_a)/2)+cos(DEG_2_RAD(lat_a))*cos(DEG_2_RAD(lat_b))*sin(DEG_2_RAD(lon_b-lon_a)/2)*sin(DEG_2_RAD(lon_b-lon_a)/2)));
+	return 12742000.0*asin(sqrt(sin(DEG_2_RAD_ASN_UTILS(lat_b-lat_a)/2)*sin(DEG_2_RAD_ASN_UTILS(lat_b-lat_a)/2)+cos(DEG_2_RAD_ASN_UTILS(lat_a))*cos(DEG_2_RAD_ASN_UTILS(lat_b))*sin(DEG_2_RAD_ASN_UTILS(lon_b-lon_a)/2)*sin(DEG_2_RAD_ASN_UTILS(lon_b-lon_a)/2)));
 }
 
 uint8_t

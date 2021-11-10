@@ -1,7 +1,10 @@
 #include "gpsc.h"
 #include <stdexcept>
+#include <iostream>
+#include <math.h> 
 
-VDPGPSClient::VDPGPSClient() {
+void
+VDPGPSClient::openConnection() {
 	int rval;
 
 	// Set some initial "unavailable" values for the Vehicle Width and Length
@@ -13,13 +16,72 @@ VDPGPSClient::VDPGPSClient() {
 	}
 
 	(void)gps_stream(&m_gps_data, WATCH_ENABLE | WATCH_JSON, NULL);
-};
+	(void)gps_waiting(&m_gps_data, 5000000);
+}
 
-VDPGPSClient::~VDPGPSClient() {
-	int rval;
-
+void
+VDPGPSClient::closeConnection() {
 	(void)gps_stream(&m_gps_data, WATCH_DISABLE, NULL);
 	(void)gps_close(&m_gps_data);
+}
+
+VDPValueConfidence<>
+VDPGPSClient::getHeadingValue() {
+	int rval;
+	rval=gps_read(&m_gps_data,nullptr,0);
+
+	if(rval==-1) {
+		throw std::runtime_error("Cannot read the heading from GNSS device: " + std::string(gps_errstr(rval)));
+	} else {
+		// Check if the mode is set and if a fix has been obtained
+		if((m_gps_data.set & MODE_SET)==MODE_SET && m_gps_data.status!=STATUS_NO_FIX) {
+			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+				return VDPValueConfidence<>(m_gps_data.fix.track*DECI,HeadingConfidence_unavailable);
+			}
+		}
+	}
+
+	return VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+}
+
+VDPValueConfidence<>
+VDPGPSClient::getSpeedValue() {
+	int rval;
+	rval=gps_read(&m_gps_data,nullptr,0);
+
+	if(rval==-1) {
+		throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
+	} else {
+		// Check if the mode is set and if a fix has been obtained
+		if((m_gps_data.set & MODE_SET)==MODE_SET && m_gps_data.status!=STATUS_NO_FIX) {
+			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+				return VDPValueConfidence<>(m_gps_data.fix.speed*CENTI,SpeedConfidence_unavailable);
+			}
+		}
+	}
+
+	return VDPValueConfidence<>(SpeedValue_unavailable,SpeedConfidence_unavailable);
+}
+
+std::pair<long,long>
+VDPGPSClient::getCurrentPosition() {
+	int rval;
+	rval=gps_read(&m_gps_data,nullptr,0);
+
+	if(rval==-1) {
+		throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
+	} else {
+		// Check if the mode is set and if a fix has been obtained
+		if((m_gps_data.set & MODE_SET)==MODE_SET && m_gps_data.status!=STATUS_NO_FIX) {
+			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+				if(!isnan(m_gps_data.fix.latitude) && !isnan(m_gps_data.fix.longitude)) {
+					return std::pair<long,long>(m_gps_data.fix.latitude*DOT_ONE_MICRO,m_gps_data.fix.latitude*DOT_ONE_MICRO);
+				}
+			}
+		}
+	}
+
+	return std::pair<double,double>(Latitude_unavailable,Longitude_unavailable);
 }
 
 VDPGPSClient::CAM_mandatory_data_t
@@ -29,7 +91,7 @@ VDPGPSClient::getCAMMandatoryData() {
 
 	rval=gps_read(&m_gps_data,nullptr,0);
 
-	if(rval!=0) {
+	if(rval==-1) {
 		throw std::runtime_error("Cannot read data from GNSS device: " + std::string(gps_errstr(rval)));
 	} else {
 		// Check if the mode is set and if a fix has been obtained
@@ -58,8 +120,8 @@ VDPGPSClient::getCAMMandatoryData() {
 				/* Longitudinal acceleration [0.1 m/s^2] */
 			    CAMdata.longAcceleration = VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,AccelerationConfidence_unavailable);
 
-			    /* Heading WGS84 north [0.1 degree] */
-			    CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+			    /* Heading WGS84 north [0.1 degree] - m_gps_data.fix.track should already provide a CW heading relative to North */
+			    CAMdata.heading = VDPValueConfidence<>(m_gps_data.fix.track*DECI,HeadingConfidence_unavailable);
 
 				/* Drive direction (backward driving is not fully supported by SUMO, at the moment */
     			CAMdata.driveDirection = DriveDirection_unavailable;
