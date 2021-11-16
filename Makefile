@@ -1,6 +1,7 @@
 EXECNAME=OCABS
 
 OPENWRT_STAGING_DIR=/home/phd/Desktop/Francesco51/OpenWrt-V2X/staging_dir/target-x86_64_musl/usr/include
+OPENWRT_LIBGPS_VER=3.23
 
 SRC_DIR=src
 OBJ_DIR=obj
@@ -31,7 +32,7 @@ compilePC: CC = gcc
 compileAPU: CXX = x86_64-openwrt-linux-musl-g++
 compileAPU: CC = x86_64-openwrt-linux-musl-gcc
 compileAPU: LD = x86_64-openwrt-linux-musl-ld
-compileAPU: CFLAGS += $(OPENWRT_STAGING_DIR)
+compileAPU: CFLAGS += -I$(OPENWRT_STAGING_DIR)
 	
 compilePCdebug: CXXFLAGS += -g
 compilePCdebug: compilePC
@@ -39,10 +40,18 @@ compilePCdebug: compilePC
 compileAPUdebug: CXXFLAGS += -g
 compileAPUdebug: compileAPU
 
-compilePC compilePCdebug compileAPU compileAPUdebug: $(EXECNAME)
+compilePC compilePCdebug: mainBuild
+compileAPU compileAPUdebug: APUcopyfiles mainBuild
+
+mainBuild: $(EXECNAME)
+
+APUcopyfiles:
+	@ cp $(OPENWRT_STAGING_DIR)/../../../../build_dir/target-x86_64_musl/gpsd-3.23/ipkg-install/usr/lib/*.so* $(OPENWRT_STAGING_DIR)/../../../toolchain-x86_64_gcc-8.4.0_musl/lib
 
 # Standard targets
 $(EXECNAME): $(OBJ_CC)
+	# This is quite a trick to be able to compile OCABS for OpenWrt, properly linking with libgps, without writing a specific package Makefile
+	# @ cp $(OPENWRT_STAGING_DIR)/../../../../build_dir/target-x86_64_musl/gpsd-3.23/ipkg-install/usr/lib/*.so* $(OPENWRT_STAGING_DIR)/../../../toolchain-x86_64_gcc-8.4.0_musl/lib
 	$(CXX) $(LDFLAGS) $^ $(LDLIBS) $(CXXFLAGS) $(CFLAGS) -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp

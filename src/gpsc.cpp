@@ -3,6 +3,8 @@
 #include <iostream>
 #include <math.h> 
 
+#define GPSSTATUS(gpsdata) gpsdata.fix.status
+
 void
 VDPGPSClient::openConnection() {
 	int rval;
@@ -34,7 +36,7 @@ VDPGPSClient::getHeadingValue() {
 		throw std::runtime_error("Cannot read the heading from GNSS device: " + std::string(gps_errstr(rval)));
 	} else {
 		// Check if the mode is set and if a fix has been obtained
-		if((m_gps_data.set & MODE_SET)==MODE_SET && m_gps_data.status!=STATUS_NO_FIX) {
+		if((m_gps_data.set & MODE_SET)==MODE_SET && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
 			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
 				return VDPValueConfidence<>(m_gps_data.fix.track*DECI,HeadingConfidence_unavailable);
 			}
@@ -53,7 +55,7 @@ VDPGPSClient::getSpeedValue() {
 		throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
 	} else {
 		// Check if the mode is set and if a fix has been obtained
-		if((m_gps_data.set & MODE_SET)==MODE_SET && m_gps_data.status!=STATUS_NO_FIX) {
+		if((m_gps_data.set & MODE_SET)==MODE_SET && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
 			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
 				return VDPValueConfidence<>(m_gps_data.fix.speed*CENTI,SpeedConfidence_unavailable);
 			}
@@ -72,7 +74,7 @@ VDPGPSClient::getCurrentPosition() {
 		throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
 	} else {
 		// Check if the mode is set and if a fix has been obtained
-		if((m_gps_data.set & MODE_SET)==MODE_SET && m_gps_data.status!=STATUS_NO_FIX) {
+		if((m_gps_data.set & MODE_SET)==MODE_SET && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
 			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
 				if(!isnan(m_gps_data.fix.latitude) && !isnan(m_gps_data.fix.longitude)) {
 					return std::pair<long,long>(m_gps_data.fix.latitude*DOT_ONE_MICRO,m_gps_data.fix.latitude*DOT_ONE_MICRO);
@@ -95,7 +97,7 @@ VDPGPSClient::getCAMMandatoryData() {
 		throw std::runtime_error("Cannot read data from GNSS device: " + std::string(gps_errstr(rval)));
 	} else {
 		// Check if the mode is set and if a fix has been obtained
-		if((m_gps_data.set & MODE_SET)==MODE_SET && m_gps_data.status!=STATUS_NO_FIX) {
+		if((m_gps_data.set & MODE_SET)==MODE_SET && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
 			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
 				/* Speed [0.01 m/s] */
 				CAMdata.speed = VDPValueConfidence<>(m_gps_data.fix.speed*CENTI,SpeedConfidence_unavailable);
