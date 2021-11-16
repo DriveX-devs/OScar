@@ -6,6 +6,7 @@
 #include "asn1cpp/Setter.hpp"
 #include "asn1cpp/SequenceOf.hpp"
 #include <functional>
+#include <atomic>
 extern "C" {
   #include "CAM.h"
 }
@@ -116,6 +117,8 @@ private:
   // Boolean/Enum variables to enable/disable the presence of certain optional containers in the CAM messages
   bool m_lowFreqContainerEnabled;
   bool m_specialVehContainerEnabled;
+
+  std::atomic<bool> m_terminateFlag;
 };
 
 #endif // CABASICSERVICE_H

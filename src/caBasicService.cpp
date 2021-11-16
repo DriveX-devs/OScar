@@ -50,6 +50,8 @@ CABasicService::CABasicService()
   m_specialVehContainerEnabled = false;
 
   // m_refPositions.clear ();
+
+  m_terminateFlag=false;
 }
 
 void
@@ -100,6 +102,8 @@ CABasicService::setStationType(long fixed_stationtype)
 void
 CABasicService::startCamDissemination()
 {
+  m_terminateFlag=false;
+  
   if(m_vehicle)
     {
       SCHEDULE(0,initDissemination);
@@ -109,7 +113,7 @@ CABasicService::startCamDissemination()
       SCHEDULE(0,RSUDissemination);
     }
 
-  while(1); // Disseminate CAMs
+  while(m_terminateFlag==false); // Disseminate CAMs
 }
 
 void
@@ -432,6 +436,16 @@ CABasicService::generateAndEncodeCam()
   lastCamGen = now;
 
   return errval;
+}
+
+uint64_t 
+CABasicService::terminateDissemination()
+{
+  if(m_terminateFlag==false) {
+    m_terminateFlag=true;
+  }
+
+  return m_cam_sent;
 }
 
 int64_t
