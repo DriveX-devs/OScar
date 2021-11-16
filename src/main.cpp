@@ -121,32 +121,39 @@ int main (int argc, char *argv[]) {
 	// VDP (Vehicle Data Provider) GPS Client object test
 	int cnt = 0;
 	VDPGPSClient vdpgpsc(gnss_device,gnss_port);
-	try {
-		vdpgpsc.openConnection();
 
-		while (cnt<5) {
-			VDPGPSClient::CAM_mandatory_data_t CAMdata;
+	bool m_retry_flag=false;
 
-			std::cout << "[INFO] VDP GPS Client test: getting GNSS data..." << std::endl;
+	do {
+		m_retry_flag=false;
 
-			CAMdata = vdpgpsc.getCAMMandatoryData();
+		try {
+			vdpgpsc.openConnection();
 
-			std::cout << "[INFO] [" << cnt << "] VDP GPS Client test result: Lat: " << CAMdata.latitude << " deg - Lon: " << CAMdata.longitude << " deg - Heading: " << CAMdata.heading.getValue() << std::endl;
+			while (cnt<5) {
+				VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
-			sleep(1);
-			cnt++;
+				std::cout << "[INFO] VDP GPS Client test: getting GNSS data..." << std::endl;
+
+				CAMdata = vdpgpsc.getCAMMandatoryData();
+
+				std::cout << "[INFO] [" << cnt << "] VDP GPS Client test result: Lat: " << CAMdata.latitude << " deg - Lon: " << CAMdata.longitude << " deg - Heading: " << CAMdata.heading.getValue() << std::endl;
+
+				sleep(1);
+				cnt++;
+			}
+
+			CABasicService CABS;
+			CABS.setStationProperties(2398471,StationType_passengerCar);
+			CABS.setSocketTx(sockfd);
+			CABS.setVDP(&vdpgpsc);
+			CABS.startCamDissemination();
+		} catch(const std::exception& e) {
+			std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
+			sleep(5);
+			m_retry_flag=true;
 		}
-
-		CABasicService CABS;
-		CABS.setStationProperties(2398471,StationType_passengerCar);
-		CABS.setSocketTx(sockfd);
-		CABS.setVDP(&vdpgpsc);
-		CABS.startCamDissemination();
-	} catch(const std::exception& e) {
-		std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
-	}
-
-	while(1);
+	} while(m_retry_flag==true);
 
 	vdpgpsc.closeConnection();
 	close(sockfd);

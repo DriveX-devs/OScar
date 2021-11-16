@@ -108,6 +108,8 @@ CABasicService::startCamDissemination()
     {
       SCHEDULE(0,RSUDissemination);
     }
+
+  while(1); // Disseminate CAMs
 }
 
 void
