@@ -25,6 +25,7 @@ int main (int argc, char *argv[]) {
 	double fixed_lon = -DBL_MAX; // [deg]
 	double fixed_speed_ms = -DBL_MAX; // [m/s]
 	double fixed_heading_deg = -DBL_MAX; // [deg]
+	unsigned long vehicleID = 0; // Vehicle ID (mandatory when starting OCABS)
 
 	// Parse the command line options with the TCLAP library
 	try {
@@ -49,6 +50,9 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<double> fixedSpeed("s","fixed-speed","Force a fixed speed value when testing without a GNSS device",false,-DBL_MAX,"float (m/s)");
 		cmd.add(fixedSpeed);
 
+		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service VehicleID",true,0,"unsigned integer");
+                cmd.add(VehicleIDArg);
+
 		//TCLAP::ValueArg<double> fixedHeading("h","fixed-heading","Force a fixed heading value when testing without a GNSS device",false,-DBL_MAX,"float (deg)");
 		//cmd.add(fixedHeading);
 
@@ -66,6 +70,8 @@ int main (int argc, char *argv[]) {
 		fixed_lon=fixedLon.getValue();
 		fixed_speed_ms=fixedSpeed.getValue();
 		//fixed_heading_deg=fixedHeading.getValue();
+
+		vehicleID=VehicleIDArg.getValue();
 
 		std::cout << "[INFO] CAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
@@ -130,7 +136,7 @@ int main (int argc, char *argv[]) {
 		try {
 			vdpgpsc.openConnection();
 
-			while (cnt<5) {
+			while (cnt<10) {
 				VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
 				std::cout << "[INFO] VDP GPS Client test: getting GNSS data..." << std::endl;
@@ -144,7 +150,7 @@ int main (int argc, char *argv[]) {
 			}
 
 			CABasicService CABS;
-			CABS.setStationProperties(2398471,StationType_passengerCar);
+			CABS.setStationProperties(vehicleID,StationType_passengerCar);
 			CABS.setSocketTx(sockfd);
 			CABS.setVDP(&vdpgpsc);
 			CABS.startCamDissemination();
