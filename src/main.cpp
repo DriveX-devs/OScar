@@ -14,6 +14,10 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 
+#include <sys/socket.h>
+#include <net/ethernet.h>
+#include <linux/if_packet.h>
+
 #define INVALID_LONLAT -DBL_MAX
 #define GNSS_DEFAULT_PORT 3000
 
@@ -21,10 +25,6 @@ int main (int argc, char *argv[]) {
 	std::string dissem_vif = "wlan0";
 	std::string gnss_device = "localhost";
 	long gnss_port = 3000; // Using 3000 as default port, in our case
-	double fixed_lat = -DBL_MAX; // [deg]
-	double fixed_lon = -DBL_MAX; // [deg]
-	double fixed_speed_ms = -DBL_MAX; // [m/s]
-	double fixed_heading_deg = -DBL_MAX; // [deg]
 	unsigned long vehicleID = 0; // Vehicle ID (mandatory when starting OCABS)
 
 	// Parse the command line options with the TCLAP library
@@ -41,23 +41,8 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<long> GNSSPortArg("P","gnss-port","Port to be used to connect to the GNSS device",false,GNSS_DEFAULT_PORT,"integer");
 		cmd.add(GNSSPortArg);
 
-		TCLAP::ValueArg<double> fixedLat("L","fixed-lat","Force a fixed latitude value when testing without a GNSS device",false,-DBL_MAX,"float (deg)");
-		cmd.add(fixedLat);
-
-		TCLAP::ValueArg<double> fixedLon("l","fixed-lon","Force a fixed longitude value when testing without a GNSS device",false,-DBL_MAX,"float (deg)");
-		cmd.add(fixedLon);
-
-		TCLAP::ValueArg<double> fixedSpeed("s","fixed-speed","Force a fixed speed value when testing without a GNSS device",false,-DBL_MAX,"float (m/s)");
-		cmd.add(fixedSpeed);
-
-		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service VehicleID",true,0,"unsigned integer");
+		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service Station ID",true,0,"unsigned integer");
                 cmd.add(VehicleIDArg);
-
-		//TCLAP::ValueArg<double> fixedHeading("h","fixed-heading","Force a fixed heading value when testing without a GNSS device",false,-DBL_MAX,"float (deg)");
-		//cmd.add(fixedHeading);
-
-		// TCLAP::SwitchArg skipGNArg("S","skip-gn","Specify this option to send only Facilities Layer messages, instead of full ITS messages (Facilities layer + GeoNetworking + BTP). Warning! Experimental feature (it will work when only CAMs are sent)!");
-		// cmd.add(skipGNArg);
 
 		cmd.parse(argc,argv);
 
@@ -65,11 +50,6 @@ int main (int argc, char *argv[]) {
 
 		gnss_device=GNSSDevArg.getValue();
 		gnss_port=GNSSPortArg.getValue();
-
-		fixed_lat=fixedLat.getValue();
-		fixed_lon=fixedLon.getValue();
-		fixed_speed_ms=fixedSpeed.getValue();
-		//fixed_heading_deg=fixedHeading.getValue();
 
 		vehicleID=VehicleIDArg.getValue();
 
@@ -80,46 +60,56 @@ int main (int argc, char *argv[]) {
 		return 1;
 	}
 
-	// Create the UDP socket for the transmission of CAMs
+	// Create the raw socket for the transmission of CAMs, encapsulated inside GeoNetworking and BTP (in user space) 
 	int sockfd=-1;
-	sockfd=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
+	// sockfd=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP); // Old UDP socket, no more used
+	sockfd=socket(AF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
 
 	if(sockfd<0) {
 		std::cerr << "Critical error: cannot open UDP socket for CAM dissemination.\n" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	// Get the IP address of the dissemination interface
+	// Get the index of the dissemination interface
+	int ifindex=if_nametoindex(dissem_vif.c_str());
 	struct ifreq ifreq;
 	struct in_addr dissem_vif_addr;
 	strncpy(ifreq.ifr_name,dissem_vif.c_str(),IFNAMSIZ);
 
 	ifreq.ifr_addr.sa_family=AF_INET;
 
-	if(ioctl(sockfd,SIOCGIFADDR,&ifreq)!=-1) {
-		dissem_vif_addr=((struct sockaddr_in*)&ifreq.ifr_addr)->sin_addr;
-	} else {
-		std::cerr << "Critical error: cannot find an IP address for interface: " << dissem_vif << std::endl;
+	if(ifindex<1) {
+		std::cerr << "Critical error: cannot find an interface index for interface: " << dissem_vif << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	// Enable broadcast on the UDP socket
+	// Get the MAC address of the dissemination interface and store it inside "srcmac"
+	uint8_t srcmac[6]={0};
+	strncpy(ifreq.ifr_name,dissem_vif.c_str(),IFNAMSIZ); 
+	if(ioctl(sockfd,SIOCGIFHWADDR,&ifreq)!=-1) {
+		memcpy(srcmac,ifreq.ifr_hwaddr.sa_data,6);
+	} else {
+		std::cerr << "Critical error: cannot find a MAC address for interface: " << dissem_vif << std::endl;
+		exit(EXIT_FAILURE);
+	}
+
+	// Enable broadcast on the socket (is it really needed? To be double-checked!)
 	int enableBcast=1;
 	if(setsockopt(sockfd,SOL_SOCKET,SO_BROADCAST,&enableBcast,sizeof(enableBcast))<0) {
 		std::cerr << "Critical error: cannot set broadcast permission on UDP socket for CAM dissemination.\n" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
-	// Bind UDP socket
-	struct sockaddr_in bindSockAddr;
-	memset(&bindSockAddr,0,sizeof(struct sockaddr_in));
-	bindSockAddr.sin_family=AF_INET;
-	bindSockAddr.sin_port=htons(0);
-	bindSockAddr.sin_addr.s_addr=dissem_vif_addr.s_addr;
+	// Bind raw socket
+	struct sockaddr_ll addrll;
+	memset(&addrll,0,sizeof(addrll));
+	addrll.sll_ifindex=ifindex;
+	addrll.sll_family=AF_PACKET;
+	addrll.sll_protocol=htons(ETH_P_ALL);
 
 	errno=0;
-	if(bind(sockfd,(struct sockaddr *) &bindSockAddr,sizeof(struct sockaddr_in))<0) {
-		std::cerr << "Critical error: cannot bind the UDP slave discovery socket to the '" << dissem_vif << "' interface. IP: " << inet_ntoa(dissem_vif_addr) << "." << std::endl
+	if(bind(sockfd,(struct sockaddr *) &addrll,sizeof(addrll))<0) {
+		std::cerr << "Critical error: cannot bind the raw socket to the '" << dissem_vif << "' interface. Ifindex: " << ifindex << "." << std::endl
 			<< "Socket: " << sockfd << ". Error: " << strerror(errno) << "." << std::endl;
 		exit(EXIT_FAILURE);
 	}
@@ -149,9 +139,19 @@ int main (int argc, char *argv[]) {
 				cnt++;
 			}
 
+			std::cout << "[INFO] Dissemination started!" << std::endl;
+
 			CABasicService CABS;
+			GeoNet GN;
+			GN.setVDP(&vdpgpsc);
+			GN.setSocketTx(sockfd,ifindex,srcmac);
+			GN.setStationProperties(vehicleID,StationType_passengerCar);
+
+			btp BTP;
+			BTP.setGeoNet(&GN);
+
+			CABS.setBTP(&BTP);
 			CABS.setStationProperties(vehicleID,StationType_passengerCar);
-			CABS.setSocketTx(sockfd);
 			CABS.setVDP(&vdpgpsc);
 			CABS.startCamDissemination();
 		} catch(const std::exception& e) {

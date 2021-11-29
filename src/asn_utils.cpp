@@ -2,7 +2,7 @@
 #include <chrono>
 #include <cmath>
 
-long compute_timestampIts (bool real_time) {
+long compute_timestampIts () {
 	/* To get millisec since  2004-01-01T00:00:00:000Z */
 	auto time = std::chrono::system_clock::now(); // get the current time
 	auto since_epoch = time.time_since_epoch(); // get the duration since epoch

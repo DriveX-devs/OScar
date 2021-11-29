@@ -22,7 +22,7 @@
 /* Maximum length of an asn1c error message (when decoding fails with respect to certain constraints) */
 #define ERRORBUFF_LEN       128
 
-long compute_timestampIts (bool real_time);
+long compute_timestampIts ();
 double haversineDist(double lat_a, double lon_a, double lat_b, double lon_b);
 
 uint8_t setByteMask(uint8_t mask);

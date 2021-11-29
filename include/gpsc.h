@@ -76,6 +76,11 @@ class VDPGPSClient {
 		// This function returns the current position in terms of <Lat [0.1 microdegrees],Lon [0.1 microdegrees]>
 		std::pair<long,long> getCurrentPosition();
 
+		// Standard types
+		double getHeadingValueDbl();
+		double getSpeedValueDbl();
+		std::pair<double,double> getCurrentPositionDbl();
+
 		void setFixedVehicleLength(VDPValueConfidence<long,long> vehicle_length) {
 			m_vehicle_length=vehicle_length;
 

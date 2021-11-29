@@ -5,17 +5,12 @@
 #include "asn1cpp/Seq.hpp"
 #include "asn1cpp/Setter.hpp"
 #include "asn1cpp/SequenceOf.hpp"
+#include "btp.h"
 #include <functional>
 #include <atomic>
 extern "C" {
   #include "CAM.h"
 }
-
-// Destination port for the CAMs encapsulated inside UDP
-// According to ETSI TS 103 301 v1.1.1 (page 36) this value should be set to 47101 when using UDP/IP 
-// (even if this would be intended for infrastructure services - in the future, this code will not use UDP/IPv4, but it will disseminate by
-// directly leveraging BTP and GeoNetworking)
-#define UDP_PACKET_DEST_PORT 47101
 
 typedef enum {
   CAM_NO_ERROR=0,
@@ -31,23 +26,24 @@ class CABasicService
 public:
   CABasicService();
 
+  // This function sets the station properties for the CA Basic Service only
+  // The GeoNetworking station properties shall be set separately on the GeoNetworking object
   void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
   void setFixedPositionRSU(double latitude_deg, double longitude_deg);
   void setStationID(unsigned long fixed_stationid);
   void setStationType(long fixed_stationtype);
-  void setSocketTx(int socket_tx_fd) {m_socket_tx_fd = socket_tx_fd;}
-  // void setSocketRx(int socket_rx_fd);
   void setRSU() {m_vehicle=false;}
   void setVDP(VDPGPSClient* vdp) {m_vdp=vdp;}
 
-  // void receiveCam(BTPDataIndication_t dataIndication, Address from);
+  // A BTP object must always be associated with the CA Basic service
+  void setBTP(btp *btp){m_btp = btp;}
+
   void changeNGenCamMax(int16_t N_GenCamMax) {m_N_GenCamMax=N_GenCamMax;}
   void changeRSUGenInterval(long RSU_GenCam_ms) {m_RSU_GenCam_ms=RSU_GenCam_ms;}
-//  void addCARxCallback(std::function<void(asn1cpp::Seq<CAM>, Address)> rx_callback) {m_CAReceiveCallback=rx_callback;}
-  void setRealTime(bool real_time){m_real_time=real_time;}
 
-  void setLowFrequencyContainer(bool enable) {m_lowFreqContainerEnabled = enable;}
-  void setSpecialVehicleContainer(bool enabled) {m_specialVehContainerEnabled = enabled;}
+  // Not yet suppported in OCABS
+  // void setLowFrequencyContainer(bool enable) {m_lowFreqContainerEnabled = enable;}
+  // void setSpecialVehicleContainer(bool enabled) {m_specialVehContainerEnabled = enabled;}
 
   void startCamDissemination();
   void startCamDissemination(int desync_ms);
@@ -69,13 +65,7 @@ private:
   CABasicService_error_t generateAndEncodeCam();
   int64_t computeTimestampUInt64();
 
-  // std::function<void(CAM_t *, Address)> m_CAReceiveCallback;
-  // std::function<void(asn1cpp::Seq<CAM>, Address)> m_CAReceiveCallback;
-
-  // Ptr<btp> m_btp;
-
-  int m_socket_tx_fd = -1;
-  int m_socket_rx_fd = -1;
+  btp *m_btp; // The BTP object has a reference to a GeoNetworking object, which in turn has the right socket descriptor to enable the dissemination of CAMs
 
   long m_T_CheckCamGen_ms;
   long m_T_GenCam_ms;
@@ -88,11 +78,8 @@ private:
   int64_t lastCamGenLowFrequency;
   int64_t lastCamGenSpecialVehicle;
 
-  bool m_real_time;
   bool m_vehicle;
   VDPGPSClient* m_vdp;
-
-  // Ptr<Socket> m_socket_tx; // Socket TX
 
   StationID_t m_station_id;
   StationType_t m_stationtype;
@@ -107,16 +94,15 @@ private:
   // The CA Basic Service can count up to 18446744073709551615 (UINT64_MAX) CAMs
   uint64_t m_cam_sent;
 
-  // std::vector<std::pair<ReferencePosition_t,PathHistoryDeltas_t>> m_refPositions;
-
   //High frequency RSU container
   asn1cpp::Seq<RSUContainerHighFrequency> m_protectedCommunicationsZonesRSU;
   double m_RSUlon;
   double m_RSUlat;
 
   // Boolean/Enum variables to enable/disable the presence of certain optional containers in the CAM messages
-  bool m_lowFreqContainerEnabled;
-  bool m_specialVehContainerEnabled;
+  // Not yet supported in OCABS
+  // bool m_lowFreqContainerEnabled;
+  // bool m_specialVehContainerEnabled;
 
   std::atomic<bool> m_terminateFlag;
 };

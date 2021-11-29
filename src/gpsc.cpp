@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <math.h> 
+#include <cfloat>
 
 #define GPSSTATUS(gpsdata) gpsdata.fix.status
 
@@ -89,6 +90,68 @@ VDPGPSClient::getCurrentPosition() {
 
 	return std::pair<double,double>(Latitude_unavailable,Longitude_unavailable);
 }
+double
+VDPGPSClient::getHeadingValueDbl() {
+	int rval;
+	rval=gps_read(&m_gps_data,nullptr,0);
+
+	if(rval==-1) {
+		throw std::runtime_error("Cannot read the heading from GNSS device: " + std::string(gps_errstr(rval)));
+	} else {
+		// Check if the mode is set and if a fix has been obtained
+		if((m_gps_data.set & MODE_SET)==MODE_SET) { //&& GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+				if(static_cast<int>(m_gps_data.fix.track*DECI)<0 || static_cast<int>(m_gps_data.fix.track*DECI)>3601) {
+					return -DBL_MAX;
+				} else {
+					return m_gps_data.fix.track;
+				}
+			}
+		}
+	}
+
+	return -DBL_MAX;
+}
+
+double
+VDPGPSClient::getSpeedValueDbl() {
+	int rval;
+	rval=gps_read(&m_gps_data,nullptr,0);
+
+	if(rval==-1) {
+		throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
+	} else {
+		// Check if the mode is set and if a fix has been obtained
+		if((m_gps_data.set & MODE_SET)==MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+				return m_gps_data.fix.speed;
+			}
+		}
+	}
+
+	return -DBL_MAX;
+}
+
+std::pair<double,double>
+VDPGPSClient::getCurrentPositionDbl() {
+	int rval;
+	rval=gps_read(&m_gps_data,nullptr,0);
+
+	if(rval==-1) {
+		throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
+	} else {
+		// Check if the mode is set and if a fix has been obtained
+		if((m_gps_data.set & MODE_SET)==MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+				if(!isnan(m_gps_data.fix.latitude) && !isnan(m_gps_data.fix.longitude)) {
+					return std::pair<double,double>(m_gps_data.fix.latitude,m_gps_data.fix.longitude);
+				}
+			}
+		}
+	}
+
+	return std::pair<double,double>(-DBL_MAX,-DBL_MAX);
+}
 
 VDPGPSClient::CAM_mandatory_data_t
 VDPGPSClient::getCAMMandatoryData() {
@@ -111,9 +174,10 @@ VDPGPSClient::getCAMMandatoryData() {
 				/* Longitude WGS84 [0,1 microdegree] */
 				CAMdata.longitude = (Longitude_t)(m_gps_data.fix.longitude*DOT_ONE_MICRO);
 
+				int asnAltitudeValue=static_cast<int>(m_gps_data.fix.altitude*CENTI);
 				/* Altitude [0,01 m] */
-				if(m_gps_data.fix.mode == MODE_3D) {
-					CAMdata.altitude = VDPValueConfidence<>(m_gps_data.fix.altitude*CENTI,AltitudeConfidence_unavailable);
+				if(m_gps_data.fix.mode == MODE_3D && asnAltitudeValue>=-100000 &&  asnAltitudeValue<=800000) {
+					CAMdata.altitude = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.altitude*CENTI),AltitudeConfidence_unavailable);
 				} else {
 					CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
 				}
