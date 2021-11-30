@@ -72,12 +72,6 @@ int main (int argc, char *argv[]) {
 
 	// Get the index of the dissemination interface
 	int ifindex=if_nametoindex(dissem_vif.c_str());
-	struct ifreq ifreq;
-	struct in_addr dissem_vif_addr;
-	strncpy(ifreq.ifr_name,dissem_vif.c_str(),IFNAMSIZ);
-
-	ifreq.ifr_addr.sa_family=AF_INET;
-
 	if(ifindex<1) {
 		std::cerr << "Critical error: cannot find an interface index for interface: " << dissem_vif << std::endl;
 		exit(EXIT_FAILURE);
@@ -85,6 +79,8 @@ int main (int argc, char *argv[]) {
 
 	// Get the MAC address of the dissemination interface and store it inside "srcmac"
 	uint8_t srcmac[6]={0};
+	struct ifreq ifreq;
+	struct in_addr dissem_vif_addr;
 	strncpy(ifreq.ifr_name,dissem_vif.c_str(),IFNAMSIZ); 
 	if(ioctl(sockfd,SIOCGIFHWADDR,&ifreq)!=-1) {
 		memcpy(srcmac,ifreq.ifr_hwaddr.sa_data,6);
