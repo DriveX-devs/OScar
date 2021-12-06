@@ -10,6 +10,7 @@
 #include <atomic>
 extern "C" {
   #include "CAM.h"
+  #include "CAMEnhanced.h"
 }
 
 typedef enum {
@@ -53,6 +54,11 @@ public:
 
   uint64_t terminateDissemination();
 
+  void enableEnhancedCAMs() {m_enhanced_CAMs=true;}
+  void disableEnhancedCAMs() {m_enhanced_CAMs=false;}
+
+  void setEnhancedCAMAuxiliaryMAC(std::string encam_auxiliary_MAC) {m_encam_auxiliary_MAC=encam_auxiliary_MAC;}
+
   const long T_GenCamMin_ms = 100;
   const long T_GenCamMax_ms = 1000;
 
@@ -62,6 +68,7 @@ private:
   void initDissemination();
   void RSUDissemination();
   void checkCamConditions();
+  // Main function to generate and send a new CAM
   CABasicService_error_t generateAndEncodeCam();
   int64_t computeTimestampUInt64();
 
@@ -105,6 +112,10 @@ private:
   // bool m_specialVehContainerEnabled;
 
   std::atomic<bool> m_terminateFlag;
+
+  bool m_enhanced_CAMs;
+
+  std::string m_encam_auxiliary_MAC;
 };
 
 #endif // CABASICSERVICE_H

@@ -26,6 +26,7 @@ int main (int argc, char *argv[]) {
 	std::string gnss_device = "localhost";
 	long gnss_port = 3000; // Using 3000 as default port, in our case
 	unsigned long vehicleID = 0; // Vehicle ID (mandatory when starting OCABS)
+	bool enable_enhanced_CAMs = false;
 
 	// Parse the command line options with the TCLAP library
 	try {
@@ -42,7 +43,10 @@ int main (int argc, char *argv[]) {
 		cmd.add(GNSSPortArg);
 
 		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service Station ID",true,0,"unsigned integer");
-                cmd.add(VehicleIDArg);
+		cmd.add(VehicleIDArg);
+
+		TCLAP::SwitchArg enchancedCAMsArg("E","enable-enhanced-CAMs","Enable the dissemination of experimental enhanced CAMs",false);
+		cmd.add(enchancedCAMsArg);
 
 		cmd.parse(argc,argv);
 
@@ -52,6 +56,8 @@ int main (int argc, char *argv[]) {
 		gnss_port=GNSSPortArg.getValue();
 
 		vehicleID=VehicleIDArg.getValue();
+
+		enable_enhanced_CAMs=enchancedCAMsArg.getValue();
 
 		std::cout << "[INFO] CAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
@@ -146,6 +152,9 @@ int main (int argc, char *argv[]) {
 			btp BTP;
 			BTP.setGeoNet(&GN);
 
+			if(enable_enhanced_CAMs==true) {
+				CABS.enableEnhancedCAMs();
+			}
 			CABS.setBTP(&BTP);
 			CABS.setStationProperties(vehicleID,StationType_passengerCar);
 			CABS.setVDP(&vdpgpsc);
