@@ -37,10 +37,6 @@ typedef enum messageID {
 	messageID_cem	= 200
 } e_messageID;
 
-typedef enum protocolVersion {
-	protocolVersion_currentVersion	= 2
-} e_protocolVersion;
-
 /* ItsPduHeader */
 typedef struct ItsPduHeader {
 	long	 protocolVersion;
@@ -50,6 +46,10 @@ typedef struct ItsPduHeader {
 	/* Context for parsing across buffer boundaries */
 	asn_struct_ctx_t _asn_ctx;
 } ItsPduHeader_t;
+
+typedef enum protocolVersion {
+	protocolVersion_currentVersion  = 2
+} e_protocolVersion;
 
 /* Implementation */
 extern asn_TYPE_descriptor_t asn_DEF_ItsPduHeader;

@@ -12,8 +12,10 @@
 
 /* Including external dependencies */
 #include "AuxilliaryLinkMac.h"
+#include "AuxilliaryLinkRSSI.h"
 #include "CPULoad.h"
 #include "RAMLoad.h"
+#include "GPULoad.h"
 #include "constr_SEQUENCE.h"
 
 #ifdef __cplusplus
@@ -23,8 +25,10 @@ extern "C" {
 /* ChannelNodeStatusContainer */
 typedef struct ChannelNodeStatusContainer {
 	AuxilliaryLinkMac_t	*auxilliaryLinkMac	/* OPTIONAL */;
+	AuxilliaryLinkRSSI_t	*auxilliaryLinkRSSI	/* OPTIONAL */;
 	CPULoad_t	 cpuLoad;
 	RAMLoad_t	 ramLoad;
+	GPULoad_t	 gpuLoad;
 	/*
 	 * This type is extensible,
 	 * possible extensions are below.
@@ -37,7 +41,7 @@ typedef struct ChannelNodeStatusContainer {
 /* Implementation */
 extern asn_TYPE_descriptor_t asn_DEF_ChannelNodeStatusContainer;
 extern asn_SEQUENCE_specifics_t asn_SPC_ChannelNodeStatusContainer_specs_1;
-extern asn_TYPE_member_t asn_MBR_ChannelNodeStatusContainer_1[3];
+extern asn_TYPE_member_t asn_MBR_ChannelNodeStatusContainer_1[5];
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,7 @@
 #include "caBasicService.h"
 #include "gpsc.h"
 #include "asn_utils.h"
+#include "utils.h"
 #include <future>
 #include <chrono>
 #include <iostream>
@@ -8,6 +9,7 @@
 #include <cmath>
 #include <sys/sysinfo.h>
 #include <netinet/ether.h>
+#include <algorithm>
 
 // This macro allows the user to schedule the asynchronous execution of a function (fcn) after "msec" milliseconds
 #define SCHEDULE(msecs,fcn) \
@@ -145,6 +147,73 @@
 \
   lastCamGen = now;
 
+void
+CABasicService::routerOS_RSSI_retriever(void) {
+	// Create a new timer
+	struct pollfd pollfddata;
+	int clockFd;
+
+	// Popen buffer
+	char popen_buff[2000];
+
+	if(timer_fd_create(pollfddata, clockFd, m_rssi_aux_update_interval_msec*1e3)<0) {
+		std::cerr << "[ERROR] Fatal error! Cannot create timer for the routerOS RSSI retriever thread. No RSSI data will be available." << std::endl;
+		m_routeros_rssi={};
+		return;
+	}
+
+	POLL_DEFINE_JUNK_VARIABLE();
+
+	while(m_terminate_routeros_rssi_flag==false) {
+		if(poll(&pollfddata,1,0)>0) {
+			POLL_CLEAR_EVENT(clockFd);
+
+			// Original command via ssh: ssh admin@192.168.88.2 interface w60g monitor wlan60-1 once | grep -E "rssi|remote-address"
+			std::string ssh_command = "stdbuf -o L ssh admin@" + m_auxiliary_device_ip_addr + " interface w60g monitor wlan60-1 once | stdbuf -o L grep -E \"rssi|remote-address\"";
+			FILE *ssh = popen(ssh_command.c_str(),"r");
+
+			if(ssh==NULL) {
+				// Sleep at least 1 second, and then try again after a timer expiration
+				sleep(1);
+				continue;
+			}
+
+			std::vector<std::string> m_remotes;
+
+			while(fgets(popen_buff,2000,ssh)!=NULL) {
+				char* pch;
+				if(strstr(popen_buff,"remote-address")) {
+					m_remotes.clear();
+
+					pch=strtok(popen_buff,":");
+					pch=strtok(NULL," ,");
+
+					while(pch!=nullptr) {
+						std::string pchstr=std::string(pch);
+						pchstr.erase(std::remove_if(pchstr.begin(), pchstr.end(), isspace), pchstr.end());
+						m_remotes.push_back(pchstr);
+
+						pch=strtok(NULL, " ,");
+				  	}
+				} else if(strstr(popen_buff,"rssi")) {
+					pch = strtok (popen_buff,":");
+					pch = strtok (NULL," ,");
+
+					m_routeros_rssi_mutex.lock();
+					for(size_t i=0;i<m_remotes.size() && pch!=NULL;i++) {
+						m_routeros_rssi[m_remotes[i]]=strtod(pch,nullptr);
+						// fprintf(stdout,"[DEBUG] ----- %lf [%s] -----\n",m_routeros_rssi[m_remotes[i]],m_remotes[i].c_str());
+						pch=strtok(NULL, " ,");
+					}
+					m_routeros_rssi_mutex.unlock();
+				}
+			}
+		}
+	}
+
+	close(clockFd);
+}
+
 CABasicService::CABasicService()
 {
   m_station_id = ULONG_MAX;
@@ -186,6 +255,12 @@ CABasicService::CABasicService()
   m_enhanced_CAMs=false;
   // The value of m_encam_auxiliary_MAC is used only when generating enhanced CAMs
   m_encam_auxiliary_MAC="unavailable";
+
+  m_terminate_routeros_rssi_flag=false;
+
+  m_rssi_aux_update_interval_msec=-1; // RSSI retrieval disabled by default
+  m_auxiliary_device_ip_addr="0.0.0.0";
+  m_aux_rssi_thr_ptr=nullptr;
 }
 
 void
@@ -233,6 +308,13 @@ CABasicService::startCamDissemination()
   	return;
   }
 
+  // If requested and enhanced CAMs are used, create a thread to manage the Aux RSSI retrieval from a connected RouterOS device
+	if(m_enhanced_CAMs==true && m_rssi_aux_update_interval_msec>0) {
+		m_terminate_routeros_rssi_flag=false;
+
+		m_aux_rssi_thr_ptr = std::unique_ptr<std::thread>(new std::thread(&CABasicService::routerOS_RSSI_retriever,this));
+	}
+
   if(m_vehicle)
 	{
 	  SCHEDULE(0,initDissemination);
@@ -242,12 +324,29 @@ CABasicService::startCamDissemination()
 	  SCHEDULE(0,RSUDissemination);
 	}
 
+	if(m_aux_rssi_thr_ptr!=nullptr) {
+		m_aux_rssi_thr_ptr->join();
+	}
   while(m_terminateFlag==false); // Disseminate CAMs
 }
 
 void
 CABasicService::startCamDissemination(int desync_ms)
 {
+	m_terminateFlag=false;
+
+  if(m_btp==nullptr) {
+  	fprintf(stderr,"Error: no BTP object has been set. The CAM dissemination will not start.\n");
+  	return;
+  }
+
+  // If requested and enhanced CAMs are used, create a thread to manage the Aux RSSI retrieval from a connected RouterOS device
+	if(m_enhanced_CAMs==true && m_rssi_aux_update_interval_msec>0) {
+		m_terminate_routeros_rssi_flag=false;
+
+		m_aux_rssi_thr_ptr = std::unique_ptr<std::thread>(new std::thread(&CABasicService::routerOS_RSSI_retriever,this));
+	}
+
   if(m_vehicle)
 	{
 	  SCHEDULE(desync_ms,initDissemination);
@@ -256,6 +355,11 @@ CABasicService::startCamDissemination(int desync_ms)
 	{
 	  SCHEDULE(desync_ms,RSUDissemination);
 	}
+
+	if(m_aux_rssi_thr_ptr!=nullptr) {
+		m_aux_rssi_thr_ptr->join();
+	}
+	while(m_terminateFlag==false); // Disseminate CAMs
 }
 
 void
@@ -424,10 +528,25 @@ CABasicService::generateAndEncodeCam()
 
 				asn1cpp::setField(channelNodeStatusSeq->auxilliaryLinkMac,encoded_mac);
 			}
-
 		} else {
 			asn1cpp::setField(channelNodeStatusSeq->cpuLoad,CPULoad_unavailable);
 			asn1cpp::setField(channelNodeStatusSeq->ramLoad,RAMLoad_unavailable);
+		}
+
+		if(m_rssi_aux_update_interval_msec>0) {
+			double aux_RSSI=-DBL_MAX;
+			m_routeros_rssi_mutex.lock();
+			
+			// The map should theoretically contain only one MAC address in the current setup with an auxilliary AP
+			// Future work should consider the possibility of having multiple MACs and RSSI values store inside
+			// aux_RSSI=m_routeros_rssi[m_encam_auxiliary_MAC];
+			aux_RSSI=m_routeros_rssi.begin()->second;
+
+			m_routeros_rssi_mutex.unlock();
+
+			asn1cpp::setField(channelNodeStatusSeq->auxilliaryLinkRSSI,aux_RSSI==-DBL_MAX ? AuxilliaryLinkRSSI_unavailable : static_cast<long>(aux_RSSI*100));
+		} else {
+			asn1cpp::setField(channelNodeStatusSeq->auxilliaryLinkRSSI,AuxilliaryLinkRSSI_unavailable);
 		}
 
 		asn1cpp::setField(encam->cam.camParameters.channelNodeStatusContainer,channelNodeStatusSeq);
@@ -445,8 +564,10 @@ CABasicService::generateAndEncodeCam()
 uint64_t 
 CABasicService::terminateDissemination()
 {
+	m_terminate_routeros_rssi_flag=true;
+
   if(m_terminateFlag==false) {
-	m_terminateFlag=true;
+		m_terminateFlag=true;
   }
 
   return m_cam_sent;

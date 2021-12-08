@@ -24,9 +24,14 @@
 int main (int argc, char *argv[]) {
 	std::string dissem_vif = "wlan0";
 	std::string gnss_device = "localhost";
+	std::string aux_device_IP = "dis";
 	long gnss_port = 3000; // Using 3000 as default port, in our case
 	unsigned long vehicleID = 0; // Vehicle ID (mandatory when starting OCABS)
 	bool enable_enhanced_CAMs = false;
+
+	// Enhanced CAMs-only options
+	double rssi_aux_update_interval_msec=-1;
+	std::string auxiliary_device_ip_addr="unset";
 
 	// Parse the command line options with the TCLAP library
 	try {
@@ -48,6 +53,12 @@ int main (int argc, char *argv[]) {
 		TCLAP::SwitchArg enchancedCAMsArg("E","enable-enhanced-CAMs","Enable the dissemination of experimental enhanced CAMs",false);
 		cmd.add(enchancedCAMsArg);
 
+		TCLAP::ValueArg<std::string> AuxDevIPArg("A","aux-dev-ip","IP of a possible auxiliary device to use for wireless communication. Writing 'dis' instead of an IP address disables support to additional devices. The device must run RouterOS as main OS.",false,"dis","string");
+		cmd.add(AuxDevIPArg);
+
+		TCLAP::ValueArg<double> rssiAuxUpdateIntervalArg("p","rssi-aux-update-interval","RSSI retrieval update interval for a connected auxiliary communication device based on RouterOS. Setting this to any value <=0 will disable the auxiliary RSSI retrieval.",false,-1.0,"float");
+		cmd.add(rssiAuxUpdateIntervalArg);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -59,11 +70,31 @@ int main (int argc, char *argv[]) {
 
 		enable_enhanced_CAMs=enchancedCAMsArg.getValue();
 
+		aux_device_IP=AuxDevIPArg.getValue();
+		rssi_aux_update_interval_msec=rssiAuxUpdateIntervalArg.getValue();
+
 		std::cout << "[INFO] CAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
 		std::cerr << "TCLAP error: " << tclape.error() << " for argument " << tclape.argId() << std::endl;
 
 		return 1;
+	}
+
+	// Try to get the MAC address of the auxiliary device, if requested and if enhanced CAMs are enabled
+	std::string aux_device_MAC="unavailable";
+	if(enable_enhanced_CAMs==true && aux_device_IP!="dis") {
+		char aux_dev_MAC_buf[18];
+		std::string ssh_command = "stdbuf -o L ssh -o ConnectTimeout=5 admin@" + aux_device_IP + " interface w60g print | stdbuf -o L grep \"mac\" | stdbuf -o L cut -d\"=\" -f5";
+		FILE *ssh = popen(ssh_command.c_str(),"r");
+
+		if(ssh!=NULL) {
+			if(fgets(aux_dev_MAC_buf,18,ssh)!=NULL) {
+				aux_device_MAC=std::string(aux_dev_MAC_buf);
+				std::cerr << "[INFO] Succesfully retrieved the auxiliary device MAC address at " << aux_device_IP << ": " << aux_device_MAC << std::endl;
+			} else {
+				std::cerr << "[WARN] Unable to retrieve the auxiliary device MAC address at " << aux_device_IP << ". This information will not be disseminated." << std::endl;
+			}
+		}
 	}
 
 	// Create the raw socket for the transmission of CAMs, encapsulated inside GeoNetworking and BTP (in user space) 
@@ -86,7 +117,6 @@ int main (int argc, char *argv[]) {
 	// Get the MAC address of the dissemination interface and store it inside "srcmac"
 	uint8_t srcmac[6]={0};
 	struct ifreq ifreq;
-	struct in_addr dissem_vif_addr;
 	strncpy(ifreq.ifr_name,dissem_vif.c_str(),IFNAMSIZ); 
 	if(ioctl(sockfd,SIOCGIFHWADDR,&ifreq)!=-1) {
 		memcpy(srcmac,ifreq.ifr_hwaddr.sa_data,6);
@@ -154,6 +184,14 @@ int main (int argc, char *argv[]) {
 
 			if(enable_enhanced_CAMs==true) {
 				CABS.enableEnhancedCAMs();
+
+				if(aux_device_MAC!="unavailable") {
+					CABS.setEnhancedCAMAuxiliaryMAC(aux_device_MAC);
+				}
+
+				if(aux_device_IP!="dis" && rssi_aux_update_interval_msec>0) {
+					CABS.enableAuxRSSIRetrieval(rssi_aux_update_interval_msec,aux_device_IP);
+				}
 			}
 			CABS.setBTP(&BTP);
 			CABS.setStationProperties(vehicleID,StationType_passengerCar);

@@ -8,6 +8,7 @@
 #include "btp.h"
 #include <functional>
 #include <atomic>
+#include <thread>
 extern "C" {
   #include "CAM.h"
   #include "CAMEnhanced.h"
@@ -59,6 +60,9 @@ public:
 
   void setEnhancedCAMAuxiliaryMAC(std::string encam_auxiliary_MAC) {m_encam_auxiliary_MAC=encam_auxiliary_MAC;}
 
+  // This function has an effect only if called before startCamDissemination()
+  void enableAuxRSSIRetrieval(double rssi_aux_update_interval_msec, std::string auxiliary_device_ip_addr) {m_rssi_aux_update_interval_msec=rssi_aux_update_interval_msec; m_auxiliary_device_ip_addr=auxiliary_device_ip_addr;}
+
   const long T_GenCamMin_ms = 100;
   const long T_GenCamMax_ms = 1000;
 
@@ -71,6 +75,14 @@ private:
   // Main function to generate and send a new CAM
   CABasicService_error_t generateAndEncodeCam();
   int64_t computeTimestampUInt64();
+
+  // Special thread function to retrieve RSSI values from a connected RouterOS-based device
+  void routerOS_RSSI_retriever();
+
+  std::map<std::string,double> m_routeros_rssi; // Auxiliary RouterOS-based device RSSI map (<MAC address>,<RSSI value>)
+  std::mutex m_routeros_rssi_mutex;
+
+  std::atomic<bool> m_terminate_routeros_rssi_flag;
 
   btp *m_btp; // The BTP object has a reference to a GeoNetworking object, which in turn has the right socket descriptor to enable the dissemination of CAMs
 
@@ -116,6 +128,13 @@ private:
   bool m_enhanced_CAMs;
 
   std::string m_encam_auxiliary_MAC;
+
+  // Any value <= 0 disables the Aux RSSI retrieval for enhanced CAMs (default value set in the constructor = -1)
+  double m_rssi_aux_update_interval_msec;
+  // The value of this option is used only if m_rssi_aux_update_interval_msec>0
+  std::string m_auxiliary_device_ip_addr;
+  // Pointer to the thread object for the Aux RSSI retrieval
+  std::unique_ptr<std::thread> m_aux_rssi_thr_ptr;
 };
 
 #endif // CABASICSERVICE_H
