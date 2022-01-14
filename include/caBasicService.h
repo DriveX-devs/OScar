@@ -23,6 +23,8 @@ typedef enum {
   CAM_CANNOT_SEND=5
 } CABasicService_error_t;
 
+
+// Important future work: implement terminateDissemination(), which should also close m_edcp_sock if needed
 class CABasicService
 {
 public:
@@ -59,6 +61,7 @@ public:
   void disableEnhancedCAMs() {m_enhanced_CAMs=false;}
 
   void setEnhancedCAMAuxiliaryMAC(std::string encam_auxiliary_MAC) {m_encam_auxiliary_MAC=encam_auxiliary_MAC;}
+  void setExtraComputationDeviceIP(std::string extra_dev_ip) {m_extra_computation_device_ip_addr=extra_dev_ip;}
 
   // This function has an effect only if called before startCamDissemination()
   void enableAuxRSSIRetrieval(double rssi_aux_update_interval_msec, std::string auxiliary_device_ip_addr) {m_rssi_aux_update_interval_msec=rssi_aux_update_interval_msec; m_auxiliary_device_ip_addr=auxiliary_device_ip_addr;}
@@ -135,6 +138,13 @@ private:
   std::string m_auxiliary_device_ip_addr;
   // Pointer to the thread object for the Aux RSSI retrieval
   std::unique_ptr<std::thread> m_aux_rssi_thr_ptr;
+
+  std::string m_extra_computation_device_ip_addr;
+  int m_edcp_sock;
+
+  // Extra information which can be optionally disseminated through Enhanced CAMs
+  std::string m_own_private_IP;
+  std::string m_own_public_IP;
 };
 
 #endif // CABASICSERVICE_H

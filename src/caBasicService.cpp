@@ -2,6 +2,7 @@
 #include "gpsc.h"
 #include "asn_utils.h"
 #include "utils.h"
+#include "extraDeviceCommunicationProtocol.h"
 #include <future>
 #include <chrono>
 #include <iostream>
@@ -10,6 +11,7 @@
 #include <sys/sysinfo.h>
 #include <netinet/ether.h>
 #include <algorithm>
+#include <arpa/inet.h>
 
 // This macro allows the user to schedule the asynchronous execution of a function (fcn) after "msec" milliseconds
 #define SCHEDULE(msecs,fcn) \
@@ -261,6 +263,12 @@ CABasicService::CABasicService()
   m_rssi_aux_update_interval_msec=-1; // RSSI retrieval disabled by default
   m_auxiliary_device_ip_addr="0.0.0.0";
   m_aux_rssi_thr_ptr=nullptr;
+
+  m_extra_computation_device_ip_addr="0.0.0.0"; // 0.0.0.0 means "invalid" or "unavailable"
+  m_edcp_sock=-1;
+
+  m_own_private_IP="0.0.0.0";
+  m_own_public_IP="0.0.0.0";
 }
 
 void
@@ -308,6 +316,41 @@ CABasicService::startCamDissemination()
   	return;
   }
 
+  if(m_extra_computation_device_ip_addr!="0.0.0.0") {
+  	m_edcp_sock=socket(AF_INET, SOCK_DGRAM,0);
+
+  	if(m_edcp_sock<0) {
+        perror("Cannot create socket for extra computation device communication. Details:");
+        fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
+  			return;
+    }
+
+    struct sockaddr_in extra_dev_addr,sa_addr;
+
+    extra_dev_addr.sin_family=AF_INET;
+    extra_dev_addr.sin_port=htons(EDCP_PORT);
+    inet_pton(AF_INET,m_extra_computation_device_ip_addr.c_str(),&sa_addr);
+    extra_dev_addr.sin_addr=sa_addr.sin_addr;
+
+    if(connect(m_edcp_sock,(struct sockaddr *)(&extra_dev_addr),sizeof(extra_dev_addr))<0) {
+  		close(m_edcp_sock);
+  		perror("Cannot connect socket for extra computation device communication. Details:");
+			fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
+			return;
+  	}
+
+  	// Set a timeout on the socket for the reception of the reply
+  	struct timeval timeout_val;
+  	timeout_val.tv_sec=0;
+  	timeout_val.tv_usec=40000; // 40 ms maxium timeout - future work: better tweak this value!
+  	if(setsockopt(m_edcp_sock,SOL_SOCKET,SO_RCVTIMEO,&timeout_val,sizeof(timeout_val))<0) {
+  		close(m_edcp_sock);
+  		perror("Cannot set timeout for socket for extra computation device communication. Details:");
+			fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
+			return;
+  	}
+  }
+
   // If requested and enhanced CAMs are used, create a thread to manage the Aux RSSI retrieval from a connected RouterOS device
 	if(m_enhanced_CAMs==true && m_rssi_aux_update_interval_msec>0) {
 		m_terminate_routeros_rssi_flag=false;
@@ -338,6 +381,41 @@ CABasicService::startCamDissemination(int desync_ms)
   if(m_btp==nullptr) {
   	fprintf(stderr,"Error: no BTP object has been set. The CAM dissemination will not start.\n");
   	return;
+  }
+
+  if(m_extra_computation_device_ip_addr!="0.0.0.0") {
+  	m_edcp_sock=socket(AF_INET, SOCK_DGRAM,0);
+
+  	if(m_edcp_sock<0) {
+        perror("Cannot create socket for extra computation device communication. Details:");
+        fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
+  			return;
+    }
+
+    struct sockaddr_in extra_dev_addr,sa_addr;
+
+    extra_dev_addr.sin_family=AF_INET;
+    extra_dev_addr.sin_port=htons(EDCP_PORT);
+    inet_pton(AF_INET,m_extra_computation_device_ip_addr.c_str(),&sa_addr);
+    extra_dev_addr.sin_addr=sa_addr.sin_addr;
+
+    if(connect(m_edcp_sock,(struct sockaddr *)(&extra_dev_addr),sizeof(extra_dev_addr))<0) {
+  		close(m_edcp_sock);
+  		perror("Cannot connect socket for extra computation device communication. Details:");
+			fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
+			return;
+  	}
+
+  	// Set a timeout on the socket for the reception of the reply
+  	struct timeval timeout_val;
+  	timeout_val.tv_sec=0;
+  	timeout_val.tv_usec=40000; // 40 ms maxium timeout - future work: better tweak this value!
+  	if(setsockopt(m_edcp_sock,SOL_SOCKET,SO_RCVTIMEO,&timeout_val,sizeof(timeout_val))<0) {
+  		close(m_edcp_sock);
+  		perror("Cannot set timeout for socket for extra computation device communication. Details:");
+			fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
+			return;
+  	}
   }
 
   // If requested and enhanced CAMs are used, create a thread to manage the Aux RSSI retrieval from a connected RouterOS device
@@ -533,6 +611,40 @@ CABasicService::generateAndEncodeCam()
 			asn1cpp::setField(channelNodeStatusSeq->ramLoad,RAMLoad_unavailable);
 		}
 
+		// Insert the IP information, if available
+		if(m_own_private_IP!="0.0.0.0") {
+			std::string encoded_own_IP;
+
+			// Convert the IP address from std::string to IP address
+			struct in_addr sain;
+
+			inet_pton(AF_INET,m_own_private_IP.c_str(),&sain);
+
+			encoded_own_IP.push_back(sain.s_addr & 0xFF);
+			encoded_own_IP.push_back((sain.s_addr>>8) & 0xFF);
+			encoded_own_IP.push_back((sain.s_addr>>16) & 0xFF);
+			encoded_own_IP.push_back((sain.s_addr>>24) & 0xFF);
+
+			asn1cpp::setField(channelNodeStatusSeq->ipAddress,encoded_own_IP);
+		}
+
+		// Insert the public IP information, if available
+		if(m_own_public_IP!="0.0.0.0") {
+			std::string encoded_public_own_IP;
+
+			// Convert the IP address from std::string to IP address
+			struct in_addr sain;
+
+			inet_pton(AF_INET,encoded_public_own_IP.c_str(),&sain);
+
+			encoded_public_own_IP.push_back(sain.s_addr & 0xFF);
+			encoded_public_own_IP.push_back((sain.s_addr>>8) & 0xFF);
+			encoded_public_own_IP.push_back((sain.s_addr>>16) & 0xFF);
+			encoded_public_own_IP.push_back((sain.s_addr>>24) & 0xFF);
+
+			asn1cpp::setField(channelNodeStatusSeq->publicIpAddress,encoded_public_own_IP);
+		}
+
 		if(m_rssi_aux_update_interval_msec>0) {
 			double aux_RSSI=-DBL_MAX;
 			m_routeros_rssi_mutex.lock();
@@ -547,6 +659,21 @@ CABasicService::generateAndEncodeCam()
 			asn1cpp::setField(channelNodeStatusSeq->auxilliaryLinkRSSI,aux_RSSI==-DBL_MAX ? AuxilliaryLinkRSSI_unavailable : static_cast<long>(aux_RSSI*100));
 		} else {
 			asn1cpp::setField(channelNodeStatusSeq->auxilliaryLinkRSSI,AuxilliaryLinkRSSI_unavailable);
+		}
+
+		if(m_extra_computation_device_ip_addr!="0.0.0.0") {
+			extraDeviceCommProtHeader_t edcp_head={0};
+			extraDeviceCommProtHeader_t edcp_head_info_from_client={0};
+			edcp_head.type=REQUEST_TYPE;
+			
+			if(send(m_edcp_sock,&edcp_head,sizeof(edcp_head),0)>0) {
+				// Wait for a reply; if it is valid, use the received information to inform the receiver about the load status of the connected extra computation device
+				if(recv(m_edcp_sock,&edcp_head_info_from_client,sizeof(edcp_head_info_from_client),0)==sizeof(edcp_head_info_from_client)) {
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceCpuLoad,edcp_head_info_from_client.cpuUsage);
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeciceGpuLoad,edcp_head_info_from_client.gpuUsage);
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceRamLoad,edcp_head_info_from_client.ramUsage);
+				}
+			}
 		}
 
 		asn1cpp::setField(encam->cam.camParameters.channelNodeStatusContainer,channelNodeStatusSeq);

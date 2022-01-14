@@ -28,10 +28,14 @@ int main (int argc, char *argv[]) {
 	long gnss_port = 3000; // Using 3000 as default port, in our case
 	unsigned long vehicleID = 0; // Vehicle ID (mandatory when starting OCABS)
 	bool enable_enhanced_CAMs = false;
+	std::string extra_computation_device_IP = "dis";
 
 	// Enhanced CAMs-only options
 	double rssi_aux_update_interval_msec=-1;
-	std::string auxiliary_device_ip_addr="unset";
+
+	// Future work: automatically get these values given an interface name
+	std::string own_private_IP = "dis";
+	std::string own_public_IP = "dis";
 
 	// Parse the command line options with the TCLAP library
 	try {
@@ -59,6 +63,15 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<double> rssiAuxUpdateIntervalArg("p","rssi-aux-update-interval","RSSI retrieval update interval for a connected auxiliary communication device based on RouterOS. Setting this to any value <=0 will disable the auxiliary RSSI retrieval.",false,-1.0,"float");
 		cmd.add(rssiAuxUpdateIntervalArg);
 
+		TCLAP::ValueArg<std::string> ExtraDevIPArg("x","extra-comp-dev-ip","IP of a possible extra computation device to use for offloading computation tasks from the device running OCABS. Writing 'dis' instead of an IP address disables support to additional device. The device must run an information provider compliant with the EDCP custom protocol. This option has an effect only when sending enhanced CAMs.",false,"dis","string");
+		cmd.add(ExtraDevIPArg);
+		
+		TCLAP::ValueArg<std::string> OwnPrivateIPArg("Z","own-private-ip","Specify the own IP address to be disseminated through enhanced CAMs, if the devices supports IP-based communication. Writing 'dis' will disable the dissemination of this information.",false,"dis","string");
+		cmd.add(OwnPrivateIPArg);
+
+		TCLAP::ValueArg<std::string> OwnPublicIPArg("Z","own-public-ip","Specify the own public IP address (if the device can be reached from the outside world, with or without port forwarding) to be disseminated through enhanced CAMs, if the devices supports IP-based communication. Writing 'dis' will disable the dissemination of this information.",false,"dis","string");
+		cmd.add(OwnPublicIPArg);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -72,6 +85,11 @@ int main (int argc, char *argv[]) {
 
 		aux_device_IP=AuxDevIPArg.getValue();
 		rssi_aux_update_interval_msec=rssiAuxUpdateIntervalArg.getValue();
+
+		extra_computation_device_IP=ExtraDevIPArg.getValue();
+
+		own_private_IP=OwnPrivateIPArg.getValue();
+		own_public_IP=OwnPublicIPArg.getValue();
 
 		std::cout << "[INFO] CAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
@@ -191,6 +209,11 @@ int main (int argc, char *argv[]) {
 
 				if(aux_device_IP!="dis" && rssi_aux_update_interval_msec>0) {
 					CABS.enableAuxRSSIRetrieval(rssi_aux_update_interval_msec,aux_device_IP);
+				}
+
+				// Set the IP of the extra computation device to retrieve the CPU/GPU/RAM usage from, if enhanced CAMs are enabled and an IP address is specified
+				if(extra_computation_device_IP!="dis") {
+					CABS.setExtraComputationDeviceIP(extra_computation_device_IP);
 				}
 			}
 			CABS.setBTP(&BTP);

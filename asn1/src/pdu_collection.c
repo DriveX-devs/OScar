@@ -35,12 +35,12 @@ extern struct asn_TYPE_descriptor_s asn_DEF_OpeningDaysHours;
 
 
 struct asn_TYPE_descriptor_s *asn_pdu_collection[] = {
-	/* From module CAM-PDU-Descriptions in ./ASNfiles/ETSI CAM v1.4.1enh.asn */
+	/* From module CAM-PDU-Descriptions in ASNfiles/ETSI CAM v1.4.1enh.asn */
 	&asn_DEF_CAMEnhanced,	
 	&asn_DEF_CAM,	
-	/* From module DENM-PDU-Descriptions in ./ASNfiles/ETSI DENM v1.3.1.asn */
+	/* From module DENM-PDU-Descriptions in ASNfiles/ETSI DENM v1.3.1.asn */
 	&asn_DEF_DENM,	
-	/* From module ITS-Container in ./ASNfiles/ITS-Container_v2.asn */
+	/* From module ITS-Container in ASNfiles/ITS-Container_v2.asn */
 	&asn_DEF_TrafficConditionSubCauseCode,	
 	&asn_DEF_AccidentSubCauseCode,	
 	&asn_DEF_HumanPresenceOnTheRoadSubCauseCode,	
