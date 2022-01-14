@@ -669,9 +669,9 @@ CABasicService::generateAndEncodeCam()
 			if(send(m_edcp_sock,&edcp_head,sizeof(edcp_head),0)>0) {
 				// Wait for a reply; if it is valid, use the received information to inform the receiver about the load status of the connected extra computation device
 				if(recv(m_edcp_sock,&edcp_head_info_from_client,sizeof(edcp_head_info_from_client),0)==sizeof(edcp_head_info_from_client)) {
-					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceCpuLoad,edcp_head_info_from_client.cpuUsage);
-					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeciceGpuLoad,edcp_head_info_from_client.gpuUsage);
-					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceRamLoad,edcp_head_info_from_client.ramUsage);
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceCpuLoad,ntohs(edcp_head_info_from_client.cpuUsage));
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeciceGpuLoad,ntohs(edcp_head_info_from_client.gpuUsage));
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceRamLoad,ntohl(edcp_head_info_from_client.ramUsage));
 				}
 			}
 		}
