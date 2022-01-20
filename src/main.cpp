@@ -69,7 +69,7 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<std::string> OwnPrivateIPArg("Z","own-private-ip","Specify the own IP address to be disseminated through enhanced CAMs, if the devices supports IP-based communication. Writing 'dis' will disable the dissemination of this information.",false,"dis","string");
 		cmd.add(OwnPrivateIPArg);
 
-		TCLAP::ValueArg<std::string> OwnPublicIPArg("Z","own-public-ip","Specify the own public IP address (if the device can be reached from the outside world, with or without port forwarding) to be disseminated through enhanced CAMs, if the devices supports IP-based communication. Writing 'dis' will disable the dissemination of this information.",false,"dis","string");
+		TCLAP::ValueArg<std::string> OwnPublicIPArg("z","own-public-ip","Specify the own public IP address (if the device can be reached from the outside world, with or without port forwarding) to be disseminated through enhanced CAMs, if the devices supports IP-based communication. Writing 'dis' will disable the dissemination of this information.",false,"dis","string");
 		cmd.add(OwnPublicIPArg);
 
 		cmd.parse(argc,argv);
