@@ -39,7 +39,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("The Open CA Basic Service implementatiuon", ' ', "0.1");
+		TCLAP::CmdLine cmd("The Open CA Basic Service implementatiuon", ' ', "0.2");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface",false,"wlan0","string");
@@ -214,6 +214,14 @@ int main (int argc, char *argv[]) {
 				// Set the IP of the extra computation device to retrieve the CPU/GPU/RAM usage from, if enhanced CAMs are enabled and an IP address is specified
 				if(extra_computation_device_IP!="dis") {
 					CABS.setExtraComputationDeviceIP(extra_computation_device_IP);
+				}
+
+				if(own_private_IP!="dis" && own_private_IP!="0.0.0.0") {
+					CABS.setOwnPrivateIP(own_private_IP);
+				}
+
+				if(own_public_IP!="dis" && own_public_IP!="0.0.0.0") {
+					CABS.setOwnPublicIP(own_public_IP);
 				}
 			}
 			CABS.setBTP(&BTP);

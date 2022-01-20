@@ -317,24 +317,38 @@ CABasicService::startCamDissemination()
   }
 
   if(m_extra_computation_device_ip_addr!="0.0.0.0") {
-  	m_edcp_sock=socket(AF_INET, SOCK_DGRAM,0);
+  	m_edcp_sock=socket(AF_INET,SOCK_DGRAM,0);
 
   	if(m_edcp_sock<0) {
-        perror("Cannot create socket for extra computation device communication. Details:");
+        perror("Cannot create socket for extra computation device communication. Details");
         fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
   			return;
     }
 
-    struct sockaddr_in extra_dev_addr,sa_addr;
+    struct sockaddr_in bind_addr;
+    memset(&bind_addr,0,sizeof(bind_addr));
+    bind_addr.sin_family=AF_INET;
+    bind_addr.sin_addr.s_addr=INADDR_ANY;
+    bind_addr.sin_port=htons(EDCP_PORT);
+
+    if(bind(m_edcp_sock,(struct sockaddr *)&bind_addr,sizeof(struct sockaddr_in))<0) {
+    	close(m_edcp_sock);
+  		perror("Cannot bind socket for extra computation device communication. Details");
+			fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
+			return;
+    }
+
+    struct sockaddr_in extra_dev_addr;
+    struct in_addr sa_addr;
 
     extra_dev_addr.sin_family=AF_INET;
     extra_dev_addr.sin_port=htons(EDCP_PORT);
     inet_pton(AF_INET,m_extra_computation_device_ip_addr.c_str(),&sa_addr);
-    extra_dev_addr.sin_addr=sa_addr.sin_addr;
+    extra_dev_addr.sin_addr=sa_addr;
 
     if(connect(m_edcp_sock,(struct sockaddr *)(&extra_dev_addr),sizeof(extra_dev_addr))<0) {
   		close(m_edcp_sock);
-  		perror("Cannot connect socket for extra computation device communication. Details:");
+  		perror("Cannot connect socket for extra computation device communication. Details");
 			fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
 			return;
   	}
@@ -384,7 +398,7 @@ CABasicService::startCamDissemination(int desync_ms)
   }
 
   if(m_extra_computation_device_ip_addr!="0.0.0.0") {
-  	m_edcp_sock=socket(AF_INET, SOCK_DGRAM,0);
+  	m_edcp_sock=socket(AF_INET,SOCK_DGRAM,0);
 
   	if(m_edcp_sock<0) {
         perror("Cannot create socket for extra computation device communication. Details:");
@@ -392,16 +406,30 @@ CABasicService::startCamDissemination(int desync_ms)
   			return;
     }
 
-    struct sockaddr_in extra_dev_addr,sa_addr;
+    struct sockaddr_in bind_addr;
+    memset(&bind_addr,0,sizeof(bind_addr));
+    bind_addr.sin_family=AF_INET;
+    bind_addr.sin_addr.s_addr=INADDR_ANY;
+    bind_addr.sin_port=htons(EDCP_PORT);
+
+    if(bind(m_edcp_sock,(struct sockaddr *)&bind_addr,sizeof(struct sockaddr_in))<0) {
+    	close(m_edcp_sock);
+  		perror("Cannot bind socket for extra computation device communication. Details");
+			fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
+			return;
+    }
+
+    struct sockaddr_in extra_dev_addr;
+    struct in_addr sa_addr;
 
     extra_dev_addr.sin_family=AF_INET;
     extra_dev_addr.sin_port=htons(EDCP_PORT);
     inet_pton(AF_INET,m_extra_computation_device_ip_addr.c_str(),&sa_addr);
-    extra_dev_addr.sin_addr=sa_addr.sin_addr;
+    extra_dev_addr.sin_addr=sa_addr;
 
     if(connect(m_edcp_sock,(struct sockaddr *)(&extra_dev_addr),sizeof(extra_dev_addr))<0) {
   		close(m_edcp_sock);
-  		perror("Cannot connect socket for extra computation device communication. Details:");
+  		perror("Cannot connect socket for extra computation device communication. Details");
 			fprintf(stderr,"The CAM dissemination will not start. If this error persists, try to disable the connection to extra computation devices.\n");
 			return;
   	}
@@ -635,7 +663,7 @@ CABasicService::generateAndEncodeCam()
 			// Convert the IP address from std::string to IP address
 			struct in_addr sain;
 
-			inet_pton(AF_INET,encoded_public_own_IP.c_str(),&sain);
+			inet_pton(AF_INET,m_own_public_IP.c_str(),&sain);
 
 			encoded_public_own_IP.push_back(sain.s_addr & 0xFF);
 			encoded_public_own_IP.push_back((sain.s_addr>>8) & 0xFF);
@@ -668,11 +696,14 @@ CABasicService::generateAndEncodeCam()
 			
 			if(send(m_edcp_sock,&edcp_head,sizeof(edcp_head),0)>0) {
 				// Wait for a reply; if it is valid, use the received information to inform the receiver about the load status of the connected extra computation device
-				if(recv(m_edcp_sock,&edcp_head_info_from_client,sizeof(edcp_head_info_from_client),0)==sizeof(edcp_head_info_from_client)) {
+				size_t gettingnrevous=recv(m_edcp_sock,&edcp_head_info_from_client,sizeof(edcp_head_info_from_client),0);
+				if(gettingnrevous==sizeof(edcp_head_info_from_client)) {
 					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceCpuLoad,ntohs(edcp_head_info_from_client.cpuUsage));
 					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeciceGpuLoad,ntohs(edcp_head_info_from_client.gpuUsage));
 					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceRamLoad,ntohl(edcp_head_info_from_client.ramUsage));
 				}
+			} else {
+				fprintf(stderr,"[ERROR] Cannot send EDCP request.\n");
 			}
 		}
 

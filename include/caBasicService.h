@@ -63,6 +63,11 @@ public:
   void setEnhancedCAMAuxiliaryMAC(std::string encam_auxiliary_MAC) {m_encam_auxiliary_MAC=encam_auxiliary_MAC;}
   void setExtraComputationDeviceIP(std::string extra_dev_ip) {m_extra_computation_device_ip_addr=extra_dev_ip;}
 
+  void setOwnPrivateIP(std::string own_private_IP) {m_own_private_IP=own_private_IP;}
+  void setOwnPublicIP(std::string own_public_IP) {m_own_public_IP=own_public_IP;}
+  void disableOwnPrivateIP() {m_own_private_IP="0.0.0.0";}
+  void disableOwnPublicIP() {m_own_private_IP="0.0.0.0";}
+
   // This function has an effect only if called before startCamDissemination()
   void enableAuxRSSIRetrieval(double rssi_aux_update_interval_msec, std::string auxiliary_device_ip_addr) {m_rssi_aux_update_interval_msec=rssi_aux_update_interval_msec; m_auxiliary_device_ip_addr=auxiliary_device_ip_addr;}
 
