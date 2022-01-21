@@ -90,6 +90,8 @@ int main(void) {
 						if(rdbytes>0) {
 							gpuLoad=strtol(sysbuf,nullptr,10)/10.0;
 						}
+						
+						close(sysfd);
 					} else {
 						perror("Error: cannot open sysfs file for GPU usage. Details: ");
 					}
