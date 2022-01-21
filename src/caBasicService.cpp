@@ -639,6 +639,8 @@ CABasicService::generateAndEncodeCam()
 			asn1cpp::setField(channelNodeStatusSeq->ramLoad,RAMLoad_unavailable);
 		}
 
+		asn1cpp::setField(channelNodeStatusSeq->gpuLoad,GPULoad_unavailable);
+
 		// Insert the IP information, if available
 		if(m_own_private_IP!="0.0.0.0") {
 			std::string encoded_own_IP;
@@ -696,11 +698,15 @@ CABasicService::generateAndEncodeCam()
 			
 			if(send(m_edcp_sock,&edcp_head,sizeof(edcp_head),0)>0) {
 				// Wait for a reply; if it is valid, use the received information to inform the receiver about the load status of the connected extra computation device
-				size_t gettingnrevous=recv(m_edcp_sock,&edcp_head_info_from_client,sizeof(edcp_head_info_from_client),0);
-				if(gettingnrevous==sizeof(edcp_head_info_from_client)) {
-					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceCpuLoad,ntohs(edcp_head_info_from_client.cpuUsage));
-					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeciceGpuLoad,ntohs(edcp_head_info_from_client.gpuUsage));
-					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceRamLoad,ntohl(edcp_head_info_from_client.ramUsage));
+				size_t recvbytes=recv(m_edcp_sock,&edcp_head_info_from_client,sizeof(edcp_head_info_from_client),0);
+				if(recvbytes==sizeof(edcp_head_info_from_client)) {
+					long cpuUsage=ntohs(edcp_head_info_from_client.cpuUsage);
+					long gpuUsage=ntohs(edcp_head_info_from_client.gpuUsage);
+					long freeRam=ntohl(edcp_head_info_from_client.ramUsage);
+
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceCpuLoad,cpuUsage>CPULoad_unavailable ? CPULoad_unavailable : cpuUsage);
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeciceGpuLoad,gpuUsage>CPULoad_unavailable ? GPULoad_unavailable : gpuUsage);
+					asn1cpp::setField(channelNodeStatusSeq->extraComputationDeviceRamLoad,freeRam>RAMLoad_unavailable ? RAMLoad_unavailable : freeRam);
 				}
 			} else {
 				fprintf(stderr,"[ERROR] Cannot send EDCP request.\n");
