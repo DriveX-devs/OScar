@@ -1,6 +1,6 @@
 EXECNAME=OCABS
 
-OPENWRT_STAGING_DIR=/home/phd/OpenWrt-V2X/staging_dir/target-x86_64_musl/usr/include
+OPENWRT_STAGING_DIR=/home/phd/Desktop/Francesco51/OpenWrt-V2X/staging_dir/target-x86_64_musl/usr/include
 OPENWRT_LIBGPS_VER=3.23
 
 SRC_DIR=src

@@ -485,109 +485,146 @@ CABasicService::RSUDissemination()
 void
 CABasicService::checkCamConditions()
 {
-  int64_t now=computeTimestampUInt64 ()/NANO_TO_MILLI;
+  int64_t now;
   CABasicService_error_t cam_error;
-  bool condition_verified=false;
+  bool condition_verified;
   static bool dyn_cond_verified=false;
 
-  // If no initial CAM has been triggered before checkCamConditions() has been called, throw an error
-  if(m_prev_heading==-1 || m_prev_speed==-1 || m_prev_pos.first==-DBL_MAX || m_prev_pos.second==-DBL_MAX)
-	{
-	  throw std::runtime_error("Error. checkCamConditions() was called before sending any CAM and this is not allowed.");
-	}
-  /*
-   * ETSI EN 302 637-2 V1.3.1 chap. 6.1.3 condition 1) (no DCC)
-   * One of the following ITS-S dynamics related conditions is given:
-  */
+  // Create a new timer to periodically check the CAM conditions, according to the standard
+	struct pollfd pollfddata;
+	int clockFd;
 
-  /* 1a)
-   * The absolute difference between the current heading of the originating
-   * ITS-S and the heading included in the CAM previously transmitted by the
-   * originating ITS-S exceeds 4°;
-  */
-  if(m_vdp->getHeadingValue ().getValue() !=HeadingValue_unavailable) {
-	double head_diff = m_vdp->getHeadingValue ().getValue() - m_prev_heading;
-	head_diff += (head_diff>180.0) ? -360.0 : (head_diff<-180.0) ? 360.0 : 0.0;
-	if (head_diff > 4.0 || head_diff < -4.0)
-	  {
-		cam_error=generateAndEncodeCam ();
-		if(cam_error==CAM_NO_ERROR)
-		  {
-			m_N_GenCam=0;
-			condition_verified=true;
-			dyn_cond_verified=true;
-		  } else {
-			std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+	// The last argument of timer_fd_create should be in microseconds
+	if(timer_fd_create(pollfddata, clockFd, m_T_CheckCamGen_ms*1e3)<0) {
+		std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
+		terminateDissemination();
+		return;
+	}
+
+	POLL_DEFINE_JUNK_VARIABLE();
+
+  while(m_terminateFlag==false) {
+  	if(poll(&pollfddata,1,0)>0) {
+			POLL_CLEAR_EVENT(clockFd);
+
+			condition_verified=false;
+			now=computeTimestampUInt64()/NANO_TO_MILLI;
+
+		  // If no initial CAM has been triggered before checkCamConditions() has been called, throw an error
+		  if(m_prev_heading==-1 || m_prev_speed==-1 || m_prev_pos.first==-DBL_MAX || m_prev_pos.second==-DBL_MAX)
+			{
+				std::cerr << "Error. checkCamConditions() was called before sending any CAM and this is not allowed." << std::endl;
+				terminateDissemination();
+				close(clockFd);
+				break;
+			  //throw std::runtime_error("Error. checkCamConditions() was called before sending any CAM and this is not allowed.");
+			}
+		  /*
+		   * ETSI EN 302 637-2 V1.3.1 chap. 6.1.3 condition 1) (no DCC)
+		   * One of the following ITS-S dynamics related conditions is given:
+		  */
+
+		  /* 1a)
+		   * The absolute difference between the current heading of the originating
+		   * ITS-S and the heading included in the CAM previously transmitted by the
+		   * originating ITS-S exceeds 4°;
+		  */
+		  if(m_vdp->getHeadingValue ().getValue() !=HeadingValue_unavailable) {
+			double head_diff = m_vdp->getHeadingValue ().getValue() - m_prev_heading;
+			head_diff += (head_diff>180.0) ? -360.0 : (head_diff<-180.0) ? 360.0 : 0.0;
+			if (head_diff > 4.0 || head_diff < -4.0)
+			  {
+				cam_error=generateAndEncodeCam ();
+				if(cam_error==CAM_NO_ERROR)
+				  {
+						m_N_GenCam=0;
+						condition_verified=true;
+						dyn_cond_verified=true;
+				  } else {
+						std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+				  }
+			  }
+			}
+
+		  /* 1b)
+		   * the distance between the current position of the originating ITS-S and
+		   * the position included in the CAM previously transmitted by the originating
+		   * ITS-S exceeds 4 m;
+		  */
+		  std::pair<long,long> currPos = m_vdp->getCurrentPosition();
+		  double pos_diff = haversineDist(currPos.first, currPos.second, m_prev_pos.first, m_prev_pos.second);
+		  if (!condition_verified && (pos_diff > 4.0 || pos_diff < -4.0))
+			{
+			  cam_error=generateAndEncodeCam ();
+			  if(cam_error==CAM_NO_ERROR)
+				{
+				  m_N_GenCam=0;
+				  condition_verified=true;
+				  dyn_cond_verified=true;
+				} else {
+				  std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+				}
+			}
+
+		  /* 1c)
+		   * he absolute difference between the current speed of the originating ITS-S
+		   * and the speed included in the CAM previously transmitted by the originating
+		   * ITS-S exceeds 0,5 m/s.
+		  */
+		  if(m_vdp->getSpeedValue ().getValue() !=SpeedValue_unavailable) {
+			double speed_diff = m_vdp->getSpeedValue ().getValue() - m_prev_speed;
+			if (!condition_verified && (speed_diff > 0.5 || speed_diff < -0.5))
+			  {
+				cam_error=generateAndEncodeCam ();
+				if(cam_error==CAM_NO_ERROR)
+				  {
+						m_N_GenCam=0;
+						condition_verified=true;
+						dyn_cond_verified=true;
+				  } else {
+						std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+				  }
+			  }
 		  }
-	  }
-	}
 
-  /* 1b)
-   * the distance between the current position of the originating ITS-S and
-   * the position included in the CAM previously transmitted by the originating
-   * ITS-S exceeds 4 m;
-  */
-  std::pair<long,long> currPos = m_vdp->getCurrentPosition();
-  double pos_diff = haversineDist(currPos.first, currPos.second, m_prev_pos.first, m_prev_pos.second);
-  if (!condition_verified && (pos_diff > 4.0 || pos_diff < -4.0))
-	{
-	  cam_error=generateAndEncodeCam ();
-	  if(cam_error==CAM_NO_ERROR)
-		{
-		  m_N_GenCam=0;
-		  condition_verified=true;
-		  dyn_cond_verified=true;
-		} else {
-		  std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+		  /* 2)
+		   * The time elapsed since the last CAM generation is equal to or greater than T_GenCam
+		  */
+		  if(!condition_verified && (now-lastCamGen>=m_T_GenCam_ms))
+			{
+			   cam_error=generateAndEncodeCam ();
+			   if(cam_error==CAM_NO_ERROR)
+				 {
+
+				   if(dyn_cond_verified==true)
+					 {
+					   m_N_GenCam++;
+					   if(m_N_GenCam>=m_N_GenCamMax)
+						 {
+						   m_N_GenCam=0;
+						   m_T_GenCam_ms=T_GenCamMax_ms;
+						   dyn_cond_verified=false;
+						 }
+					 }
+				 } else {
+				   std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+				 }
+			}
+
+			// Debug print: leave commented when releasing for testing or using for a use case
+			// std::cout << "Check for m_T_GenCam_ms:" << m_T_GenCam_ms << std::endl;
+
+			// try {
+			//   SCHEDULE(m_T_CheckCamGen_ms,CABasicService::checkCamConditions);
+			//   //SCHEDULE(10,CABasicService::checkCamConditions);
+			// } catch(const std::exception &excp) {
+			// 	std::cerr << "Error: cannot schedule any new CAM transmission. Reason: " << excp.what() << std::endl;
+			// 	terminateDissemination();
+			// }
 		}
 	}
 
-  /* 1c)
-   * he absolute difference between the current speed of the originating ITS-S
-   * and the speed included in the CAM previously transmitted by the originating
-   * ITS-S exceeds 0,5 m/s.
-  */
-  if(m_vdp->getSpeedValue ().getValue() !=SpeedValue_unavailable) {
-	double speed_diff = m_vdp->getSpeedValue ().getValue() - m_prev_speed;
-	if (!condition_verified && (speed_diff > 0.5 || speed_diff < -0.5))
-	  {
-		cam_error=generateAndEncodeCam ();
-		if(cam_error==CAM_NO_ERROR)
-		  {
-			m_N_GenCam=0;
-			condition_verified=true;
-			dyn_cond_verified=true;
-		  } else {
-			std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
-		  }
-	  }
-  }
-
-  /* 2)
-   * The time elapsed since the last CAM generation is equal to or greater than T_GenCam
-  */
-  if(!condition_verified && (now-lastCamGen>=m_T_GenCam_ms))
-	{
-	   cam_error=generateAndEncodeCam ();
-	   if(cam_error==CAM_NO_ERROR)
-		 {
-
-		   if(dyn_cond_verified==true)
-			 {
-			   m_N_GenCam++;
-			   if(m_N_GenCam>=m_N_GenCamMax)
-				 {
-				   m_N_GenCam=0;
-				   m_T_GenCam_ms=T_GenCamMax_ms;
-				   dyn_cond_verified=false;
-				 }
-			 }
-		 } else {
-		   std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
-		 }
-	}
-
-  SCHEDULE(m_T_CheckCamGen_ms,CABasicService::checkCamConditions);
+	close(clockFd);
 }
 
 CABasicService_error_t
