@@ -39,16 +39,16 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("The Open CA Basic Service implementatiuon", ' ', "0.2");
+		TCLAP::CmdLine cmd("The Open CA Basic Service implementatiuon", ' ', "0.3");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
-		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface",false,"wlan0","string");
+		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
 		cmd.add(vifName);
 
-		TCLAP::ValueArg<std::string> GNSSDevArg("D","gnss-device","GNSS device to be used",false,"localhost","string");
+		TCLAP::ValueArg<std::string> GNSSDevArg("D","gnss-device","GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",false,"localhost","string");
 		cmd.add(GNSSDevArg);
 
-		TCLAP::ValueArg<long> GNSSPortArg("P","gnss-port","Port to be used to connect to the GNSS device",false,GNSS_DEFAULT_PORT,"integer");
+		TCLAP::ValueArg<long> GNSSPortArg("P","gnss-port","Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OCABS is 3000.",false,GNSS_DEFAULT_PORT,"integer");
 		cmd.add(GNSSPortArg);
 
 		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service Station ID",true,0,"unsigned integer");
