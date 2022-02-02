@@ -39,7 +39,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("The Open CA Basic Service implementatiuon", ' ', "0.4");
+		TCLAP::CmdLine cmd("The Open CA Basic Service implementation", ' ', "0.4");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
