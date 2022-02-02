@@ -82,7 +82,7 @@ VDPGPSClient::getCurrentPosition() {
 		if((m_gps_data.set & MODE_SET)==MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
 			if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
 				if(!isnan(m_gps_data.fix.latitude) && !isnan(m_gps_data.fix.longitude)) {
-					return std::pair<long,long>(m_gps_data.fix.latitude*DOT_ONE_MICRO,m_gps_data.fix.latitude*DOT_ONE_MICRO);
+					return std::pair<long,long>(m_gps_data.fix.latitude*DOT_ONE_MICRO,m_gps_data.fix.longitude*DOT_ONE_MICRO);
 				}
 			}
 		}
