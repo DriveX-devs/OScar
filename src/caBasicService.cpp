@@ -72,9 +72,9 @@
 	  asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.yawRate.yawRateConfidence, cam_mandatory_data.yawRate.getConfidence ()); \
 \
 	  /* Store all the "previous" values used in checkCamConditions() */ \
-	  m_prev_pos=m_vdp->getCurrentPosition(); \
-	  m_prev_speed=m_vdp->getSpeedValue ().getValue(); \
-	  m_prev_heading=m_vdp->getHeadingValue ().getValue(); \
+	  m_prev_pos=m_vdp->getCurrentPositionDbl(); \
+	  m_prev_speed=m_vdp->getSpeedValueDbl(); \
+	  m_prev_heading=m_vdp->getHeadingValueDbl(); \
 	} \
  else \
 	{ \
@@ -529,8 +529,8 @@ CABasicService::checkCamConditions()
 		   * ITS-S and the heading included in the CAM previously transmitted by the
 		   * originating ITS-S exceeds 4°;
 		  */
-		  if(m_vdp->getHeadingValue ().getValue() !=HeadingValue_unavailable) {
-			double head_diff = m_vdp->getHeadingValue ().getValue() - m_prev_heading;
+		  if(m_vdp->getHeadingValueDbl()!=-DBL_MAX) {
+			double head_diff = m_vdp->getHeadingValueDbl() - m_prev_heading;
 			head_diff += (head_diff>180.0) ? -360.0 : (head_diff<-180.0) ? 360.0 : 0.0;
 			if (head_diff > 4.0 || head_diff < -4.0)
 			  {
@@ -551,7 +551,7 @@ CABasicService::checkCamConditions()
 		   * the position included in the CAM previously transmitted by the originating
 		   * ITS-S exceeds 4 m;
 		  */
-		  std::pair<long,long> currPos = m_vdp->getCurrentPosition();
+		  std::pair<double,double> currPos = m_vdp->getCurrentPositionDbl();
 		  double pos_diff = haversineDist(currPos.first, currPos.second, m_prev_pos.first, m_prev_pos.second);
 		  if (!condition_verified && (pos_diff > 4.0 || pos_diff < -4.0))
 			{
@@ -571,8 +571,8 @@ CABasicService::checkCamConditions()
 		   * and the speed included in the CAM previously transmitted by the originating
 		   * ITS-S exceeds 0,5 m/s.
 		  */
-		  if(m_vdp->getSpeedValue ().getValue() !=SpeedValue_unavailable) {
-			double speed_diff = m_vdp->getSpeedValue ().getValue() - m_prev_speed;
+		  if(m_vdp->getSpeedValueDbl()!=-DBL_MAX) {
+			double speed_diff = m_vdp->getSpeedValueDbl() - m_prev_speed;
 			if (!condition_verified && (speed_diff > 0.5 || speed_diff < -0.5))
 			  {
 				cam_error=generateAndEncodeCam ();
@@ -612,7 +612,8 @@ CABasicService::checkCamConditions()
 			}
 
 			// Debug print: leave commented when releasing for testing or using for a use case
-			// std::cout << "Check for m_T_GenCam_ms:" << m_T_GenCam_ms << std::endl;
+			// static int iii=0;
+			// std::cout << "[" << iii++ << "] Check for m_T_GenCam_ms:" << m_T_GenCam_ms << std::endl;
 
 			// try {
 			//   SCHEDULE(m_T_CheckCamGen_ms,CABasicService::checkCamConditions);
