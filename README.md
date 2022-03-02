@@ -1,8 +1,8 @@
 # OCABS - the Open CA Basic Service implementation
 
-This repository contains _OCABS_, a C++ open implementation of the CA Basic Service, to be used for deployement into real hardware, running, for instance, [https://github.com/francescoraves483/OpenWrt-V2X)[OpenWrt-V2X].
+This repository contains _OCABS_, a C++ open implementation of the CA Basic Service, to be used for deployement into real hardware, running, for instance, [OpenWrt-V2X](https://github.com/francescoraves483/OpenWrt-V2X).
 
-This project includes a full open source implementation of the **ETSI CA Basic Service**, with reference to the standard [https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf](ETSI EN 302 637-2 V1.4.1), including the **BTP** and **GeoNetworking** layers. CAMs **version 2** are currently being managed (there is no official support for the older CAMs version 1).
+This project includes a full open source implementation of the **ETSI CA Basic Service**, with reference to the standard [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf), including the **BTP** and **GeoNetworking** layers. CAMs **version 2** are currently being managed (there is no official support for the older CAMs version 1).
 
 As the project is still work-in-progress, it currently provides only the dissemination of CAMs, while the reception of the same messages should be managed by any other V2X service requiring the reception of CAMs.
 
@@ -10,7 +10,7 @@ As the project is still work-in-progress, it currently provides only the dissemi
 
 The OCABS main help, with all the possibile options, can be displayed with `./OCABS --help`, after compiling the OCABS binary.
 
-OCABS also supports a proposed enhancement to CAM messages (i.e., the [https://github.com/francescoraves483/EnhancedCAMs-asn1](Enhanced CAMs)), to be used in conjunction with the [https://github.com/francescoraves483/AIM-AutomotiveIntegratedMap](AIM Local Dynamic Map). The transmission of the enhanced messages may break compatibility with other existing standard-compliant stacks (e.g., the Cohda Wireless stack, the [ms-van3t](https://github.com/marcomali/ms-van3t) stack in emulation mode), and it is thus enabled only when explicitly specified through the option `--enable-enhanced-CAMs` (or, in short, `-E`) . If not enabled, standard-compliant version 2 CAMs are sent, without any modification.
+OCABS also supports a proposed enhancement to CAM messages (i.e., the [Enhanced CAMs](https://github.com/francescoraves483/EnhancedCAMs-asn1)), to be used in conjunction with the [AIM Local Dynamic Map](https://github.com/francescoraves483/AIM-AutomotiveIntegratedMap). The transmission of the enhanced messages may break compatibility with other existing standard-compliant stacks (e.g., the Cohda Wireless stack, the [ms-van3t](https://github.com/marcomali/ms-van3t) stack in emulation mode), and it is thus enabled only when explicitly specified through the option `--enable-enhanced-CAMs` (or, in short, `-E`) . If not enabled, standard-compliant version 2 CAMs are sent, without any modification.
 
 When enhanced CAMs are **not** enabled, the following options (and the corresponding short versions) are **no longer** valid and thus should not be specified: `--own-public-ip`, `--own-private-ip`, `--extra-comp-dev-ip`, `--rssi-aux-update-interval`, `--aux-dev-ip`.
 
@@ -50,7 +50,7 @@ OCABS is also though to be easily cross-compiled for any embedded platform or ro
 
 Cross-compilation also leverages `make`. However, it requires a few additional steps, after cloning the repository.
 
-First of all, an OpenWrt toolchain must be available in the device used for cross-compilation, with the `PATH` and `STAGING_DIR` environment variables being properly set. You can find additional information on how to set up the OpenWrt toolchain [https://openwrt.org/docs/guide-developer/toolchain/crosscompile](here). When performing the build procedure steps, select the `libgps` package with `make menuconfig`.
+First of all, an OpenWrt toolchain must be available in the device used for cross-compilation, with the `PATH` and `STAGING_DIR` environment variables being properly set. You can find additional information on how to set up the OpenWrt toolchain [here](https://openwrt.org/docs/guide-developer/toolchain/crosscompile). When performing the build procedure steps, select the `libgps` package with `make menuconfig`.
 
 Then, open the OCABS `Makefile` and update lines 3 and 4 (this needs to be done only once per development PC):
 - Line 3 (`OPENWRT_STAGING_DIR`) should be updated to point to the directory where the OpenWrt toolchain `./usr/include` is located (you can start from the already available path to properly update this line)
@@ -77,7 +77,7 @@ A sample of the two files is reported below:
 
 ## `/etc/init.d/OCABS` sample
 
-This sample shows how to create the OCABS service through an `init.d` script. More details are available [https://openwrt.org/docs/techref/initscripts](here) and [https://openwrt.org/docs/guide-developer/procd-init-script-example](here).
+This sample shows how to create the OCABS service through an `init.d` script. More details are available [here](https://openwrt.org/docs/techref/initscripts) and [here](https://openwrt.org/docs/guide-developer/procd-init-script-example).
 
 For a basic working service setup (without Enhanced CAMs), you can freely copy the whole content reported below. This sample `init.d` assumes that the OCABS executable has been placed inside a directory named `/root/OCABS` (see the `procd_set_param command` line).
 
