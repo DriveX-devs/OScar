@@ -157,6 +157,6 @@ logread
 
 # Contact and License information
 
-This project is licensed under a GPL-3.0 License. Please see also the `LICENSE` file for more details.
+This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
 For any question, please write to _francescorav.es483@gmail.com_. Thanks!
