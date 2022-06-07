@@ -27,8 +27,11 @@ class btp {
         void setVDP(VDPGPSClient* vdp){m_geonet->setVDP(vdp);}
         void sendBTP(BTPDataRequest_t dataRequest);
 
+		void setLogFile(std::string camfile) {m_log_filename=camfile;}
     private:
         GeoNet *m_geonet;
+        
+        std::string m_log_filename = "dis";
 
 };
 #endif // OCABS_BTP_H

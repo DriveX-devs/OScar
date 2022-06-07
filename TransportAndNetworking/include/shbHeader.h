@@ -22,6 +22,7 @@ class shbHeader {
 		//Setters
 		void SetLongPositionV(GNlpv_t longPositionVector) {m_sourcePV = longPositionVector;}
 
+		static void printTSBPheader(packetBuffer &packet,std::string filename);
 	private:
 		GNlpv_t m_sourcePV;  //! Source long position vector
 		uint8_t m_reserved; //! Aux variable for reserved fields

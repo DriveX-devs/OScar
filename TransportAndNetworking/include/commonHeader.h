@@ -33,6 +33,8 @@ class commonHeader {
 	    void SetPayload (uint16_t PL) {m_payload = PL;}
 	    void SetMaxHL(uint8_t MHL){m_maxHopLimit = MHL;}
 
+	    static void printCommonHeader(packetBuffer &packet,std::string filename);
+
 	private:
 		uint8_t m_nextHeader : 4;
 		uint8_t m_headerType : 4;

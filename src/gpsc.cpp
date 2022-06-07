@@ -90,6 +90,8 @@ VDPGPSClient::getCurrentPosition() {
 
 	return std::pair<double,double>(Latitude_unavailable,Longitude_unavailable);
 }
+
+
 double
 VDPGPSClient::getHeadingValueDbl() {
 	int rval;

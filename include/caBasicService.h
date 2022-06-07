@@ -33,6 +33,8 @@ public:
   // This function sets the station properties for the CA Basic Service only
   // The GeoNetworking station properties shall be set separately on the GeoNetworking object
   void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
+  void setLogfile(std::string filename) {m_log_filename=filename;}
+  
   void setFixedPositionRSU(double latitude_deg, double longitude_deg);
   void setStationID(unsigned long fixed_stationid);
   void setStationType(long fixed_stationtype);
@@ -110,7 +112,9 @@ private:
 
   StationID_t m_station_id;
   StationType_t m_stationtype;
-
+  
+  std::string m_log_filename;
+  
   // Previous CAM relevant values
   double m_prev_heading;
   // Pair with <lat,lon>

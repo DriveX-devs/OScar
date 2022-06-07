@@ -6,6 +6,7 @@
 #include "shbHeader.h"
 
 #include <cstring>
+#include <bitset>
 
 shbHeader::shbHeader() {
 	m_sourcePV = {};  //!Source long position vector
@@ -32,4 +33,90 @@ shbHeader::serializeInto(packetBuffer &packet) {
 	packet.addHtonU16(m_sourcePV.heading);
 	//Reserved
 	packet.addHtonU32(0x00000000);
+}
+
+void 
+shbHeader::printTSBPheader(packetBuffer &packet,std::string filename) {
+	FILE *f_out;
+	const uint8_t *m_internal_buff=packet.getBufferPointer();
+
+	char file[strlen(filename.c_str())+1];
+	snprintf(file,sizeof(file),"%s",filename.c_str());
+		
+	f_out=fopen(file,"a");
+
+	fprintf(f_out,"    <Topologically-Scoped Broadcast Packet>\n");
+	fprintf(f_out,"        <Source Position>\n");
+	fprintf(f_out,"            <GeoNetworking Address>\n");
+	
+	std::string gn_addr=std::bitset<8>(m_internal_buff[0]).to_string()+std::bitset<8>(m_internal_buff[1]).to_string();
+	fprintf(f_out,"                <Manual>%c</Manual>\n",gn_addr[0]);
+	
+	std::string itssType;
+	if(gn_addr.substr(1,5) == "00000")
+		itssType="Unknown";
+	if(gn_addr.substr(1,5) == "00001")
+		itssType="Pedestrian";
+	if(gn_addr.substr(1,5) == "00010")
+		itssType="Cyclist";
+	if(gn_addr.substr(1,5) == "00011")
+		itssType="Moped";
+	if(gn_addr.substr(1,5) == "00100")
+		itssType="Motorcycle";
+	if(gn_addr.substr(1,5) == "00101")
+		itssType="Passenger Car";
+	if(gn_addr.substr(1,5) == "00110")
+		itssType="Bus";
+	if(gn_addr.substr(1,5) == "00111")
+		itssType="Light Truck";
+	if(gn_addr.substr(1,5) == "01000")
+		itssType="Heavy Truck";
+	if(gn_addr.substr(1,5) == "01001")
+		itssType="Trailer";
+	if(gn_addr.substr(1,5) == "01010")
+		itssType="Special Vehicle";
+	if(gn_addr.substr(1,5) == "01011")
+		itssType="Tram";
+	if(gn_addr.substr(1,5) == "01100" or gn_addr.substr(1,5) == "01101" or gn_addr.substr(1,5) == "01110" or gn_addr.substr(1,2).compare("1") == 0)
+		itssType="Unavailable";
+	if(gn_addr.substr(1,5) == "01111")
+		itssType="Road Side Unit";
+	fprintf(f_out,"                <ITS-S type>%s</ITS-S type>\n",itssType.c_str());
+	
+	if(gn_addr.substr(6,15) == "0000000000")
+		fprintf(f_out,"                <ITS-S Country Code>Reserved</ITS-S Country Code>\n");
+	else
+		fprintf(f_out,"                <ITS-S Country Code>TO BE DONE</ITS-S Country Code> #TBD\n");
+	
+	fprintf(f_out,"                <MID>%02X:%02X:%02X:%02X:%02X:%02X</MID>\n",m_internal_buff[2],m_internal_buff[3],m_internal_buff[4],m_internal_buff[5],m_internal_buff[6],m_internal_buff[7]);
+
+	fprintf(f_out,"            </GeoNetworking Address>\n");
+	
+	uint32_t timestamp=(m_internal_buff[8]<<24) | (m_internal_buff[9]<<16) | (m_internal_buff[10]<<8) | m_internal_buff[11];
+	fprintf(f_out,"            <Timestamp>%s</Timestamp>\n",std::to_string(timestamp).c_str());
+	
+	uint32_t latitude=(m_internal_buff[12]<<24) | (m_internal_buff[13]<<16) | (m_internal_buff[14]<<8) | m_internal_buff[15];
+	fprintf(f_out,"            <Latitude>%s</Latitude>\n",std::to_string(latitude).c_str());
+	
+	uint32_t longitude=(m_internal_buff[16]<<24) | (m_internal_buff[17]<<16) | (m_internal_buff[18]<<8) | m_internal_buff[19];
+	fprintf(f_out,"            <Longitude>%s</Longitude>\n",std::to_string(longitude).c_str());
+	
+	std::string pai_speed=std::bitset<8>(m_internal_buff[20]).to_string()+std::bitset<8>(m_internal_buff[21]).to_string();
+	fprintf(f_out,"            <Position Accuracy Indicator>%c</Position Accuracy Indicator>\n",pai_speed[0]);
+	
+	fprintf(f_out,"            <Speed>%03d</Speed>\n",stoi(pai_speed.substr(1,7),nullptr,2));
+	
+	uint16_t heading=(m_internal_buff[22]<<8) | m_internal_buff[23];
+	fprintf(f_out,"            <Heading>%04d</Heading>\n",heading);
+	
+	fprintf(f_out,"        </Source Position>\n");
+	
+	uint32_t reserved=(m_internal_buff[24]<<24) | (m_internal_buff[25]<<16) | (m_internal_buff[26]<<8) | m_internal_buff[27];;
+	fprintf(f_out,"        <Reserved>%d</Reserved>\n",reserved);
+	
+	fprintf(f_out,"    </Topologically-Scoped Broadcast Packet>\n");
+	
+	fprintf(f_out,"</GeoNetworking>\n\n");
+	
+	fclose(f_out);
 }

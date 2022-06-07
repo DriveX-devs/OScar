@@ -221,6 +221,12 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	packetBuffer basicHeaderSerialized;
 	basicHeader.serializeInto(basicHeaderSerialized);
 
+	if(m_log_filename!="dis" && m_log_filename!="") {
+		basicHeader::printBasicHeader(basicHeaderSerialized,m_log_filename);
+		commonHeader::printCommonHeader(commonHeaderSerialized,m_log_filename);
+		shbHeader::printTSBPheader(shbHeaderSerialized,m_log_filename);
+	}
+	
 	// Add them to the final packet (the innermost header goes first)
 	dataRequest.data.addHeader(shbHeaderSerialized);
 
@@ -303,6 +309,13 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 
 	packetBuffer basicHeaderSerialized;
 	basicHeader.serializeInto(basicHeaderSerialized);
+	
+	if(m_log_filename!="dis" && m_log_filename!="") {
+		basicHeader::printBasicHeader(basicHeaderSerialized,m_log_filename);
+		commonHeader::printCommonHeader(commonHeaderSerialized,m_log_filename);
+		// shbHeader::printTSBPheader(gbcHeaderSerialized,m_log_filename);
+		// There is currently no print function for the GBC header - we are currently working on it!
+	}
 
 	// Add them to the final packet (the innermost header goes first)
 	dataRequest.data.addHeader(gbcHeaderSerialized);

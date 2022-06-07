@@ -27,6 +27,8 @@ public:
 	void SetLifeTime(uint8_t LT) {m_lifeTime = LT;}
 	void SetRemainingHL(uint8_t RHL){m_remainingHopLimit = RHL;}
 
+	static void printBasicHeader(packetBuffer &packet,std::string filename);
+
 private:
 		uint8_t m_version: 4;
 		uint8_t m_nextHeader: 4;

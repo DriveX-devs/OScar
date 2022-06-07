@@ -21,6 +21,8 @@ public:
     void setDestinationPortInfo(uint16_t portInfo) {m_source_destInfo = portInfo;}
     void setSourcePort(uint16_t port) {m_source_destInfo = port;}
 
+    static void printBTPheader(packetBuffer &packet, std::string filename);
+
     //getters
     [[nodiscard]] uint16_t getDestPort() const {return m_destinationPort;}
     [[nodiscard]] uint16_t getSourcePort() const {return m_source_destInfo;}

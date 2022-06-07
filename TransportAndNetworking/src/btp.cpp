@@ -27,6 +27,10 @@ btp::sendBTP(BTPDataRequest_t dataRequest) {
 
 	packetBuffer serializedBTPheader;
 	btpheader.serializeInto(serializedBTPheader);
+	
+	if(m_log_filename!="dis" && m_log_filename!="") {
+		btpHeader::printBTPheader(serializedBTPheader,m_log_filename);
+	}
 
 	dataRequest.data.addHeader(serializedBTPheader);
 

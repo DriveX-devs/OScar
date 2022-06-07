@@ -30,7 +30,8 @@ class GeoNet {
 		void setVDP(VDPGPSClient* vdp);
 		void setSocketTx(int socket_tx_descr,int ifindex,uint8_t srcmac[6]);
 		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest);
-
+		
+		void setLogFile(std::string camfile) {m_log_filename=camfile;}
 	private:
 		GNDataConfirm_t sendSHB(GNDataRequest_t dataRequest,commonHeader commonHeader,basicHeader basicHeader,GNlpv_t longPV);
 		GNDataConfirm_t sendGBC(GNDataRequest_t dataRequest,commonHeader commonHeader, basicHeader basicHeader,GNlpv_t longPV);
@@ -89,6 +90,8 @@ class GeoNet {
 		uint16_t m_FnCbfPacketBufferSize = 256;
 		uint16_t m_GnDefaultTrafficClass = 0;
 		bool m_RSU_epv_set = false;
+		
+		std::string m_log_filename = "dis";
 };
 
 #endif // OCABS_GEONET_H

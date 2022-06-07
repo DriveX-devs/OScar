@@ -23,6 +23,7 @@
 
 int main (int argc, char *argv[]) {
 	std::string dissem_vif = "wlan0";
+	std::string log_filename = "dis";
 	std::string gnss_device = "localhost";
 	std::string aux_device_IP = "dis";
 	long gnss_port = 3000; // Using 3000 as default port, in our case
@@ -39,11 +40,14 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("The Open CA Basic Service implementation", ' ', "0.4");
+		TCLAP::CmdLine cmd("The Open CA Basic Service implementatiuon", ' ', "0.3");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
 		cmd.add(vifName);
+		
+		TCLAP::ValueArg<std::string> Logfile("L","log-file","Print on file the log for the CAM condition checks. Default: (disabled).",false,"dis","string");
+		cmd.add(Logfile);
 
 		TCLAP::ValueArg<std::string> GNSSDevArg("D","gnss-device","GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",false,"localhost","string");
 		cmd.add(GNSSDevArg);
@@ -75,6 +79,8 @@ int main (int argc, char *argv[]) {
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
+		
+		log_filename=Logfile.getValue();
 
 		gnss_device=GNSSDevArg.getValue();
 		gnss_port=GNSSPortArg.getValue();
@@ -193,6 +199,7 @@ int main (int argc, char *argv[]) {
 
 			CABasicService CABS;
 			GeoNet GN;
+			
 			GN.setVDP(&vdpgpsc);
 			GN.setSocketTx(sockfd,ifindex,srcmac);
 			GN.setStationProperties(vehicleID,StationType_passengerCar);
@@ -224,6 +231,34 @@ int main (int argc, char *argv[]) {
 					CABS.setOwnPublicIP(own_public_IP);
 				}
 			}
+			if(log_filename!="dis" && log_filename!="") {
+				//FILE* f_out;
+			
+				//char filename[strlen(log_filename.c_str())+1];
+				//snprintf(filename,sizeof(filename),"%s",log_filename.c_str());
+				
+				//f_out=fopen(filename,"w");
+				//fclose(f_out);
+			
+				CABS.setLogfile(log_filename);
+			}
+			
+			/* CAM print
+			* Unused - left here just for future reference (this comment will be removed in the final deployed version)
+			*
+			if(cam_sent!="dis" && cam_sent!="") {
+				char camFile[strlen(cam_sent.c_str())+1];
+				snprintf(camFile,sizeof(camFile),"%s",cam_sent.c_str());
+				
+				f_out=fopen(camFile,"w");
+				fclose(f_out);
+			
+				CABS.setCAMsent(cam_sent);
+				GN.setCAMsentFile(cam_sent);
+				BTP.setCAMfile(cam_sent);
+			}
+			*/
+			
 			CABS.setBTP(&BTP);
 			CABS.setStationProperties(vehicleID,StationType_passengerCar);
 			CABS.setVDP(&vdpgpsc);
