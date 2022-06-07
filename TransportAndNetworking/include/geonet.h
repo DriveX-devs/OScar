@@ -32,6 +32,9 @@ class GeoNet {
 		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest);
 		
 		void setLogFile(std::string camfile) {m_log_filename=camfile;}
+
+		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip);
+		void closeUDPsocket();
 	private:
 		GNDataConfirm_t sendSHB(GNDataRequest_t dataRequest,commonHeader commonHeader,basicHeader basicHeader,GNlpv_t longPV);
 		GNDataConfirm_t sendGBC(GNDataRequest_t dataRequest,commonHeader commonHeader, basicHeader basicHeader,GNlpv_t longPV);
@@ -92,6 +95,8 @@ class GeoNet {
 		bool m_RSU_epv_set = false;
 		
 		std::string m_log_filename = "dis";
+
+		int m_udp_sockfd = -1;
 };
 
 #endif // OCABS_GEONET_H

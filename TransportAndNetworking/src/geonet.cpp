@@ -7,6 +7,8 @@
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
 #include <cstring>
+#include <unistd.h>
+#include <arpa/inet.h>
 #include "functional"
 #include "geonet.h"
 
@@ -31,7 +33,9 @@ GeoNet::GeoNet() {
 	m_RSU_epv_set=false;
 }
 
-GeoNet::~GeoNet() = default;
+GeoNet::~GeoNet() {
+	closeUDPsocket();
+}
 
 void
 GeoNet::setStationProperties(unsigned long fixed_stationid,long fixed_stationtype) {
@@ -280,6 +284,12 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 		std::cerr << "Cannot send SHB GN packet. Error details: " << strerror(errno) << std::endl;
 	}
 
+	if(m_udp_sockfd>0) {
+		if(send(m_udp_sockfd,finalPktBuffer,finalPktSize,0)!=finalPktSize) {
+			std::cerr << "Cannot send SHB GN packet via UDP. Error details: " << strerror(errno) << std::endl;
+		}
+	}
+
 	delete []finalPktBuffer;
 
 	//7)reset beacon timer to prevent dissemination of unnecessary beacon packet [Not yet implemented in OCABS]
@@ -372,7 +382,13 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 
 	errno=0;
 	if(sendto(m_socket_tx,finalPktBuffer,finalPktSize,0,(struct sockaddr *)&addrll, sizeof(addrll))!=finalPktSize) {
-		std::cerr << "Cannot send SHB GN packet. Error details: " << strerror(errno) << std::endl;
+		std::cerr << "Cannot send GBC GN packet. Error details: " << strerror(errno) << std::endl;
+	}
+
+	if(m_udp_sockfd>0) {
+		if(send(m_udp_sockfd,finalPktBuffer,finalPktSize,0)!=finalPktSize) {
+			std::cerr << "Cannot send GBC GN packet via UDP. Error details: " << strerror(errno) << std::endl;
+		}
 	}
 
 	delete []finalPktBuffer;
@@ -380,4 +396,67 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 	//Update sequence number
 	m_seqNumber = (m_seqNumber+1)% SN_MAX;
 	return ACCEPTED;
+}
+
+int 
+GeoNet::openUDPsocket(std::string udp_sock_addr,std::string interface_ip) {
+	std::string dest_ip;
+	long dest_port;
+
+	// Generic size of a struct sockaddr_in (used two times below)
+	socklen_t addrlen = sizeof(struct sockaddr_in);
+
+	// Create a UDP socket for packet transmission
+	m_udp_sockfd=socket(AF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
+
+	if(m_udp_sockfd<0) {
+		return m_udp_sockfd;
+	}
+
+	// Bind the socket to the interface with the IP address specified by "interface_ip"
+	// (or do not bind to any specific address/interface if "interface_ip" is set to "0.0.0.0")
+	struct sockaddr_in bind_address;
+	bind_address.sin_family = AF_INET;
+
+	if(interface_ip=="0.0.0.0") {
+		bind_address.sin_addr.s_addr = INADDR_ANY;
+	} else {
+		if(inet_pton(AF_INET,interface_ip.c_str(),&bind_address.sin_addr)<1) {
+			close(m_udp_sockfd);
+			return -1;
+		}
+	}
+
+	bind_address.sin_port = htons(0);
+
+	if(bind(m_udp_sockfd,(struct sockaddr*) &bind_address,addrlen)<0) {
+		close(m_udp_sockfd);
+		return -1;
+	}
+
+	// "connect" the UDP socket (i.e., set the default destination address and port) 
+	struct sockaddr_in dest_address;
+	dest_address.sin_family = AF_INET;
+	
+	if(dest_ip=="0.0.0.0" || inet_pton(AF_INET,dest_ip.c_str(),&dest_address.sin_addr)<1) {
+		close(m_udp_sockfd);
+		return -1;
+	}
+
+	dest_address.sin_port = htons(dest_port);
+
+	if(connect(m_udp_sockfd,(struct sockaddr*) &dest_address,addrlen)<0) {
+		close(m_udp_sockfd);
+		return -1;
+	}
+
+	return m_udp_sockfd;
+}
+
+void 
+GeoNet::closeUDPsocket() {
+	if(m_udp_sockfd>0) {
+		close(m_udp_sockfd);
+		m_udp_sockfd=-1;
+	}
 }

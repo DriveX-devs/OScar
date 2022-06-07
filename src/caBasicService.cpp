@@ -829,6 +829,7 @@ CABasicService::checkCamConditions()
   } // End of the dissemination cycle
 
   // If the print on log file is enabled, close the file before exit
+  // This needs to be double-checked
   if(m_log_filename!="dis" && m_log_filename!="") {
     char filename[strlen(m_log_filename.c_str())+1];
     snprintf(filename,sizeof(filename),"%s",m_log_filename.c_str());

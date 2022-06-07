@@ -31,6 +31,9 @@ int main (int argc, char *argv[]) {
 	bool enable_enhanced_CAMs = false;
 	std::string extra_computation_device_IP = "dis";
 
+	std::string udp_sock_addr = "dis";
+	std::string udp_bind_ip = "0.0.0.0";
+
 	// Enhanced CAMs-only options
 	double rssi_aux_update_interval_msec=-1;
 
@@ -76,6 +79,12 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<std::string> OwnPublicIPArg("z","own-public-ip","Specify the own public IP address (if the device can be reached from the outside world, with or without port forwarding) to be disseminated through enhanced CAMs, if the devices supports IP-based communication. Writing 'dis' will disable the dissemination of this information.",false,"dis","string");
 		cmd.add(OwnPublicIPArg);
 
+		TCLAP::ValueArg<std::string> UDPSockAddrArg("u","udp-sock-addr","If specified, OCABS, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",false,"dis","string");
+		cmd.add(UDPSockAddrArg);
+
+		TCLAP::ValueArg<std::string> UDPBindIPArg("U","udp-bind-ip","This options is valid only if --udp-sock-addr/-u has been specified. It can be used to set an interface/address to bind the UDP socket to. By default, no specific address is used for binding (i.e., binding to any address/interface).",false,"0.0.0.0","string");
+		cmd.add(UDPBindIPArg);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -97,9 +106,19 @@ int main (int argc, char *argv[]) {
 		own_private_IP=OwnPrivateIPArg.getValue();
 		own_public_IP=OwnPublicIPArg.getValue();
 
+		udp_sock_addr=UDPSockAddrArg.getValue();
+
+		udp_bind_ip=UDPBindIPArg.getValue();
+
 		std::cout << "[INFO] CAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
 		std::cerr << "TCLAP error: " << tclape.error() << " for argument " << tclape.argId() << std::endl;
+
+		return 1;
+	}
+
+	if(udp_bind_ip!="0.0.0.0" && udp_sock_addr=="dis") {
+		std::cerr << "Error. --udp-bind-ip/-U can only be specified when --udp-sock-addr/-u is specified too." << std::endl;
 
 		return 1;
 	}
@@ -203,6 +222,10 @@ int main (int argc, char *argv[]) {
 			GN.setVDP(&vdpgpsc);
 			GN.setSocketTx(sockfd,ifindex,srcmac);
 			GN.setStationProperties(vehicleID,StationType_passengerCar);
+
+			if(udp_sock_addr!="dis") {
+				GN.openUDPsocket(udp_sock_addr,udp_bind_ip);
+			}
 
 			btp BTP;
 			BTP.setGeoNet(&GN);
