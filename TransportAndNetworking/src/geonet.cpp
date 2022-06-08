@@ -270,6 +270,22 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	ssize_t finalPktSize = dataRequest.data.getBufferSize() + sizeof(struct ether_header);
 	uint8_t *finalPktBuffer = new uint8_t[finalPktSize];
 
+	uint8_t *finalPktBufferUDP = nullptr;
+	ssize_t finalPktSizeUDP;
+	if(m_extra_position_udp) {
+		extralatlon_t extra_position={.lat=longPV.latitude,.lon=longPV.longitude};
+
+		finalPktBufferUDP = new uint8_t[finalPktSize+sizeof(extralatlon_t)];
+		memcpy(finalPktBufferUDP,&extra_position,sizeof(extralatlon_t));
+
+
+		finalPktSizeUDP=finalPktSizeUDP+sizeof(extralatlon_t);
+	} else {
+		// Same pointers and same size if no extra data is added
+		finalPktBufferUDP=finalPktBuffer;
+		finalPktSizeUDP=finalPktSize;
+	}
+
 	struct ether_header ethHead;
 
 	uint64_t broadcastMAC=0x0000FFFFFFFFFFFF; // A MAC address should be 48 bits long; however, we can declare it as uint64_t, then make memcpy() copy only 48 bits (i.e., ETHER_ADDR_LEN = 6 [bytes])
@@ -280,18 +296,26 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	memcpy(finalPktBuffer,&ethHead,sizeof(struct ether_header));
 	memcpy(finalPktBuffer+sizeof(struct ether_header),dataRequest.data.getBufferPointer(),dataRequest.data.getBufferSize());
 
+	if(m_extra_position_udp) {
+		memcpy(finalPktBufferUDP,finalPktBuffer,finalPktSize);
+	}
+
 	errno=0;
 	if(sendto(m_socket_tx,finalPktBuffer,finalPktSize,0,(struct sockaddr *)&addrll, sizeof(addrll))!=finalPktSize) {
 		std::cerr << "Cannot send SHB GN packet. Error details: " << strerror(errno) << std::endl;
 	}
 
 	if(m_udp_sockfd>0) {
-		if(send(m_udp_sockfd,finalPktBuffer,finalPktSize,0)!=finalPktSize) {
+		if(send(m_udp_sockfd,finalPktBufferUDP,finalPktSize,0)!=finalPktSize) {
 			std::cerr << "Cannot send SHB GN packet via UDP. Error details: " << strerror(errno) << std::endl;
 		}
 	}
 
 	delete []finalPktBuffer;
+
+	if(m_extra_position_udp && finalPktBufferUDP!=nullptr) {
+		delete []finalPktBufferUDP;
+	}
 
 	//7)reset beacon timer to prevent dissemination of unnecessary beacon packet [Not yet implemented in OCABS]
 	return ACCEPTED;
@@ -400,7 +424,7 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 }
 
 int 
-GeoNet::openUDPsocket(std::string udp_sock_addr,std::string interface_ip) {
+GeoNet::openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp) {
 	size_t delimiter_pos=udp_sock_addr.find(":");
 	std::string dest_ip=udp_sock_addr.substr(0, delimiter_pos);
 	udp_sock_addr.erase(0,delimiter_pos+1);
@@ -482,6 +506,8 @@ GeoNet::openUDPsocket(std::string udp_sock_addr,std::string interface_ip) {
 		closeUDPsocket();
 		return -5;
 	}
+
+	m_extra_position_udp=extra_position_udp;
 
 	return m_udp_sockfd;
 }

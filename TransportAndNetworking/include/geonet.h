@@ -33,9 +33,14 @@ class GeoNet {
 		
 		void setLogFile(std::string camfile) {m_log_filename=camfile;}
 
-		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip);
+		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp=false);
 		void closeUDPsocket();
 	private:
+		typedef struct _extralatlon_t {
+			int32_t lat;
+			int32_t lon;
+		} extralatlon_t;
+
 		GNDataConfirm_t sendSHB(GNDataRequest_t dataRequest,commonHeader commonHeader,basicHeader basicHeader,GNlpv_t longPV);
 		GNDataConfirm_t sendGBC(GNDataRequest_t dataRequest,commonHeader commonHeader, basicHeader basicHeader,GNlpv_t longPV);
 		uint8_t encodeLT (double seconds);
@@ -97,6 +102,13 @@ class GeoNet {
 		std::string m_log_filename = "dis";
 
 		int m_udp_sockfd = -1;
+
+		// If this flag is set to "true" and UDP packets are sent by the GeoNetworking layer, in addition to the
+		// standard-compliant message dissemination, each UDP packet will contain an extra information at the
+		// beginning of the payload, before the actual message
+		// This extra information is represented by 64 additional bits, containing respectively the current
+		// latitude (32 bits) and longitude (32 bits) of the vehicle, as degrees*1e7 and in network byte order
+		bool m_extra_position_udp = false;
 };
 
 #endif // OCABS_GEONET_H

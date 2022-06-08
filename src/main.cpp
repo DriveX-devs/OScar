@@ -33,6 +33,7 @@ int main (int argc, char *argv[]) {
 
 	std::string udp_sock_addr = "dis";
 	std::string udp_bind_ip = "0.0.0.0";
+	bool extra_position_udp = false;
 
 	// Enhanced CAMs-only options
 	double rssi_aux_update_interval_msec=-1;
@@ -85,6 +86,9 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<std::string> UDPBindIPArg("U","udp-bind-ip","This options is valid only if --udp-sock-addr/-u has been specified. It can be used to set an interface/address to bind the UDP socket to. By default, no specific address is used for binding (i.e., binding to any address/interface).",false,"0.0.0.0","string");
 		cmd.add(UDPBindIPArg);
 
+		TCLAP::SwitchArg ExtraPosUDPArg("x","add-extra-position-udp","This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",false);
+		cmd.add(ExtraPosUDPArg);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -107,8 +111,8 @@ int main (int argc, char *argv[]) {
 		own_public_IP=OwnPublicIPArg.getValue();
 
 		udp_sock_addr=UDPSockAddrArg.getValue();
-
 		udp_bind_ip=UDPBindIPArg.getValue();
+		extra_position_udp=ExtraPosUDPArg.getValue();
 
 		std::cout << "[INFO] CAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
@@ -119,6 +123,12 @@ int main (int argc, char *argv[]) {
 
 	if(udp_bind_ip!="0.0.0.0" && udp_sock_addr=="dis") {
 		std::cerr << "Error. --udp-bind-ip/-U can only be specified when --udp-sock-addr/-u is specified too." << std::endl;
+
+		return 1;
+	}
+
+	if(extra_position_udp==true && udp_sock_addr=="dis") {
+		std::cerr << "Error. --add-extra-position-udp/-x can only be specified when --udp-sock-addr/-u is specified too." << std::endl;
 
 		return 1;
 	}
