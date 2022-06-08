@@ -9,6 +9,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include "functional"
 #include "geonet.h"
 
@@ -400,54 +401,86 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 
 int 
 GeoNet::openUDPsocket(std::string udp_sock_addr,std::string interface_ip) {
-	std::string dest_ip;
-	long dest_port;
+	size_t delimiter_pos=udp_sock_addr.find(":");
+	std::string dest_ip=udp_sock_addr.substr(0, delimiter_pos);
+	udp_sock_addr.erase(0,delimiter_pos+1);
+	long dest_port=strtol(udp_sock_addr.c_str(),nullptr,0);
 
-	// Generic size of a struct sockaddr_in (used two times below)
+	printf("%s:%ld [bind: %s]\n",dest_ip.c_str(),dest_port,interface_ip.c_str());
+
+	// Generic size of a struct sockaddr_in (used multiple times below)
 	socklen_t addrlen = sizeof(struct sockaddr_in);
 
 	// Create a UDP socket for packet transmission
-	m_udp_sockfd=socket(AF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
+	m_udp_sockfd=socket(AF_INET,SOCK_DGRAM,0);
 
 	if(m_udp_sockfd<0) {
-		return m_udp_sockfd;
+		return -1;
 	}
 
 	// Bind the socket to the interface with the IP address specified by "interface_ip"
 	// (or do not bind to any specific address/interface if "interface_ip" is set to "0.0.0.0")
 	struct sockaddr_in bind_address;
+	memset(&bind_address,0,addrlen);
 	bind_address.sin_family = AF_INET;
 
 	if(interface_ip=="0.0.0.0") {
 		bind_address.sin_addr.s_addr = INADDR_ANY;
 	} else {
 		if(inet_pton(AF_INET,interface_ip.c_str(),&bind_address.sin_addr)<1) {
-			close(m_udp_sockfd);
-			return -1;
+			closeUDPsocket();
+			return -2;
 		}
 	}
 
 	bind_address.sin_port = htons(0);
 
 	if(bind(m_udp_sockfd,(struct sockaddr*) &bind_address,addrlen)<0) {
-		close(m_udp_sockfd);
-		return -1;
+		closeUDPsocket();
+		return -3;
 	}
 
 	// "connect" the UDP socket (i.e., set the default destination address and port) 
 	struct sockaddr_in dest_address;
+	memset(&dest_address,0,addrlen);
 	dest_address.sin_family = AF_INET;
 	
 	if(dest_ip=="0.0.0.0" || inet_pton(AF_INET,dest_ip.c_str(),&dest_address.sin_addr)<1) {
-		close(m_udp_sockfd);
-		return -1;
+		std::cout << dest_ip << " does not appear to be a valid destination IP address for the UDP packet. Attempting address resolution..." << std::endl;
+		// Attempt to resolve host name if inet_pton fails (maybe the user specified a name and not an IP address?)
+		if(dest_ip!="0.0.0.0") {
+			struct hostent *hostaddrs;
+			struct in_addr **addr_list;
+			
+			hostaddrs=gethostbyname(dest_ip.c_str());
+
+			if(hostaddrs==nullptr) {
+				herror("Address resolution failed for UDP destination address. Details");
+				closeUDPsocket();
+				return -4;
+			}
+
+			addr_list=(struct in_addr **)hostaddrs->h_addr_list;
+
+			// Gather the first address corresponding to the given name
+			if(addr_list[0]==nullptr) {
+				std::cerr << "Error: address resolution failed for " << dest_ip << ". No IP addresses found for given host name." << std::endl;
+				closeUDPsocket();
+				return -4;
+			} else {
+				dest_address.sin_addr=*addr_list[0];
+			}
+		} else {
+			closeUDPsocket();
+			return -4;
+		}
 	}
 
 	dest_address.sin_port = htons(dest_port);
 
 	if(connect(m_udp_sockfd,(struct sockaddr*) &dest_address,addrlen)<0) {
-		close(m_udp_sockfd);
-		return -1;
+		closeUDPsocket();
+		return -5;
 	}
 
 	return m_udp_sockfd;

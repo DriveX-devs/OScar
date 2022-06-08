@@ -5,6 +5,7 @@
 
 #include "basicHeader.h"
 #include <bitset>
+#include <cstring>
 
 basicHeader::basicHeader() {
     m_version = 0;

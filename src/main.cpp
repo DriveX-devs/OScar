@@ -224,7 +224,15 @@ int main (int argc, char *argv[]) {
 			GN.setStationProperties(vehicleID,StationType_passengerCar);
 
 			if(udp_sock_addr!="dis") {
-				GN.openUDPsocket(udp_sock_addr,udp_bind_ip);
+				int rval;
+
+				rval=GN.openUDPsocket(udp_sock_addr,udp_bind_ip);
+
+				if(rval<0) {
+					std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: " << rval << ". Additional details: " << (errno==0 ? "None" : strerror(errno)) << std::endl;
+					close(sockfd);
+					exit(EXIT_FAILURE);
+				}
 			}
 
 			btp BTP;
