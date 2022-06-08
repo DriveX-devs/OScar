@@ -272,18 +272,21 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 
 	uint8_t *finalPktBufferUDP = nullptr;
 	ssize_t finalPktSizeUDP;
-	if(m_extra_position_udp) {
-		extralatlon_t extra_position={.lat=longPV.latitude,.lon=longPV.longitude};
 
-		finalPktBufferUDP = new uint8_t[finalPktSize+sizeof(extralatlon_t)];
-		memcpy(finalPktBufferUDP,&extra_position,sizeof(extralatlon_t));
+	if(m_udp_sockfd>0) {
+		if(m_extra_position_udp) {
+			extralatlon_t extra_position;
+			extra_position.lat=htons(longPV.latitude);
+			extra_position.lon=htons(longPV.longitude);
+
+			finalPktBufferUDP = new uint8_t[finalPktSize+sizeof(extralatlon_t)];
+			memcpy(finalPktBufferUDP,&extra_position,sizeof(extralatlon_t));
 
 
-		finalPktSizeUDP=finalPktSizeUDP+sizeof(extralatlon_t);
-	} else {
-		// Same pointers and same size if no extra data is added
-		finalPktBufferUDP=finalPktBuffer;
-		finalPktSizeUDP=finalPktSize;
+			finalPktSizeUDP=dataRequest.data.getBufferSize()+sizeof(extralatlon_t);
+		} else {
+			finalPktSizeUDP=dataRequest.data.getBufferSize();
+		}
 	}
 
 	struct ether_header ethHead;
@@ -294,10 +297,15 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	ethHead.ether_type=htons(GN_ETHERTYPE);
 
 	memcpy(finalPktBuffer,&ethHead,sizeof(struct ether_header));
+
 	memcpy(finalPktBuffer+sizeof(struct ether_header),dataRequest.data.getBufferPointer(),dataRequest.data.getBufferSize());
 
-	if(m_extra_position_udp) {
-		memcpy(finalPktBufferUDP,finalPktBuffer,finalPktSize);
+	if(m_udp_sockfd>0) {
+		if(m_extra_position_udp) {
+			memcpy(finalPktBufferUDP,dataRequest.data.getBufferPointer(),dataRequest.data.getBufferSize());
+		} else {
+			memcpy(finalPktBufferUDP+sizeof(extralatlon_t),dataRequest.data.getBufferPointer(),dataRequest.data.getBufferSize());
+		}
 	}
 
 	errno=0;

@@ -86,7 +86,7 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<std::string> UDPBindIPArg("U","udp-bind-ip","This options is valid only if --udp-sock-addr/-u has been specified. It can be used to set an interface/address to bind the UDP socket to. By default, no specific address is used for binding (i.e., binding to any address/interface).",false,"0.0.0.0","string");
 		cmd.add(UDPBindIPArg);
 
-		TCLAP::SwitchArg ExtraPosUDPArg("x","add-extra-position-udp","This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",false);
+		TCLAP::SwitchArg ExtraPosUDPArg("X","add-extra-position-udp","This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",false);
 		cmd.add(ExtraPosUDPArg);
 
 		cmd.parse(argc,argv);
@@ -128,7 +128,7 @@ int main (int argc, char *argv[]) {
 	}
 
 	if(extra_position_udp==true && udp_sock_addr=="dis") {
-		std::cerr << "Error. --add-extra-position-udp/-x can only be specified when --udp-sock-addr/-u is specified too." << std::endl;
+		std::cerr << "Error. --add-extra-position-udp/-X can only be specified when --udp-sock-addr/-u is specified too." << std::endl;
 
 		return 1;
 	}
@@ -156,7 +156,7 @@ int main (int argc, char *argv[]) {
 	sockfd=socket(AF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
 
 	if(sockfd<0) {
-		std::cerr << "Critical error: cannot open UDP socket for CAM dissemination.\n" << std::endl;
+		std::cerr << "Critical error: cannot open raw socket for CAM dissemination. Details: " << strerror(errno) << "\n" << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
