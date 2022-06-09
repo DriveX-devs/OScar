@@ -236,7 +236,7 @@ int main (int argc, char *argv[]) {
 			if(udp_sock_addr!="dis") {
 				int rval;
 
-				rval=GN.openUDPsocket(udp_sock_addr,udp_bind_ip);
+				rval=GN.openUDPsocket(udp_sock_addr,udp_bind_ip,extra_position_udp);
 
 				if(rval<0) {
 					std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: " << rval << ". Additional details: " << (errno==0 ? "None" : strerror(errno)) << std::endl;

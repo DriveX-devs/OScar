@@ -271,21 +271,21 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	uint8_t *finalPktBuffer = new uint8_t[finalPktSize];
 
 	uint8_t *finalPktBufferUDP = nullptr;
-	ssize_t finalPktSizeUDP;
+	ssize_t finalPktSizeUDP = 0;
 
 	if(m_udp_sockfd>0) {
 		if(m_extra_position_udp) {
 			extralatlon_t extra_position;
-			extra_position.lat=htons(longPV.latitude);
-			extra_position.lon=htons(longPV.longitude);
-
-			finalPktBufferUDP = new uint8_t[finalPktSize+sizeof(extralatlon_t)];
-			memcpy(finalPktBufferUDP,&extra_position,sizeof(extralatlon_t));
-
+			extra_position.lat=htonl(longPV.latitude);
+			extra_position.lon=htonl(longPV.longitude);
 
 			finalPktSizeUDP=dataRequest.data.getBufferSize()+sizeof(extralatlon_t);
+			finalPktBufferUDP = new uint8_t[finalPktSizeUDP];
+
+			memcpy(finalPktBufferUDP,&extra_position,sizeof(extralatlon_t));
 		} else {
 			finalPktSizeUDP=dataRequest.data.getBufferSize();
+			finalPktBufferUDP = new uint8_t[finalPktSizeUDP];
 		}
 	}
 
@@ -302,9 +302,9 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 
 	if(m_udp_sockfd>0) {
 		if(m_extra_position_udp) {
-			memcpy(finalPktBufferUDP,dataRequest.data.getBufferPointer(),dataRequest.data.getBufferSize());
-		} else {
 			memcpy(finalPktBufferUDP+sizeof(extralatlon_t),dataRequest.data.getBufferPointer(),dataRequest.data.getBufferSize());
+		} else {
+			memcpy(finalPktBufferUDP,dataRequest.data.getBufferPointer(),dataRequest.data.getBufferSize());
 		}
 	}
 
@@ -314,7 +314,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	}
 
 	if(m_udp_sockfd>0) {
-		if(send(m_udp_sockfd,finalPktBufferUDP,finalPktSize,0)!=finalPktSize) {
+		if(send(m_udp_sockfd,finalPktBufferUDP,finalPktSizeUDP,0)!=finalPktSizeUDP) {
 			std::cerr << "Cannot send SHB GN packet via UDP. Error details: " << strerror(errno) << std::endl;
 		}
 	}
