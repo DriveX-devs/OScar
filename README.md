@@ -160,3 +160,9 @@ logread
 This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
 For any question, please write to _francescorav.es483@gmail.com_. Thanks!
+
+
+
+# Used libraries
+
+This project uses internally the _TCLAP - Templatized Command Line Argument Parser_ library.
