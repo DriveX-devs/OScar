@@ -15,6 +15,7 @@
 #include "shbHeader.h"
 #include "gbcHeader.h"
 #include "gpsc.h"
+#include "VRUdp.h"
 
 #define GN_ETHERTYPE 0x8947
 
@@ -28,10 +29,13 @@ class GeoNet {
 		void setStationID(unsigned long fixed_stationid);
 		void setStationType(long fixed_stationtype);
 		void setVDP(VDPGPSClient* vdp);
+		void setVRUdp(VRUdp* vrudp);
 		void setSocketTx(int socket_tx_descr,int ifindex,uint8_t srcmac[6]);
 		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest);
 		
-		void setLogFile(std::string camfile) {m_log_filename=camfile;}
+		gnError_e decodeGN(unsigned char * packet, GNDataIndication_t* dataIndication);
+		
+		void setLogFile(std::string msgfile) {m_log_filename=msgfile;}
 
 		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp=false);
 		void closeUDPsocket();
@@ -43,7 +47,11 @@ class GeoNet {
 
 		GNDataConfirm_t sendSHB(GNDataRequest_t dataRequest,commonHeader commonHeader,basicHeader basicHeader,GNlpv_t longPV);
 		GNDataConfirm_t sendGBC(GNDataRequest_t dataRequest,commonHeader commonHeader, basicHeader basicHeader,GNlpv_t longPV);
+		GNDataIndication_t* processSHB(GNDataIndication_t* dataIndication);
+		GNDataIndication_t* processGBC(GNDataIndication_t* dataIndication, uint8_t shape);
+		
 		uint8_t encodeLT (double seconds);
+		bool decodeLT(uint8_t lifeTime, double * seconds);
 		bool isInsideGeoArea(GeoArea_t geoArea);
 		void MakeManagedconfiguredAddress (uint8_t addr[8], uint8_t ITSType, uint8_t out_addr[8]);
 
@@ -54,6 +62,7 @@ class GeoNet {
 		int m_socket_tx=-1;
 
 		VDPGPSClient* m_vdp;
+		VRUdp* m_vrudp;
 		StationID_t m_station_id;
 		StationType_t m_stationtype;
 

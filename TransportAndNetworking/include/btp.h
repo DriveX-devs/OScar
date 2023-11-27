@@ -9,11 +9,13 @@
 #include "btpHeader.h"
 #include "geonet.h"
 #include "gpsc.h"
+#include "VRUdp.h"
 #include <cstdint>
 #include <cstring>
 
 #define CA_PORT 2001
 #define DEN_PORT 2002
+#define VA_PORT 2018
 
 class btp {
     public :
@@ -25,9 +27,12 @@ class btp {
         void setStationID(unsigned long fixed_stationid) {m_geonet->setStationID(fixed_stationid);}
         void setStationType(long fixed_stationtype) {m_geonet->setStationType(fixed_stationtype);}
         void setVDP(VDPGPSClient* vdp){m_geonet->setVDP(vdp);}
+        void setVRUdp(VRUdp* vrudp){m_geonet->setVRUdp(vrudp);}
         void sendBTP(BTPDataRequest_t dataRequest);
+        
+        btpError_e decodeBTP(GNDataIndication_t dataIndication, BTPDataIndication_t* btpDataIndication);
 
-		void setLogFile(std::string camfile) {m_log_filename=camfile;}
+	void setLogFile(std::string camfile) {m_log_filename=camfile;}
     private:
         GeoNet *m_geonet;
         

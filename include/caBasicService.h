@@ -11,7 +11,6 @@
 #include <thread>
 extern "C" {
   #include "CAM.h"
-  #include "CAMEnhanced.h"
 }
 
 typedef enum {
@@ -40,6 +39,7 @@ public:
   void setStationType(long fixed_stationtype);
   void setRSU() {m_vehicle=false;}
   void setVDP(VDPGPSClient* vdp) {m_vdp=vdp;}
+  void setLDM(ldmmap::LDMMap* LDM) {m_LDM=LDM;}
 
   // A BTP object must always be associated with the CA Basic service
   void setBTP(btp *btp){m_btp = btp;}
@@ -59,19 +59,10 @@ public:
 
   uint64_t terminateDissemination();
 
-  void enableEnhancedCAMs() {m_enhanced_CAMs=true;}
-  void disableEnhancedCAMs() {m_enhanced_CAMs=false;}
-
-  void setEnhancedCAMAuxiliaryMAC(std::string encam_auxiliary_MAC) {m_encam_auxiliary_MAC=encam_auxiliary_MAC;}
-  void setExtraComputationDeviceIP(std::string extra_dev_ip) {m_extra_computation_device_ip_addr=extra_dev_ip;}
-
   void setOwnPrivateIP(std::string own_private_IP) {m_own_private_IP=own_private_IP;}
   void setOwnPublicIP(std::string own_public_IP) {m_own_public_IP=own_public_IP;}
   void disableOwnPrivateIP() {m_own_private_IP="0.0.0.0";}
   void disableOwnPublicIP() {m_own_private_IP="0.0.0.0";}
-
-  // This function has an effect only if called before startCamDissemination()
-  void enableAuxRSSIRetrieval(double rssi_aux_update_interval_msec, std::string auxiliary_device_ip_addr) {m_rssi_aux_update_interval_msec=rssi_aux_update_interval_msec; m_auxiliary_device_ip_addr=auxiliary_device_ip_addr;}
 
   const long T_GenCamMin_ms = 100;
   const long T_GenCamMax_ms = 1000;
@@ -85,14 +76,6 @@ private:
   // Main function to generate and send a new CAM
   CABasicService_error_t generateAndEncodeCam();
   int64_t computeTimestampUInt64();
-
-  // Special thread function to retrieve RSSI values from a connected RouterOS-based device
-  void routerOS_RSSI_retriever();
-
-  std::map<std::string,double> m_routeros_rssi; // Auxiliary RouterOS-based device RSSI map (<MAC address>,<RSSI value>)
-  std::mutex m_routeros_rssi_mutex;
-
-  std::atomic<bool> m_terminate_routeros_rssi_flag;
 
   btp *m_btp; // The BTP object has a reference to a GeoNetworking object, which in turn has the right socket descriptor to enable the dissemination of CAMs
 
@@ -109,6 +92,8 @@ private:
 
   bool m_vehicle;
   VDPGPSClient* m_vdp;
+  
+  ldmmap::LDMMap* m_LDM;
 
   StationID_t m_station_id;
   StationType_t m_stationtype;
@@ -137,18 +122,6 @@ private:
 
   std::atomic<bool> m_terminateFlag;
 
-  bool m_enhanced_CAMs;
-
-  std::string m_encam_auxiliary_MAC;
-
-  // Any value <= 0 disables the Aux RSSI retrieval for enhanced CAMs (default value set in the constructor = -1)
-  double m_rssi_aux_update_interval_msec;
-  // The value of this option is used only if m_rssi_aux_update_interval_msec>0
-  std::string m_auxiliary_device_ip_addr;
-  // Pointer to the thread object for the Aux RSSI retrieval
-  std::unique_ptr<std::thread> m_aux_rssi_thr_ptr;
-
-  std::string m_extra_computation_device_ip_addr;
   int m_edcp_sock;
 
   // Extra information which can be optionally disseminated through Enhanced CAMs

@@ -4,9 +4,72 @@
 
 struct asn_TYPE_descriptor_s;	/* Forward declaration */
 
-extern struct asn_TYPE_descriptor_s asn_DEF_CAMEnhanced;
+extern struct asn_TYPE_descriptor_s asn_DEF_GddStructure;
+extern struct asn_TYPE_descriptor_s asn_DEF_ActualNumberOfPassengers;
+extern struct asn_TYPE_descriptor_s asn_DEF_AddRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_ChannelRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_ChannelRs;
+extern struct asn_TYPE_descriptor_s asn_DEF_CopyRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_CreditRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_CreditRs;
+extern struct asn_TYPE_descriptor_s asn_DEF_DebitRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_DebitRs;
+extern struct asn_TYPE_descriptor_s asn_DEF_GetInstanceRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_GetStampedRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_SetMMIRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_SubRq;
+extern struct asn_TYPE_descriptor_s asn_DEF_CO2EmissionValue;
+extern struct asn_TYPE_descriptor_s asn_DEF_ContractSerialNumber;
+extern struct asn_TYPE_descriptor_s asn_DEF_ContractAuthenticator;
+extern struct asn_TYPE_descriptor_s asn_DEF_ContractValidity;
+extern struct asn_TYPE_descriptor_s asn_DEF_ContractVehicle;
+extern struct asn_TYPE_descriptor_s asn_DEF_EFC_ContextMark;
+extern struct asn_TYPE_descriptor_s asn_DEF_Engine;
+extern struct asn_TYPE_descriptor_s asn_DEF_EquipmentOBUId;
+extern struct asn_TYPE_descriptor_s asn_DEF_EquipmentStatus;
+extern struct asn_TYPE_descriptor_s asn_DEF_PaymentMeans;
+extern struct asn_TYPE_descriptor_s asn_DEF_PaymentMeansBalance;
+extern struct asn_TYPE_descriptor_s asn_DEF_PaymentMeansUnit;
+extern struct asn_TYPE_descriptor_s asn_DEF_PaymentSecurityData;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptContract;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptData1;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptData2;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptDistance;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptFinancialPart;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptICC_Id;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptOBUId;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptServicePart;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptServiceSerialNumber;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptAuthenticator;
+extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptText;
+extern struct asn_TYPE_descriptor_s asn_DEF_SessionClass;
+extern struct asn_TYPE_descriptor_s asn_DEF_TrailerDetails;
+extern struct asn_TYPE_descriptor_s asn_DEF_TrailerLicencePlateNumber;
+extern struct asn_TYPE_descriptor_s asn_DEF_ValidityOfContract;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleAuthenticator;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleAxles;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleClass;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleLicencePlateNumber;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleIdentificationNumber;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleSpecificCharacteristics;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleTotalDistance;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleWeightLaden;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleCurrentMaxTrainWeight;
+extern struct asn_TYPE_descriptor_s asn_DEF_IVI;
 extern struct asn_TYPE_descriptor_s asn_DEF_CAM;
 extern struct asn_TYPE_descriptor_s asn_DEF_DENM;
+extern struct asn_TYPE_descriptor_s asn_DEF_ConnectionManeuverAssist_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_ConnectionTrajectory_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_IntersectionState_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_LaneAttributes_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_MapData_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_MovementEvent_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_NodeAttributeSet_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_Position3D_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_RestrictionUserType_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_RequestorDescription_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_SignalStatusPackage_addGrpC;
+extern struct asn_TYPE_descriptor_s asn_DEF_RTCMcorrections;
 extern struct asn_TYPE_descriptor_s asn_DEF_TrafficConditionSubCauseCode;
 extern struct asn_TYPE_descriptor_s asn_DEF_AccidentSubCauseCode;
 extern struct asn_TYPE_descriptor_s asn_DEF_HumanPresenceOnTheRoadSubCauseCode;
@@ -32,15 +95,88 @@ extern struct asn_TYPE_descriptor_s asn_DEF_VehicleBreakdownSubCauseCode;
 extern struct asn_TYPE_descriptor_s asn_DEF_PostCrashSubCauseCode;
 extern struct asn_TYPE_descriptor_s asn_DEF_DigitalMap;
 extern struct asn_TYPE_descriptor_s asn_DEF_OpeningDaysHours;
+extern struct asn_TYPE_descriptor_s asn_DEF_IVIM;
+extern struct asn_TYPE_descriptor_s asn_DEF_MAPEM;
+extern struct asn_TYPE_descriptor_s asn_DEF_SPATEM;
+extern struct asn_TYPE_descriptor_s asn_DEF_SREM;
+extern struct asn_TYPE_descriptor_s asn_DEF_SSEM;
 
 
 struct asn_TYPE_descriptor_s *asn_pdu_collection[] = {
-	/* From module CAM-PDU-Descriptions in ASNfiles/ETSI CAM v1.4.1enh.asn */
-	&asn_DEF_CAMEnhanced,	
+	/* From module GDD in /home/carlosrisma/IVIM ASN1 files/asn1_IS_ISO_TS_14823_GDD.asn */
+	&asn_DEF_GddStructure,	
+	/* From module EfcDsrcApplication in /home/carlosrisma/IVIM ASN1 files/asn1_IS_ISO_TS_14906_EfcDsrcApplication.asn */
+	&asn_DEF_ActualNumberOfPassengers,	
+	&asn_DEF_AddRq,	
+	&asn_DEF_ChannelRq,	
+	&asn_DEF_ChannelRs,	
+	&asn_DEF_CopyRq,	
+	&asn_DEF_CreditRq,	
+	&asn_DEF_CreditRs,	
+	&asn_DEF_DebitRq,	
+	&asn_DEF_DebitRs,	
+	&asn_DEF_GetInstanceRq,	
+	&asn_DEF_GetStampedRq,	
+	&asn_DEF_SetMMIRq,	
+	&asn_DEF_SubRq,	
+	&asn_DEF_CO2EmissionValue,	
+	&asn_DEF_ContractSerialNumber,	
+	&asn_DEF_ContractAuthenticator,	
+	&asn_DEF_ContractValidity,	
+	&asn_DEF_ContractVehicle,	
+	&asn_DEF_EFC_ContextMark,	
+	&asn_DEF_Engine,	
+	&asn_DEF_EquipmentOBUId,	
+	&asn_DEF_EquipmentStatus,	
+	&asn_DEF_PaymentMeans,	
+	&asn_DEF_PaymentMeansBalance,	
+	&asn_DEF_PaymentMeansUnit,	
+	&asn_DEF_PaymentSecurityData,	
+	&asn_DEF_ReceiptContract,	
+	&asn_DEF_ReceiptData1,	
+	&asn_DEF_ReceiptData2,	
+	&asn_DEF_ReceiptDistance,	
+	&asn_DEF_ReceiptFinancialPart,	
+	&asn_DEF_ReceiptICC_Id,	
+	&asn_DEF_ReceiptOBUId,	
+	&asn_DEF_ReceiptServicePart,	
+	&asn_DEF_ReceiptServiceSerialNumber,	
+	&asn_DEF_ReceiptAuthenticator,	
+	&asn_DEF_ReceiptText,	
+	&asn_DEF_SessionClass,	
+	&asn_DEF_TrailerDetails,	
+	&asn_DEF_TrailerLicencePlateNumber,	
+	&asn_DEF_ValidityOfContract,	
+	&asn_DEF_VehicleAuthenticator,	
+	&asn_DEF_VehicleAxles,	
+	&asn_DEF_VehicleClass,	
+	&asn_DEF_VehicleLicencePlateNumber,	
+	&asn_DEF_VehicleIdentificationNumber,	
+	&asn_DEF_VehicleSpecificCharacteristics,	
+	&asn_DEF_VehicleTotalDistance,	
+	&asn_DEF_VehicleWeightLaden,	
+	&asn_DEF_VehicleCurrentMaxTrainWeight,	
+	/* From module IVI in /home/carlosrisma/IVIM ASN1 files/asn1_IS_ISO_TS_19321_IVI.asn */
+	&asn_DEF_IVI,	
+	/* From module CAM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/ETSI CAM v1.4.1.asn */
 	&asn_DEF_CAM,	
-	/* From module DENM-PDU-Descriptions in ASNfiles/ETSI DENM v1.3.1.asn */
+	/* From module DENM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/ETSI DENM v1.3.1.asn */
 	&asn_DEF_DENM,	
-	/* From module ITS-Container in ASNfiles/ITS-Container_v2.asn */
+	/* From module AddGrpC in /home/carlosrisma/IVIM ASN1 files/ISO-TS-19091.asn */
+	&asn_DEF_ConnectionManeuverAssist_addGrpC,	
+	&asn_DEF_ConnectionTrajectory_addGrpC,	
+	&asn_DEF_IntersectionState_addGrpC,	
+	&asn_DEF_LaneAttributes_addGrpC,	
+	&asn_DEF_MapData_addGrpC,	
+	&asn_DEF_MovementEvent_addGrpC,	
+	&asn_DEF_NodeAttributeSet_addGrpC,	
+	&asn_DEF_Position3D_addGrpC,	
+	&asn_DEF_RestrictionUserType_addGrpC,	
+	&asn_DEF_RequestorDescription_addGrpC,	
+	&asn_DEF_SignalStatusPackage_addGrpC,	
+	/* From module DSRC in /home/carlosrisma/IVIM ASN1 files/ISO-TS-19091.asn */
+	&asn_DEF_RTCMcorrections,	
+	/* From module ITS-Container in /home/carlosrisma/IVIM ASN1 files/ITS-Container.asn */
 	&asn_DEF_TrafficConditionSubCauseCode,	
 	&asn_DEF_AccidentSubCauseCode,	
 	&asn_DEF_HumanPresenceOnTheRoadSubCauseCode,	
@@ -66,6 +202,16 @@ struct asn_TYPE_descriptor_s *asn_pdu_collection[] = {
 	&asn_DEF_PostCrashSubCauseCode,	
 	&asn_DEF_DigitalMap,	
 	&asn_DEF_OpeningDaysHours,	
+	/* From module IVIM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/IVIM-PDU-Descriptions.asn */
+	&asn_DEF_IVIM,	
+	/* From module MAPEM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/MAPEM-PDU-Descriptions.asn */
+	&asn_DEF_MAPEM,	
+	/* From module SPATEM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/SPATEM-PDU-Descriptions.asn */
+	&asn_DEF_SPATEM,	
+	/* From module SREM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/SREM-PDU-Descriptions.asn */
+	&asn_DEF_SREM,	
+	/* From module SSEM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/SSEM-PDU-Descriptions.asn */
+	&asn_DEF_SSEM,	
 	0
 };
 

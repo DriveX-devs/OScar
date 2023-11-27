@@ -22,6 +22,8 @@ public:
     void setSourcePort(uint16_t port) {m_source_destInfo = port;}
 
     static void printBTPheader(packetBuffer &packet, std::string filename);
+    
+    void removeHeader(unsigned char * buffer);
 
     //getters
     [[nodiscard]] uint16_t getDestPort() const {return m_destinationPort;}

@@ -14,6 +14,8 @@ class commonHeader {
 		commonHeader();
 		~commonHeader();
 		void serializeInto(packetBuffer &packet);
+		
+		void removeHeader(unsigned char * buffer);
 
 		// Getters
 		[[nodiscard]] uint8_t GetNextHeader() const {return m_nextHeader;}

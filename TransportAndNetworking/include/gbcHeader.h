@@ -17,6 +17,8 @@ class gbcHeader
 		~gbcHeader();
 
 		void serializeInto(packetBuffer &packet);
+		
+		void removeHeader(unsigned char * buffer);
 
 		//Getters
 		GNlpv_t GetLongPositionV(void) const {return m_sourcePV;}

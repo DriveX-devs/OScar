@@ -41,3 +41,14 @@ btpHeader::printBTPheader(packetBuffer &packet,std::string filename) {
     
     fclose(f_out);
 }
+
+void btpHeader::removeHeader(unsigned char * buffer) {
+
+    memcpy(&m_destinationPort, buffer, sizeof(uint16_t));
+    buffer += 2;
+    m_destinationPort = swap_16bit(m_destinationPort);
+
+    memcpy(&m_source_destInfo, buffer, sizeof(uint16_t));
+    buffer += 2;
+    m_source_destInfo = swap_16bit(m_source_destInfo);
+}

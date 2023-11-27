@@ -178,3 +178,29 @@ commonHeader::printCommonHeader(packetBuffer &packet,std::string filename) {
     
     fclose(f_out);
 }
+
+void commonHeader::removeHeader(unsigned char *buffer) {
+
+    uint8_t chNH = 0;
+    chNH = (uint8_t) *buffer;
+    buffer++;
+    m_nextHeader = chNH >> 4;
+    uint8_t headerType = 0;
+    headerType = (uint8_t) *buffer;
+    buffer++;
+    m_headerType = headerType >> 4;
+    m_headerSubType = headerType & 0x0f;
+    m_trafficClass = (uint8_t) *buffer;
+    buffer++;
+    uint8_t chflag = 0;
+    chflag = (uint8_t) *buffer;
+    buffer++;
+    m_flag = chflag >> 7;
+    memcpy(&m_payload, buffer, sizeof(uint16_t));
+    buffer += 2;
+    m_payload = swap_16bit(m_payload);
+    m_maxHopLimit = (uint8_t) *buffer;
+    buffer++;
+    m_reserved = (uint8_t) *buffer;
+    buffer++;
+}

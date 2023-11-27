@@ -15,6 +15,8 @@ class shbHeader {
 		shbHeader();
 		~shbHeader();
 		void serializeInto(packetBuffer &packet);
+		
+		void removeHeader(unsigned char * buffer);
 
 		//Getters
 		[[nodiscard]] GNlpv_t GetLongPositionV() const {return m_sourcePV;}

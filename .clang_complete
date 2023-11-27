@@ -4,3 +4,5 @@
 -Iasn1/include
 -I.
 -ITransportAndNetworking/include
+-Ivehicle-visualizer/include
+-Igeographiclib-port

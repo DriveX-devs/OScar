@@ -14,6 +14,8 @@ public:
 	basicHeader();
 	~basicHeader();
 	void serializeInto(packetBuffer &packet);
+	
+	void removeHeader(unsigned char * buffer);
 
 	//Getters
 	[[nodiscard]] uint8_t GetVersion() const {return m_version;}
