@@ -84,13 +84,21 @@ class VRUdp
 
     std::vector<distance_t> get_min_distance(ldmmap::LDMMap* LDM);
     
-    VRUdp_position_XYZ_t convertLatLontoXYZ(VRUdp_position_latlon_t pos_latlon);
-    
+    // convertLatLontoXYZ_ECEF() still does not work as expected - kept for reference but it should not be used unless you know very well what you are doing!
+    VRUdp_position_XYZ_t convertLatLontoXYZ_ECEF(VRUdp_position_latlon_t pos_latlon);
+
+    // Working properly
+    VRUdp_position_XYZ_t convertLatLontoXYZ_TM(VRUdp_position_latlon_t pos_latlon, double lon0);
+
+    void enableDebugPrints() {m_debug=true;};
+    void disableDebugPrints() {m_debug=false;};
   private:
     std::string m_server="localhost";
     long m_port=3000;
     
     struct gps_data_t m_gps_data;
+
+    bool m_debug=false;
 };
 
 #endif /* VRUdp_h */

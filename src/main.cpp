@@ -203,7 +203,8 @@ void txThr(std::string gnss_device,
 	std::string log_filename_VAM,
 	double pos_th,
 	double speed_th,
-	double head_th
+	double head_th,
+	bool rx_enabled
 	) {
 	bool m_retry_flag=false;
 
@@ -377,7 +378,10 @@ void txThr(std::string gnss_device,
 
 	vdpgpsc.closeConnection();
 	vrudp.closeConnection();
-	terminatorFlag=true;
+
+	if(enable_CAM_dissemination || enable_VAM_dissemination || !rx_enabled) {
+		terminatorFlag=true;
+	}
 }
 
 int main (int argc, char *argv[]) {
@@ -420,7 +424,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("The Open CA Basic Service implementatiuon", ' ', "0.3");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "1.1");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
@@ -552,6 +556,11 @@ int main (int argc, char *argv[]) {
 		disable_selfMAC_check=DisableSelfMACArg.getValue();
 		json_over_tcp_port=JSONserverPortArg.getValue();
 
+		if(enable_reception==false && enable_hmi==true) {
+			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
+			return 1;
+		}
+
 		std::cout << "[INFO] CAM/VAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
 		std::cerr << "TCLAP error: " << tclape.error() << " for argument " << tclape.argId() << std::endl;
@@ -656,7 +665,8 @@ int main (int argc, char *argv[]) {
 		log_filename_VAM,
 		pos_th,
 		speed_th,
-		head_th);
+		head_th,
+		enable_reception);
 	
 	// Reception loop (using the main thread)
 	if(enable_reception==true) {
@@ -684,7 +694,7 @@ int main (int argc, char *argv[]) {
 			JSONserver jsonsrv(db_ptr);
 			jsonsrv.setServerPort(json_over_tcp_port);
 			if(jsonsrv.startServer()!=true) {
-				fprintf(stderr,"Critical error: cannot start the JSON server for the client data retrieval.\n");
+				fprintf(stderr,"[ERROR] Critical error: cannot start the JSON server for the client data retrieval.\n");
 				terminatorFlag=true;
 				goto exit_failure;
 			}
@@ -701,9 +711,9 @@ int main (int argc, char *argv[]) {
 	
 	exit_failure:
 
-	terminatorFlag=true;
-
 	txThrObj.join();
+
+	terminatorFlag=true;
 	
 	pthread_join(dbcleaner_tid,nullptr);
 

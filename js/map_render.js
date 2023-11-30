@@ -1,6 +1,6 @@
 /**
  * This file contains the client JavaScript logic, in charge of receiving the coordinates of the objects
- * (i.e. the vehicles) and their heading from the server (which in turn receives them from the S-LDM via UDP).
+ * (i.e. the vehicles) and their heading from the server (which in turn receives them from OScar via UDP).
  * This script uses the received information in order to render a Leaflet JS map showing all the moving nodes.
  * The server->client communication is realized thanks to socket.io.
  */
@@ -15,6 +15,9 @@ const VIS_HEADING_INVALID = 361;
 const CAR_ICO_IDX = 0;
 const CIRCLE_ICO_IDX = 1;
 const GREEN_CIRCLE_ICO_IDX = 2;
+const DETECTED_CAR_ICO_IDX = 3;
+const DETECTED_PEDESTRIAN_ICO_IDX = 4;
+const DETECTED_TRUCK_ICO_IDX = 5;
 
 // Start socket.io()
 const socket = io();
@@ -36,13 +39,43 @@ var icon_length_circle = 144;
 var icon_height_circle = 143;
 var icon_length_circle_green = 94;
 var icon_height_circle_green = 94;
-var icon_scale_factor = 11;
-var carIcon = L.icon({
-	iconUrl: './img/triangle.png',
+var icon_length_triangle_blue = 600;
+var icon_height_triangle_blue = 600;
 
-	iconSize:     [icon_length/icon_scale_factor, icon_height/icon_scale_factor], // size of the icon
-	iconAnchor:   [icon_length/(icon_scale_factor*2), icon_height/(icon_scale_factor*2)], // point of the icon which will correspond to marker's location
+var icon_length_car = 225;
+var icon_height_car = 300;
+
+var icon_scale_factor = 10;
+var carIcon = L.icon({
+    iconUrl: './img/black_car2.png',
+
+    iconSize:     [icon_length_car/icon_scale_factor, icon_height_car/icon_scale_factor], // size of the icon
+    iconAnchor:   [icon_length_car/(icon_scale_factor*2), icon_height_car/(icon_scale_factor*2)], // point of the icon which will correspond to marker's location
 	popupAnchor:  [0, 0] // point from which the popup should open relative to the iconAnchor
+});
+
+var detectedTruckIcon = L.icon({
+    iconUrl: './img/blue_truck.png',
+
+    iconSize:     [icon_length/icon_scale_factor, icon_height/7], // size of the icon
+    iconAnchor:   [icon_length/(icon_scale_factor*2), icon_height/(7*2)], // point of the icon which will correspond to marker's location
+    popupAnchor:  [0, 0] // point from which the popup should open relative to the iconAnchor
+});
+
+var detectedPedestrianIcon = L.icon({
+    iconUrl: './img/pedestrian.png',
+
+    iconSize:     [icon_length/icon_scale_factor, icon_height/icon_scale_factor], // size of the icon
+    iconAnchor:   [icon_length/(icon_scale_factor*2), icon_height/(icon_scale_factor*2)], // point of the icon which will correspond to marker's location
+    popupAnchor:  [0, 0] // point from which the popup should open relative to the iconAnchor
+});
+
+var detectedCarIcon = L.icon({
+    iconUrl: './img/detected_car6.png',
+
+    iconSize:     [icon_length_car/icon_scale_factor, icon_height_car/icon_scale_factor], // size of the icon
+    iconAnchor:   [icon_length_car/(icon_scale_factor*2), icon_height_car/(icon_scale_factor*2)], // point of the icon which will correspond to marker's location
+    popupAnchor:  [0, 0] // point from which the popup should open relative to the iconAnchor
 });
 
 var circleIcon = L.icon({
@@ -50,7 +83,7 @@ var circleIcon = L.icon({
 
 	iconSize:     [icon_length_circle/icon_scale_factor, icon_height_circle/icon_scale_factor], // size of the icon
 	iconAnchor:   [icon_length_circle/(icon_scale_factor*2), icon_height_circle/(icon_scale_factor*2)], // point of the icon which will correspond to marker's location
-	popupAnchor:  [0, 0] // point from which the popup should open relative to the iconAnchor
+    popupAnchor:  [0, 0] // point from which the popup shoPEDESTRIANuld open relative to the iconAnchor
 });
 
 var greenCircleIcon = L.icon({
@@ -65,7 +98,7 @@ var greenCircleIcon = L.icon({
 // Receive the first message from the server
 socket.on('message', (msg) => {
 	if (msg == null) {
-		document.getElementById('statusid').innerHTML = '<p>Waiting for a connection from the S-LDM</p>';
+		document.getElementById('statusid').innerHTML = '<p>Waiting for a connection from OScar</p>';
 	} else {
 		let msg_fields = msg.split(",");
 
@@ -141,7 +174,7 @@ socket.on('message', (msg) => {
 				}
 				break;
 			// This 'case' is added just for additional safety. As the server is shut down every time a "terminate" message
-			// is received from the S-LDM and no "terminate" message is forwarded via socket.io, this point should never be
+			// is received from OScar and no "terminate" message is forwarded via socket.io, this point should never be
 			// reached
 			case 'terminate':
 				console.log("The server has been terminated.");
@@ -156,6 +189,7 @@ socket.on('message', (msg) => {
 // This function is used to update the position (and heading/rotation) of a marker/moving object on the map
 function update_marker(mapref,id,lat,lon,stationtype,heading)
 {
+	console.log("Station type:",stationtype)
 	if(mapref == null) {
 		console.error("VehicleVisualizer: null map reference when attempting to update an object")
 	} else {
@@ -166,22 +200,39 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
 			let initial_icon_idx;
 
 			if(stationtype === 0) {
-				initial_icon = greenCircleIcon;
-				initial_icon_idx = GREEN_CIRCLE_ICO_IDX;
+                initial_icon = detectedCarIcon;
+                initial_icon_idx = DETECTED_CAR_ICO_IDX;
 			} else {
 				// Set a circular icon when the heading is not available, otherwise use the regular carIcon (i.e. for the time being, a triangle)
 				if(heading >= VIS_HEADING_INVALID) {
 					initial_icon = circleIcon;
 					initial_icon_idx = CIRCLE_ICO_IDX;
 				} else {
-					initial_icon = carIcon;
-					initial_icon_idx = CAR_ICO_IDX;
+                    if(stationtype === 1) { // According to https://forge.etsi.org/rep/ITS/asn1/cdd_ts102894_2/-/blob/v2.1.1/docs/ETSI-ITS-CDD.md, a pedestrian has stationType = 1
+                        initial_icon = detectedPedestrianIcon;
+                        initial_icon_idx = DETECTED_PEDESTRIAN_ICO_IDX;
+                   } else {
+                        if (stationtype === 7 || stationtype === 8) { // According to https://forge.etsi.org/rep/ITS/asn1/cdd_ts102894_2/-/blob/v2.1.1/docs/ETSI-ITS-CDD.md, a truck has stationType = 7 or 8
+                        initial_icon = detectedTruckIcon;
+                        initial_icon_idx = DETECTED_TRUCK_ICO_IDX;
+                    } else { // Anything else is threated like a car, for the time being
+                        initial_icon = carIcon;
+                        initial_icon_idx = CAR_ICO_IDX;
+                    }}
 				}
 			}
 
 			// Attempt to use an icon marker
 			newmarker = L.marker([lat,lon], {icon: initial_icon}).addTo(mapref);
-			newmarker.setRotationAngle(heading);
+
+            if(stationtype === 1){
+               newmarker.setRotationAngle(0);
+            }else {
+               newmarker.setRotationAngle(heading);
+            }
+
+
+            //newmarker.setRotationAngle(heading);
 
 			// Old circle marker (no more used)
 			// newmarker = L.circleMarker([lat,lon],{radius: 8, fillColor: "#c48612", color: "#000000", weight: 1, opacity: 1, fillOpacity: 0.8}).addTo(mapref);
@@ -197,7 +248,11 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
 		} else {
 			let marker = markers[id];
 			marker.setLatLng([lat,lon]);
-			marker.setRotationAngle(heading);
+            if(stationtype !== 1){
+               marker.setRotationAngle(heading);
+            }
+
+            //marker.setRotationAngle(heading);
 			// Update the popup content if the heading value becomes invalid/unavailable after being available
 			// or if the heading value if actually available (to specify the most up-to-date heading value)
 			if(heading >= VIS_HEADING_INVALID && markersicons[id] === CAR_ICO_IDX) {
@@ -211,11 +266,21 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
 				if(heading >= VIS_HEADING_INVALID && (markersicons[id] === CAR_ICO_IDX || markersicons[id] === GREEN_CIRCLE_ICO_IDX)) {
 					marker.setIcon(circleIcon);
 					markersicons[id] = CIRCLE_ICO_IDX;
-				// If the heading becomes available after being unavailable, change the icon of the vehicle to the "car" icon
-				} else if(heading < VIS_HEADING_INVALID && (markersicons[id] === CIRCLE_ICO_IDX || markersicons[id] === GREEN_CIRCLE_ICO_IDX)) {
-					marker.setIcon(carIcon);
-					markersicons[id] = CAR_ICO_IDX;
-				}
+                } else {
+                    // If the heading becomes available after being unavailable, change the icon of the vehicle to the "car" icon
+                    if(heading < VIS_HEADING_INVALID && (markersicons[id] === CIRCLE_ICO_IDX || markersicons[id] === GREEN_CIRCLE_ICO_IDX)) {
+                       if(stationtype === 1) {
+                           marker.setIcon(detectedPedestrianIcon);
+                           markersicons[id] = DETECTED_PEDESTRIAN_ICO_IDX;
+                        } else if(stationtype === 7 || stationtype === 8) {
+                            marker.setIcon(detectedTruckIcon);
+                            markersicons[id] = DETECTED_TRUCK_ICO_IDX;
+                        } else {
+                           marker.setIcon(carIcon);
+                           markersicons[id] = CAR_ICO_IDX;
+                       }
+                    }
+                }
 			} else {
 				if(markersicons[id] === CAR_ICO_IDX || markersicons[id] === CIRCLE_ICO_IDX) {
 					marker.setIcon(greenCircleIcon);
@@ -249,7 +314,7 @@ function draw_map(lat,lon,minlat,minlon,maxlat,maxlon,lat_ext_factor,lon_ext_fac
 	if(mapbox_token != null) {
 		hybridlayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=' + mapbox_token, {
 			maxZoom: 30,
-			attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> | S-LDM vehicle visualizer hybrid view',
+			attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> | OScar vehicle visualizer hybrid view',
 			id: 'mapbox/satellite-streets-v11',
 			tileSize: 512,
 			zoomOffset: -1,
@@ -259,7 +324,7 @@ function draw_map(lat,lon,minlat,minlon,maxlat,maxlon,lat_ext_factor,lon_ext_fac
 
 		satellitelayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=' + mapbox_token, {
 			maxZoom: 30,
-			attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> | S-LDM vehicle visualizer satellite view',
+			attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> | OScar vehicle visualizer satellite view',
 			id: 'mapbox/satellite-v9',
 			tileSize: 512,
 			zoomOffset: -1,
@@ -269,7 +334,7 @@ function draw_map(lat,lon,minlat,minlon,maxlat,maxlon,lat_ext_factor,lon_ext_fac
 
 		standardlayer = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token=' + mapbox_token, {
 			maxZoom: 30,
-			attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> | S-LDM vehicle visualizer streets view',
+			attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> | OScar vehicle visualizer streets view',
 			id: 'mapbox/streets-v11',
 			tileSize: 512,
 			zoomOffset: -1,

@@ -16,6 +16,7 @@
 #define NANO_TO_CENTI       10000000
 
 #define DEG_2_RAD_ASN_UTILS(val) ((val)*M_PI/180.0)
+#define RAD_2_DEG_ASN_UTILS(val) ((val)*180.0/M_PI)
 
 //Epoch time at 2004-01-01
 #define TIME_SHIFT 1072915200000

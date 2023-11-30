@@ -1,6 +1,6 @@
 /**
  * This file contains the server logic. The server should always be launched with Node.js (i.e. node server.js).
- * The goal of the Node.js server script is to read the object information from the S-LDM (via UDP/dgram socket) and
+ * The goal of the Node.js server script is to read the object information from OScar (via UDP/dgram socket) and
  * pass it to the client via socket.io.
  * This Node.js code also sets up an HTTP server for the client (i.e. the browser) to connect to.
  */
@@ -12,19 +12,18 @@ const fs = require('fs');
 const path = require('path');
 
 var filepath = path.join(__dirname, 'mapbox_token');
-fs.readFile(filepath, 'utf8', function (err,data) {
-    if (err) {
-        console.log("Cannot read the mapbox_token file. Error: ",err);
-        process.exit(1);
-    }
-
-    if(data.length !== 0) {
-        let splitted_data = data.split(/\r\n|\r|\n/);
+try {
+	const filedata = fs.readFileSync(filepath, 'utf8');
+	if(filedata.length !== 0) {
+        let splitted_data = filedata.split(/\r\n|\r|\n/);
         mapbox_token = splitted_data[0];
 
         console.log("Vehicle Visualizer: specified a Mapbox token via the mapbox_token file.");
     }
-});
+} catch (err) {
+	console.log("Cannot read the mapbox_token file. Error: ",err);
+	process.exit(1);
+}
 
 // Read the server port as a command line option
 var server_argv = process.argv.slice(2);
@@ -35,7 +34,7 @@ if(server_argv.length!=4) {
 } else {
     console.log("VehicleVisualizer: HTTP server listening on port: " + server_argv[0]);
     console.log("VehicleVisualizer: UDP socket bound at: " + server_argv[1] + ":" +  server_argv[2]);
-    console.log("VehicleVisualizer: PID of the S-LDM: " + server_argv[3])
+    console.log("VehicleVisualizer: PID of OScar: " + server_argv[3])
 }
 
 // Create a new HTTP server with express.static
@@ -45,7 +44,7 @@ app.use(express.static(path.join(__dirname, '/')));
 
 const http = require('http').Server(app);
 
-// Create a UDP socket to receive the data from the S-LDM
+// Create a UDP socket to receive the data from OScar
 // As port, 48110 is used
 const dgram = require('dgram');
 const udpSocket = dgram.createSocket('udp4');
@@ -63,18 +62,18 @@ udpSocket.on('listening', () => {
     var bindport = address.port;
     console.log('VehicleVisualizer: UDP connection ready at %s:%s',bindaddr,bindport);
 
-    // Inform the S-LDM that the node.js server execution was successful, by writing to the proper FIFO special file
+    // Inform OScar that the node.js server execution was successful, by writing to the proper FIFO special file
     fs.appendFileSync('/tmp/vehvizfifo' + server_argv[3],'STARTED');
 });
 
-// map draw message container -> this variable will contain a copy of the "map draw" message received by the S-LDM at the beginning
+// map draw message container -> this variable will contain a copy of the "map draw" message received by OScar at the beginning
 // of the simulation/emulation session
 // It is needed, as, when a new client connects (and it can connect in any moment), the first message which should be sent
 // is the "map" one, to let it render the map centered at the proper coordinates
 // This message should indeed be received by the client before attempting to render any other moving object
 var mapmsg = null;
 
-// This callback is the most important one, as it is called every time a new UDP packet is received from the S-LDM
+// This callback is the most important one, as it is called every time a new UDP packet is received from OScar
 // As a new packet is received, its content is forwarded to the client (i.e. the browser) via socket.io
 udpSocket.on('message', (msg,rinfo) => {
     // console.log('I have received from %s:%s the message: %s',rinfo.address,rinfo.port,msg);
@@ -84,27 +83,27 @@ udpSocket.on('message', (msg,rinfo) => {
     // If a "map" initial message is received, and the content appears to be correct, save it inside "mapmsg"
     if(msg_fields[0] === "map") {
         if (msg_fields.length !== 3) {
-            console.error("Error: received a corrupted map draw message from the S-LDM.");
+            console.error("Error: received a corrupted map draw message from OScar.");
             process.exit(1);
         } else if(msg_fields.length === 3 && mapmsg != null) {
-            console.error("Error: received twice a map draw message from the S-LDM. This is not allowed");
+            console.error("Error: received twice a map draw message from OScar. This is not allowed");
             process.exit(1);
         } else {
-            console.log("VehicleVisualizer: Map draw message received from the S-LDM.");
+            console.log("VehicleVisualizer: Map draw message received from OScar.");
             mapmsg = msg.toString() + "," + mapbox_token;
         }
     } else if(msg_fields[0] === "map_areas") {
         if (msg_fields.length !== 9) {
-            console.error("Error: received a corrupted map draw message from the S-LDM (map_areas type).");
+            console.error("Error: received a corrupted map draw message from OScar (map_areas type).");
             process.exit(1);
         } else if(msg_fields.length === 9 && mapmsg != null) {
-            console.error("Error: received twice a map draw message from the S-LDM. This is not allowed");
+            console.error("Error: received twice a map draw message from OScar. This is not allowed");
             process.exit(1);
         } else {
-            console.log("VehicleVisualizer: Map draw message received from the S-LDM.");
+            console.log("VehicleVisualizer: Map draw message received from OScar.");
             mapmsg = msg.toString() + "," + mapbox_token;
         }
-    // If a "terminate" message is received from the S-LDM, just close the server
+    // If a "terminate" message is received from OScar, just close the server
     } else if(msg_fields[0] === "terminate") {
         // This message is sent to terminate the Node.js server
         console.log("VehicleVisualizer: The server received a terminate message. The execution will be terminated.");

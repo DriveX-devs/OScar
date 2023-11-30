@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<v2x>
+  <testcase name="Turin crash" description="" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+    <vehicle type="car" name="PedestrianVRU" length="4" width="5" height="3" color="138.226.52" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+      <waypoint x="139,685" y="39,025" z="-135,000" speed="1,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+      <waypoint x="11,825" y="102,953" z="-143,000" speed="1,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+    </vehicle>
+    <vehicle type="car" name="CrashingCar" length="462" width="178" height="146" color="239.41.41" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+      <waypoint x="-81,282" y="-127,703" z="-140,000" speed="2,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+      <waypoint x="33,521" y="106,007" z="-144,000" speed="2,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+    </vehicle>
+  </testcase>
+  <testcase name="Turin crash still vehicle" description="" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+    <vehicle type="car" name="PedestrianVRU" length="4" width="5" height="3" color="138.226.52" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+      <waypoint x="139,685" y="39,025" z="-135,000" speed="1,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+      <waypoint x="11,825" y="102,953" z="-143,000" speed="1,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+    </vehicle>
+    <vehicle type="car" name="CrashingCar" length="462" width="178" height="146" color="239.41.41" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+      <waypoint x="-81,282" y="-127,703" z="-140,000" speed="2,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+      <waypoint x="33,521" y="106,007" z="-144,000" speed="2,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+    </vehicle>
+  </testcase>
+  <testcase name="Turin front" description="" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+    <vehicle type="car" name="PedestrianVRU" length="4" width="5" height="3" color="138.226.52" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+      <waypoint x="89,235" y="113,300" z="-135,000" speed="1,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+      <waypoint x="146,320" y="65,065" z="-143,000" speed="1,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+    </vehicle>
+    <vehicle type="car" name="CrashingCar" length="462" width="178" height="146" color="239.41.41" reflat="45,067592" reflon="7,662647" refelev="440,000000">
+      <waypoint x="142,633" y="100,005" z="-135,000" speed="1,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+      <waypoint x="9,613" y="101,424" z="-143,000" speed="1,000" x_error="1,000" y_error="1,000" z_error="1,000"/>
+    </vehicle>
+  </testcase>
+</v2x>

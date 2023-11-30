@@ -319,7 +319,7 @@ void VRUBasicService::checkVamConditions(){
   		}
   		
   		// Computation of the longitudinal safe distance
-  		m_long_safe_d = abs(m_VRUdp->getPedSpeedValue ()/(T_GenVamMax_ms/1000));
+  		m_long_safe_d = abs(m_VRUdp->getPedSpeedValue ()*(T_GenVamMax_ms/1000));
 
   		// Get the minimum distance of other vehicles/pedestrians from the current pedestrian
   		m_min_dist = m_VRUdp->get_min_distance (m_LDM);
@@ -456,20 +456,20 @@ void VRUBasicService::checkVamConditions(){
             numConditions++;
           }
           
-          fprintf(stdout,"[TBR] (%.7lf<%.7lf && %.7lf<%.7lf && %.7lf<%.7lf) || (%.7lf<%.7lf && %.7lf<%.7lf && %.7lf<%.7lf)\n",
-            m_min_dist[1].longitudinal,
-            m_long_safe_d,
-            m_min_dist[1].lateral,
-            m_lat_safe_d,
-            m_min_dist[1].vertical,
-            m_vert_safe_d,
-            m_min_dist[0].longitudinal,
-            m_long_safe_d,
-            m_min_dist[0].lateral,
-            m_lat_safe_d,
-            m_min_dist[0].vertical,
-            m_vert_safe_d
-            );
+          // fprintf(stdout,"[TBR] (%.7lf<%.7lf && %.7lf<%.7lf && %.7lf<%.7lf) || (%.7lf<%.7lf && %.7lf<%.7lf && %.7lf<%.7lf)\n",
+          //   m_min_dist[1].longitudinal,
+          //   m_long_safe_d,
+          //   m_min_dist[1].lateral,
+          //   m_lat_safe_d,
+          //   m_min_dist[1].vertical,
+          //   m_vert_safe_d,
+          //   m_min_dist[0].longitudinal,
+          //   m_long_safe_d,
+          //   m_min_dist[0].lateral,
+          //   m_lat_safe_d,
+          //   m_min_dist[0].vertical,
+          //   m_vert_safe_d
+          //   );
 
           if((m_min_dist[1].longitudinal < m_long_safe_d && m_min_dist[1].lateral < m_lat_safe_d && m_min_dist[1].vertical < m_vert_safe_d) || (m_min_dist[0].longitudinal < m_long_safe_d && m_min_dist[0].lateral < m_lat_safe_d && m_min_dist[0].vertical < m_vert_safe_d)){
           	motivation="safe_distances";

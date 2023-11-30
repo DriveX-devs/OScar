@@ -10,6 +10,9 @@
 // Unavailable value for the RSSI
 #define RSSI_UNAVAILABLE -80000
 
+// Unavailable value for the heading
+#define LDM_HEADING_UNAVAILABLE 3601.0
+
 // Facility macro to convert from DEG to RAD
 #define DEG_2_RAD_AIM(val) ((val)*M_PI/180.0)
 

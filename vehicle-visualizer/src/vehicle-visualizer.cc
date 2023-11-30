@@ -219,10 +219,10 @@ vehicleVisualizer::startServer()
 	std::string servercmd;
 
 	// Create a FIFO special file (see https://linux.die.net/man/3/mkfifo) for the "startup communication"
-	// between the S-LDM and the node.js server we are going to start
-	// Basically this file will be used as a pipe to tell the S-LDM when the node.js server UDP socket
-	// creation is complete, so that the S-LDM can start sending information to the server
-	// The special FIFO file will be named "vehvizfifo<PID of this S-LDM instance>"
+	// between OScar and the node.js server we are going to start
+	// Basically this file will be used as a pipe to tell OScar when the node.js server UDP socket
+	// creation is complete, so that OScar can start sending information to the server
+	// The special FIFO file will be named "vehvizfifo<PID of this OScar instance>"
 	std::string fifofile = "/tmp/vehvizfifo" + std::to_string(getpid());
 	int fifofd=-1;
 
@@ -247,17 +247,17 @@ vehicleVisualizer::startServer()
 		exit(EXIT_FAILURE);
 	}
 
-	// Start the node.js server managing the web-based vehicle visualizer S-LDM GUI
+	// Start the node.js server managing the web-based vehicle visualizer OScar GUI/HMI
 	int nodeCheckRval = std::system("command -v node > /dev/null");
 
 	if(nodeCheckRval != 0) {
-		std::cerr << "Error. Node.js does not seem to be installed. Please install it before using the S-LDM vehicle visualizer." << std::endl;
+		std::cerr << "Error. Node.js does not seem to be installed. Please install it before using the OScar web-based HMI." << std::endl;
 		exit(EXIT_FAILURE);
 	}
 
 	// servercmd = "node " + m_serverpath + " " + std::to_string(m_httpport) + " &";
 
-	// node.js server (server.js) command line parameters: HTTP web interface port, UDP socket bind address, UDP socket port, PID of this S-LDM instance
+	// node.js server (server.js) command line parameters: HTTP web interface port, UDP socket bind address, UDP socket port, PID of this OScar instance
 	servercmd = "node " + m_serverpath + " " + std::to_string(m_httpport) + " " + m_ip + " " + std::to_string(m_port) + " " + std::to_string(getpid()) + " &";
 
 	int startCmdRval = std::system(servercmd.c_str());
@@ -278,7 +278,7 @@ vehicleVisualizer::startServer()
 
 	// Blocking read on the FIFO special file
 	// This read() will block until the node.js server writes a string on the same file, to signal that its internal UDP socket is ready to receive
-	// data from the S-LDM
+	// data from OScar
 	// The expected string from the node.js server, which will be stored inside "buf", is "STARTED" (so, we need 7 characters + '\0')
 	char buf[8] = {0};
 	if(read(fifofd,buf,8)<=0) {
@@ -288,7 +288,7 @@ vehicleVisualizer::startServer()
 	}
 
 	// Close and delete (with unlink(), as there should be no other process referring to the same file) the FIFO special file which was used as 
-	// a "synchronization mean" between the S-LDM and the node.js server
+	// a "synchronization mean" between OScar and the node.js server
 	close(fifofd);
 	unlink(fifofile.c_str());
 

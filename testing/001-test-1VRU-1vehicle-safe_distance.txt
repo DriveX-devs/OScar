@@ -1,0 +1,6 @@
+1) Use the drive tests included in this folder and select the "Turin crash" scenario.
+2) Launch one OScar instance for the VRU with:
+   sudo ./OScar -V -r 200 -P 3000 -F log_3000 -I eno1 -T -j 49010 -x
+3) Launch a second OScar instance for the vehicle with:
+   sudo ./OSCAM_TBR -C -v 100200 -P 3001 -F log_vehicle_3001 -I eno1 -T
+4) Check the generated "log_3000" log file: there should be some VAMs triggered due to a safe_distance check.

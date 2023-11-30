@@ -110,6 +110,11 @@ void
 SocketClient::startReception(void) {
 	int m_unlock_pd[2]={-1,-1};
 
+	// Interpret "dis" as "no log file should be generated"
+	if(m_logfile_name=="dis") {
+		m_logfile_name="";
+	}
+
 	if(m_logfile_name!="") {
 		if(m_logfile_name=="stdout") {
 			m_logfile_file=stdout;
@@ -271,7 +276,13 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		vehdata.timestamp_us = get_timestamp_us();
 
 		vehdata.elevation = decoded_cam->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue/100.0;
-		vehdata.heading = decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingValue/10.0;
+
+		if(decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingValue==HeadingValue_unavailable) {
+			vehdata.heading=LDM_HEADING_UNAVAILABLE;
+		} else {
+			vehdata.heading = decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingValue/10.0;
+		}
+
 		vehdata.speed_ms = decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue/100.0;
 		vehdata.camTimestamp = static_cast<long>(decoded_cam->cam.generationDeltaTime);
 		vehdata.stationType = static_cast<ldmmap::e_StationTypeLDM>(decoded_cam->cam.camParameters.basicContainer.stationType);
@@ -462,7 +473,14 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		vehdata.timestamp_us = get_timestamp_us();
 		
 		vehdata.elevation = decoded_vam->vam.vamParameters.basicContainer.referencePosition.altitude.altitudeValue/100.0;
-		vehdata.heading = decoded_vam->vam.vamParameters.vruHighFrequencyContainer.heading.value/10.0;
+
+		if(decoded_vam->vam.vamParameters.vruHighFrequencyContainer.heading.value==Wgs84AngleValue_unavailable) {
+			vehdata.heading = LDM_HEADING_UNAVAILABLE;
+		} else {
+			vehdata.heading = decoded_vam->vam.vamParameters.vruHighFrequencyContainer.heading.value/10.0;
+		}
+		
+
 		vehdata.speed_ms = decoded_vam->vam.vamParameters.vruHighFrequencyContainer.speed.speedValue/100.0;
 		vehdata.camTimestamp = static_cast<long>(decoded_vam->vam.generationDeltaTime);
 		vehdata.stationType = static_cast<ldmmap::e_StationTypeLDM>(decoded_vam->vam.vamParameters.basicContainer.stationType);
@@ -494,14 +512,16 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 				latlon = m_gpsc_ptr->getCurrentPositionDbl();
 			}
 
-			logfprintf(m_logfile_file,std::string("FULL VAM PROCESSING (Client ") + m_client_id + std::string(")"),"StationID=%u Coordinates=%.7lf:%.7lf Heading=%.1lf InstUpdatePeriod=%.3lf"
-				" MAC_Addr=%02X:%02X:%02X:%02X:%02X:%02X"
-				" RSSI=%.2lf",
-				stationID,lat,lon,
-				vehdata.heading,
-				l_inst_period,
-				vehdata.macaddr[0],vehdata.macaddr[1],vehdata.macaddr[2],vehdata.macaddr[3],vehdata.macaddr[4],vehdata.macaddr[5],
-				vehdata.rssi_dBm);
+			if(m_logfile_name!="") {
+				logfprintf(m_logfile_file,std::string("FULL VAM PROCESSING (Client ") + m_client_id + std::string(")"),"StationID=%u Coordinates=%.7lf:%.7lf Heading=%.1lf InstUpdatePeriod=%.3lf"
+					" MAC_Addr=%02X:%02X:%02X:%02X:%02X:%02X"
+					" RSSI=%.2lf",
+					stationID,lat,lon,
+					vehdata.heading,
+					l_inst_period,
+					vehdata.macaddr[0],vehdata.macaddr[1],vehdata.macaddr[2],vehdata.macaddr[3],vehdata.macaddr[4],vehdata.macaddr[5],
+					vehdata.rssi_dBm);
+			}
 
 			if(m_gpsc_ptr!=nullptr) {
 				fprintf(m_logfile_file," ReceiverCoordinates=%.7lf:%.7lf\n",latlon.first,latlon.second);
