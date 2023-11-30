@@ -1,5 +1,5 @@
-# OCABS binary
-OCABS
+# OScar binary
+OScar
 
 # Compiled source
 obj/*.o
