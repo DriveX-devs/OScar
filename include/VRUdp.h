@@ -98,7 +98,7 @@ class VRUdp
     
     struct gps_data_t m_gps_data;
 
-    bool m_debug=false;
+    bool m_debug=true;
 };
 
 #endif /* VRUdp_h */

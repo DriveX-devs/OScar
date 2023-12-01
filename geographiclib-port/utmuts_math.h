@@ -34,6 +34,16 @@
 // Acting as an invalid value (like Math::NaN in GeographicLib)
 #define COORD_NAN DBL_MAX
 
+// This replaces "enum dms" in Math.hpp of the original GeographicLib
+typedef enum dms {
+	UTMUPS_Math_qd = 90,                  ///< degrees per quarter turn
+	UTMUPS_Math_dm = 60,                  ///< minutes per degree
+	UTMUPS_Math_ms = 60,                  ///< seconds per minute
+	UTMUPS_Math_hd = 2 * UTMUPS_Math_qd,              ///< degrees per half turn
+	UTMUPS_Math_td = 2 * UTMUPS_Math_hd,              ///< degrees per turn
+	UTMUPS_Math_ds = UTMUPS_Math_dm * UTMUPS_Math_ms              ///< seconds per degree
+} UTMUPS_Math_dms_e;
+
 // Equivalent of Math::sq in C++ GeographicLib, defined as macro
 #define UTMUPS_Math_sq(n) (n*n)
 
@@ -46,8 +56,12 @@ double UTMUPS_Math_sum(double u, double v, double *t);
 
 // C version of Math::eatanhe
 double UTMUPS_Math_eatanhe(double x, double es);
+// C version of Math::tauf
+double UTMUPS_Math_tauf(double taup, double es);
 // C version of Math::taupf
 double UTMUPS_Math_taupf(double tau, double es);
+// C version of Math::atand
+double UTMUPS_Math_atand(double x);
 // C version of Math::atan2d
 double UTMUPS_Math_atan2d(double y, double x);
 // C version of Math::sincosd

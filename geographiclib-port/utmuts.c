@@ -30,6 +30,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <complex.h>
+#include <stdbool.h>
 
 // UTMUPS access these enums
 enum mgrs_utmups_data {
@@ -206,46 +207,47 @@ int TransverseMercator_Forward(transverse_mercator_t *transmercp, double lon0, d
 		return ERR_TMERC_UNINITIALIZED;
 	}
 
-    lat = UTMUPS_Math_LatFix(lat);
-    lon = UTMUPS_Math_AngDiff(lon0, lon);
-    // Explicitly enforce the parity
+  lat = UTMUPS_Math_LatFix(lat);
+  lon = UTMUPS_Math_AngDiff(lon0, lon);
+  // Explicitly enforce the parity
 
-    int latsign = (lat < 0) ? -1 : 1;
-    int lonsign = (lon < 0) ? -1 : 1;
+  int latsign = (lat < 0) ? -1 : 1;
+  int lonsign = (lon < 0) ? -1 : 1;
 
-    lon *= lonsign;
-    lat *= latsign;
+  lon *= lonsign;
+  lat *= latsign;
 
-    uint8_t backside = lon > 90;
+  uint8_t backside = lon > 90;
 
-    if (backside) {
-      if (lat == 0)
-        latsign = -1;
-      lon = 180 - lon;
-    }
-    double sphi, cphi, slam, clam;
+  if (backside) {
+    if (lat == 0)
+      latsign = -1;
+    lon = 180 - lon;
+  }
+  double sphi, cphi, slam, clam;
 
-    UTMUPS_Math_sincosd(lat, &sphi, &cphi);
-    UTMUPS_Math_sincosd(lon, &slam, &clam);
-    // phi = latitude
-    // phi' = conformal latitude
-    // psi = isometric latitude
-    // tau = tan(phi)
-    // tau' = tan(phi')
-    // [xi', eta'] = Gauss-Schreiber TM coordinates
-    // [xi, eta] = Gauss-Krueger TM coordinates
-    //
-    // We use
-    //   tan(phi') = sinh(psi)
-    //   sin(phi') = tanh(psi)
-    //   cos(phi') = sech(psi)
-    //   denom^2    = 1-cos(phi')^2*sin(lam)^2 = 1-sech(psi)^2*sin(lam)^2
-    //   sin(xip)   = sin(phi')/denom          = tanh(psi)/denom
-    //   cos(xip)   = cos(phi')*cos(lam)/denom = sech(psi)*cos(lam)/denom
-    //   cosh(etap) = 1/denom                  = 1/denom
-    //   sinh(etap) = cos(phi')*sin(lam)/denom = sech(psi)*sin(lam)/denom
-    double etap, xip;
-    if (lat != 90) {
+  UTMUPS_Math_sincosd(lat, &sphi, &cphi);
+  UTMUPS_Math_sincosd(lon, &slam, &clam);
+  // phi = latitude
+  // phi' = conformal latitude
+  // psi = isometric latitude
+  // tau = tan(phi)
+  // tau' = tan(phi')
+  // [xi', eta'] = Gauss-Schreiber TM coordinates
+  // [xi, eta] = Gauss-Krueger TM coordinates
+  //
+  // We use
+  //   tan(phi') = sinh(psi)
+  //   sin(phi') = tanh(psi)
+  //   cos(phi') = sech(psi)
+  //   denom^2    = 1-cos(phi')^2*sin(lam)^2 = 1-sech(psi)^2*sin(lam)^2
+  //   sin(xip)   = sin(phi')/denom          = tanh(psi)/denom
+  //   cos(xip)   = cos(phi')*cos(lam)/denom = sech(psi)*cos(lam)/denom
+  //   cosh(etap) = 1/denom                  = 1/denom
+  //   sinh(etap) = cos(phi')*sin(lam)/denom = sech(psi)*sin(lam)/denom
+  double etap, xip;
+
+  if (lat != 90) {
 		double tau = sphi / cphi;
 		double taup = UTMUPS_Math_taupf(tau, transmercp->_es);
 		
@@ -384,6 +386,120 @@ int TransverseMercator_Forward(transverse_mercator_t *transmercp, double lon0, d
 	*gamma *= latsign * lonsign;
 	*gamma = UTMUPS_Math_AngNormalize(*gamma);
 	*k *= transmercp->_k0;
+
+	return UTMUPS_OK;
+}
+
+int TransverseMercator_Reverse(transverse_mercator_t *transmercp, double lon0, double x, double y, double *lat, double *lon, double *gamma,double *k) {
+  // This undoes the steps in Forward.  The wrinkles are: (1) Use of the
+  // reverted series to express zeta' in terms of zeta. (2) Newton's method
+  // to solve for phi in terms of tan(phi).
+
+	if(transmercp==NULL || transmercp->isinit!=UINT8_MAX) {
+		return ERR_TMERC_UNINITIALIZED;
+	}
+
+	if(lat==NULL || lon==NULL || gamma==NULL || k==NULL) {
+		return ERR_LATLON_NULLPTR;
+	}
+
+  double xi = y / (transmercp->_a1 * transmercp->_k0);
+  double eta = x / (transmercp->_a1 * transmercp->_k0);
+
+  // Explicitly enforce the parity
+  int xisign = signbit(xi) ? -1 : 1;
+  int etasign = signbit(eta) ? -1 : 1;
+  xi *= xisign;
+  eta *= etasign;
+
+  bool backside = xi > M_PI/2;
+  if (backside) {
+    xi = M_PI - xi;
+  }
+
+  double c0 = cos(2 * xi), ch0 = cosh(2 * eta);
+  double s0 = sin(2 * xi), sh0 = sinh(2 * eta);
+
+  double complex a = (2 * c0 * ch0) + (-2 * s0 * sh0)*I; // 2 * cos(2*zeta)
+
+
+  int n = transmercp->maxpow_;
+
+  double complex y0 = n & 1 ? -transmercp->_bet[n] : 0;
+  double complex y1 = 0;
+  double complex z0 = n & 1 ? -2*n * transmercp->_bet[n] : 0;
+  double complex z1 = 0;
+
+  if (n & 1) {
+  	--n;
+  }
+
+  while (n) {
+    y1 = a * y0 - y1 -       transmercp->_bet[n];
+    z1 = a * z0 - z1 - 2*n * transmercp->_bet[n];
+    --n;
+    y0 = a * y1 - y0 -       transmercp->_bet[n];
+    z0 = a * z1 - z0 - 2*n * transmercp->_bet[n];
+    --n;
+  }
+
+  a /= (double)(2.0);               // cos(2*zeta)
+  z1 = (double)(1.0) - z1 + a * z0;
+
+  a = (s0 * ch0) + (c0 * sh0)*I; // sin(2*zeta)
+  double complex y1_cplx = (xi+eta*I);
+  y1 = y1_cplx + a * y0;
+
+  // Convergence and scale for Gauss-Schreiber TM to Gauss-Krueger TM.
+  *gamma = UTMUPS_Math_atan2d(cimag(z1), creal(z1));
+  *k = transmercp->_b1 / cabs(z1);
+
+  // JHS 154 has
+  //
+  //   phi' = asin(sin(xi') / cosh(eta')) (Krueger p 17 (25))
+  //   lam = asin(tanh(eta') / cos(phi')
+  //   psi = asinh(tan(phi'))
+  double xip = creal(y1);
+  double etap = cimag(y1);
+  double s = sinh(etap);
+  double c = fmax((double)(0.0), cos(xip));
+  double r = hypot(s, c);
+
+  if (r != 0) {
+    *lon = UTMUPS_Math_atan2d(s, c); // Krueger p 17 (25)
+
+    // Use Newton's method to solve for tau
+    double sxip = sin(xip);
+    double tau = UTMUPS_Math_tauf(sxip/r, transmercp->_es);
+
+    *gamma += UTMUPS_Math_atan2d(sxip * tanh(etap), c); // Krueger p 19 (31)
+
+    *lat = UTMUPS_Math_atand(tau);
+
+    // Note cos(phi') * cosh(eta') = r
+    *k *= sqrt(transmercp->_e2m + transmercp->_e2 / (1 + UTMUPS_Math_sq(tau))) * hypot((double)(1.0), tau) * r;
+  } else {
+    *lat = UTMUPS_Math_qd;
+    *lon = 0;
+    *k *= transmercp->_c;
+  }
+
+  *lat *= xisign;
+
+  if (backside) {
+    *lon = UTMUPS_Math_hd - *lon;
+  }
+
+  *lon *= etasign;
+  *lon = UTMUPS_Math_AngNormalize(*lon + lon0);
+
+  if (backside) {
+    *gamma = UTMUPS_Math_hd - *gamma;
+  }
+
+  *gamma *= xisign * etasign;
+  *gamma = UTMUPS_Math_AngNormalize(*gamma);
+  *k *= transmercp->_k0;
 
 	return UTMUPS_OK;
 }

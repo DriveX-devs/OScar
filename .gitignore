@@ -7,3 +7,6 @@ obj
 
 # nohup.out file, if the user launches OCABS with nohup
 nohup.out
+
+# "testing" test log file
+log_3000

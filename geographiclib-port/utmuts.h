@@ -117,6 +117,7 @@ enum UTMUPS_errors {
 	ERR_OUTOFLEGALRANGE=5,
 	ERR_TMERC_UNINITIALIZED=100,
 	ERR_PSTER_UNINITIALIZED=200,
+  ERR_LATLON_NULLPTR=300,
 };
 
 // Default values
@@ -164,6 +165,9 @@ int PolarStereographic_Forward(polar_stereographic_t *polsterp, uint8_t northp, 
 int TransverseMercator_Forward(transverse_mercator_t *transmercp, double lon0, double lat, double lon,
 	double *x, double *y,
 	double *gamma,double *k);
+int TransverseMercator_Reverse(transverse_mercator_t *transmercp, double lon0, double x, double y,
+  double *lat, double *lon,
+  double *gamma,double *k);
 
 // Function returning the WGS84_f constant value
 double UTMUPS_WGS84_f(void);

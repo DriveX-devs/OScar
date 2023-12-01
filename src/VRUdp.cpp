@@ -136,6 +136,17 @@ VRUdp::convertLatLontoXYZ_TM(VRUdp_position_latlon_t pos_latlon, double lon0){
   // Perform a Transverse Mercator projection considering "lon0" as center meridian
   TransverseMercator_Forward(&transmerc,lon0,pos_latlon.lat,pos_latlon.lon,&x,&y,&gamma,&k);
 
+  if(m_debug==true) {
+    fprintf(stdout,"[DEBUG] [Transverse Mercator Forward] lat=%.7lf, lon=%.7lf [lon0=%.7lf] -> x=%.7lf, y=%.7lf\n",
+      pos_latlon.lat,pos_latlon.lon,lon0,x,y);
+
+    double dbg_rev_lat,dbg_rev_lon,dbg_gamma,dbg_k;
+
+    TransverseMercator_Reverse(&transmerc,lon0,x,y,&dbg_rev_lat,&dbg_rev_lon,&dbg_gamma,&dbg_k);
+    fprintf(stdout,"[DEBUG] [Transverse Mercator Reverse] x=%.7lf, y=%.7lf [lon0=%.7lf] -> lat=%.7lf, lon=%.7lf\n",
+      x,y,lon0,dbg_rev_lat,dbg_rev_lon);
+  }
+
   pos_xyz.x = x; // [m]
   pos_xyz.y = y; // [m]
   pos_xyz.z = pos_latlon.alt; // Altitude was already in [m] and it is not involved in the coordinate conversion

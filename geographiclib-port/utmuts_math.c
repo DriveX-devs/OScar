@@ -71,6 +71,46 @@ double UTMUPS_Math_taupf(double tau, double es) {
     return hypot(1.0, sig) * tau - sig * tau1;
 }
 
+double UTMUPS_Math_tauf(double taup, double es) {
+    static const int numit = 5;
+    // min iterations = 1, max iterations = 2; mean = 1.95
+
+    // DBL_EPSIPLON replaces std::numeric_limits<T>::epsilon() which is obviously not available in C
+    static const double tol = sqrt(DBL_EPSILON) / 10;
+    static const double taumax = 2 / sqrt(DBL_EPSILON);
+
+    // To lowest order in e^2, taup = (1 - e^2) * tau = _e2m * tau; so use
+    // tau = taup/e2m as a starting guess. Only 1 iteration is needed for
+    // |lat| < 3.35 deg, otherwise 2 iterations are needed.  If, instead, tau
+    // = taup is used the mean number of iterations increases to 1.999 (2
+    // iterations are needed except near tau = 0).
+    //
+    // For large tau, taup = exp(-es*atanh(es)) * tau.  Use this as for the
+    // initial guess for |taup| > 70 (approx |phi| > 89deg).  Then for
+    // sufficiently large tau (such that sqrt(1+tau^2) = |tau|), we can exit
+    // with the intial guess and avoid overflow problems.  This also reduces
+    // the mean number of iterations slightly from 1.963 to 1.954.
+    double e2m = 1 - UTMUPS_Math_sq(es);
+    double tau = fabs(taup) > 70 ? taup * exp(UTMUPS_Math_eatanhe((double)(1.0), es)) : taup/e2m;
+    double stol = tol * fmax((double)(1.0), fabs(taup));
+
+    if (!(fabs(tau) < taumax)) return tau; // handles +/-inf and nan
+
+    for (int i = 0; i < numit; ++i) {
+      double taupa = UTMUPS_Math_taupf(tau, es);
+      double dtau = (taup - taupa) * (1 + e2m * UTMUPS_Math_sq(tau)) / ( e2m * hypot((double)(1.0), tau) * hypot((double)(1.0), taupa) );
+      tau += dtau;
+      if(!(fabs(dtau) >= stol))
+        break;
+    }
+
+    return tau;
+}
+
+double UTMUPS_Math_atand(double x) {
+    return UTMUPS_Math_atan2d(x, (double)(1.0));
+}
+
 double UTMUPS_Math_atan2d(double y, double x) {
     // In order to minimize round-off errors, this function rearranges the
     // arguments so that result of atan2 is in the range [-pi/4, pi/4] before
