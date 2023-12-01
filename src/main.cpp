@@ -424,7 +424,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "1.1");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "1.2");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");

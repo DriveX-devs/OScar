@@ -121,7 +121,7 @@ transverse_mercator_t UTMUPS_init_TransverseMercator(double a, double f, double 
     for (int l = 1; l <= transmerc.maxpow_; ++l) {
 		m = transmerc.maxpow_ - l;
 		transmerc._alp[l] = d * UTMUPS_Math_polyval(m, alpcoeff_ord6 + o, transmerc._n) / alpcoeff_ord6[o + m + 1];
-		transmerc._bet[l] = d * UTMUPS_Math_polyval(m, alpcoeff_ord6 + o, transmerc._n) / betcoeff_ord6[o + m + 1];
+		transmerc._bet[l] = d * UTMUPS_Math_polyval(m, betcoeff_ord6 + o, transmerc._n) / betcoeff_ord6[o + m + 1];
 		o += m + 2;
 		d *= transmerc._n;
     }
@@ -417,8 +417,10 @@ int TransverseMercator_Reverse(transverse_mercator_t *transmercp, double lon0, d
     xi = M_PI - xi;
   }
 
-  double c0 = cos(2 * xi), ch0 = cosh(2 * eta);
-  double s0 = sin(2 * xi), sh0 = sinh(2 * eta);
+  double c0 = cos(2 * xi);
+  double ch0 = cosh(2 * eta);
+  double s0 = sin(2 * xi);
+  double sh0 = sinh(2 * eta);
 
   double complex a = (2 * c0 * ch0) + (-2 * s0 * sh0)*I; // 2 * cos(2*zeta)
 
