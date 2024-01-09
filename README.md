@@ -1,5 +1,7 @@
 # OScar - the Open Source car ETSI C-ITS implementation
 
+<img height="191.1" src="logo/OScar_logo_v1.png" width="511.5"/>
+
 This repository contains _OScar_, an ongoing C++ open implementation of the ETSI C-ITS stack for vehicular communications, to be used for deployement into real hardware, running, for instance, [OpenWrt-V2X](https://github.com/francescoraves483/OpenWrt-V2X).
 
 OScar is designed to be an efficient, lightweight, single-executable, self-contained implementation of the ETSI C-ITS standards.
