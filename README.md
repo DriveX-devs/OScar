@@ -1,30 +1,37 @@
-# OScar - Open Stack for car - the Open Source ETSI C-ITS stack implementation
+# OScar - Open Stack for car
 
 <img height="179.7" src="logo/OScar_logo_v1_subtitle.png" width="511.5"/>
 
-This repository contains _OScar_, an ongoing C++ open implementation of the ETSI C-ITS stack for vehicular communications, to be used for deployement into real hardware, running, for instance, [OpenWrt-V2X](https://github.com/francescoraves483/OpenWrt-V2X).
+Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it]
 
-OScar is designed to be an efficient, lightweight, single-executable, self-contained implementation of the ETSI C-ITS standards.
+This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
-This project is based on **OCABS**, the "Open CA Basic Service", of which it represents the evolution (with the removal of the proposed enhanced CAMs). OCABS is available [here](https://github.com/francescoraves483/OCABS-project).
-For the reception and Local Dynamic Map (LDM) part, it relies instead on an enhancement and evolution of the code of **AIM**, the "Automotive Integrated Map" (i.e., a vehicle LDM implementation), available [here](https://github.com/francescoraves483/AIM-AutomotiveIntegratedMap).
+## Overview
+
+The _OScar - Open Stack for car_ framework is an ongoing C++ open implementation of the ETSI C-ITS stack for vehicular communications. OScar is designed to be an efficient, lightweight, single-executable, self-contained implementation of the ETSI C-ITS standards.
+
+OScar is meant to be used into real hardware boards for vehicular communication and it was successfully tested on dedicated V2X boards running [OpenWrt-V2X](https://github.com/francescoraves483/OpenWrt-V2X).
 
 This project includes a full open source implementation of the **ETSI CA Basic Service**, with reference to the standard [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf), including the **BTP** and **GeoNetworking** layers. CAMs **version 2** are currently being managed (there is no official support for the older CAMs version 1).
 
 It also include an implementation of the **ETSI VRU awareness Basic Service (VBS)**, with reference to the standard [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf). The implementation is complete except for the clustering feature.
 
 OScar thus supports the following message types:
-- CAM
-- VAM
-- DENM (partial)
+- Cooperative Awareness Messages (**CAMs**) according to [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf)
+- Vulnerable road users Awareness Messages (**VAMs**) according to [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf)
+- A partial implementation of Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf)
 
 The support to other relevant message types is also planned for the near future:
-- IVIM
-- CPM
-- EVCSN
-- [CEM (proposal)](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
+- Infrastructure to Vehicle Information Messages (**IVIM**) according to [ETSI TS 103 301 V1.3.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/103301/01.03.01_60/ts_103301v010301p.pdf), PD CEN ISO/TS 19321:2020 and BS EN ISO 14823:2017
+- Cooperative Perception Messages (**CPMs**) according to [ETSI TR 103 562 V2.1.1](https://www.etsi.org/deliver/etsi_tr/103500_103599/103562/02.01.01_60/tr_103562v020101p.pdf)
+- Electrical Vehicle Charging Spot Notifications (**EVCSNs**) according to [ETSI TS 101 556-1 V1.1.1](https://www.etsi.org/deliver/etsi_ts/101500_101599/10155601/01.01.01_60/ts_10155601v010101p.pdf)
+- An ESTI-compliant and ETSI-compatible proposal of a new message type for raw GNSS data exchange, i.e., Cooperative Enhancement Messages (**CEMs**) according to [ms-van3t-CAM2CEM project](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
+- Security header and certificate formats according to [ETSI TS 103 097 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103000_103099/103097/02.01.01_60/ts_103097v020101p.pdf)
 
-As OScar is still work-in-progress, it does not support yet secured messages.
+**OScar** stems from other existing GitHub projects:
+- An open-source simulation and emulation framework for vehicular networks, [**ms-van3t**](https://github.com/ms-van3t-devs/ms-van3t)
+- The "Open Cooperative Awareness Basic Service", [**OCABS**](https://github.com/francescoraves483/OCABS-project)
+- An open vehicle Local Dynamic Map (LDM) implementation, i.e., the "Automotive Integrated Map", [**AIM**](https://github.com/francescoraves483/AIM-AutomotiveIntegratedMap)
 
 **Important**: OScar needs a source of PVT (Position-Velocity-Time) GNSS data through `gpsd`. Thus, a GNSS device must be available (either real, or emulated, for instance thanks to tools like `gpsfake` or the Cohda Wireless `vsim`) and it must be connected to a `gpsd` instance.
 
@@ -39,7 +46,7 @@ As the only pre-requisite, `libgps-dev` must be installed and available.
 To download and build the latest version of OScar, first, clone this repository:
 ```
 git clone https://github.com/francescoraves483/OScar
-``` 
+```
 Then, `cd` into the newly created directory:
 ```
 cd OScar
@@ -91,7 +98,7 @@ You can also make OScar run as a service, by creating two new files inside OpenW
 
 A sample of the two files is reported below:
 
-## `/etc/init.d/OScar` sample
+#### `/etc/init.d/OScar` sample
 
 This sample shows how to create the OScar service through an `init.d` script. More details are available [here](https://openwrt.org/docs/techref/initscripts) and [here](https://openwrt.org/docs/guide-developer/procd-init-script-example).
 
@@ -131,7 +138,7 @@ start_service() {
 }
 ```
 
-## `/etc/config/OScar` sample
+#### `/etc/config/OScar` sample
 
 This sample shows how to create an OScar configuration file, after setting up the proper `init.d` script.
 
@@ -171,20 +178,7 @@ When running as a service, the output of OScar is not directly available, but it
 logread
 ```
 
-
-# Contact and License information
-
-This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
-
-For any question, please write to:
-- Francesco Raviglione: francescorav.es483@gmail.com
-- Marco Rapelli: rapelli.m@libero.it
-- Alessandro Genovese: s303384@studenti.polito.it
-
-Thanks!
-
-
-# Used libraries
+## Used libraries
 
 This project uses internally the _TCLAP - Templatized Command Line Argument Parser_ library (v1.2), available [here](https://tclap.sourceforge.net/), and included in the `tclap` directory.
 
