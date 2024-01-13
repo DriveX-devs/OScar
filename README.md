@@ -2,7 +2,7 @@
 
 <img height="179.7" src="logo/OScar_logo_v1_subtitle.png" width="511.5"/>
 
-Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Alessandro GENOVESE [s303384@studenti.polito.it], Claudio CASETTI [claudio.casetti@polito.it]
+Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it]
 
 This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
@@ -21,11 +21,11 @@ OScar thus supports the following message types:
 - Vulnerable road users Awareness Messages (**VAMs**) according to [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf)
 
 The support to other relevant message types is also planned for the near future:
-- Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf)
+- Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf) (the encoding and decoding functions are already available and tested)
 - Infrastructure to Vehicle Information Messages (**IVIM**) according to [ETSI TS 103 301 V1.3.1 ](https://www.etsi.org/deliver/etsi_ts/103300_103399/103301/01.03.01_60/ts_103301v010301p.pdf)
 - Cooperative Perception Messages (**CPMs**) according to [ETSI TR 103 562 V2.1.1](https://www.etsi.org/deliver/etsi_tr/103500_103599/103562/02.01.01_60/tr_103562v020101p.pdf)
 - Electrical Vehicle Charging Spot Notifications (**EVCSNs**) according to [ETSI TS 101 556-1 V1.1.1](https://www.etsi.org/deliver/etsi_ts/101500_101599/10155601/01.01.01_60/ts_10155601v010101p.pdf)
-- A non-ETSI standard proposal of Cooperative Enhancement Messages (**CEMs**) according to [ms-van3t-CAM2CEM project](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
+- An ETSI-compliant proposal of a new type of message, i.e., Cooperative Enhancement Messages (**CEMs**) for the exchange of raw GNSS data, according to [this paper](https://www.sciencedirect.com/science/article/abs/pii/S2214209622000444) and to the [ms-van3t-CAM2CEM project](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
 - Security header and certificate formats according to [ETSI TS 103 097 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103000_103099/103097/02.01.01_60/ts_103097v020101p.pdf)
 
 The **OScar** framework stems from other existing GitHub projects:
