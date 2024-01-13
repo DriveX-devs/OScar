@@ -2,7 +2,7 @@
 
 <img height="179.7" src="logo/OScar_logo_v1_subtitle.png" width="511.5"/>
 
-Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it]
+Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Alessandro GENOVESE [s303384@studenti.polito.it], Claudio CASETTI [claudio.casetti@polito.it]
 
 This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
@@ -10,28 +10,28 @@ This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` 
 
 The _OScar - Open Stack for car_ framework is an ongoing C++ open implementation of the ETSI C-ITS stack for vehicular communications. OScar is designed to be an efficient, lightweight, single-executable, self-contained implementation of the ETSI C-ITS standards.
 
-OScar is meant to be used into real hardware boards for vehicular communication and it was successfully tested on dedicated V2X boards running [OpenWrt-V2X](https://github.com/francescoraves483/OpenWrt-V2X).
+OScar is meant to be used on real hardware boards for vehicular communication and it was successfully tested on dedicated V2X boards running [OpenWrt-V2X](https://github.com/francescoraves483/OpenWrt-V2X).
 
 This project includes a full open source implementation of the **ETSI CA Basic Service**, with reference to the standard [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf), including the **BTP** and **GeoNetworking** layers. CAMs **version 2** are currently being managed (there is no official support for the older CAMs version 1).
 
-It also include an implementation of the **ETSI VRU awareness Basic Service (VBS)**, with reference to the standard [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf). The implementation is complete except for the clustering feature.
+It also includes an implementation of the **ETSI VRU awareness Basic Service (VBS)**, with reference to the standard [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf). The implementation is complete except for the clustering feature.
 
 OScar thus supports the following message types:
 - Cooperative Awareness Messages (**CAMs**) according to [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf)
 - Vulnerable road users Awareness Messages (**VAMs**) according to [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf)
-- A partial implementation of Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf)
 
 The support to other relevant message types is also planned for the near future:
-- Infrastructure to Vehicle Information Messages (**IVIM**) according to [ETSI TS 103 301 V1.3.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/103301/01.03.01_60/ts_103301v010301p.pdf), PD CEN ISO/TS 19321:2020 and BS EN ISO 14823:2017
+- Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf)
+- Infrastructure to Vehicle Information Messages (**IVIM**) according to [ETSI TS 103 301 V1.3.1 ](https://www.etsi.org/deliver/etsi_ts/103300_103399/103301/01.03.01_60/ts_103301v010301p.pdf)
 - Cooperative Perception Messages (**CPMs**) according to [ETSI TR 103 562 V2.1.1](https://www.etsi.org/deliver/etsi_tr/103500_103599/103562/02.01.01_60/tr_103562v020101p.pdf)
 - Electrical Vehicle Charging Spot Notifications (**EVCSNs**) according to [ETSI TS 101 556-1 V1.1.1](https://www.etsi.org/deliver/etsi_ts/101500_101599/10155601/01.01.01_60/ts_10155601v010101p.pdf)
-- An ESTI-compliant and ETSI-compatible proposal of a new message type for raw GNSS data exchange, i.e., Cooperative Enhancement Messages (**CEMs**) according to [ms-van3t-CAM2CEM project](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
+- A non-ETSI standard proposal of Cooperative Enhancement Messages (**CEMs**) according to [ms-van3t-CAM2CEM project](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
 - Security header and certificate formats according to [ETSI TS 103 097 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103000_103099/103097/02.01.01_60/ts_103097v020101p.pdf)
 
-**OScar** stems from other existing GitHub projects:
-- An open-source simulation and emulation framework for vehicular networks, [**ms-van3t**](https://github.com/ms-van3t-devs/ms-van3t)
+The **OScar** framework stems from other existing GitHub projects:
+- An open-source simulator and emulator for vehicular networks, [**ms-van3t**](https://github.com/ms-van3t-devs/ms-van3t)
 - The "Open Cooperative Awareness Basic Service", [**OCABS**](https://github.com/francescoraves483/OCABS-project)
-- An open vehicle Local Dynamic Map (LDM) implementation, i.e., the "Automotive Integrated Map", [**AIM**](https://github.com/francescoraves483/AIM-AutomotiveIntegratedMap)
+- A Local Dynamic Map (LDM) imlpementation from the evolution of the code of the "Automotive Integrated Map", [**AIM**](https://github.com/francescoraves483/AIM-AutomotiveIntegratedMap)
 
 **Important**: OScar needs a source of PVT (Position-Velocity-Time) GNSS data through `gpsd`. Thus, a GNSS device must be available (either real, or emulated, for instance thanks to tools like `gpsfake` or the Cohda Wireless `vsim`) and it must be connected to a `gpsd` instance.
 
@@ -39,7 +39,7 @@ The OScar main help, with all the possibile options, can be displayed with `./OS
 
 # Compiling OScar
 
-OScar can be easily compiled on the same device in which it will be run thanks to `make`.
+OScar can be easily compiled on the same device in which it will be run using `make`.
 
 As the only pre-requisite, `libgps-dev` must be installed and available.
 
@@ -69,7 +69,7 @@ If you get a permission denied error (as OScar is internally using *raw sockets*
 
 # Cross-compiling OScar for OpenWrt
 
-OScar is also though to be easily cross-compiled for any embedded platform or router running OpenWrt.
+OScar is also designed to be easily cross-compiled for any embedded platform or router running OpenWrt.
 
 Cross-compilation also leverages `make`. However, it requires a few additional steps, after cloning the repository.
 
