@@ -25,139 +25,6 @@ using std::chrono::system_clock;
     fcn(); \
   });
 
-// This macro contains the code for generating a new CAM with all the standard containers
-// This code is written as a macro as it is the same for both standard and enhanced CAMs
-#define FILL_IN_CAM(msgstruct,cam_mandatory_data,errval) \
-  if(bool(cam)==false) \
-  { \
-    return CAM_ALLOC_ERROR; \
-  } \
-  /* Collect data for mandatory containers */ \
-  \
-  /* Fill the header */ \
-  asn1cpp::setField(msgstruct->header.messageID, FIX_CAMID); \
-  asn1cpp::setField(msgstruct->header.protocolVersion , protocolVersion_currentVersion); \
-  asn1cpp::setField(msgstruct->header.stationID, m_station_id); \
-  \
-  asn1cpp::setField(msgstruct->cam.generationDeltaTime, compute_timestampIts () % 65536); \
-  \
-  /* Fill the basicContainer's station type */ \
-  asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.stationType, m_stationtype); \
-  if(m_vehicle==true) \
-  { \
-  \
-    cam_mandatory_data=m_vdp->getCAMMandatoryData(); \
-    /* Debug print: leave commented when releasing for testing or using for a use case */ \
-    /*int64_t after=get_timestamp_us(); */ \
-    /*fprintf(stdout,"Proc_time: %.3lf\n",(after-before)/1000.0); */ \
-    \
-    /* Fill the basicContainer */ \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue, cam_mandatory_data.altitude.getValue ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeConfidence, cam_mandatory_data.altitude.getConfidence ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.latitude,cam_mandatory_data.latitude); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.longitude,cam_mandatory_data.longitude); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorConfidence, cam_mandatory_data.posConfidenceEllipse.semiMajorConfidence); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorConfidence, cam_mandatory_data.posConfidenceEllipse.semiMinorConfidence); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorOrientation, cam_mandatory_data.posConfidenceEllipse.semiMajorOrientation); \
-    \
-    /* Fill the highFrequencyContainer */ \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.present, HighFrequencyContainer_PR_basicVehicleContainerHighFrequency); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingValue, cam_mandatory_data.heading.getValue ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingConfidence, cam_mandatory_data.heading.getConfidence ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue, cam_mandatory_data.speed.getValue ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedConfidence, cam_mandatory_data.speed.getConfidence ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.driveDirection, cam_mandatory_data.driveDirection); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleLength.vehicleLengthValue, cam_mandatory_data.VehicleLength.getValue()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleLength.vehicleLengthConfidenceIndication, cam_mandatory_data.VehicleLength.getConfidence()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleWidth, cam_mandatory_data.VehicleWidth); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.longitudinalAcceleration.longitudinalAccelerationValue, cam_mandatory_data.longAcceleration.getValue ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.longitudinalAcceleration.longitudinalAccelerationConfidence, cam_mandatory_data.longAcceleration.getConfidence ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvature.curvatureValue, cam_mandatory_data.curvature.getValue ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvature.curvatureConfidence, cam_mandatory_data.curvature.getConfidence ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvatureCalculationMode, cam_mandatory_data.curvature_calculation_mode); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.yawRate.yawRateValue, cam_mandatory_data.yawRate.getValue ()); \
-    asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.yawRate.yawRateConfidence, cam_mandatory_data.yawRate.getConfidence ()); \
-    \
-    /* Store all the "previous" values used in checkCamConditions() */ \
-    m_prev_pos=m_vdp->getCurrentPositionDbl(); \
-    m_prev_speed=m_vdp->getSpeedValueDbl(); \
-    m_prev_heading=m_vdp->getHeadingValue().getValue(); \
-  } \
-  else \
-  { \
-    /* Fill the basicContainer */ \
-    /* There is still no full RSU support in this release */ \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeConfidence,AltitudeConfidence_unavailable); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue,AltitudeValue_unavailable); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.latitude,Latitude_unavailable); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.longitude,Longitude_unavailable); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorConfidence,SemiAxisLength_unavailable); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorConfidence,SemiAxisLength_unavailable); \
-    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorOrientation,HeadingValue_unavailable); \
-    /* Fill the highFrequencyContainer */ \
-    /* auto RSUContainerHighFreq = asn1cpp::makeSeq(RSUContainerHighFrequency); */ \
-    \
-    /* High frequency RSU container */ \
-    asn1cpp::setField(cam->cam.camParameters.highFrequencyContainer.present,HighFrequencyContainer_PR_rsuContainerHighFrequency); \
-    \
-    auto protectedComm = asn1cpp::makeSeq(ProtectedCommunicationZone); \
-    asn1cpp::setField(protectedComm->protectedZoneType,ProtectedZoneType_permanentCenDsrcTolling); \
-    asn1cpp::setField(protectedComm->protectedZoneLatitude,Latitude_unavailable); \
-    asn1cpp::setField(protectedComm->protectedZoneLongitude,Longitude_unavailable); \
-    \
-    asn1cpp::sequenceof::pushList(msgstruct->cam.camParameters.highFrequencyContainer.choice.rsuContainerHighFrequency.protectedCommunicationZonesRSU,protectedComm); \
-    \
-  }
-
-// This macro encode the CAM and send it on the destined interface
-#define ENCODE_AND_SEND_CAM(msgstruct,now) \
-  std::string encode_result = asn1cpp::uper::encode(msgstruct); \
-  \
-  /* In case of an encoding error, print some basic data which we just tried to encode into a CAM. This may help debugging the encoding issue */ \
-  if(encode_result.size()<1) \
-  { \
-    std::cerr << "CAM encoding error." << std::endl; \
-    std::cerr << "Info: Lat: " << msgstruct->cam.camParameters.basicContainer.referencePosition.latitude \
-      << " Lon: " << msgstruct->cam.camParameters.basicContainer.referencePosition.longitude \
-      << " Heading: " << msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingValue \
-      << " Speed: " << msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue \
-      << " Altitude: " << msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue \
-      << std::endl; \
-    return CAM_ASN1_UPER_ENC_ERROR; \
-  } \
-  /* Initialize parameters */ \
-  BTPDataRequest_t dataRequest = {}; \
-  dataRequest.BTPType = BTP_B; \
-  dataRequest.destPort = CA_PORT; \
-  dataRequest.destPInfo = 0; \
-  dataRequest.GNType = TSB; \
-  dataRequest.GNCommProfile = UNSPECIFIED; \
-  dataRequest.GNRepInt =0; \
-  dataRequest.GNMaxRepInt=0; \
-  dataRequest.GNMaxLife = 1; \
-  dataRequest.GNMaxHL = 1; \
-  dataRequest.GNTraClass = 0x02; \
-  dataRequest.lenght = encode_result.size(); \
-  /* Create the packet and the BTP header */ \
-  packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size())); \
-  dataRequest.data = pktbuf; \
-  m_btp->sendBTP(dataRequest); \
-  /* Update the CAM statistics */ \
-  m_cam_sent++; \
-  \
-  /* Store the time in which the last CAM (i.e. this one) has been generated and successfully sent */ \
-  now=computeTimestampUInt64()/NANO_TO_MILLI; \
-  \
-  m_T_GenCam_ms=now-lastCamGen; \
-  \
-  \
-  /* Always avoid sending CAMs less often than every second (this may happen in case of issues with the GNSS device) */ \
-  if(m_T_GenCam_ms>T_GenCamMax_ms) { \
-    m_T_GenCam_ms=T_GenCamMax_ms; \
-  } \
-  /* Save the time of the CAM sent */ \
-  lastCamGen = now;
-
 // CABasicService constructor
 CABasicService::CABasicService()
 {
@@ -208,6 +75,90 @@ CABasicService::CABasicService()
 
   m_own_private_IP="0.0.0.0";
   m_own_public_IP="0.0.0.0";
+}
+
+// This function contains the code for generating a new CAM with all the standard containers
+CABasicService_error_t
+CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandatory_data_t &cam_mandatory_data) {
+    CABasicService_error_t errval=CAM_NO_ERROR;
+
+    if(bool(msgstruct)==false) {
+        return CAM_ALLOC_ERROR;
+    }
+
+    /* Collect data for mandatory containers */
+
+    /* Fill the header */
+    asn1cpp::setField(msgstruct->header.messageID, FIX_CAMID);
+    asn1cpp::setField(msgstruct->header.protocolVersion , protocolVersion_currentVersion);
+    asn1cpp::setField(msgstruct->header.stationID, m_station_id);
+
+    asn1cpp::setField(msgstruct->cam.generationDeltaTime, compute_timestampIts () % 65536);
+
+    /* Fill the basicContainer's station type */
+    asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.stationType, m_stationtype);
+    if(m_vehicle==true) {
+        cam_mandatory_data=m_vdp->getCAMMandatoryData();
+        /* Debug print: leave commented when releasing for testing or using for a use case */
+        /*int64_t after=get_timestamp_us(); */
+        /*fprintf(stdout,"Proc_time: %.3lf\n",(after-before)/1000.0); */
+
+        /* Fill the basicContainer */
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue, cam_mandatory_data.altitude.getValue ());
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeConfidence, cam_mandatory_data.altitude.getConfidence ());
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.latitude,cam_mandatory_data.latitude);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.longitude,cam_mandatory_data.longitude);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorConfidence, cam_mandatory_data.posConfidenceEllipse.semiMajorConfidence);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorConfidence, cam_mandatory_data.posConfidenceEllipse.semiMinorConfidence);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorOrientation, cam_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
+
+        /* Fill the highFrequencyContainer */
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.present, HighFrequencyContainer_PR_basicVehicleContainerHighFrequency);
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingValue, cam_mandatory_data.heading.getValue ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingConfidence, cam_mandatory_data.heading.getConfidence ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue, cam_mandatory_data.speed.getValue ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedConfidence, cam_mandatory_data.speed.getConfidence ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.driveDirection, cam_mandatory_data.driveDirection);
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleLength.vehicleLengthValue, cam_mandatory_data.VehicleLength.getValue());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleLength.vehicleLengthConfidenceIndication, cam_mandatory_data.VehicleLength.getConfidence());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleWidth, cam_mandatory_data.VehicleWidth);
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.longitudinalAcceleration.longitudinalAccelerationValue, cam_mandatory_data.longAcceleration.getValue ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.longitudinalAcceleration.longitudinalAccelerationConfidence, cam_mandatory_data.longAcceleration.getConfidence ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvature.curvatureValue, cam_mandatory_data.curvature.getValue ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvature.curvatureConfidence, cam_mandatory_data.curvature.getConfidence ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvatureCalculationMode, cam_mandatory_data.curvature_calculation_mode);
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.yawRate.yawRateValue, cam_mandatory_data.yawRate.getValue ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.yawRate.yawRateConfidence, cam_mandatory_data.yawRate.getConfidence ());
+
+        /* Store all the "previous" values used in checkCamConditions() */
+        m_prev_pos=m_vdp->getCurrentPositionDbl();
+        m_prev_speed=m_vdp->getSpeedValueDbl();
+        m_prev_heading=m_vdp->getHeadingValue().getValue();
+    } else {
+        /* Fill the basicContainer */
+        /* There is still no full RSU support in this release */
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeConfidence,AltitudeConfidence_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue,AltitudeValue_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.latitude,Latitude_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.longitude,Longitude_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorConfidence,SemiAxisLength_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorConfidence,SemiAxisLength_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorOrientation,HeadingValue_unavailable);
+        /* Fill the highFrequencyContainer */
+        /* auto RSUContainerHighFreq = asn1cpp::makeSeq(RSUContainerHighFrequency); */
+
+        /* High frequency RSU container */
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.present,HighFrequencyContainer_PR_rsuContainerHighFrequency);
+
+        auto protectedComm = asn1cpp::makeSeq(ProtectedCommunicationZone);
+        asn1cpp::setField(protectedComm->protectedZoneType,ProtectedZoneType_permanentCenDsrcTolling);
+        asn1cpp::setField(protectedComm->protectedZoneLatitude,Latitude_unavailable);
+        asn1cpp::setField(protectedComm->protectedZoneLongitude,Longitude_unavailable);
+
+        asn1cpp::sequenceof::pushList(msgstruct->cam.camParameters.highFrequencyContainer.choice.rsuContainerHighFrequency.protectedCommunicationZonesRSU,protectedComm);
+    }
+
+    return errval;
 }
 
 // Function to set the properties of a RSU station
@@ -643,7 +594,7 @@ CABasicService::generateAndEncodeCam()
   auto cam = asn1cpp::makeSeq(CAM);
 
   // Macro call for filling the CAM fields
-  FILL_IN_CAM(cam,cam_mandatory_data,errval);
+  errval=fillInCam(cam,cam_mandatory_data);
 
     /* CAM print
      * Unused - kept here just for future reference (this comment will be removed in the final deployed version)
@@ -660,9 +611,53 @@ CABasicService::generateAndEncodeCam()
     */
 
     // Encode and send the CAM
-    ENCODE_AND_SEND_CAM(cam,now);
+    std::string encode_result = asn1cpp::uper::encode(cam);
+    /* In case of an encoding error, print some basic data which we just tried to encode into a CAM. This may help debugging the encoding issue */ \
+    if(encode_result.size()<1)
+    {
+        std::cerr << "CAM encoding error." << std::endl;
+        std::cerr << "Info: Lat: " << cam->cam.camParameters.basicContainer.referencePosition.latitude
+          << " Lon: " << cam->cam.camParameters.basicContainer.referencePosition.longitude
+          << " Heading: " << cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.heading.headingValue
+          << " Speed: " << cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue
+          << " Altitude: " << cam->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue
+          << std::endl;
+        return CAM_ASN1_UPER_ENC_ERROR;
+    }
 
-  return errval;
+    /* Initialize parameters */
+    BTPDataRequest_t dataRequest = {};
+    dataRequest.BTPType = BTP_B;
+    dataRequest.destPort = CA_PORT;
+    dataRequest.destPInfo = 0;
+    dataRequest.GNType = TSB;
+    dataRequest.GNCommProfile = UNSPECIFIED;
+    dataRequest.GNRepInt =0;
+    dataRequest.GNMaxRepInt=0;
+    dataRequest.GNMaxLife = 1;
+    dataRequest.GNMaxHL = 1;
+    dataRequest.GNTraClass = 0x02;
+    dataRequest.lenght = encode_result.size();
+    /* Create the packet and the BTP header */
+    packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size()));
+    dataRequest.data = pktbuf;
+    m_btp->sendBTP(dataRequest);
+    /* Update the CAM statistics */
+    m_cam_sent++;
+
+    /* Store the time in which the last CAM (i.e. this one) has been generated and successfully sent */
+    now=computeTimestampUInt64()/NANO_TO_MILLI;
+
+    m_T_GenCam_ms=now-lastCamGen;
+
+    /* Always avoid sending CAMs less often than every second (this may happen in case of issues with the GNSS device) */
+    if(m_T_GenCam_ms>T_GenCamMax_ms) {
+        m_T_GenCam_ms=T_GenCamMax_ms;
+    }
+    /* Save the time of the CAM sent */
+    lastCamGen = now;
+
+    return errval;
 }
 
 uint64_t

@@ -685,7 +685,7 @@ int main (int argc, char *argv[]) {
 				mainRecvClient.setSelfMAC(srcmac);
 			}
 
-			// Create an additional 
+			// Create an additional VDP GPS Client object for logging the GNSS data
 			VDPGPSClient logginggpsc(gnss_device,gnss_port);
 			logginggpsc.openConnection();
 			mainRecvClient.setLoggingGNSSClient(&logginggpsc);

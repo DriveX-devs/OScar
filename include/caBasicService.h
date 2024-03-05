@@ -77,6 +77,8 @@ private:
   CABasicService_error_t generateAndEncodeCam();
   int64_t computeTimestampUInt64();
 
+  CABasicService_error_t fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandatory_data_t &cam_mandatory_data);
+
   btp *m_btp; // The BTP object has a reference to a GeoNetworking object, which in turn has the right socket descriptor to enable the dissemination of CAMs
 
   long m_T_CheckCamGen_ms;
