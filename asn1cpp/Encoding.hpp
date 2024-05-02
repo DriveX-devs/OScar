@@ -6,6 +6,7 @@
 #include "asn_application.h"
 
 #include "Utils.hpp"
+#include "uper_decoder.h"
 
 namespace asn1cpp {
     template <typename T>

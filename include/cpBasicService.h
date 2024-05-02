@@ -1,0 +1,98 @@
+#ifndef CPBASICSERVICE_H
+#define CPBASICSERVICE_H
+
+#include "gpsc.h"
+#include "asn1cpp/Seq.hpp"
+#include "asn1cpp/Setter.hpp"
+#include "asn1cpp/SequenceOf.hpp"
+#include "btp.h"
+#include <functional>
+#include <atomic>
+#include <thread>
+
+extern "C" {
+#include "CollectivePerceptionMessage.h"
+}
+
+class CPBasicService
+{
+public:
+    CPBasicService();
+    void setStationID(unsigned long fixed_stationid);
+    void setStationType(long fixed_stationtype);
+    void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
+    void setLogfile(std::string filename) {m_log_filename=filename;}
+    void setVDP(VDPGPSClient* vdp) {m_vdp=vdp;}
+    void setLDM(ldmmap::LDMMap* LDM) {m_LDM=LDM;}
+    void setBTP(btp *btp){m_btp = btp;}
+
+    void changeNGenCpmMax(int16_t N_GenCpmMax) {m_N_GenCpmMax=N_GenCpmMax;}
+    void setRealTime(bool real_time){m_real_time=real_time;}
+    uint64_t terminateDissemination();
+    void setRedundancyMitigation(bool choice){m_redundancy_mitigation = choice;}
+    void disableRedundancyMitigation(){m_redundancy_mitigation = false;}
+
+    void setOwnPrivateIP(std::string own_private_IP) {m_own_private_IP=own_private_IP;}
+    void setOwnPublicIP(std::string own_public_IP) {m_own_public_IP=own_public_IP;}
+    void disableOwnPrivateIP() {m_own_private_IP="0.0.0.0";}
+    void disableOwnPublicIP() {m_own_private_IP="0.0.0.0";}
+
+    void initDissemination();
+
+    const long T_GenCpmMin_ms = 100;
+    const long T_GenCpm_ms = 100;
+    const long T_GenCpmMax_ms = 1000;
+    const long m_T_AddSensorInformation = 1000;
+
+
+    private:
+
+    void generateAndEncodeCPM();
+    int64_t computeTimestampUInt64();
+    bool checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data);
+
+    btp *m_btp;
+
+    long m_T_CheckCpmGen_ms;
+    long m_T_LastSensorInfoContainer;
+
+    long m_T_GenCpm_ms;
+    int16_t m_N_GenCpm;
+    int16_t m_N_GenCpmMax;
+
+    int64_t lastCpmGen;
+    int64_t lastCpmGenLowFrequency;
+    int64_t lastCpmGenSpecialVehicle;
+
+    bool m_real_time;
+    bool m_vehicle;
+    bool m_redundancy_mitigation;
+    VDPGPSClient* m_vdp;
+
+    ldmmap::LDMMap* m_LDM;
+
+    std::atomic<bool> m_terminateFlag;
+
+    StationId_t m_station_id;
+    StationType_t m_stationtype;
+
+    std::string m_log_filename;
+
+    // Previous Cpm relevant values
+    double m_prev_heading;
+    double m_prev_distance;
+    double m_prev_speed;
+    std::vector<long> m_lastCPM_POs;
+
+    // Statistic: number of Cpms successfully sent since the CA Basic Service has been started
+    // The CA Basic Service can count up to 18446744073709551615 (UINT64_MAX) Cpms
+    uint64_t m_cpm_sent;
+
+    // Extra information which can be optionally disseminated through Enhanced CAMs
+    std::string m_own_private_IP;
+    std::string m_own_public_IP;
+};
+
+
+#endif //CPBASICSERVICE_H
+

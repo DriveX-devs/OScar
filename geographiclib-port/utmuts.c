@@ -132,7 +132,7 @@ transverse_mercator_t UTMUPS_init_TransverseMercator(double a, double f, double 
 }
 
 transverse_mercator_t UTMUPS_init_UTM_TransverseMercator(void) {
-	return UTMUPS_init_TransverseMercator(WGS84_a,UTMUPS_WGS84_f(),UTM_k0);
+	return UTMUPS_init_TransverseMercator(WGS84_A,UTMUPS_WGS84_f(),UTM_K0);
 }
 
 polar_stereographic_t UTMUPS_init_PolarStereographic(double a, double f, double k0) {
@@ -150,7 +150,7 @@ polar_stereographic_t UTMUPS_init_PolarStereographic(double a, double f, double 
 }
 
 polar_stereographic_t UTMUPS_init_UPS_PolarStereographic(void) {
-	return UTMUPS_init_PolarStereographic(WGS84_a,UTMUPS_WGS84_f(),UTM_k0);
+	return UTMUPS_init_PolarStereographic(WGS84_A,UTMUPS_WGS84_f(),UTM_K0);
 }
 
 // Return latitude band number [-10, 10) for the given latitude (degrees).

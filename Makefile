@@ -30,6 +30,9 @@ OBJ_JSON11_DIR=obj/json11
 SRC_GPSC_DIR=gnss
 OBJ_GPSC_DIR=obj/gnss
 
+SRC_ASN1CPP_DIR=asn1cpp
+OBJ_ASN1CPP_DIR=obj/asn1cpp
+
 SRC=$(wildcard $(SRC_DIR)/*.cpp)
 SRC_GEOLIB_PORT=$(wildcard $(SRC_GEOLIB_PORT_DIR)/*.c)
 SRC_VEHVIS=$(wildcard $(SRC_VEHVIS_DIR)/*.cc)
@@ -37,6 +40,7 @@ SRC_ASN1=$(wildcard $(SRC_ASN1_DIR)/*.c)
 SRC_ETSI=$(wildcard $(SRC_ETSI_DIR)/*.cpp)
 SRC_JSON11=$(wildcard $(SRC_JSON11_DIR)/*.cpp)
 SRC_GPSC=$(wildcard $(SRC_GPSC_DIR)/*.cpp)
+SRC_ASN1CPP=$(wildcard $(SRC_ASN1CPP_DIR)/*.cpp)
 
 OBJ=$(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 OBJ_GEOLIB_PORT=$(SRC_GEOLIB_PORT:$(SRC_GEOLIB_PORT_DIR)/%.c=$(OBJ_GEOLIB_PORT_DIR)/%.o)
@@ -45,6 +49,7 @@ OBJ_ASN1=$(SRC_ASN1:$(SRC_ASN1_DIR)/%.c=$(OBJ_ASN1_DIR)/%.o)
 OBJ_ETSI=$(SRC_ETSI:$(SRC_ETSI_DIR)/%.c=$(OBJ_ETSI_DIR)/%.o)
 OBJ_JSON11=$(SRC_JSON11:$(SRC_JSON11_DIR)/%.cpp=$(OBJ_JSON11_DIR)/%.o)
 OBJ_GPSC=$(SRC_GPSC:$(SRC_GPSC_DIR)/%.cpp=$(OBJ_GPSC_DIR)/%.o)
+OBJ_ASN1CPP=$(SRC_ASN1CPP:$(SRC_ASN1CPP_DIR)/%.cpp=$(OBJ_ASN1CPP_DIR)/%.o)
 
 OBJ_CC=$(OBJ)
 OBJ_CC+=$(OBJ_GEOLIB_PORT)
@@ -52,8 +57,9 @@ OBJ_CC+=$(OBJ_VEHVIS)
 OBJ_CC+=$(OBJ_ASN1)
 OBJ_CC+=$(OBJ_ETSI)
 OBJ_CC+=$(OBJ_JSON11)
+OBJ_CC+=$(OBJ_ASN1CPP)
 
-CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11
+CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp
 CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include -Igeographiclib-port
 LDLIBS += -lpthread -lm -lgps
 
@@ -71,9 +77,11 @@ compileAPU: CXXFLAGS += -I$(OPENWRT_INCLUDE_DIR)
 compileAPU: LDLIBS += -lgps
 	
 compilePCdebug: CXXFLAGS += -g
+compilePCdebug: CFLAGS += -g
 compilePCdebug: compilePC
 
 compileAPUdebug: CXXFLAGS += -g
+compileAPUdebug: CFLAGS += -g
 compileAPUdebug: compileAPU
 
 compilePC compilePCdebug: $(EXECNAME)

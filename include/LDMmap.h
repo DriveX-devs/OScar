@@ -3,9 +3,11 @@
 
 #include <unordered_map>
 #include <vector>
+#include <set>
 #include <shared_mutex>
 #include "PHpoints.h"
 #include "vehicleDataDef.h"
+#include "gpsc.h"
 
 namespace ldmmap {
 	class LDMMap {
@@ -15,6 +17,7 @@ namespace ldmmap {
 	    		LDMMAP_UPDATED,
 	    		LDMMAP_ITEM_NOT_FOUND,
 	    		LDMMAP_MAP_FULL,
+                LDMMAP_NO_VDP,
 	    		LDMMAP_UNKNOWN_ERROR
 	    	} LDMMap_error_t;
 
@@ -79,6 +82,16 @@ namespace ldmmap {
 
 	    	int getCardinality() {return m_card;};
 
+            LDMMap_error_t getAllIDs(std::set<uint64_t> &selectedIDs);
+
+            LDMMap_error_t getAllPOs(std::vector<returnedVehicleData_t> &selectedVehicles);
+            LDMMap_error_t updateCPMincluded(uint64_t stationID,uint64_t timestamp);
+
+            void setLoggingGNSSClient(VDPGPSClient *gpsc_ptr) {m_gpsc_ptr=gpsc_ptr;}
+            LDMMap_error_t updateEgoPosition();
+            void setStationID(unsigned long fixed_stationid) {m_station_id=fixed_stationid;}
+
+
 		private:
 			// Main database structure
 			std::unordered_map<uint32_t,std::pair<std::shared_mutex*,std::unordered_map<uint32_t,returnedVehicleData_t>>> m_ldmmap;
@@ -92,6 +105,9 @@ namespace ldmmap {
 			// By default, they are both set to 0.0
 			double m_central_lat;
 			double m_central_lon;
+            StationId_t m_station_id;
+            VDPGPSClient *m_gpsc_ptr;
+
 	};
 }
 

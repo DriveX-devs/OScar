@@ -18,6 +18,7 @@ extern "C" {
 	#include "CAM.h"
 	#include "DENM.h"
 	#include "VAM.h"
+    #include "CollectivePerceptionMessage.h"
 }
 
 // Maxium possible size of messages which could be received from the socket
@@ -43,7 +44,10 @@ class SocketClient {
 
 		std::string m_client_id;
 
-		bool m_printMsg; // If 'true' each received message will be printed (default: 'false' - enable only for debugging purposes)
+        std::map<uint64_t, std::map<uint64_t,uint64_t>> m_recvCPMmap;  //! Structure mapping, for each CV that we have received a CPM from, the CPM's PO ids with the ego LDM's PO ids
+
+
+        bool m_printMsg; // If 'true' each received message will be printed (default: 'false' - enable only for debugging purposes)
 
 		std::atomic<bool> m_stopflg;
 

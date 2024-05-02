@@ -116,6 +116,10 @@ namespace ldmmap
 		m_pDataArray[m_next_idx].elev=newVehicleData.elevation;
 		m_pDataArray[m_next_idx].heading=newVehicleData.heading;
 		m_pDataArray[m_next_idx].point_distance=point_dist;
+        m_pDataArray[m_next_idx].timestamp_us=newVehicleData.timestamp_us;
+        m_pDataArray[m_next_idx].speed_ms=newVehicleData.speed_ms;
+        m_pDataArray[m_next_idx].detected=newVehicleData.detected;
+        m_pDataArray[m_next_idx].CPMincluded=false;
 		m_next_idx=(m_next_idx+1)%m_vectorReservedSize;
 
 		return PHP_INSERTED;
@@ -172,4 +176,13 @@ namespace ldmmap
 		m_next_idx = 0;
 		m_oldest_idx = 0;
 	}
+
+    bool PHpoints::setCPMincluded() {
+        if(m_PHpoints_size>=1) {
+            int last_idx = m_next_idx == 0 ? m_PHpoints_size-1 : m_next_idx-1;
+            m_pDataArray[last_idx].CPMincluded=true;
+            return true;
+        }
+        return false;
+    }
 }

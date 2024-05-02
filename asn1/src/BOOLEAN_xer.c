@@ -6,7 +6,7 @@
 #include "asn_internal.h"
 #include "asn_codecs_prim.h"
 #include "BOOLEAN.h"
-#include <errno.h>
+#include "errno.h"
 
 /*
  * Decode the chunk of XML text encoding INTEGER.

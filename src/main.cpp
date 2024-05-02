@@ -18,8 +18,13 @@
 #include "caBasicService.h"
 // VRU Basic service (TX only)
 #include "VRUBasicService.h"
+// CP Basic service (TX only)
+#include "cpBasicService.h"
 // Rx of CAMs and VAMs
 #include "SocketClient.h"
+// Sensor reader
+#include "basicSensorReader.h"
+
 // Linux net includes
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -35,7 +40,7 @@
 #include "vehicle-visualizer.h"
 
 #define DB_CLEANER_INTERVAL_SECONDS 5
-#define DB_DELETE_OLDER_THAN_SECONDS 7 // This value should NEVER be set greater than (5-DB_CLEANER_INTERVAL_SECONDS/60) minutes or (300-DB_CLEANER_INTERVAL_SECONDS) seconds - doing so may break the database age check functionality!
+#define DB_DELETE_OLDER_THAN_SECONDS 2 // This value should NEVER be set greater than (5-DB_CLEANER_INTERVAL_SECONDS/60) minutes or (300-DB_CLEANER_INTERVAL_SECONDS) seconds - doing so may break the database age check functionality!
 
 #define INVALID_LONLAT -DBL_MAX
 #define GNSS_DEFAULT_PORT 3000
@@ -82,6 +87,44 @@ void updateVisualizer(ldmmap::vehicleData_t vehdata,void *vizObjVoidPtr) {
 	vizObjPtr->sendObjectUpdate(std::to_string(vehdata.stationID),vehdata.lat,vehdata.lon,static_cast<int>(vehdata.stationType),vehdata.heading);
 }
 
+void *CAMdissemination_callback(btp *BTP,GeoNet *GN,ldmmap::LDMMap *db_ptr,uint64_t vehicleID,VDPGPSClient *vdpgpsc) {
+    // Get the pointer to the CA Basic Service object
+    CABasicService CABS;
+    CABS.setBTP(BTP);
+    CABS.setStationProperties(vehicleID,StationType_passengerCar);
+    CABS.setVDP(vdpgpsc);
+    CABS.setLDM(db_ptr);
+
+    // Start the CAM dissemination
+    CABS.startCamDissemination();
+
+    pthread_exit(nullptr);
+}
+
+void *VAMdissemination_callback(void *arg) {
+    // Get the pointer to the VRU Basic Service object
+    VRUBasicService *VRUBSPtr = static_cast<VRUBasicService *>(arg);
+
+    // Start the VAM dissemination
+    VRUBSPtr->startVamDissemination();
+
+    pthread_exit(nullptr);
+}
+
+void *CPMdissemination_callback(btp *BTP,GeoNet *GN,ldmmap::LDMMap *db_ptr,uint64_t vehicleID,VDPGPSClient *vdpgpsc) {
+    // Get the pointer to the CP Basic Service object
+    CPBasicService CPBS;
+    CPBS.setBTP(BTP);
+    CPBS.setStationProperties(vehicleID,StationType_passengerCar);
+    CPBS.setVDP(vdpgpsc);
+    CPBS.setLDM(db_ptr);
+
+    // Start the CPM dissemination
+    CPBS.initDissemination();
+
+    pthread_exit(nullptr);
+}
+
 void *VehVizUpdater_callback(void *arg) {
 	// Get the pointer to the visualizer options/parameters
 	vizOptions_t *vizopts_ptr = static_cast<vizOptions_t *>(arg);
@@ -123,6 +166,16 @@ void *VehVizUpdater_callback(void *arg) {
 			POLL_CLEAR_EVENT(clockFd);
 
 			// ---- These operations will be performed periodically ----
+            if(db_ptr->updateEgoPosition() == ldmmap::LDMMap::LDMMAP_NO_VDP) {
+                std::cerr << "[ERROR] Cannot update the ego position in the LDM: VDP not set." << std::endl;
+                terminatorFlag = true;
+                break;
+            }
+            // Dirty workaround to 'flush' gps data TODO: remove this
+            for (int i = 0; i < 20; i++) {
+                db_ptr->updateEgoPosition();
+            }
+            ////////////////////////////////////////
 
 			db_ptr->executeOnAllContents(&updateVisualizer, static_cast<void *>(&vehicleVisObj));
 
@@ -170,8 +223,8 @@ void *DBcleaner_callback(void *arg) {
 
 			// ---- These operations will be performed periodically ----
 
-			db_ptr->deleteOlderThan(DB_DELETE_OLDER_THAN_SECONDS*1e3);
-			//db_ptr->deleteOlderThanAndExecute(DB_DELETE_OLDER_THAN_SECONDS*1e3,clearVisualizerObject,static_cast<void *>(globVehVizPtr));
+			//db_ptr->deleteOlderThan(DB_DELETE_OLDER_THAN_SECONDS);
+			db_ptr->deleteOlderThanAndExecute(DB_DELETE_OLDER_THAN_SECONDS*1e3,clearVisualizerObject,static_cast<void *>(globVehVizPtr));
 
 			// --------
 		}
@@ -190,6 +243,7 @@ void txThr(std::string gnss_device,
 	int gnss_port,
 	bool enable_CAM_dissemination,
 	bool enable_VAM_dissemination,
+    bool enable_CPM_dissemination,
 	int sockfd,
 	int ifindex,
 	uint8_t srcmac[6],
@@ -199,6 +253,7 @@ void txThr(std::string gnss_device,
 	std::string udp_bind_ip,
 	bool extra_position_udp,
 	std::string log_filename_CAM,
+    std::string log_filename_CPM,
 	ldmmap::LDMMap *db_ptr,
 	std::string log_filename_VAM,
 	double pos_th,
@@ -210,19 +265,27 @@ void txThr(std::string gnss_device,
 
 	// VDP (Vehicle Data Provider) GPS Client object test
 	int cnt_CAM = 0;
+    int cnt_CPM = 0;
 	VDPGPSClient vdpgpsc(gnss_device,gnss_port);
 	
 	// VRUdp
 	int cnt_VAM = 0;
 	VRUdp vrudp(gnss_device,gnss_port);
-	
+    GeoNet GN;
+    btp BTP;
 	do {
 		m_retry_flag=false;
-		
+		if (enable_CAM_dissemination || enable_CPM_dissemination) {
+            std::cout << "[INFO] VDP GPS Client: opening connection..." << std::endl;
+            vdpgpsc.openConnection();
+
+            GN.setVDP(&vdpgpsc);
+            GN.setSocketTx(sockfd,ifindex,srcmac);
+            GN.setStationProperties(vehicleID,StationType_passengerCar);
+            BTP.setGeoNet(&GN);
+        }
 		if(enable_CAM_dissemination){
 			try {
-				vdpgpsc.openConnection();
-
 				while (cnt_CAM<10) {
 					VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
@@ -236,14 +299,9 @@ void txThr(std::string gnss_device,
 					cnt_CAM++;
 				}
 
-				std::cout << "[INFO] Dissemination started!" << std::endl;
+				std::cout << "[INFO] CAM Dissemination started!" << std::endl;
 
-				CABasicService CABS;
-				GeoNet GN;
-			
-				GN.setVDP(&vdpgpsc);
-				GN.setSocketTx(sockfd,ifindex,srcmac);
-				GN.setStationProperties(vehicleID,StationType_passengerCar);
+
 
 				if(udp_sock_addr!="dis") {
 					int rval;
@@ -256,21 +314,19 @@ void txThr(std::string gnss_device,
 						exit(EXIT_FAILURE);
 					}
 				}
-
-				btp BTP;
-				BTP.setGeoNet(&GN);
-
+                /*
 				if(log_filename_CAM!="dis" && log_filename_CAM!="") {
 					//FILE* f_out;
-			
+
 					//char filename[strlen(log_filename_CAM.c_str())+1];
 					//snprintf(filename,sizeof(filename),"%s",log_filename_CAM.c_str());
-					
+
 					//f_out=fopen(filename,"w");
 					//fclose(f_out);
-			
+
 					CABS.setLogfile(log_filename_CAM);
 				}
+                 */
 			
 				/* CAM print
 				* Unused - left here just for future reference (this comment will be removed in the final deployed version)
@@ -288,11 +344,10 @@ void txThr(std::string gnss_device,
 				}
 				*/
 			
-				CABS.setBTP(&BTP);
-				CABS.setStationProperties(vehicleID,StationType_passengerCar);
-				CABS.setVDP(&vdpgpsc);
-				CABS.setLDM(db_ptr);
-				CABS.startCamDissemination();
+
+				//CABS.startCamDissemination();
+                std::thread txCAM(CAMdissemination_callback,&BTP,&GN,db_ptr,vehicleID,&vdpgpsc);
+
 			} catch(const std::exception& e) {
 				std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
 				sleep(5);
@@ -374,6 +429,33 @@ void txThr(std::string gnss_device,
 				m_retry_flag=true;
 			}
 		}
+        if(enable_CPM_dissemination) {
+            try {
+                //vdpgpsc.openConnection(); // already opened
+                std::cout << "[INFO] CPM Dissemination started!" << std::endl;
+
+                if(udp_sock_addr!="dis") {
+                    int rval;
+
+                    rval=GN.openUDPsocket(udp_sock_addr,udp_bind_ip,extra_position_udp);
+
+                    if(rval<0) {
+                        std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: " << rval << ". Additional details: " << (errno==0 ? "None" : strerror(errno)) << std::endl;
+                        close(sockfd);
+                        exit(EXIT_FAILURE);
+                    }
+                }
+
+
+                //CPBS.initDissemination();
+                std::thread txCPM(CPMdissemination_callback,&BTP,&GN,db_ptr,vehicleID,&vdpgpsc);
+
+            } catch(const std::exception& e) {
+                std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
+                sleep(5);
+                m_retry_flag=true;
+            }
+        }
 	} while(m_retry_flag==true && terminatorFlag==false);
 
 	vdpgpsc.closeConnection();
@@ -384,17 +466,281 @@ void txThr(std::string gnss_device,
 	}
 }
 
+void CAMtxThr(std::string gnss_device,
+           int gnss_port,
+           int sockfd,
+           int ifindex,
+           uint8_t srcmac[6],
+           int vehicleID,
+           std::string udp_sock_addr,
+           std::string udp_bind_ip,
+           bool extra_position_udp,
+           std::string log_filename_CAM,
+           ldmmap::LDMMap *db_ptr,
+           double pos_th,
+           double speed_th,
+           double head_th,
+           bool rx_enabled){
+    bool m_retry_flag=false;
+
+    // VDP (Vehicle Data Provider) GPS Client object test
+    int cnt_CAM = 0;
+    int cnt_CPM = 0;
+    VDPGPSClient vdpgpsc(gnss_device,gnss_port);
+
+    VRUdp vrudp(gnss_device,gnss_port);
+    GeoNet GN;
+    btp BTP;
+
+    do {
+        try {
+            std::cout << "[INFO] CAM VDP GPS Client: opening connection..." << std::endl;
+            vdpgpsc.openConnection();
+
+            GN.setVDP(&vdpgpsc);
+            GN.setSocketTx(sockfd, ifindex, srcmac);
+            GN.setStationProperties(vehicleID, StationType_passengerCar);
+            BTP.setGeoNet(&GN);
+
+            while (cnt_CAM < 10) {
+                VDPGPSClient::CAM_mandatory_data_t CAMdata;
+
+                std::cout << "[INFO] VDP GPS Client test: getting GNSS data..." << std::endl;
+
+                CAMdata = vdpgpsc.getCAMMandatoryData();
+
+                std::cout << "[INFO] [" << cnt_CAM << "] VDP GPS Client test result: Lat: " << CAMdata.latitude
+                          << " deg - Lon: " << CAMdata.longitude << " deg - Heading: " << CAMdata.heading.getValue()
+                          << std::endl;
+
+                sleep(1);
+                cnt_CAM++;
+            }
+
+            std::cout << "[INFO] CAM Dissemination started!" << std::endl;
+
+            if (udp_sock_addr != "dis") {
+                int rval;
+
+                rval = GN.openUDPsocket(udp_sock_addr, udp_bind_ip, extra_position_udp);
+
+                if (rval < 0) {
+                    std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: "
+                              << rval << ". Additional details: " << (errno == 0 ? "None" : strerror(errno))
+                              << std::endl;
+                    close(sockfd);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            CABasicService CABS;
+            CABS.setBTP(&BTP);
+            CABS.setStationProperties(vehicleID, StationType_passengerCar);
+            CABS.setVDP(&vdpgpsc);
+            CABS.setLDM(db_ptr);;
+            if (log_filename_CAM != "dis" && log_filename_CAM != "") {
+                CABS.setLogfile(log_filename_CAM);
+            }
+            // Start the CAM dissemination
+            CABS.startCamDissemination();
+
+        } catch (const std::exception &e) {
+            std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
+            sleep(5);
+            m_retry_flag = true;
+
+        }
+    }while(m_retry_flag==true && terminatorFlag==false);
+
+    vdpgpsc.closeConnection();
+    vrudp.closeConnection();
+    terminatorFlag=true;
+
+}
+
+void CPMtxThr(std::string gnss_device,
+              int gnss_port,
+              int sockfd,
+              int ifindex,
+              uint8_t srcmac[6],
+              int vehicleID,
+              std::string udp_sock_addr,
+              std::string udp_bind_ip,
+              bool extra_position_udp,
+              std::string log_filename_CPM,
+              ldmmap::LDMMap *db_ptr){
+    bool m_retry_flag=false;
+
+    VDPGPSClient vdpgpsc(gnss_device,gnss_port);
+
+    VRUdp vrudp(gnss_device,gnss_port);
+    GeoNet GN;
+    btp BTP;
+
+    do {
+        try {
+            std::cout << "[INFO] CAM VDP GPS Client: opening connection..." << std::endl;
+            vdpgpsc.openConnection();
+
+            GN.setVDP(&vdpgpsc);
+            GN.setSocketTx(sockfd, ifindex, srcmac);
+            GN.setStationProperties(vehicleID, StationType_passengerCar);
+            BTP.setGeoNet(&GN);
+
+
+            std::cout << "[INFO] CPM Dissemination started!" << std::endl;
+
+            if (udp_sock_addr != "dis") {
+                int rval;
+
+                rval = GN.openUDPsocket(udp_sock_addr, udp_bind_ip, extra_position_udp);
+
+                if (rval < 0) {
+                    std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: "
+                              << rval << ". Additional details: " << (errno == 0 ? "None" : strerror(errno))
+                              << std::endl;
+                    close(sockfd);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            CPBasicService CPBS;
+            CPBS.setBTP(&BTP);
+            CPBS.setStationProperties(vehicleID, StationType_passengerCar);
+            CPBS.setVDP(&vdpgpsc);
+            CPBS.setLDM(db_ptr);;
+            if (log_filename_CPM != "dis" && log_filename_CPM != "") {
+                CPBS.setLogfile(log_filename_CPM);
+            }
+            // Start the CAM dissemination
+            CPBS.initDissemination();
+
+        } catch (const std::exception &e) {
+            std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
+            sleep(5);
+            m_retry_flag = true;
+
+        }
+    }while(m_retry_flag==true && terminatorFlag==false);
+
+    vdpgpsc.closeConnection();
+    vrudp.closeConnection();
+    terminatorFlag=true;
+}
+
+void VAMtxThr(std::string gnss_device,
+              int gnss_port,
+              int sockfd,
+              int ifindex,
+              uint8_t srcmac[6],
+              int VRUID,
+              std::string udp_sock_addr,
+              std::string udp_bind_ip,
+              bool extra_position_udp,
+              std::string log_filename_VAM,
+              ldmmap::LDMMap *db_ptr,
+              double pos_th,
+              double speed_th,
+              double head_th){
+    bool m_retry_flag=false;
+
+    VRUdp vrudp(gnss_device,gnss_port);
+    GeoNet GN;
+    btp BTP;
+
+    do {
+        try {
+            vrudp.openConnection();
+
+            std::cout << "[INFO] VAM Dissemination started!" << std::endl;
+
+            VRUBasicService VBS;
+            GeoNet GN;
+
+            GN.setVRUdp(&vrudp);
+            GN.setSocketTx(sockfd,ifindex,srcmac);
+            GN.setStationProperties(VRUID,StationType_pedestrian);
+
+            if(udp_sock_addr!="dis") {
+                int rval;
+
+                rval=GN.openUDPsocket(udp_sock_addr,udp_bind_ip,extra_position_udp);
+
+                if(rval<0) {
+                    std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: " << rval << ". Additional details: " << (errno==0 ? "None" : strerror(errno)) << std::endl;
+                    close(sockfd);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            btp BTP;
+            BTP.setGeoNet(&GN);
+
+            if(log_filename_VAM!="dis" && log_filename_VAM!="") {
+                VBS.setLogfile(log_filename_VAM);
+            }
+
+            VBS.setBTP(&BTP);
+            VBS.setStationProperties(VRUID,StationType_pedestrian);
+            VBS.setVRUdp(&vrudp);
+            VBS.setLDM(db_ptr);
+
+            // Set triggering conditions threshold
+            if(pos_th != -1){
+                VBS.setPositionThreshold(pos_th);
+            }
+            if(speed_th != -1){
+                VBS.setSpeedThreshold(speed_th);
+            }
+            if(head_th != -1){
+                VBS.setHeadingThreshold(head_th);
+            }
+
+            VBS.startVamDissemination();
+        } catch(const std::exception& e) {
+            std::cerr << "Error in creating a new VRUdp connection: " << e.what() << std::endl;
+            sleep(5);
+            m_retry_flag=true;
+        }
+}while(m_retry_flag==true && terminatorFlag==false);
+
+    vrudp.closeConnection();
+    terminatorFlag=true;
+}
+
+
+
+void radarReaderThr(std::string gnss_device, long gnss_port, std::string can_device, ldmmap::LDMMap *db_ptr, uint64_t vehicleID){
+    bool m_retry_flag=false;
+
+    do {
+        try {
+            VDPGPSClient sensorgpsc(gnss_device,gnss_port);
+            sensorgpsc.openConnection();
+            BasicSensorReader sensorReader(can_device, db_ptr, &sensorgpsc, vehicleID);
+            sensorReader.startReader();
+        } catch(const std::exception& e) {
+            std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
+            sleep(5);
+            m_retry_flag=true;
+        }
+    } while(m_retry_flag==true && terminatorFlag==false);
+
+    terminatorFlag=true;
+}
+
+
 int main (int argc, char *argv[]) {
 	std::string dissem_vif = "wlan0";
 	std::string log_filename_CAM = "dis";
 	std::string log_filename_VAM = "dis";
 	std::string log_filename_rcv = "dis";
+    std::string log_filename_CPM = "cps_dis";
 	std::string gnss_device = "localhost";
 	long gnss_port = 3000; // Using 3000 as default port, in our case
 	unsigned long vehicleID = 0; // Vehicle ID
 	unsigned long VRUID = 0; // VRU ID
 	bool enable_CAM_dissemination = false;
 	bool enable_VAM_dissemination = false;
+    bool enable_CPM_dissemination = false;
 	bool enable_DENM_decoding = false;
 	bool enable_reception = false;
 	bool disable_selfMAC_check = false;
@@ -422,6 +768,8 @@ int main (int argc, char *argv[]) {
 	// Vehicle Visualizer options
 	vizOptions_t vizOpts;
 
+    std::string can_device = "none";
+
 	// Parse the command line options with the TCLAP library
 	try {
 		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "1.2");
@@ -438,6 +786,9 @@ int main (int argc, char *argv[]) {
 		
 		TCLAP::ValueArg<std::string> LogfileReception("R","log-file-Reception","Print on file the data retrieved from CAM/VAM/DENM reception. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileReception);
+
+        TCLAP::ValueArg<std::string> LogfileCPM("z","log-file-CPM","Print on file the log for the CPM condition checks. Default: (disabled).",false,"cps_dis","string");
+        cmd.add(LogfileCPM);
 
 		TCLAP::ValueArg<std::string> GNSSDevArg("D","gnss-device","GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",false,"localhost","string");
 		cmd.add(GNSSDevArg);
@@ -456,6 +807,9 @@ int main (int argc, char *argv[]) {
 		
 		TCLAP::SwitchArg VAMsDissArg("V","enable-VAMs-dissemination","Enable the dissemination of VAMs",false);
 		cmd.add(VAMsDissArg);
+
+        TCLAP::SwitchArg CPMsDissArg("M","enable-CPMs-dissemination","Enable the dissemination of CPMs",false);
+        cmd.add(CPMsDissArg);
 		
 		TCLAP::SwitchArg DENMsDecArg("d","enable-DENMs-decoding","Enable the decoding of DENMs",false);
 		cmd.add(DENMsDecArg);
@@ -511,6 +865,9 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<long> JSONserverPortArg("j","ldm-json-server-port","Set the port for on-demand JSON-over-TCP requests to the LDM.",false,DEFAULT_JSON_OVER_TCP_PORT,"integer");
 		cmd.add(JSONserverPortArg);
 
+        TCLAP::ValueArg<std::string> CANDeviceArg("c","can-device","CAN device to be used (i.e., where can-utils is currently running). Default: vcan0.",false,"vcan0","string");
+        cmd.add(CANDeviceArg);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -518,6 +875,7 @@ int main (int argc, char *argv[]) {
 		log_filename_CAM=LogfileCAM.getValue();
 		log_filename_VAM=LogfileVAM.getValue();
 		log_filename_rcv=LogfileReception.getValue();
+        log_filename_CPM=LogfileCPM.getValue();
 
 		gnss_device=GNSSDevArg.getValue();
 		gnss_port=GNSSPortArg.getValue();
@@ -527,6 +885,7 @@ int main (int argc, char *argv[]) {
 
 		enable_CAM_dissemination=CAMsDissArg.getValue();
 		enable_VAM_dissemination=VAMsDissArg.getValue();
+        enable_CPM_dissemination=CPMsDissArg.getValue();
 		enable_DENM_decoding=DENMsDecArg.getValue();
 
 		udp_sock_addr=UDPSockAddrArg.getValue();
@@ -555,6 +914,8 @@ int main (int argc, char *argv[]) {
 		enable_hmi=EnableHMIArg.getValue();
 		disable_selfMAC_check=DisableSelfMACArg.getValue();
 		json_over_tcp_port=JSONserverPortArg.getValue();
+
+        can_device = CANDeviceArg.getValue();
 
 		if(enable_reception==false && enable_hmi==true) {
 			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
@@ -631,6 +992,12 @@ int main (int argc, char *argv[]) {
 	
 	// Create a new DB object
 	ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
+    db_ptr->setStationID(vehicleID);
+    db_ptr->setCentralLatLon(45.014570, 7.568314); // CRF
+
+    VDPGPSClient ldmgpsc(gnss_device,gnss_port);
+    ldmgpsc.openConnection();
+    db_ptr->setLoggingGNSSClient(&ldmgpsc);
 	
 	// We have to create a thread reading periodically (e.g. every 5 s) the database through the pointer "db_ptr" and "cleaning" the entries
 	// which are too old
@@ -647,11 +1014,13 @@ int main (int argc, char *argv[]) {
 	}
 
 	// Transmission loop
+    /*
 	std::thread txThrObj(txThr,
 		gnss_device,
 		gnss_port,
 		enable_CAM_dissemination,
 		enable_VAM_dissemination,
+        enable_CPM_dissemination,
 		sockfd,
 		ifindex,
 		srcmac,
@@ -661,12 +1030,75 @@ int main (int argc, char *argv[]) {
 		udp_bind_ip,
 		extra_position_udp,
 		log_filename_CAM,
+        log_filename_CPM,
 		db_ptr,
 		log_filename_VAM,
 		pos_th,
 		speed_th,
 		head_th,
 		enable_reception);
+     */
+
+    std::vector<std::thread> txThreads;
+
+    if(enable_CAM_dissemination) {
+        txThreads.emplace_back(CAMtxThr,
+                                        gnss_device,
+                                        gnss_port,
+                                        sockfd,
+                                        ifindex,
+                                        srcmac,
+                                        vehicleID,
+                                        udp_sock_addr,
+                                        udp_bind_ip,
+                                        extra_position_udp,
+                                        log_filename_CAM,
+                                        db_ptr,
+                                        pos_th,
+                                        speed_th,
+                                        head_th,
+                                        enable_reception);
+    }
+    if(enable_VAM_dissemination) {
+        txThreads.emplace_back(VAMtxThr,
+                                        gnss_device,
+                                        gnss_port,
+                                        sockfd,
+                                        ifindex,
+                                        srcmac,
+                                        VRUID,
+                                        udp_sock_addr,
+                                        udp_bind_ip,
+                                        extra_position_udp,
+                                        log_filename_VAM,
+                                        db_ptr,
+                                        pos_th,
+                                        speed_th,
+                                        head_th);
+    }
+    if(enable_CPM_dissemination) {
+        txThreads.emplace_back(CPMtxThr,
+                                        gnss_device,
+                                        gnss_port,
+                                        sockfd,
+                                        ifindex,
+                                        srcmac,
+                                        vehicleID,
+                                        udp_sock_addr,
+                                        udp_bind_ip,
+                                        extra_position_udp,
+                                        log_filename_CPM,
+                                        db_ptr);
+    }
+    if (can_device != "none") {
+        txThreads.emplace_back(radarReaderThr,
+                               gnss_device,
+                               gnss_port,
+                               can_device,
+                               db_ptr,
+                               vehicleID);
+    }
+
 	
 	// Reception loop (using the main thread)
 	if(enable_reception==true) {
@@ -711,7 +1143,10 @@ int main (int argc, char *argv[]) {
 	
 	exit_failure:
 
-	txThrObj.join();
+	//txThrObj.join();
+    for(auto& t : txThreads) {
+        t.join();
+    }
 
 	terminatorFlag=true;
 	

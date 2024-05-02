@@ -94,7 +94,7 @@ private:
     int16_t m_N_GenVam_red;
     int16_t m_N_GenVam_max_red;
     
-    StationID_t m_station_id;
+    StationId_t m_station_id;
     StationType_t m_stationtype;
 
     VRUdp* m_VRUdp;

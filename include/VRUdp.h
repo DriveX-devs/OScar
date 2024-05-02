@@ -5,6 +5,7 @@
 #include <string>
 #include "asn_utils.h"
 #include "LDMmap.h"
+#include "StationType.h"
 
 extern "C" {
   #include "VAM.h"
@@ -55,7 +56,7 @@ typedef struct VRUdp_position_XYZ {
 
 typedef struct distance {
   double longitudinal,lateral,vertical;
-  StationID_t ID;
+  StationId_t ID;
   StationType_t station_type;
   bool safe_dist;
 } distance_t;

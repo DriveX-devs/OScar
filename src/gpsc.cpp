@@ -190,7 +190,7 @@ VDPGPSClient::getCAMMandatoryData() {
 				CAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
 
 				/* Longitudinal acceleration [0.1 m/s^2] */
-			    CAMdata.longAcceleration = VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,AccelerationConfidence_unavailable);
+			    CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
 
 			    /* Heading WGS84 north [0.1 degree] - m_gps_data.fix.track should already provide a CW heading relative to North */
 			    if(static_cast<int>(m_gps_data.fix.track*DECI)<0 || static_cast<int>(m_gps_data.fix.track*DECI)>3601) {
@@ -236,7 +236,7 @@ VDPGPSClient::getCAMMandatoryData() {
 			CAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
 
 			/* Longitudinal acceleration [0.1 m/s^2] */
-		    CAMdata.longAcceleration = VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,AccelerationConfidence_unavailable);
+		    CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
 
 		    /* Heading WGS84 north [0.1 degree] */
 		    CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
@@ -261,4 +261,105 @@ VDPGPSClient::getCAMMandatoryData() {
 	}
 
     return CAMdata;
+}
+
+VDPGPSClient::CPM_mandatory_data_t VDPGPSClient::getCPMMandatoryData() {
+    CPM_mandatory_data_t CPMdata={.avail=false};
+    int rval;
+
+    rval=gps_read(&m_gps_data,nullptr,0);
+
+    if(rval==-1) {
+        throw std::runtime_error("Cannot read data from GNSS device: " + std::string(gps_errstr(rval)));
+    } else {
+        // Check if the mode is set and if a fix has been obtained
+        if((m_gps_data.set & MODE_SET)==MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+            if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                /* Speed [0.01 m/s] */
+                CPMdata.speed = VDPValueConfidence<>(m_gps_data.fix.speed*CENTI,SpeedConfidence_unavailable);
+
+                /* Latitude WGS84 [0,1 microdegree] */
+                CPMdata.latitude = (Latitude_t)(m_gps_data.fix.latitude*DOT_ONE_MICRO);
+                /* Longitude WGS84 [0,1 microdegree] */
+                CPMdata.longitude = (Longitude_t)(m_gps_data.fix.longitude*DOT_ONE_MICRO);
+
+                int asnAltitudeValue=static_cast<int>(m_gps_data.fix.altitude*CENTI);
+                /* Altitude [0,01 m] */
+                if(m_gps_data.fix.mode == MODE_3D && asnAltitudeValue>=-100000 &&  asnAltitudeValue<=800000) {
+                    CPMdata.altitude = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.altitude*CENTI),AltitudeConfidence_unavailable);
+                } else {
+                    CPMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
+                }
+
+                /* Position Confidence Ellipse */
+                CPMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
+                CPMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
+                CPMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
+
+                /* Longitudinal acceleration [0.1 m/s^2] */
+                CPMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+
+                /* Heading WGS84 north [0.1 degree] - m_gps_data.fix.track should already provide a CW heading relative to North */
+                if(static_cast<int>(m_gps_data.fix.track*DECI)<0 || static_cast<int>(m_gps_data.fix.track*DECI)>3601) {
+                    CPMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+                } else {
+                    CPMdata.heading = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.track*DECI),HeadingConfidence_unavailable);
+                }
+
+                /* Curvature and CurvatureCalculationMode */
+                CPMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable,CurvatureConfidence_unavailable);
+                CPMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
+
+                /* Length and Width [0.1 m] */
+                CPMdata.VehicleLength = m_vehicle_length;
+                CPMdata.VehicleWidth = m_vehicle_width;
+
+                /* Yaw Rate */
+                CPMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable,YawRateConfidence_unavailable);
+
+                /* This flag represents an easy way to understand if it was possible to read any valid data from the GNSS device */
+                CPMdata.avail = true;
+            }
+        } else {
+            // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
+
+            /* Speed [0.01 m/s] */
+            CPMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable,SpeedConfidence_unavailable);
+
+            /* Latitude WGS84 [0,1 microdegree] */
+            CPMdata.latitude = (Latitude_t)Latitude_unavailable;
+            /* Longitude WGS84 [0,1 microdegree] */
+            CPMdata.longitude = (Longitude_t)Longitude_unavailable;
+
+            /* Altitude [0,01 m] */
+            CPMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
+
+            /* Position Confidence Ellipse */
+            CPMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
+            CPMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
+            CPMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
+
+            /* Longitudinal acceleration [0.1 m/s^2] */
+            CPMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+
+            /* Heading WGS84 north [0.1 degree] */
+            CPMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+
+            /* Curvature and CurvatureCalculationMode */
+            CPMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable,CurvatureConfidence_unavailable);
+            CPMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
+
+            /* Length and Width [0.1 m] */
+            // These can be set even in absence of a GPS fix
+            CPMdata.VehicleLength = m_vehicle_length;
+            CPMdata.VehicleWidth = m_vehicle_width;
+
+            /* Yaw Rate */
+            CPMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable,YawRateConfidence_unavailable);
+
+            CPMdata.avail = false;
+        }
+    }
+
+    return CPMdata;
 }

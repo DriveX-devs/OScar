@@ -30,15 +30,17 @@
 
 #include "float.h"
 #include "inttypes.h"
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 // Acting as an invalid value (like Math::NaN in C++)
 #define COORD_NAN DBL_MAX
 
 // World Geodic System 1984 constants
 // These constants come from "Constants.hpp" in the full C++ GeographicLib
-#define WGS84_a 6378137
+#define WGS84_A 6378137
 // For WGS84_f see UTMUPS_WGS84_f()
-#define UTM_k0 ((double) 0.9996)
+#define UTM_K0 ((double) 0.9996)
 
 /**
  * This documentation comes from the original GeographicLib one.
@@ -187,5 +189,7 @@ int UTMUPS_Forward(double lat, double lon,
 	double *gamma, double *k,
 	int setzone, uint8_t mgrslimits,
 	transverse_mercator_t *preinit_transverse_mercator);
-
+#ifdef __cplusplus
+}
+#endif
 #endif // UTMUPS_GEOLIB_H_INCLUDED

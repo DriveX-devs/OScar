@@ -565,9 +565,9 @@ VRUBasicService::generateAndEncodeVam(){
     }
 
   /* Fill the header */
-  asn1cpp::setField(vam->header.messageID, FIX_VAMID);
+  asn1cpp::setField(vam->header.messageId, FIX_VAMID);
   asn1cpp::setField(vam->header.protocolVersion , 3);
-  asn1cpp::setField(vam->header.stationID, m_station_id);
+  asn1cpp::setField(vam->header.stationId, m_station_id);
 
   /*
    * Compute the generationDeltaTime, computed as the time corresponding to the
@@ -588,9 +588,9 @@ VRUBasicService::generateAndEncodeVam(){
   asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.altitude.altitudeConfidence, vam_mandatory_data.altitude.getConfidence ());
   asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.latitude, vam_mandatory_data.latitude);
   asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.longitude, vam_mandatory_data.longitude);
-  asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorConfidence, vam_mandatory_data.posConfidenceEllipse.semiMajorConfidence);
-  asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorConfidence, vam_mandatory_data.posConfidenceEllipse.semiMinorConfidence);
-  asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorOrientation, vam_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
+  asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorAxisLength, vam_mandatory_data.posConfidenceEllipse.semiMajorConfidence);
+  asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorAxisLength, vam_mandatory_data.posConfidenceEllipse.semiMinorConfidence);
+  asn1cpp::setField(vam->vam.vamParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorAxisOrientation, vam_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
 
   /* Fill the highFrequencyContainer */
   asn1cpp::setField(vam->vam.vamParameters.vruHighFrequencyContainer.heading.value, vam_mandatory_data.heading.getValue ());

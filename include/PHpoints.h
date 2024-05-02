@@ -19,6 +19,12 @@ namespace ldmmap {
 				double elev;
 				double heading;
 				double point_distance;
+
+                // CPM patch
+                uint64_t timestamp_us;
+                double speed_ms;
+                bool detected;
+                bool CPMincluded;
 			} PHData_t;
 
 			// Structure used to iterate over the PH points of a vehicle
@@ -58,6 +64,8 @@ namespace ldmmap {
 			void setIterateFull(bool iterateFull) {m_iterateFull = iterateFull;}
 
 			int getCardinality(void) {return m_PHpoints_size;};
+
+            bool setCPMincluded();
 
 		private:
 			double m_distance_limit;

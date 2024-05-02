@@ -4,214 +4,206 @@
 
 struct asn_TYPE_descriptor_s;	/* Forward declaration */
 
-extern struct asn_TYPE_descriptor_s asn_DEF_GddStructure;
-extern struct asn_TYPE_descriptor_s asn_DEF_ActualNumberOfPassengers;
-extern struct asn_TYPE_descriptor_s asn_DEF_AddRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_ChannelRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_ChannelRs;
-extern struct asn_TYPE_descriptor_s asn_DEF_CopyRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_CreditRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_CreditRs;
-extern struct asn_TYPE_descriptor_s asn_DEF_DebitRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_DebitRs;
-extern struct asn_TYPE_descriptor_s asn_DEF_GetInstanceRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_GetStampedRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_SetMMIRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_SubRq;
-extern struct asn_TYPE_descriptor_s asn_DEF_CO2EmissionValue;
-extern struct asn_TYPE_descriptor_s asn_DEF_ContractSerialNumber;
-extern struct asn_TYPE_descriptor_s asn_DEF_ContractAuthenticator;
-extern struct asn_TYPE_descriptor_s asn_DEF_ContractValidity;
-extern struct asn_TYPE_descriptor_s asn_DEF_ContractVehicle;
-extern struct asn_TYPE_descriptor_s asn_DEF_EFC_ContextMark;
-extern struct asn_TYPE_descriptor_s asn_DEF_Engine;
-extern struct asn_TYPE_descriptor_s asn_DEF_EquipmentOBUId;
-extern struct asn_TYPE_descriptor_s asn_DEF_EquipmentStatus;
-extern struct asn_TYPE_descriptor_s asn_DEF_PaymentMeans;
-extern struct asn_TYPE_descriptor_s asn_DEF_PaymentMeansBalance;
-extern struct asn_TYPE_descriptor_s asn_DEF_PaymentMeansUnit;
-extern struct asn_TYPE_descriptor_s asn_DEF_PaymentSecurityData;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptContract;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptData1;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptData2;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptDistance;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptFinancialPart;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptICC_Id;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptOBUId;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptServicePart;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptServiceSerialNumber;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptAuthenticator;
-extern struct asn_TYPE_descriptor_s asn_DEF_ReceiptText;
-extern struct asn_TYPE_descriptor_s asn_DEF_SessionClass;
-extern struct asn_TYPE_descriptor_s asn_DEF_TrailerDetails;
-extern struct asn_TYPE_descriptor_s asn_DEF_TrailerLicencePlateNumber;
-extern struct asn_TYPE_descriptor_s asn_DEF_ValidityOfContract;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleAuthenticator;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleAxles;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleClass;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleLicencePlateNumber;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleIdentificationNumber;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleSpecificCharacteristics;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleTotalDistance;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleWeightLaden;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleCurrentMaxTrainWeight;
-extern struct asn_TYPE_descriptor_s asn_DEF_IVI;
-extern struct asn_TYPE_descriptor_s asn_DEF_CAM;
-extern struct asn_TYPE_descriptor_s asn_DEF_DENM;
-extern struct asn_TYPE_descriptor_s asn_DEF_ConnectionManeuverAssist_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_ConnectionTrajectory_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_IntersectionState_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_LaneAttributes_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_MapData_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_MovementEvent_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_NodeAttributeSet_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_Position3D_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_RestrictionUserType_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_RequestorDescription_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_SignalStatusPackage_addGrpC;
-extern struct asn_TYPE_descriptor_s asn_DEF_RTCMcorrections;
-extern struct asn_TYPE_descriptor_s asn_DEF_TrafficConditionSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_AccidentSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_HumanPresenceOnTheRoadSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_WrongWayDrivingSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_AdverseWeatherCondition_ExtremeWeatherConditionSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_AdverseWeatherCondition_AdhesionSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_AdverseWeatherCondition_VisibilitySubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_AdverseWeatherCondition_PrecipitationSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_SlowVehicleSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_StationaryVehicleSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_HumanProblemSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_EmergencyVehicleApproachingSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_HazardousLocation_DangerousCurveSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_HazardousLocation_SurfaceConditionSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_HazardousLocation_ObstacleOnTheRoadSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_HazardousLocation_AnimalOnTheRoadSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_CollisionRiskSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_SignalViolationSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_RescueAndRecoveryWorkInProgressSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_DangerousEndOfQueueSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_DangerousSituationSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_VehicleBreakdownSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_PostCrashSubCauseCode;
-extern struct asn_TYPE_descriptor_s asn_DEF_DigitalMap;
+extern struct asn_TYPE_descriptor_s asn_DEF_CollectivePerceptionMessage;
+extern struct asn_TYPE_descriptor_s asn_DEF_AccelerationControl;
+extern struct asn_TYPE_descriptor_s asn_DEF_AirHumidity;
+extern struct asn_TYPE_descriptor_s asn_DEF_AxlesCount;
+extern struct asn_TYPE_descriptor_s asn_DEF_BarometricPressure;
+extern struct asn_TYPE_descriptor_s asn_DEF_BogiesCount;
+extern struct asn_TYPE_descriptor_s asn_DEF_CenDsrcTollingZoneID;
+extern struct asn_TYPE_descriptor_s asn_DEF_CurvatureCalculationMode;
+extern struct asn_TYPE_descriptor_s asn_DEF_DeltaTimeMilliSecondPositive;
+extern struct asn_TYPE_descriptor_s asn_DEF_DeltaTimeSecond;
+extern struct asn_TYPE_descriptor_s asn_DEF_Direction;
+extern struct asn_TYPE_descriptor_s asn_DEF_DriveDirection;
+extern struct asn_TYPE_descriptor_s asn_DEF_EmbarkationStatus;
+extern struct asn_TYPE_descriptor_s asn_DEF_EmergencyPriority;
+extern struct asn_TYPE_descriptor_s asn_DEF_EnergyStorageType;
+extern struct asn_TYPE_descriptor_s asn_DEF_GenerationDeltaTime;
+extern struct asn_TYPE_descriptor_s asn_DEF_HeightLonCarr;
+extern struct asn_TYPE_descriptor_s asn_DEF_Iso3833VehicleType;
+extern struct asn_TYPE_descriptor_s asn_DEF_LaneWidth;
+extern struct asn_TYPE_descriptor_s asn_DEF_LightBarSirenInUse;
+extern struct asn_TYPE_descriptor_s asn_DEF_NumberOfOccupants;
+extern struct asn_TYPE_descriptor_s asn_DEF_ObjectFace;
 extern struct asn_TYPE_descriptor_s asn_DEF_OpeningDaysHours;
-extern struct asn_TYPE_descriptor_s asn_DEF_IVIM;
-extern struct asn_TYPE_descriptor_s asn_DEF_MAPEM;
-extern struct asn_TYPE_descriptor_s asn_DEF_SPATEM;
-extern struct asn_TYPE_descriptor_s asn_DEF_SREM;
-extern struct asn_TYPE_descriptor_s asn_DEF_SSEM;
+extern struct asn_TYPE_descriptor_s asn_DEF_PerformanceClass;
+extern struct asn_TYPE_descriptor_s asn_DEF_PosCentMass;
+extern struct asn_TYPE_descriptor_s asn_DEF_PositioningSolutionType;
+extern struct asn_TYPE_descriptor_s asn_DEF_PositionOfOccupants;
+extern struct asn_TYPE_descriptor_s asn_DEF_PosFrontAx;
+extern struct asn_TYPE_descriptor_s asn_DEF_PosLonCarr;
+extern struct asn_TYPE_descriptor_s asn_DEF_PrecipitationIntensity;
+extern struct asn_TYPE_descriptor_s asn_DEF_RelevanceDistance;
+extern struct asn_TYPE_descriptor_s asn_DEF_RelevanceTrafficDirection;
+extern struct asn_TYPE_descriptor_s asn_DEF_RequestResponseIndication;
+extern struct asn_TYPE_descriptor_s asn_DEF_RoadType;
+extern struct asn_TYPE_descriptor_s asn_DEF_SpecialTransportType;
+extern struct asn_TYPE_descriptor_s asn_DEF_SpeedLimit;
+extern struct asn_TYPE_descriptor_s asn_DEF_StandardLength3b;
+extern struct asn_TYPE_descriptor_s asn_DEF_StandardLength9b;
+extern struct asn_TYPE_descriptor_s asn_DEF_StandardLength2B;
+extern struct asn_TYPE_descriptor_s asn_DEF_StationarySince;
+extern struct asn_TYPE_descriptor_s asn_DEF_Temperature;
+extern struct asn_TYPE_descriptor_s asn_DEF_TrafficDirection;
+extern struct asn_TYPE_descriptor_s asn_DEF_TrafficRule;
+extern struct asn_TYPE_descriptor_s asn_DEF_TransmissionInterval;
+extern struct asn_TYPE_descriptor_s asn_DEF_TurningRadius;
+extern struct asn_TYPE_descriptor_s asn_DEF_ValidityDuration;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleHeight;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleMass;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleRole;
+extern struct asn_TYPE_descriptor_s asn_DEF_VruDeviceUsage;
+extern struct asn_TYPE_descriptor_s asn_DEF_VruEnvironment;
+extern struct asn_TYPE_descriptor_s asn_DEF_VruMovementControl;
+extern struct asn_TYPE_descriptor_s asn_DEF_VruSizeClass;
+extern struct asn_TYPE_descriptor_s asn_DEF_WheelBaseVehicle;
+extern struct asn_TYPE_descriptor_s asn_DEF_AccelerationChangeIndication;
+extern struct asn_TYPE_descriptor_s asn_DEF_ActionID;
+extern struct asn_TYPE_descriptor_s asn_DEF_ActionIdList;
+extern struct asn_TYPE_descriptor_s asn_DEF_BasicContainer;
+extern struct asn_TYPE_descriptor_s asn_DEF_CartesianAngularAccelerationComponent;
+extern struct asn_TYPE_descriptor_s asn_DEF_CauseCode;
+extern struct asn_TYPE_descriptor_s asn_DEF_CauseCodeV2;
+extern struct asn_TYPE_descriptor_s asn_DEF_CenDsrcTollingZone;
+extern struct asn_TYPE_descriptor_s asn_DEF_ClosedLanes;
+extern struct asn_TYPE_descriptor_s asn_DEF_ClusterBreakupInfo;
+extern struct asn_TYPE_descriptor_s asn_DEF_ClusterJoinInfo;
+extern struct asn_TYPE_descriptor_s asn_DEF_ClusterLeaveInfo;
+extern struct asn_TYPE_descriptor_s asn_DEF_Curvature;
+extern struct asn_TYPE_descriptor_s asn_DEF_DangerousGoodsExtended;
+extern struct asn_TYPE_descriptor_s asn_DEF_DigitalMap;
+extern struct asn_TYPE_descriptor_s asn_DEF_EuVehicleCategoryCode;
+extern struct asn_TYPE_descriptor_s asn_DEF_EventZone;
+extern struct asn_TYPE_descriptor_s asn_DEF_GeneralizedLanePosition;
+extern struct asn_TYPE_descriptor_s asn_DEF_Heading;
+extern struct asn_TYPE_descriptor_s asn_DEF_HeadingChangeIndication;
+extern struct asn_TYPE_descriptor_s asn_DEF_InterferenceManagementZones;
+extern struct asn_TYPE_descriptor_s asn_DEF_ItineraryPath;
+extern struct asn_TYPE_descriptor_s asn_DEF_LateralAcceleration;
+extern struct asn_TYPE_descriptor_s asn_DEF_LongitudinalAcceleration;
+extern struct asn_TYPE_descriptor_s asn_DEF_PathHistory;
+extern struct asn_TYPE_descriptor_s asn_DEF_PathPredicted;
+extern struct asn_TYPE_descriptor_s asn_DEF_PositionOfPillars;
+extern struct asn_TYPE_descriptor_s asn_DEF_ProtectedCommunicationZonesRSU;
+extern struct asn_TYPE_descriptor_s asn_DEF_PtActivation;
+extern struct asn_TYPE_descriptor_s asn_DEF_RestrictedTypes;
+extern struct asn_TYPE_descriptor_s asn_DEF_SequenceOfSafeDistanceIndication;
+extern struct asn_TYPE_descriptor_s asn_DEF_SequenceOfTrajectoryInterceptionIndication;
+extern struct asn_TYPE_descriptor_s asn_DEF_StabilityChangeIndication;
+extern struct asn_TYPE_descriptor_s asn_DEF_SteeringWheelAngle;
+extern struct asn_TYPE_descriptor_s asn_DEF_Traces;
+extern struct asn_TYPE_descriptor_s asn_DEF_VarLengthNumber;
+extern struct asn_TYPE_descriptor_s asn_DEF_VerticalAcceleration;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleIdentification;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleLength;
+extern struct asn_TYPE_descriptor_s asn_DEF_VehicleLengthV2;
+extern struct asn_TYPE_descriptor_s asn_DEF_VruExteriorLights;
+extern struct asn_TYPE_descriptor_s asn_DEF_YawRate;
+extern struct asn_TYPE_descriptor_s asn_DEF_EXTERNAL;
 
 
 struct asn_TYPE_descriptor_s *asn_pdu_collection[] = {
-	/* From module GDD in /home/carlosrisma/IVIM ASN1 files/asn1_IS_ISO_TS_14823_GDD.asn */
-	&asn_DEF_GddStructure,	
-	/* From module EfcDsrcApplication in /home/carlosrisma/IVIM ASN1 files/asn1_IS_ISO_TS_14906_EfcDsrcApplication.asn */
-	&asn_DEF_ActualNumberOfPassengers,	
-	&asn_DEF_AddRq,	
-	&asn_DEF_ChannelRq,	
-	&asn_DEF_ChannelRs,	
-	&asn_DEF_CopyRq,	
-	&asn_DEF_CreditRq,	
-	&asn_DEF_CreditRs,	
-	&asn_DEF_DebitRq,	
-	&asn_DEF_DebitRs,	
-	&asn_DEF_GetInstanceRq,	
-	&asn_DEF_GetStampedRq,	
-	&asn_DEF_SetMMIRq,	
-	&asn_DEF_SubRq,	
-	&asn_DEF_CO2EmissionValue,	
-	&asn_DEF_ContractSerialNumber,	
-	&asn_DEF_ContractAuthenticator,	
-	&asn_DEF_ContractValidity,	
-	&asn_DEF_ContractVehicle,	
-	&asn_DEF_EFC_ContextMark,	
-	&asn_DEF_Engine,	
-	&asn_DEF_EquipmentOBUId,	
-	&asn_DEF_EquipmentStatus,	
-	&asn_DEF_PaymentMeans,	
-	&asn_DEF_PaymentMeansBalance,	
-	&asn_DEF_PaymentMeansUnit,	
-	&asn_DEF_PaymentSecurityData,	
-	&asn_DEF_ReceiptContract,	
-	&asn_DEF_ReceiptData1,	
-	&asn_DEF_ReceiptData2,	
-	&asn_DEF_ReceiptDistance,	
-	&asn_DEF_ReceiptFinancialPart,	
-	&asn_DEF_ReceiptICC_Id,	
-	&asn_DEF_ReceiptOBUId,	
-	&asn_DEF_ReceiptServicePart,	
-	&asn_DEF_ReceiptServiceSerialNumber,	
-	&asn_DEF_ReceiptAuthenticator,	
-	&asn_DEF_ReceiptText,	
-	&asn_DEF_SessionClass,	
-	&asn_DEF_TrailerDetails,	
-	&asn_DEF_TrailerLicencePlateNumber,	
-	&asn_DEF_ValidityOfContract,	
-	&asn_DEF_VehicleAuthenticator,	
-	&asn_DEF_VehicleAxles,	
-	&asn_DEF_VehicleClass,	
-	&asn_DEF_VehicleLicencePlateNumber,	
-	&asn_DEF_VehicleIdentificationNumber,	
-	&asn_DEF_VehicleSpecificCharacteristics,	
-	&asn_DEF_VehicleTotalDistance,	
-	&asn_DEF_VehicleWeightLaden,	
-	&asn_DEF_VehicleCurrentMaxTrainWeight,	
-	/* From module IVI in /home/carlosrisma/IVIM ASN1 files/asn1_IS_ISO_TS_19321_IVI.asn */
-	&asn_DEF_IVI,	
-	/* From module CAM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/ETSI CAM v1.4.1.asn */
-	&asn_DEF_CAM,	
-	/* From module DENM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/ETSI DENM v1.3.1.asn */
-	&asn_DEF_DENM,	
-	/* From module AddGrpC in /home/carlosrisma/IVIM ASN1 files/ISO-TS-19091.asn */
-	&asn_DEF_ConnectionManeuverAssist_addGrpC,	
-	&asn_DEF_ConnectionTrajectory_addGrpC,	
-	&asn_DEF_IntersectionState_addGrpC,	
-	&asn_DEF_LaneAttributes_addGrpC,	
-	&asn_DEF_MapData_addGrpC,	
-	&asn_DEF_MovementEvent_addGrpC,	
-	&asn_DEF_NodeAttributeSet_addGrpC,	
-	&asn_DEF_Position3D_addGrpC,	
-	&asn_DEF_RestrictionUserType_addGrpC,	
-	&asn_DEF_RequestorDescription_addGrpC,	
-	&asn_DEF_SignalStatusPackage_addGrpC,	
-	/* From module DSRC in /home/carlosrisma/IVIM ASN1 files/ISO-TS-19091.asn */
-	&asn_DEF_RTCMcorrections,	
-	/* From module ITS-Container in /home/carlosrisma/IVIM ASN1 files/ITS-Container.asn */
-	&asn_DEF_TrafficConditionSubCauseCode,	
-	&asn_DEF_AccidentSubCauseCode,	
-	&asn_DEF_HumanPresenceOnTheRoadSubCauseCode,	
-	&asn_DEF_WrongWayDrivingSubCauseCode,	
-	&asn_DEF_AdverseWeatherCondition_ExtremeWeatherConditionSubCauseCode,	
-	&asn_DEF_AdverseWeatherCondition_AdhesionSubCauseCode,	
-	&asn_DEF_AdverseWeatherCondition_VisibilitySubCauseCode,	
-	&asn_DEF_AdverseWeatherCondition_PrecipitationSubCauseCode,	
-	&asn_DEF_SlowVehicleSubCauseCode,	
-	&asn_DEF_StationaryVehicleSubCauseCode,	
-	&asn_DEF_HumanProblemSubCauseCode,	
-	&asn_DEF_EmergencyVehicleApproachingSubCauseCode,	
-	&asn_DEF_HazardousLocation_DangerousCurveSubCauseCode,	
-	&asn_DEF_HazardousLocation_SurfaceConditionSubCauseCode,	
-	&asn_DEF_HazardousLocation_ObstacleOnTheRoadSubCauseCode,	
-	&asn_DEF_HazardousLocation_AnimalOnTheRoadSubCauseCode,	
-	&asn_DEF_CollisionRiskSubCauseCode,	
-	&asn_DEF_SignalViolationSubCauseCode,	
-	&asn_DEF_RescueAndRecoveryWorkInProgressSubCauseCode,	
-	&asn_DEF_DangerousEndOfQueueSubCauseCode,	
-	&asn_DEF_DangerousSituationSubCauseCode,	
-	&asn_DEF_VehicleBreakdownSubCauseCode,	
-	&asn_DEF_PostCrashSubCauseCode,	
-	&asn_DEF_DigitalMap,	
+	/* From module CPM-PDU-Descriptions in CPM-all.asn */
+	&asn_DEF_CollectivePerceptionMessage,	
+	/* From module ETSI-ITS-CDD in CPM-all.asn */
+	&asn_DEF_AccelerationControl,	
+	&asn_DEF_AirHumidity,	
+	&asn_DEF_AxlesCount,	
+	&asn_DEF_BarometricPressure,	
+	&asn_DEF_BogiesCount,	
+	&asn_DEF_CenDsrcTollingZoneID,	
+	&asn_DEF_CurvatureCalculationMode,	
+	&asn_DEF_DeltaTimeMilliSecondPositive,	
+	&asn_DEF_DeltaTimeSecond,	
+	&asn_DEF_Direction,	
+	&asn_DEF_DriveDirection,	
+	&asn_DEF_EmbarkationStatus,	
+	&asn_DEF_EmergencyPriority,	
+	&asn_DEF_EnergyStorageType,	
+	&asn_DEF_GenerationDeltaTime,	
+	&asn_DEF_HeightLonCarr,	
+	&asn_DEF_Iso3833VehicleType,	
+	&asn_DEF_LaneWidth,	
+	&asn_DEF_LightBarSirenInUse,	
+	&asn_DEF_NumberOfOccupants,	
+	&asn_DEF_ObjectFace,	
 	&asn_DEF_OpeningDaysHours,	
-	/* From module IVIM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/IVIM-PDU-Descriptions.asn */
-	&asn_DEF_IVIM,	
-	/* From module MAPEM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/MAPEM-PDU-Descriptions.asn */
-	&asn_DEF_MAPEM,	
-	/* From module SPATEM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/SPATEM-PDU-Descriptions.asn */
-	&asn_DEF_SPATEM,	
-	/* From module SREM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/SREM-PDU-Descriptions.asn */
-	&asn_DEF_SREM,	
-	/* From module SSEM-PDU-Descriptions in /home/carlosrisma/IVIM ASN1 files/SSEM-PDU-Descriptions.asn */
-	&asn_DEF_SSEM,	
+	&asn_DEF_PerformanceClass,	
+	&asn_DEF_PosCentMass,	
+	&asn_DEF_PositioningSolutionType,	
+	&asn_DEF_PositionOfOccupants,	
+	&asn_DEF_PosFrontAx,	
+	&asn_DEF_PosLonCarr,	
+	&asn_DEF_PrecipitationIntensity,	
+	&asn_DEF_RelevanceDistance,	
+	&asn_DEF_RelevanceTrafficDirection,	
+	&asn_DEF_RequestResponseIndication,	
+	&asn_DEF_RoadType,	
+	&asn_DEF_SpecialTransportType,	
+	&asn_DEF_SpeedLimit,	
+	&asn_DEF_StandardLength3b,	
+	&asn_DEF_StandardLength9b,	
+	&asn_DEF_StandardLength2B,	
+	&asn_DEF_StationarySince,	
+	&asn_DEF_Temperature,	
+	&asn_DEF_TrafficDirection,	
+	&asn_DEF_TrafficRule,	
+	&asn_DEF_TransmissionInterval,	
+	&asn_DEF_TurningRadius,	
+	&asn_DEF_ValidityDuration,	
+	&asn_DEF_VehicleHeight,	
+	&asn_DEF_VehicleMass,	
+	&asn_DEF_VehicleRole,	
+	&asn_DEF_VruDeviceUsage,	
+	&asn_DEF_VruEnvironment,	
+	&asn_DEF_VruMovementControl,	
+	&asn_DEF_VruSizeClass,	
+	&asn_DEF_WheelBaseVehicle,	
+	&asn_DEF_AccelerationChangeIndication,	
+	&asn_DEF_ActionID,	
+	&asn_DEF_ActionIdList,	
+	&asn_DEF_BasicContainer,	
+	&asn_DEF_CartesianAngularAccelerationComponent,	
+	&asn_DEF_CauseCode,	
+	&asn_DEF_CauseCodeV2,	
+	&asn_DEF_CenDsrcTollingZone,	
+	&asn_DEF_ClosedLanes,	
+	&asn_DEF_ClusterBreakupInfo,	
+	&asn_DEF_ClusterJoinInfo,	
+	&asn_DEF_ClusterLeaveInfo,	
+	&asn_DEF_Curvature,	
+	&asn_DEF_DangerousGoodsExtended,	
+	&asn_DEF_DigitalMap,	
+	&asn_DEF_EuVehicleCategoryCode,	
+	&asn_DEF_EventZone,	
+	&asn_DEF_GeneralizedLanePosition,	
+	&asn_DEF_Heading,	
+	&asn_DEF_HeadingChangeIndication,	
+	&asn_DEF_InterferenceManagementZones,	
+	&asn_DEF_ItineraryPath,	
+	&asn_DEF_LateralAcceleration,	
+	&asn_DEF_LongitudinalAcceleration,	
+	&asn_DEF_PathHistory,	
+	&asn_DEF_PathPredicted,	
+	&asn_DEF_PositionOfPillars,	
+	&asn_DEF_ProtectedCommunicationZonesRSU,	
+	&asn_DEF_PtActivation,	
+	&asn_DEF_RestrictedTypes,	
+	&asn_DEF_SequenceOfSafeDistanceIndication,	
+	&asn_DEF_SequenceOfTrajectoryInterceptionIndication,	
+	&asn_DEF_StabilityChangeIndication,	
+	&asn_DEF_SteeringWheelAngle,	
+	&asn_DEF_Traces,	
+	&asn_DEF_VarLengthNumber,	
+	&asn_DEF_VerticalAcceleration,	
+	&asn_DEF_VehicleIdentification,	
+	&asn_DEF_VehicleLength,	
+	&asn_DEF_VehicleLengthV2,	
+	&asn_DEF_VruExteriorLights,	
+	&asn_DEF_YawRate,	
+	/* From module ASN1C-UsefulInformationObjectClasses in /usr/local/share/asn1c/standard-modules/ASN1C-UsefulInformationObjectClasses.asn1 */
+	&asn_DEF_EXTERNAL,	
 	0
 };
 

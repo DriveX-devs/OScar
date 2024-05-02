@@ -236,7 +236,7 @@ VRUdp::getVAMMandatoryData() {
 
 std::vector<distance_t>
 VRUdp::get_min_distance(ldmmap::LDMMap* LDM) {
-  std::vector<distance_t> min_distance(2,{MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationID_t)0,(StationType_t)-1,false});
+  std::vector<distance_t> min_distance(2,{MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationId_t)0,(StationType_t)-1,false});
   min_distance[0].station_type = StationType_pedestrian;
   min_distance[1].station_type = StationType_passengerCar;
 
@@ -255,7 +255,7 @@ VRUdp::get_min_distance(ldmmap::LDMMap* LDM) {
 
   // Iterate over all stations present in the LDM
   for(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it = selectedStations.begin (); it!=selectedStations.end (); ++it){
-    distance_t curr_distance = {MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationID_t)0,(StationType_t)-1,false};
+    distance_t curr_distance = {MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationId_t)0,(StationType_t)-1,false};
     curr_distance.ID = it->vehData.stationID;
     curr_distance.station_type = it->vehData.stationType;
     VRUdp_position_latlon_t pos_node;

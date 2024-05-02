@@ -5,7 +5,7 @@
  */
 #include "asn_internal.h"
 #include "ANY.h"
-#include <errno.h>
+#include "errno.h"
 
 struct _callback_arg {
     uint8_t *buffer;

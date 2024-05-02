@@ -97,7 +97,7 @@ private:
   
   ldmmap::LDMMap* m_LDM;
 
-  StationID_t m_station_id;
+  StationId_t m_station_id;
   StationType_t m_stationtype;
   
   std::string m_log_filename;

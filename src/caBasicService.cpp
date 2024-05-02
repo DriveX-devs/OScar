@@ -89,9 +89,9 @@ CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandat
     /* Collect data for mandatory containers */
 
     /* Fill the header */
-    asn1cpp::setField(msgstruct->header.messageID, FIX_CAMID);
-    asn1cpp::setField(msgstruct->header.protocolVersion , protocolVersion_currentVersion);
-    asn1cpp::setField(msgstruct->header.stationID, m_station_id);
+    asn1cpp::setField(msgstruct->header.messageId, FIX_CAMID);
+    asn1cpp::setField(msgstruct->header.protocolVersion , 2);
+    asn1cpp::setField(msgstruct->header.stationId, m_station_id);
 
     asn1cpp::setField(msgstruct->cam.generationDeltaTime, compute_timestampIts () % 65536);
 
@@ -108,9 +108,9 @@ CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandat
         asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeConfidence, cam_mandatory_data.altitude.getConfidence ());
         asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.latitude,cam_mandatory_data.latitude);
         asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.longitude,cam_mandatory_data.longitude);
-        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorConfidence, cam_mandatory_data.posConfidenceEllipse.semiMajorConfidence);
-        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorConfidence, cam_mandatory_data.posConfidenceEllipse.semiMinorConfidence);
-        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorOrientation, cam_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorAxisLength, cam_mandatory_data.posConfidenceEllipse.semiMajorConfidence);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorAxisLength, cam_mandatory_data.posConfidenceEllipse.semiMinorConfidence);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorAxisOrientation, cam_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
 
         /* Fill the highFrequencyContainer */
         asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.present, HighFrequencyContainer_PR_basicVehicleContainerHighFrequency);
@@ -122,8 +122,8 @@ CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandat
         asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleLength.vehicleLengthValue, cam_mandatory_data.VehicleLength.getValue());
         asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleLength.vehicleLengthConfidenceIndication, cam_mandatory_data.VehicleLength.getConfidence());
         asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleWidth, cam_mandatory_data.VehicleWidth);
-        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.longitudinalAcceleration.longitudinalAccelerationValue, cam_mandatory_data.longAcceleration.getValue ());
-        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.longitudinalAcceleration.longitudinalAccelerationConfidence, cam_mandatory_data.longAcceleration.getConfidence ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.longitudinalAcceleration.value, cam_mandatory_data.longAcceleration.getValue ());
+        asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.longitudinalAcceleration.confidence, cam_mandatory_data.longAcceleration.getConfidence ());
         asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvature.curvatureValue, cam_mandatory_data.curvature.getValue ());
         asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvature.curvatureConfidence, cam_mandatory_data.curvature.getConfidence ());
         asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.curvatureCalculationMode, cam_mandatory_data.curvature_calculation_mode);
@@ -141,9 +141,9 @@ CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandat
         asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue,AltitudeValue_unavailable);
         asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.latitude,Latitude_unavailable);
         asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.longitude,Longitude_unavailable);
-        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorConfidence,SemiAxisLength_unavailable);
-        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorConfidence,SemiAxisLength_unavailable);
-        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorOrientation,HeadingValue_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorAxisLength,SemiAxisLength_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMinorAxisLength,SemiAxisLength_unavailable);
+        asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.referencePosition.positionConfidenceEllipse.semiMajorAxisOrientation,HeadingValue_unavailable);
         /* Fill the highFrequencyContainer */
         /* auto RSUContainerHighFreq = asn1cpp::makeSeq(RSUContainerHighFrequency); */
 

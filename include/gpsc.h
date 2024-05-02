@@ -52,6 +52,22 @@ class VDPGPSClient {
 	        VDPValueConfidence<> yawRate;
       	} CAM_mandatory_data_t;
 
+    typedef struct CPM_mandatory_data {
+        bool avail;
+        VDPValueConfidence<> speed;
+        long longitude;
+        long latitude;
+        VDPValueConfidence<> altitude;
+        VDP_PosConfidenceEllipse_t posConfidenceEllipse;
+        VDPValueConfidence<> longAcceleration;
+        VDPValueConfidence<> heading;
+        VDPValueConfidence<> curvature;
+        int curvature_calculation_mode; // enum
+        VDPValueConfidence<long,long> VehicleLength;
+        int VehicleWidth;
+        VDPValueConfidence<> yawRate;
+    } CPM_mandatory_data_t;
+
 		VDPGPSClient(std::string server, long port) :
 			m_server(server), m_port(port) {};
 
@@ -70,6 +86,9 @@ class VDPGPSClient {
 		// For the time being, it fills only the main data needed to enable basic V2X applications
 		// It will be updated in the future to fill in more fields of CAM_mandatory_data_t with available information from the GNSS device
 		CAM_mandatory_data_t getCAMMandatoryData();
+
+        // Function to retrieve the mandatory data for CPM messages
+        CPM_mandatory_data_t getCPMMandatoryData();
 
 		VDPValueConfidence<> getHeadingValue();
 		VDPValueConfidence<> getSpeedValue();

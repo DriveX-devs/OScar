@@ -32,7 +32,7 @@ namespace ldmmap {
 			OptionalDataItem() {m_available=false;}
 			T getData() {return m_dataitem;}
 			bool isAvailable() {return m_available;}
-			T setData(T data) {m_dataitem=data; m_available=true;}
+			void setData(T data) {m_dataitem=data; m_available=true;}
 	};
 
 	typedef enum StationTypeLDM {
@@ -49,7 +49,19 @@ namespace ldmmap {
 		StationType_LDM_specialVehicles	= 10,
 		StationType_LDM_tram = 11,
 		StationType_LDM_roadSideUnit = 15,
-		StationType_LDM_unspecified= 99
+        StationType_LDM_detectedUnknown = 100,
+        StationType_LDM_detectedPedestrian = 101,
+        StationType_LDM_detectedCyclist = 102,
+        StationType_LDM_detectedMoped = 103,
+        StationType_LDM_detectedMotorcycle = 104,
+        StationType_LDM_detectedPassengerCar = 105,
+        StationType_LDM_detectedBus = 106,
+        StationType_LDM_detectedLightTruck = 107,
+        StationType_LDM_detectedHeavyTruck = 108,
+        StationType_LDM_detectedTrailer = 109,
+        StationType_LDM_detectedSpecialVehicles = 110,
+        StationType_LDM_detectedTram = 111,
+        StationType_LDM_detectedRoadSideUnit = 115
 	} e_StationTypeLDM;
 
 	// This structure contains all the data stored in the database for each vehicle (except for the PHPoints)
@@ -73,6 +85,20 @@ namespace ldmmap {
 
 		// Low frequency container data
 		OptionalDataItem<uint8_t> exteriorLights; // Bit string with exterior lights status
+
+        // CPM patch
+        uint64_t lastCPMincluded;
+        uint64_t perceivedBy;
+        long xDistance;
+        long yDistance;
+        long xSpeed;
+        long ySpeed;
+        //long xAcc;
+        //long yAcc;
+        //long longitudinalAcceleration;
+        long confidence;
+        long angle;
+        bool detected;
 	} vehicleData_t;
 }
 

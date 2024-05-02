@@ -5,12 +5,9 @@
 #include "basicHeader.h"
 #include "commonHeader.h"
 #include "shbHeader.h"
+#include "Seq.hpp"
 
-extern "C" {
-	#include "CAM.h"
-	#include "DENM.h"
-	#include "VAM.h"
-}
+
 
 NAMED_ENUM_DEFINE_FCNS(etsi_message_t,MSGTYPES);
 
@@ -111,18 +108,35 @@ namespace etsiDecoder {
 					if(decoded_) free(decoded_);
 					return ETSI_DECODER_ERROR;
 				}
-			} else if(btpDataIndication.destPort == VA_PORT){
+			} else if(btpDataIndication.destPort == CP_PORT){
 		
-				decoded_data.type = ETSI_DECODED_VAM;
+				decoded_data.type = ETSI_DECODED_CPM;
 
-				decode_result = asn_decode(0, ATS_UNALIGNED_BASIC_PER, &asn_DEF_VAM, &decoded_, btpDataIndication.data, btpDataIndication.lenght);
+				//decode_result = asn_decode(0, ATS_UNALIGNED_BASIC_PER, &asn_DEF_CollectivePerceptionMessage, &decoded_, btpDataIndication.data, btpDataIndication.lenght);
+                std::string packetContent((char *)btpDataIndication.data,(int) btpDataIndication.lenght);
+                asn1cpp::Seq<CollectivePerceptionMessage> decoded_cpm = asn1cpp::uper::decode(packetContent, CollectivePerceptionMessage);
 
-				if(decode_result.code!=RC_OK || decoded_==nullptr) {
-					std::cerr << "[WARN] [Decoder] Warning: unable to decode a received VAM." << std::endl;
-					if(decoded_) free(decoded_);
-					return ETSI_DECODER_ERROR;
-				}
-			} else {
+                if(bool(decoded_cpm)==false) {
+                    std::cerr<< "Warning: unable to decode a received CPM." << std::endl;
+                    return ETSI_DECODER_ERROR;
+                }
+                else{
+                    decoded_data.decoded_cpm = decoded_cpm;
+                    free(decoded_);
+                    return ETSI_DECODER_OK;
+                }
+			} else if(btpDataIndication.destPort == VA_PORT){
+
+                decoded_data.type = ETSI_DECODED_VAM;
+
+                decode_result = asn_decode(0, ATS_UNALIGNED_BASIC_PER, &asn_DEF_VAM, &decoded_, btpDataIndication.data, btpDataIndication.lenght);
+
+                if(decode_result.code!=RC_OK || decoded_==nullptr) {
+                    std::cerr << "[WARN] [Decoder] Warning: unable to decode a received VAM." << std::endl;
+                    if(decoded_) free(decoded_);
+                    return ETSI_DECODER_ERROR;
+                }
+            } else {
 					decoded_data.type = ETSI_DECODED_ERROR;
 					return ETSI_DECODER_ERROR;
 				}
@@ -152,17 +166,33 @@ namespace etsiDecoder {
 						if(decoded_) free(decoded_);
 						return ETSI_DECODER_ERROR;
 					}
+				} else if(messageID==CPM) {
+					decoded_data.type = ETSI_DECODED_CPM_NOGN;
+
+                    //decode_result = asn_decode(0, ATS_UNALIGNED_BASIC_PER, &asn_DEF_CollectivePerceptionMessage, &decoded_, btpDataIndication.data, btpDataIndication.lenght);
+                    std::string packetContent((char *)buffer,buflen);
+                    asn1cpp::Seq<CollectivePerceptionMessage> decoded_cpm = asn1cpp::uper::decode(packetContent, CollectivePerceptionMessage);
+
+                    if(bool(decoded_cpm)==false) {
+                        std::cerr<< "Warning: unable to decode a received CPM." << std::endl;
+                        return ETSI_DECODER_ERROR;
+                    }
+                    else{
+                        decoded_data.decoded_cpm = decoded_cpm;
+                        free(decoded_);
+                        return ETSI_DECODER_OK;
+                    }
 				} else if(messageID==VAM) {
-					decoded_data.type = ETSI_DECODED_VAM_NOGN;
+                    decoded_data.type = ETSI_DECODED_VAM_NOGN;
 
-					decode_result = asn_decode(0, ATS_UNALIGNED_BASIC_PER, &asn_DEF_VAM, &decoded_, buffer, buflen);
+                    decode_result = asn_decode(0, ATS_UNALIGNED_BASIC_PER, &asn_DEF_VAM, &decoded_, buffer, buflen);
 
-					if(decode_result.code!=RC_OK || decoded_==nullptr) {
-						std::cerr << "[WARN] [Decoder] Warning: unable to decode a received VAM (no BTP/GN)." << std::endl;
-						if(decoded_) free(decoded_);
-						return ETSI_DECODER_ERROR;
-					}
-				} else {
+                    if(decode_result.code!=RC_OK || decoded_==nullptr) {
+                        std::cerr << "[WARN] [Decoder] Warning: unable to decode a received VAM (no BTP/GN)." << std::endl;
+                        if(decoded_) free(decoded_);
+                        return ETSI_DECODER_ERROR;
+                    }
+                }else {
 					std::cerr << "[WARN] [Decoder] Unable to decode a reveived message with unknown/unsupported messageID: " << messageID << std::endl;
 					std::cerr << "[ERROR] [Decoder] Error: this point in the code should never be reached. Please report this bug to the developers. Thank you!" << std::endl;
 					decoded_data.type = ETSI_DECODED_ERROR;

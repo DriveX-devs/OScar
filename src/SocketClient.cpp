@@ -1,8 +1,12 @@
 #include "SocketClient.h"
 #include "utils.h"
+#include "Seq.hpp"
+#include "SequenceOf.hpp"
+
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
+#include <cmath>
 #include <iostream>
 #include <poll.h>
 #include <unistd.h>
@@ -11,6 +15,10 @@
 #include <linux/wireless.h>
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
+#include <set>
+#include "utmuts.h"
+
+#define RADIUS_EARTH 6371000.0
 
 #define lowFreqContainerManager(ptr_name,stationID) \
 		if(ptr_name->cam.camParameters.lowFrequencyContainer!=NULL) { \
@@ -207,7 +215,7 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		
 		lat = decoded_cam->cam.camParameters.basicContainer.referencePosition.latitude/10000000.0;
 		lon = decoded_cam->cam.camParameters.basicContainer.referencePosition.longitude/10000000.0;
-		stationID = decoded_cam->header.stationID;
+		stationID = decoded_cam->header.stationId;
 		
 		double l_inst_period=0.0;
 
@@ -286,6 +294,9 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		vehdata.speed_ms = decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue/100.0;
 		vehdata.camTimestamp = static_cast<long>(decoded_cam->cam.generationDeltaTime);
 		vehdata.stationType = static_cast<ldmmap::e_StationTypeLDM>(decoded_cam->cam.camParameters.basicContainer.stationType);
+
+        vehdata.stationType = ldmmap::StationType_LDM_passengerCar;
+        vehdata.detected = false;
 
 		vehdata.gnTimestamp = gn_timestamp;
 		vehdata.stationID = stationID; // It is very important to save also the stationID
@@ -371,7 +382,7 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 		if(decoded_denm!=nullptr) {
 			// Get the stationID from the DENM
-			long stationID = decoded_denm->header.stationID;
+			long stationID = decoded_denm->header.stationId;
 
 			// Get the event reference latitude
 			double reference_latitude = decoded_denm->denm.management.eventPosition.latitude/1e7;
@@ -427,7 +438,7 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		
 		lat = decoded_vam->vam.vamParameters.basicContainer.referencePosition.latitude/10000000.0;
 		lon = decoded_vam->vam.vamParameters.basicContainer.referencePosition.longitude/10000000.0;
-		stationID = decoded_vam->header.stationID;
+		stationID = decoded_vam->header.stationId;
 		
 		double l_inst_period=0.0;
 
@@ -537,8 +548,201 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		}
 		
 		ASN_STRUCT_FREE(asn_DEF_VAM,decoded_vam);
-	} else {
-		std::cerr << "Warning! Only CAM and VAM messages (and, optionally, DENMs) are supported for the time being!" << std::endl;
+	} if(decodedData.type == etsiDecoder::ETSI_DECODED_CPM || decodedData.type == etsiDecoder::ETSI_DECODED_CPM_NOGN)
+    {
+        bool ok;
+        double lat, lon;
+        uint64_t fromStationID;
+
+        double fromLat = asn1cpp::getField (decodedData.decoded_cpm->payload.managementContainer.referencePosition.latitude, double) / 10000000.0;
+        double fromLon = asn1cpp::getField (decodedData.decoded_cpm->payload.managementContainer.referencePosition.longitude, double) / 10000000.0;
+
+        fromStationID = asn1cpp::getField (decodedData.decoded_cpm->header.stationId, uint64_t);
+
+        double l_inst_period=0.0;
+
+        if(m_logfile_name!="") {
+            bf=get_timestamp_ns();
+        }
+
+        int wrappedContainer_size = asn1cpp::sequenceof::getSize(decodedData.decoded_cpm->payload.cpmContainers);
+        for (int i=0; i<wrappedContainer_size; i++)
+        {
+            auto wrappedContainer = asn1cpp::sequenceof::getSeq(decodedData.decoded_cpm->payload.cpmContainers,WrappedCpmContainer,i);
+            WrappedCpmContainer__containerData_PR present = asn1cpp::getField(wrappedContainer->containerData.present,WrappedCpmContainer__containerData_PR);
+            if(present == WrappedCpmContainer__containerData_PR_PerceivedObjectContainer)
+            {
+                auto POcontainer = asn1cpp::getSeq(wrappedContainer->containerData.choice.PerceivedObjectContainer,PerceivedObjectContainer);
+                int PObjects_size = asn1cpp::sequenceof::getSize(POcontainer->perceivedObjects);
+                for(int j=0; j<PObjects_size;j++)
+                {
+                    ldmmap::LDMMap::returnedVehicleData_t PO_ret_data;
+                    auto PO_seq = asn1cpp::makeSeq(PerceivedObject);
+                    PO_seq = asn1cpp::sequenceof::getSeq(POcontainer->perceivedObjects,PerceivedObject,j);
+
+                    //Translate to ego vehicle coordinates
+                    ldmmap::vehicleData_t PO_data;
+                    PO_data.detected = true;
+                    PO_data.vehicleLength = asn1cpp::getField(PO_seq->objectDimensionX->value,long);
+                    PO_data.vehicleWidth = asn1cpp::getField(PO_seq->objectDimensionY->value,long);
+                    PO_data.heading = asn1cpp::getField(PO_seq->angles->zAngle.value,double) / DECI;
+                    PO_data.xSpeed = asn1cpp::getField(PO_seq->velocity->choice.cartesianVelocity.xVelocity.value,long);
+                    PO_data.xSpeed = asn1cpp::getField(PO_seq->velocity->choice.cartesianVelocity.yVelocity.value,long);
+                    PO_data.speed_ms = (sqrt (pow(PO_data.xSpeed,2) +
+                                             pow(PO_data.ySpeed,2)))/CENTI;
+
+                    double lonPO, latPO, from_x,from_y,xDistance, yDistance;
+                    double gammar=0;
+                    double kr=0;
+                    xDistance = asn1cpp::getField(PO_seq->position.xCoordinate.value,double)/100;
+                    yDistance = asn1cpp::getField(PO_seq->position.yCoordinate.value,double)/100;
+                    transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();
+                    TransverseMercator_Forward(&tmerc, fromLon, fromLat, fromLon, &from_x, &from_y, &gammar, &kr);
+                    from_x += xDistance;
+                    from_y += yDistance;
+                    TransverseMercator_Reverse(&tmerc, fromLon, from_x, from_y, &latPO, &lonPO, &gammar, &kr);
+                    PO_data.lat = latPO;
+                    PO_data.lon = lonPO;
+                    PO_data.camTimestamp = static_cast<long>(asn1cpp::getField(decodedData.decoded_cpm->payload.managementContainer.referenceTime,long)) - static_cast<long>(asn1cpp::getField(PO_seq->measurementDeltaTime,long));
+                    PO_data.perceivedBy = asn1cpp::getField(decodedData.decoded_cpm->header.stationId,long);
+                    PO_data.stationType = ldmmap::StationType_LDM_detectedPassengerCar;
+
+                    if(m_recvCPMmap[fromStationID].find(asn1cpp::getField(PO_seq->objectId,long)) == m_recvCPMmap[fromStationID].end()){
+                        // First time we have received this object from this vehicle
+                        //If PO id is already in local copy of LDM
+                        if(m_db_ptr->lookup(asn1cpp::getField(PO_seq->objectId,long),PO_ret_data) == ldmmap::LDMMap::LDMMAP_OK)
+                        {
+                            // We need a new ID for object
+                            std::set<uint64_t> IDs;
+                            m_db_ptr->getAllIDs (IDs);
+                            int newID = 1;
+                            for (int num : IDs) {
+                                if (num == newID) {
+                                    ++newID;
+                                } else if (num > newID) {
+                                    break;
+                                }
+                            }
+                            //Update recvCPMmap
+                            m_recvCPMmap[fromStationID][asn1cpp::getField(PO_seq->objectId,long)] = newID;
+                            PO_data.stationID = newID;
+                        }
+                        else
+                        {
+                            //Update recvCPMmap
+                            m_recvCPMmap[fromStationID][asn1cpp::getField(PO_seq->objectId,long)] = asn1cpp::getField(PO_seq->objectId,long);
+                            PO_data.stationID = asn1cpp::getField(PO_seq->objectId,long);
+                        }
+                    }
+                    else
+                    {
+                        PO_data.stationID = m_recvCPMmap[fromStationID][asn1cpp::getField(PO_seq->objectId,long)];
+                    }
+
+                    ldmmap::LDMMap::LDMMap_error_t db_retval;
+
+                    uint64_t gn_timestamp;
+                    if(decodedData.type == etsiDecoder::ETSI_DECODED_CPM) {
+                        gn_timestamp = decodedData.gnTimestamp;
+                        // There is no need for an else if(), as we can enter here only if the decoded message type is either ETSI_DECODED_CAM or ETSI_DECODED_CAM_NOGN
+                    } else {
+                        gn_timestamp=UINT64_MAX;
+                        fprintf(stdout,"[WARNING] Current message contains no GN timestamp, ageCheck disabled.\n");
+                    }
+
+                    // Check the age of the data store inside the database (if the age check is enabled / -g option not specified)
+                    // before updating it with the new receive data
+                    if(gn_timestamp != UINT64_MAX) {
+                        ldmmap::LDMMap::returnedVehicleData_t retveh;
+
+                        if(m_db_ptr->lookup(PO_data.stationID,retveh)==ldmmap::LDMMap::LDMMAP_OK) {
+                            /* According to the standard: GNTimestamp = (TAI timestamp since 2004-01-01 00:00:00) % 4294967296
+                            // Due to the modulo operation, it is not enough to consider the difference between the received GNTimestamp and the one
+                            // stored in the database, as this may cause issues when receiving data and the GNTimestamp values are cyclically reset
+                            // at the same time
+                            // We thus check the "gap" between the received numbers. Let's consider for instance: stored=4294967291, rx=3
+                            // In this case the "rx" data is the most up-to-date, but a cyclical reset occurred
+                            // We can then compute gap = 3 - 4294967291 = -429467288 < -300000 (-5 minutes) - ok! We keep this data even if 3 < 4294967291
+                            // Let's consider instead:
+                            // stored=3, rx=4294967291
+                            // In this case 'rx' is not the most up to date data (it is impossible to have '3' stored in the database and then receive
+                            // '4294967291', unless clock jumps occur in the car, bacause after all that time the data corresponding to '3' would have already
+                            // been garbage cleaned from the database)
+                            // We can then compute gap = 4294967291 - 3 = 429467288 > 300000 (5 minutes) - no! We should dicard the data we just received
+                            // Let's consider now a "normal" scenario:
+                            // stored=3, rx=114
+                            // gap = 114 - 3 = 111 < 300000 - ok! The data is kept (it would be discarded only if gap > 300000)
+                            // Finally, let's briefly analyze a final scenario:
+                            // stored=4294967292, rx=4294967291
+                            // It is evident how the rx data should be discarded because older than the stored one
+                            // gap = rx - stored = 4294967291 - 4294967292 = -1 > -300000 (-5 minutes) - The data is correctly discarded due to the second
+                            // condition in the if() clause
+                             */
+                            long long int gap = static_cast<long long int>(gn_timestamp)-static_cast<long long int>(retveh.vehData.gnTimestamp);
+
+                            if((gn_timestamp>retveh.vehData.gnTimestamp && gap>300000) ||
+                               (gn_timestamp<retveh.vehData.gnTimestamp && gap>-300000)) {
+                                if(m_logfile_name!="") {
+                                    fprintf(m_logfile_file,"[LOG - DATABASE UPDATE (Client %s)] Message discarded (data is too old). Rx = %lu, Stored = %lu, Gap = %lld\n",
+                                            m_client_id.c_str(),
+                                            gn_timestamp,retveh.vehData.gnTimestamp,gap);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
+                    PO_data.timestamp_us = get_timestamp_us();
+                    memcpy(PO_data.macaddr,&(decodedData.GNaddress[0])+2,6); // Save the vehicle MAC address into the database (the MAC address is stored in the last 6 Bytes of the GN Address)
+
+                    // Retrieve, if available, the information on the RSSI for the vehicle corresponding to the MAC address of the sender
+                    // This is the RSSI on the CAM dissemination interface
+                    PO_data.rssi_dBm=get_rssi_from_iw(PO_data.macaddr,std::string(m_opts_ptr->dissemination_device.c_str()));
+
+                    if(m_logfile_name!="") {
+                        ldmmap::LDMMap::returnedVehicleData_t retveh;
+
+                        if(m_db_ptr->lookup(PO_data.stationID,retveh)==ldmmap::LDMMap::LDMMAP_OK) {
+                            l_inst_period=(get_timestamp_us()-retveh.vehData.timestamp_us)/1000.0;
+                        } else {
+                            l_inst_period=-1.0;
+                        }
+
+                        // If a pointer to a VDPGPSClient has been specified, log also the current position of the receiver
+                        std::pair<double,double> latlon;
+                        if(m_gpsc_ptr!=nullptr) {
+                            latlon = m_gpsc_ptr->getCurrentPositionDbl();
+                        }
+
+                        if(m_logfile_name!="") {
+                            logfprintf(m_logfile_file,std::string("FULL CPM Perceived Object PROCESSING (Client ") + m_client_id + std::string(")"),"StationID=%u Coordinates=%.7lf:%.7lf Heading=%.1lf InstUpdatePeriod=%.3lf"
+                                                                                                                                   " MAC_Addr=%02X:%02X:%02X:%02X:%02X:%02X"
+                                                                                                                                   " RSSI=%.2lf",
+                                       PO_data.stationID,PO_data.lat,PO_data.lon,
+                                       PO_data.heading,
+                                       l_inst_period,
+                                       PO_data.macaddr[0],PO_data.macaddr[1],PO_data.macaddr[2],PO_data.macaddr[3],PO_data.macaddr[4],PO_data.macaddr[5],
+                                       PO_data.rssi_dBm);
+                        }
+
+                        if(m_gpsc_ptr!=nullptr) {
+                            fprintf(m_logfile_file," ReceiverCoordinates=%.7lf:%.7lf\n",latlon.first,latlon.second);
+                        } else {
+                            fprintf(m_logfile_file,"\n");
+                        }
+                    }
+                    db_retval=m_db_ptr->insert(PO_data);
+
+                    if(db_retval!=ldmmap::LDMMap::LDMMAP_OK && db_retval!=ldmmap::LDMMap::LDMMAP_UPDATED) {
+                        std::cerr << "Warning! Insert on the database for Perceived Object " << (int) PO_data.stationID << "failed!" << std::endl;
+                    }
+                }
+            }
+        }
+
+    }
+    else {
+		std::cerr << "Warning! Only CAM, CPM and VAM messages (and, optionally, DENMs) are supported for the time being!" << std::endl;
 		return;
 	}
 }

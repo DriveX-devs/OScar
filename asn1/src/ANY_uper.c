@@ -5,7 +5,7 @@
  */
 #include "asn_internal.h"
 #include "ANY.h"
-#include <errno.h>
+#include "errno.h"
 
 #undef RETURN
 #define RETURN(_code)                       \

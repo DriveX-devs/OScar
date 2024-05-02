@@ -4,6 +4,14 @@
 #include <cinttypes>
 #include <cstddef>
 #include "named_enums.h"
+#include "Seq.hpp"
+
+extern "C" {
+    #include "CAM.h"
+    #include "DENM.h"
+    #include "VAM.h"
+    #include "CollectivePerceptionMessage.h"
+}
 
 #define ETSI_DECODER_OK 	0
 #define ETSI_DECODER_ERROR 	1
@@ -14,8 +22,9 @@
 // MSGTYPE(<message name>,<messageID>)
 #define MSGTYPES(MSGTYPE) \
 	MSGTYPE(DENM,=1) \
-	MSGTYPE(CAM,=2) \
-	MSGTYPE(VAM,=16) 
+	MSGTYPE(CAM,=2)  \
+    MSGTYPE(CPM,=14) \
+	MSGTYPE(VAM,=16)
 
 NAMED_ENUM_DECLARE(etsi_message_t,MSGTYPES);
 
@@ -37,6 +46,8 @@ namespace etsiDecoder {
 	typedef struct etsiDecodedData {
 		void *decoded_msg;
 		etsiDecodedType_e type;
+
+        asn1cpp::Seq<CollectivePerceptionMessage> decoded_cpm;
 
 		uint32_t gnTimestamp;
 		uint8_t GNaddress[8];

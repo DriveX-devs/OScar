@@ -14,6 +14,7 @@
 #define DOT_ONE_MICRO       10000000
 #define NANO_TO_MILLI       1000000
 #define NANO_TO_CENTI       10000000
+#define NANO_TO_MICRO       1000
 
 #define DEG_2_RAD_ASN_UTILS(val) ((val)*M_PI/180.0)
 #define RAD_2_DEG_ASN_UTILS(val) ((val)*180.0/M_PI)
