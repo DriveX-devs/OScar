@@ -28,8 +28,8 @@ struct OffsetPoint;
 /* AreaRadial */
 typedef struct AreaRadial {
 	Range_t	 range;
-	WGS84AngleValue_t	 stationaryHorizontalOpeningAngleStart;
-	WGS84AngleValue_t	 stationaryHorizontalOpeningAngleEnd;
+	Wgs84AngleValue_t	 stationaryHorizontalOpeningAngleStart;
+	Wgs84AngleValue_t	 stationaryHorizontalOpeningAngleEnd;
 	CartesianAngleValue_t	*verticalOpeningAngleStart;	/* OPTIONAL */
 	CartesianAngleValue_t	*verticalOpeningAngleEnd;	/* OPTIONAL */
 	struct OffsetPoint	*sensorPositionOffset;	/* OPTIONAL */

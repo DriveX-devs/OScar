@@ -160,7 +160,7 @@ bool CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehi
         return true;
     ldmmap::PHpoints::PHData_t previousCPM;
     /* 1.a The object has first been detected by the perception system after the last CPM generation event.*/
-    if((PO_data->phData->getCardinality() == 1) && (phPoints.begin ()->first > lastCpmGen))
+    if((PO_data->phData->getCardinality() == 1) && (phPoints.begin ()->first > static_cast<long unsigned int>(lastCpmGen)))
         return true;
 
     /* Get the last position of the reference point of this object lastly included in a CPM from the object pathHistory*/
@@ -190,7 +190,7 @@ bool CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehi
     /* 1.e The time elapsed since the last time the object was included in a CPM exceeds T_GenCpmMax. */
     if(PO_data->vehData.lastCPMincluded)
     {
-        if(PO_data->vehData.lastCPMincluded < ((computeTimestampUInt64 ()/NANO_TO_MILLI)-m_N_GenCpmMax))
+        if(PO_data->vehData.lastCPMincluded < static_cast<uint64_t>(((computeTimestampUInt64 ()/NANO_TO_MILLI)-m_N_GenCpmMax)))
             return true;
     }
     return false;
@@ -235,7 +235,7 @@ CPBasicService::generateAndEncodeCPM()
             for (it = LDM_POs.begin (); it != LDM_POs.end (); it++)
             {
 
-                if (it->vehData.perceivedBy != (long) m_station_id)
+                if (it->vehData.perceivedBy != (uint64_t) m_station_id)
                     continue;
                 if (!checkCPMconditions (it) && m_redundancy_mitigation)
                     continue;

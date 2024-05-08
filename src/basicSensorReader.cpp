@@ -26,10 +26,8 @@ extern "C" {
     #include "CAM.h"
 }
 
-#define DEG_2_RAD(degs) (degs*(M_PI/180.0))
-#define RAD_2_DEG(rads) (rads*(180.0/M_PI))
-
-#define RAD_2_DEG(rads) (rads*(180.0/M_PI))
+#define DEG_2_RAD_BSR(degs) (degs*(M_PI/180.0))
+#define RAD_2_DEG_BSR(rads) (rads*(180.0/M_PI))
 
 #define VO_0x_phi_left_FACTOR 0.00048828125 // [rad]
 #define VO_0x_phi_left_OFFSET -0.5 // [rad]
@@ -110,7 +108,7 @@ BasicSensorReader::readerLoop() {
                 ego_heading = (double) (ego_data.heading.getValue()) / DECI;
 
                 // ETSI TS 103 324 V2.1.1 (2023-06) demands xDistance and yDistance to be with East as positive x and North as positive y
-                ego_heading_cart = DEG_2_RAD((90-ego_heading)); // The heading from the gps is relative to North --> 90 degrees from East
+                ego_heading_cart = DEG_2_RAD_BSR((90-ego_heading)); // The heading from the gps is relative to North --> 90 degrees from East
                 dy_c = -dy_v; // Left to the sensor is negative in radar frame but positive in cartesian reference
                 // Rotate the object's position from the ego vehicle's frame to the global frame
                 xDistance = (double) (dx_v * cos(ego_heading_cart) - dy_c * sin(ego_heading_cart));

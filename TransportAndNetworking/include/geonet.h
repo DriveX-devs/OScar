@@ -63,7 +63,7 @@ class GeoNet {
 
 		VDPGPSClient* m_vdp;
 		VRUdp* m_vrudp;
-		StationID_t m_station_id;
+		StationId_t m_station_id;
 		StationType_t m_stationtype;
 
 		// OCABS-specific attributes

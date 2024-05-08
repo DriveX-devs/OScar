@@ -129,7 +129,10 @@ void VRUBasicService::startVamDissemination(int desync_ms){
 
 void VRUBasicService::initDissemination(){
   m_trigg_cond = DISSEMINATION_START;
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wunused-variable"
   VRUBasicService_error_t vam_error = generateAndEncodeVam();
+  #pragma GCC diagnostic pop
 
   //if((m_VRU_clust_state==VRU_ACTIVE_STANDALONE || m_VRU_clust_state==VRU_ACTIVE_CLUSTER_LEADER) && m_VRU_role==VRU_ROLE_ON)
     SCHEDULE(m_T_CheckVamGen_ms, checkVamConditions);
@@ -646,11 +649,11 @@ VRUBasicService::generateAndEncodeVam(){
   now = computeTimestampUInt64 ()/NANO_TO_MILLI;
 
   // Store the time elapsed since last VAM generation
-  long time_elapsed = -1;
-  if(lastVamGen == -1)
-    time_elapsed = now;
-  else
-    time_elapsed = now - lastVamGen;
+  // long time_elapsed = -1;
+  // if(lastVamGen == -1)
+  //   time_elapsed = now;
+  // else
+  //   time_elapsed = now - lastVamGen;
 
   // Store the time in which the last VAM (i.e. this one) has been generated and successfully sent
   lastVamGen = now;

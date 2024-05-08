@@ -28,7 +28,7 @@ typedef struct AreaEllipse {
 	struct OffsetPoint	*nodeCenterPoint;	/* OPTIONAL */
 	SemiRangeLength_t	 semiMinorRangeLength;
 	SemiRangeLength_t	 semiMajorRangeLength;
-	WGS84AngleValue_t	 semiMajorRangeOrientation;
+    Wgs84AngleValue_t	 semiMajorRangeOrientation;
 	SemiRangeLength_t	*semiHeight;	/* OPTIONAL */
 	
 	/* Context for parsing across buffer boundaries */

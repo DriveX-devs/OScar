@@ -550,8 +550,6 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		ASN_STRUCT_FREE(asn_DEF_VAM,decoded_vam);
 	} if(decodedData.type == etsiDecoder::ETSI_DECODED_CPM || decodedData.type == etsiDecoder::ETSI_DECODED_CPM_NOGN)
     {
-        bool ok;
-        double lat, lon;
         uint64_t fromStationID;
 
         double fromLat = asn1cpp::getField (decodedData.decoded_cpm->payload.managementContainer.referencePosition.latitude, double) / 10000000.0;

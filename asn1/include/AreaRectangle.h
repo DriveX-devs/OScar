@@ -28,7 +28,7 @@ typedef struct AreaRectangle {
 	struct OffsetPoint	*nodeCenterPoint;	/* OPTIONAL */
 	SemiRangeLength_t	 semiMajorRangeLength;
 	SemiRangeLength_t	 semiMinorRangeLength;
-	WGS84AngleValue_t	 semiMajorRangeOrientation;
+	Wgs84AngleValue_t	 semiMajorRangeOrientation;
 	SemiRangeLength_t	*semiHeight;	/* OPTIONAL */
 	
 	/* Context for parsing across buffer boundaries */

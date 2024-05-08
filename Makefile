@@ -33,6 +33,9 @@ OBJ_GPSC_DIR=obj/gnss
 SRC_ASN1CPP_DIR=asn1cpp
 OBJ_ASN1CPP_DIR=obj/asn1cpp
 
+SRC_CESERIAL_DIR=ceSerial
+OBJ_CESERIAL_DIR=obj/ceSerial
+
 SRC=$(wildcard $(SRC_DIR)/*.cpp)
 SRC_GEOLIB_PORT=$(wildcard $(SRC_GEOLIB_PORT_DIR)/*.c)
 SRC_VEHVIS=$(wildcard $(SRC_VEHVIS_DIR)/*.cc)
@@ -41,6 +44,7 @@ SRC_ETSI=$(wildcard $(SRC_ETSI_DIR)/*.cpp)
 SRC_JSON11=$(wildcard $(SRC_JSON11_DIR)/*.cpp)
 SRC_GPSC=$(wildcard $(SRC_GPSC_DIR)/*.cpp)
 SRC_ASN1CPP=$(wildcard $(SRC_ASN1CPP_DIR)/*.cpp)
+SRC_CESERIAL=$(wildcard $(SRC_CESERIAL_DIR)/*.cpp)
 
 OBJ=$(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 OBJ_GEOLIB_PORT=$(SRC_GEOLIB_PORT:$(SRC_GEOLIB_PORT_DIR)/%.c=$(OBJ_GEOLIB_PORT_DIR)/%.o)
@@ -50,6 +54,7 @@ OBJ_ETSI=$(SRC_ETSI:$(SRC_ETSI_DIR)/%.c=$(OBJ_ETSI_DIR)/%.o)
 OBJ_JSON11=$(SRC_JSON11:$(SRC_JSON11_DIR)/%.cpp=$(OBJ_JSON11_DIR)/%.o)
 OBJ_GPSC=$(SRC_GPSC:$(SRC_GPSC_DIR)/%.cpp=$(OBJ_GPSC_DIR)/%.o)
 OBJ_ASN1CPP=$(SRC_ASN1CPP:$(SRC_ASN1CPP_DIR)/%.cpp=$(OBJ_ASN1CPP_DIR)/%.o)
+OBJ_CESERIAL=$(SRC_CESERIAL:$(SRC_CESERIAL_DIR)/%.cpp=$(OBJ_CESERIAL_DIR)/%.o)
 
 OBJ_CC=$(OBJ)
 OBJ_CC+=$(OBJ_GEOLIB_PORT)
@@ -58,10 +63,11 @@ OBJ_CC+=$(OBJ_ASN1)
 OBJ_CC+=$(OBJ_ETSI)
 OBJ_CC+=$(OBJ_JSON11)
 OBJ_CC+=$(OBJ_ASN1CPP)
+OBJ_CC+=$(OBJ_CESERIAL)
 
-CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp
+CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial
 CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include -Igeographiclib-port
-LDLIBS += -lpthread -lm -lgps
+LDLIBS += -lpthread -lm -lgps -latomic
 
 .PHONY: all clean
 
@@ -120,6 +126,10 @@ $(OBJ_JSON11_DIR)/%.o: $(SRC_JSON11_DIR)/%.cpp
 	@ mkdir -p $(OBJ_JSON11_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(OBJ_CESERIAL_DIR)/%.o: $(SRC_CESERIAL_DIR)/%.cpp
+	@ mkdir -p $(OBJ_CESERIAL_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 clean:
 	$(RM) $(OBJ_DIR)/*.o $(OBJ_ASN1_DIR)/*.o
 	-rm -rf $(OBJ_DIR)
@@ -127,6 +137,10 @@ clean:
 	-rm -rf $(OBJ_ETSI_DIR)
 	-rm -rf $(OBJ_JSON11_DIR)
 	-rm -rf $(OBJ_GEOLIB_PORT_DIR)
+	-rm -rf $(OBJ_VEHVIS_DIR)
+	-rm -rf $(OBJ_GPSC_DIR)
+	-rm -rf $(OBJ_ASN1CPP_DIR)
+	-rm -rf $(OBJ_CESERIAL_DIR)
 	-rm -f cachefile.sldmc
 	
 fullclean: clean

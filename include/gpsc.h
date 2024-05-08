@@ -4,6 +4,7 @@
 #include <gps.h>
 #include <string>
 #include "asn_utils.h"
+#include "ubx_nmea_parser_single_thread.h"
 
 extern "C" {
 	#include "CAM.h"
@@ -69,7 +70,8 @@ class VDPGPSClient {
     } CPM_mandatory_data_t;
 
 		VDPGPSClient(std::string server, long port) :
-			m_server(server), m_port(port) {};
+			m_server(server), m_port(port) {
+        };
 
 		VDPGPSClient() {};
 
@@ -100,6 +102,14 @@ class VDPGPSClient {
 		double getSpeedValueDbl();
 		std::pair<double,double> getCurrentPositionDbl();
 
+        bool setSerialParser(UBXNMEAParserSingleThread *serialParserPtr) {
+            if (serialParserPtr == nullptr) {
+                return false;
+            }
+            m_serialParserPtr = serialParserPtr;
+            return true;
+        }
+
 		void setFixedVehicleLength(VDPValueConfidence<long,long> vehicle_length) {
 			m_vehicle_length=vehicle_length;
 
@@ -117,14 +127,23 @@ class VDPGPSClient {
 				m_vehicle_width=61;
 			}
 		}
+
+        void selectGPSD(bool use_gpsd) {
+            m_use_gpsd=use_gpsd;
+        }
 	private:
 		std::string m_server="localhost";
-		long m_port=3000;
+		long m_port=2947;
+
 		struct gps_data_t m_gps_data;
 
 		// Length and width of the vehicle. Must be inserted by the user when creating the object.
 		VDPValueConfidence<long,long> m_vehicle_length;
 		long m_vehicle_width=VehicleWidth_unavailable;
+
+        bool m_use_gpsd=false;
+
+        UBXNMEAParserSingleThread *m_serialParserPtr;
 };
 
 #endif // VDPGPSC_H

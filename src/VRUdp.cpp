@@ -88,7 +88,7 @@ VRUdp_position_latlon_t VRUdp::getPedPosition() {
 					ped_pos.lat = m_gps_data.fix.latitude;
 					ped_pos.lon = m_gps_data.fix.longitude;
 					if(m_gps_data.fix.mode == MODE_3D && !isnan(m_gps_data.fix.altitude)){
-						ped_pos.alt = m_gps_data.fix.altitude;	
+						ped_pos.alt = m_gps_data.fix.altitude;
 					}
 				}
 			}
