@@ -545,7 +545,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "1.2");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "2.0");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
@@ -726,6 +726,12 @@ int main (int argc, char *argv[]) {
 
 		return 1;
 	}
+
+    if(use_gpsd==false) {
+        std::cerr << "Error. The NMEA/UBX serial parser for positioning is not yet fully implemented. Please use libgps with --use-gpsd for the time being." << std::endl;
+
+        return 1;
+    }
 
 	// Create the raw socket for the transmission of CAMs/VAMs, encapsulated inside GeoNetworking and BTP (in user space) 
 	int sockfd=-1;
