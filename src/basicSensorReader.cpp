@@ -19,9 +19,6 @@
 #include "LDMmap.h"
 #include "utmuts.h"
 
-#include <GeographicLib/Geodesic.hpp>
-#include <GeographicLib/Constants.hpp>
-
 extern "C" {
     #include "CAM.h"
 }
