@@ -647,7 +647,7 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<long> JSONserverPortArg("j","ldm-json-server-port","Set the port for on-demand JSON-over-TCP requests to the LDM.",false,DEFAULT_JSON_OVER_TCP_PORT,"integer");
 		cmd.add(JSONserverPortArg);
 
-        TCLAP::ValueArg<std::string> CANDeviceArg("c","can-device","CAN device to be used (i.e., where can-utils is currently running). Default: vcan0.",false,"vcan0","string");
+        TCLAP::ValueArg<std::string> CANDeviceArg("c","can-device","Optional CAN interface: CAN device to be used (i.e., where can-utils is currently running). Default: none (CAN bus interface disabled).",false,"none","string");
         cmd.add(CANDeviceArg);
 
 		cmd.parse(argc,argv);
