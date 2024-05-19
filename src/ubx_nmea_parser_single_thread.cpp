@@ -174,33 +174,40 @@ void
 UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	out_t out_nmea = m_outBuffer.load();
 
-	int commas = 0, j = 0;
+	int commas = 0;
 
-	// Latitude and Longitude substrings to be converter to double using std::stod() later
-	std::string slat, slon;
+	// Latitude and Longitude substrings to be converted to double using std::stod() later
+	std::string utc_time = "UTC Time: ", slat, slon;
 	char cp_lat = '\0', cp_lon = '\0'; // cardinal points (N, S, W, E)
 
 	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
 		if (nmea_response[i] == ',') {
 			commas++;
-			j = 0;
 		}
+		// UTC time (hhmmss.ss)
+		if (commas == 1){
+			if (nmea_response[i+1] != ',') {
+				utc_time += nmea_response[i+1];
+			}
+		}
+		// Latitude string
 		if (commas == 2){
 			if (nmea_response[i+1] != ',') {
 				slat += nmea_response[i+1];
-				j++;
 			}
 		}
+		// Latitude cardinal point
 		if (commas == 3) {
 			if (cp_lat != '\0') continue;
 			cp_lat = nmea_response[i+1];
 		}
+		// Longitude string
 		if (commas == 4){
 			if (nmea_response[i+1] != ',') {
 				slon += nmea_response[i+1];
-				j++;
 			}
 		}
+		// Longitude cardinal point
 		if (commas == 5) {
 			if (cp_lon != '\0') continue;
 			cp_lon = nmea_response[i+1];
@@ -219,6 +226,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	// Produces and prints the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_nmea.ts_pos,std::ctime(&now));
+	strcat(out_nmea.ts_pos, utc_time.data());
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
