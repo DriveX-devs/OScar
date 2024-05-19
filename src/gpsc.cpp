@@ -310,11 +310,12 @@ VDPGPSClient::getCAMMandatoryData() {
             std::pair<double,double> position = m_serialParserPtr->getPosition(nullptr,false);
             double speed = m_serialParserPtr->getSpeed(nullptr,false);
             double heading = m_serialParserPtr->getCourseOverGround(nullptr,false);
+            double altitude = m_serialParserPtr->getAltitude(nullptr,false);
 
             CAMdata.speed = VDPValueConfidence<>(speed*CENTI,SpeedConfidence_unavailable);
             CAMdata.latitude = (Latitude_t)(position.first*DOT_ONE_MICRO);
             CAMdata.longitude = (Longitude_t)(position.second*DOT_ONE_MICRO);
-            CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
+            CAMdata.altitude = VDPValueConfidence<>(altitude,AltitudeConfidence_unavailable);
             CAMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
             CAMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
             CAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;

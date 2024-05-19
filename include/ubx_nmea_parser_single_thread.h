@@ -30,6 +30,7 @@ class UBXNMEAParserSingleThread {
         std::tuple<double,double,double> getAttitude(double *age_us, bool print_timestamp);
         double getSpeed(double *age_us, bool print_timestamp_and_age);
         double getCourseOverGround(double *age_us, bool print_timestamp_and_age);
+        double getAltitude(double *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
         int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
         void stopUBXNMEAParser();
@@ -37,24 +38,27 @@ class UBXNMEAParserSingleThread {
         /* Buffer structure to be printed to the user */
         typedef struct Output {
             char ts_pos[100],
+                    ts_utc_time[100],
                     ts_acc[100],
                     ts_att[100],
+                    ts_alt[100],
                     ts_comp_acc[100],
                     ts_sog_cog_ubx[100],
                     ts_sog_cog_nmea[100];					// Timestamps
             char fix_ubx[100],
                     fix_nmea[100];
-            char cp_lat, cp_lon;						// Latitude and longitude cardinal points
-            double lat, lon;
+            char cp_lat, cp_lon;						    // Latitude and longitude cardinal points
+            double lat, lon, alt;                           // Latitude, longitude and altitude above sea level
             double raw_acc_x, raw_acc_y, raw_acc_z,
-                    comp_acc_x, comp_acc_y, comp_acc_z;  // Accelerations
-            double roll, pitch, heading;				// Attitude angles
+                    comp_acc_x, comp_acc_y, comp_acc_z;     // Accelerations
+            double roll, pitch, heading;				    // Attitude angles
             double sog_ubx, sog_nmea,
-                    cog_ubx, cog_nmea;					// Speed over ground and course over ground
-            long lu_pos, lu_acc, lu_att,
-                    lu_comp_acc,
-                    lu_sog_cog_ubx,
-                    lu_sog_cog_nmea;						 // Last updates on relevant information
+                    cog_ubx, cog_nmea;					    // Speed over ground and course over ground
+            long lu_pos, lu_acc,
+                 lu_att, lu_alt,
+                 lu_comp_acc,
+                 lu_sog_cog_ubx,
+                 lu_sog_cog_nmea;						    // Last updates on relevant information
         } out_t;
 
         std::atomic<out_t> m_outBuffer;
@@ -77,6 +81,7 @@ class UBXNMEAParserSingleThread {
 
         // Parsers
         void parseNmeaGns(std::string nmea_response);
+        void parseNmeaGga(std::string nmea_response);
         void parseEsfRaw(std::vector<uint8_t> response);
         void parseNavAtt(std::vector<uint8_t> response);
         void parseNavPvt(std::vector<uint8_t> response);

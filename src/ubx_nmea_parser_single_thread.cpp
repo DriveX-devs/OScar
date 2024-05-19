@@ -91,8 +91,10 @@ void
 UBXNMEAParserSingleThread::clearBuffer() {
 	out_t tmp;
 	strcpy(tmp.ts_pos,"Buffer empty");
+	strcpy(tmp.ts_utc_time,"Buffer empty");
 	strcpy(tmp.ts_acc,"Buffer empty");
 	strcpy(tmp.ts_att,"Buffer empty");
+	strcpy(tmp.ts_alt,"Buffer empty");
 	strcpy(tmp.ts_sog_cog_ubx,"Buffer empty");
 	strcpy(tmp.ts_sog_cog_nmea,"Buffer empty");
 	strcpy(tmp.fix_ubx,"Buffer empty");
@@ -105,6 +107,7 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	tmp.comp_acc_z = 0;
 	tmp.lat = 0;
 	tmp.lon = 0;
+	tmp.alt = 0;
 	tmp.cp_lat = '\0';
 	tmp.cp_lon = '\0';
 	tmp.roll = 0;
@@ -117,6 +120,7 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	tmp.lu_pos = 0;
 	tmp.lu_acc = 0;
 	tmp.lu_att = 0;
+	tmp.lu_alt = 0;
 	tmp.lu_sog_cog_ubx = 0;
 	tmp.lu_sog_cog_nmea = 0;
 	m_outBuffer.store(tmp);
@@ -126,9 +130,10 @@ UBXNMEAParserSingleThread::clearBuffer() {
 void
 UBXNMEAParserSingleThread::printBuffer() {
 	out_t tmp = m_outBuffer.load();
+	printf("[UTC TIME]  - %s\n", tmp.ts_utc_time);
 	printf("[UBX]  - %s\n", tmp.fix_ubx);
 	printf("[NMEA] - %s\n\n", tmp.fix_nmea);
-	printf("[Position]\nLat: %.8f   deg   -   Lon: %.8f   deg\n\n",decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon));
+	printf("[Position]\nLat: %.8f   deg   -   Lon: %.8f   deg  -   Altitude: %.2f   m\n\n",decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon),tmp.alt);
 	printf("[Speed over ground]\n(UBX): %.3f m/s   -   (NMEA): %.3f m/s\n\n",tmp.sog_ubx,tmp.sog_nmea);
 	printf("[Course over ground]\n(UBX): %.3f deg   -   (NMEA): %.3f deg\n\n",tmp.cog_ubx,tmp.cog_nmea);
 	printf("[Accelerations (gravity-free)]\nX: %.3f  m/s^2  Y: %.3f  m/s^2  Z: %.3f  m/s^2\n\n",tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
@@ -177,7 +182,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	int commas = 0;
 
 	// Latitude and Longitude substrings to be converted to double using std::stod() later
-	std::string utc_time = "UTC Time: ", slat, slon;
+	std::string utc_time = "UTC Time: ", slat, slon, salt;
 	char cp_lat = '\0', cp_lon = '\0'; // cardinal points (N, S, W, E)
 
 	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
@@ -212,6 +217,12 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 			if (cp_lon != '\0') continue;
 			cp_lon = nmea_response[i+1];
 		}
+		// Altitude above mean sea level
+		if (commas == 9) {
+			if(nmea_response[i+1] != ',') {
+				salt += nmea_response[i+1];
+			}
+		}
 	}
 
 	if (slat.empty() == false) out_nmea.lat = std::stod(slat);
@@ -220,13 +231,20 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	if (slon.empty() == false) out_nmea.lon = std::stod(slon);
 	else out_nmea.lon = 0;
 
+	if (slon.empty() == false) out_nmea.alt = std::stod(salt);
+	else out_nmea.alt = 0;
+
+
 	out_nmea.cp_lat = cp_lat;
 	out_nmea.cp_lon = cp_lon;
 
-	// Produces and prints the current date-time timestamp
+	// Produces and processes the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_nmea.ts_pos,std::ctime(&now));
-	strcat(out_nmea.ts_pos, utc_time.data());
+
+	// Uncomment this line to join the position timestamp and the UTC time string
+	// strcat(out_nmea.ts_pos, utc_time.data());
+	strcpy(out_nmea.ts_utc_time, utc_time.data());
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
@@ -235,6 +253,111 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	out_nmea.lu_pos = update.time_since_epoch().count();
 
 	m_outBuffer.store(out_nmea);
+}
+
+/** Checks and parses a GNGGA NMEA sentence
+ *  Example: $GPGGA,092725.00,4717.11399,N,00833.91590,E,1,08,1.01,499.6,M,48.0,M,,*5B\r\n
+ */
+void
+UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
+	out_t out_nmea = m_outBuffer.load();
+
+	int commas = 0;
+
+	// Latitude and Longitude substrings to be converted to double using std::stod() later
+	std::string utc_time = "UTC Time: ", slat, slon, salt;
+	char cp_lat = '\0', cp_lon = '\0'; // cardinal points (N, S, W, E)
+
+	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
+		if (nmea_response[i] == ',') {
+			commas++;
+		}
+		// UTC time (hhmmss.ss)
+		if (commas == 1){
+			if (nmea_response[i+1] != ',') {
+				utc_time += nmea_response[i+1];
+			}
+		}
+		// Latitude string
+		if (commas == 2){
+			if (nmea_response[i+1] != ',') {
+				slat += nmea_response[i+1];
+			}
+		}
+		// Latitude cardinal point
+		if (commas == 3) {
+			if (cp_lat != '\0') continue;
+			cp_lat = nmea_response[i+1];
+		}
+		// Longitude string
+		if (commas == 4){
+			if (nmea_response[i+1] != ',') {
+				slon += nmea_response[i+1];
+			}
+		}
+		// Longitude cardinal point
+		if (commas == 5) {
+			if (cp_lon != '\0') continue;
+			cp_lon = nmea_response[i+1];
+		}
+		// Altitude above mean sea level
+		if (commas == 9) {
+			if (nmea_response[i+1] != ',') {
+				salt += nmea_response[i+1];
+			}
+		}
+	}
+
+	if (slat.empty() == false) out_nmea.lat = std::stod(slat);
+	else out_nmea.lat = 0;
+
+	if (slon.empty() == false) out_nmea.lon = std::stod(slon);
+	else out_nmea.lon = 0;
+
+	if (slon.empty() == false) out_nmea.alt = std::stod(salt);
+	else out_nmea.alt = 0;
+
+	out_nmea.cp_lat = cp_lat;
+	out_nmea.cp_lon = cp_lon;
+
+	// Produces and processes the current date-time timestamp
+	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+	strcpy(out_nmea.ts_pos,std::ctime(&now));
+
+	// Uncomment this line to join the position timestamp and the UTC time string
+	// strcat(out_nmea.ts_pos, utc_time.data());
+	strcpy(out_nmea.ts_utc_time, utc_time.data());
+
+	// Gets the update time with precision of microseconds
+	auto update = time_point_cast<microseconds>(system_clock::now());
+
+	// Converts time_point to microseconds
+	out_nmea.lu_pos = update.time_since_epoch().count();
+
+	m_outBuffer.store(out_nmea);
+}
+
+/** getAltitude() provides the altitude above sea level
+ *  taken from the GNS/GGA NMEA sentences
+ */
+double
+UBXNMEAParserSingleThread::getAltitude(double *age_us, bool print_timestamp) {
+	if(m_parser_started == false) {
+		std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+		return 0;
+	}
+
+	out_t tmp = m_outBuffer.load();
+
+	if (age_us != nullptr) {
+		if (print_timestamp == true) std::cout << "[Altitude] " << tmp.ts_alt;
+
+		auto now = time_point_cast<microseconds>(system_clock::now());
+		auto end = now.time_since_epoch().count();
+
+		*age_us = (double)end - tmp.lu_alt;
+	}
+	return tmp.alt;
 }
 
 /** getAccelerations(), getRawAccelerations() and getAttitude()
