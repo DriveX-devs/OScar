@@ -234,6 +234,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	// Check if the altitude is negative and parses accondingly using stod
 	if (salt.empty() == false) {
 		if (salt[0] == '-') {
+			
 			out_nmea.alt = std::stod(salt.erase(0,1)) * -1;
 		}
 		else
@@ -873,6 +874,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
 			if (byte == '\n') {
 				if(strstr(nmea_sentence.data(),"GNGNS") != nullptr || strstr(nmea_sentence.data(),"GPGNS") != nullptr) parseNmeaGns(nmea_sentence);
 				if(strstr(nmea_sentence.data(),"GNRMC") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) parseNmeaRmc(nmea_sentence);
+				if(strstr(nmea_sentence.data(),"GNGGA") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) parseNmeaGga(nmea_sentence);
 				nmea_sentence.clear();
 				break;
 			}
