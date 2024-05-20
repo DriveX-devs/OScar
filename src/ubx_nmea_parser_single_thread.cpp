@@ -23,7 +23,8 @@ void
 UBXNMEAParserSingleThread::printUbxMessage(std::vector<uint8_t> msg) {
 	// Printing message (for debug purposes)
 	std::cout << "message size: " << msg.size() << std::endl;
-	std::cout << "{START}| ";
+
+
 	for (long unsigned int i = 0; i < msg.size(); i++) {
 		printf("%ld[%02X] ", i, msg[i]);
 	}
@@ -177,6 +178,7 @@ UBXNMEAParserSingleThread::getPosition(double *age_us, bool print_timestamp) {
  *  After parsing, it produces the current information specific timestamp and updates the output buffer. */
 void
 UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
+
 	out_t out_nmea = m_outBuffer.load();
 
 	int commas = 0;
@@ -875,7 +877,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
 			if (byte == '\n') {
 				if(strstr(nmea_sentence.data(),"GNGNS") != nullptr || strstr(nmea_sentence.data(),"GPGNS") != nullptr) parseNmeaGns(nmea_sentence);
 				if(strstr(nmea_sentence.data(),"GNRMC") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) parseNmeaRmc(nmea_sentence);
-				if(strstr(nmea_sentence.data(),"GNGGA") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) parseNmeaGga(nmea_sentence);
+				if(strstr(nmea_sentence.data(),"GNGGA") != nullptr || strstr(nmea_sentence.data(),"GPGGA") != nullptr) parseNmeaGga(nmea_sentence);
 				nmea_sentence.clear();
 				break;
 			}
