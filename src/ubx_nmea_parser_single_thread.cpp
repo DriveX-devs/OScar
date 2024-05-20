@@ -785,6 +785,7 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 		return;
     }
 
+    // implement same fix string format for both ubx and NMEA
 	switch (fix_mode) {
 		case 0:
 			strcpy(out_sts.fix_ubx,"No Fix Detected!");
