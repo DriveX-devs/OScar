@@ -315,7 +315,7 @@ VDPGPSClient::getCAMMandatoryData() {
             CAMdata.speed = VDPValueConfidence<>(speed*CENTI,SpeedConfidence_unavailable);
             CAMdata.latitude = (Latitude_t)(position.first*DOT_ONE_MICRO);
             CAMdata.longitude = (Longitude_t)(position.second*DOT_ONE_MICRO);
-            CAMdata.altitude = VDPValueConfidence<>(altitude,AltitudeConfidence_unavailable);
+            CAMdata.altitude = VDPValueConfidence<>(altitude*CENTI,AltitudeConfidence_unavailable);
             CAMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
             CAMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
             CAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;

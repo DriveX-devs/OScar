@@ -730,7 +730,6 @@ int main (int argc, char *argv[]) {
 	/*
     if(use_gpsd==false) {
         std::cerr << "Error. The NMEA/UBX serial parser for positioning is not yet fully implemented. Please use libgps with --use-gpsd for the time being." << std::endl;
-
         return 1;
     }
 	*/

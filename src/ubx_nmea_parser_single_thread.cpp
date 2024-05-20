@@ -231,9 +231,15 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	if (slon.empty() == false) out_nmea.lon = std::stod(slon);
 	else out_nmea.lon = 0;
 
-	if (slon.empty() == false) out_nmea.alt = std::stod(salt);
+	// Check if the altitude is negative and parses accondingly using stod
+	if (salt.empty() == false) {
+		if (salt[0] == '-') {
+			out_nmea.alt = std::stod(salt.erase(0,1)) * -1;
+		}
+		else
+		out_nmea.alt = std::stod(salt);
+	}
 	else out_nmea.alt = 0;
-
 
 	out_nmea.cp_lat = cp_lat;
 	out_nmea.cp_lon = cp_lon;
@@ -314,7 +320,14 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	if (slon.empty() == false) out_nmea.lon = std::stod(slon);
 	else out_nmea.lon = 0;
 
-	if (slon.empty() == false) out_nmea.alt = std::stod(salt);
+	// Check if the altitude is negative and parses accondingly using stod
+	if (salt.empty() == false) {
+		if (salt[0] == '-') {
+			out_nmea.alt = std::stod(salt.erase(0,1)) * -1;
+		}
+		else
+		out_nmea.alt = std::stod(salt);
+	}
 	else out_nmea.alt = 0;
 
 	out_nmea.cp_lat = cp_lat;
