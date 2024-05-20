@@ -234,8 +234,8 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	// Check if the altitude is negative and parses accondingly using stod
 	if (salt.empty() == false) {
 		if (salt[0] == '-') {
-			
-			out_nmea.alt = std::stod(salt.erase(0,1)) * -1;
+			salt = salt.erase(0,1);
+			out_nmea.alt = std::stod(salt) * -1;
 		}
 		else
 		out_nmea.alt = std::stod(salt);
@@ -324,7 +324,8 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	// Check if the altitude is negative and parses accondingly using stod
 	if (salt.empty() == false) {
 		if (salt[0] == '-') {
-			out_nmea.alt = std::stod(salt.erase(0,1)) * -1;
+            salt = salt.erase(0,1);
+            out_nmea.alt = std::stod(salt) * -1;
 		}
 		else
 		out_nmea.alt = std::stod(salt);
