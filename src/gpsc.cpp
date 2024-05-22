@@ -87,6 +87,30 @@ VDPGPSClient::getSpeedValue() {
     }
 }
 
+VDPValueConfidence<>
+VDPGPSClient::getAltitudeValue() {
+    if(m_use_gpsd == true) {
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the altitude from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    return VDPValueConfidence<>(m_gps_data.fix.altitude * CENTI, AltitudeConfidence_unavailable);
+                }
+            }
+        }
+        return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+
+    } else {
+        double altitude = m_serialParserPtr->getAltitude(nullptr, false);
+        return VDPValueConfidence<>(static_cast<int>(altitude * CENTI), AltitudeConfidence_unavailable);
+    }
+}
+
 std::pair<long,long>
 VDPGPSClient::getCurrentPosition() {
     if(m_use_gpsd==true) {
@@ -164,6 +188,29 @@ VDPGPSClient::getSpeedValueDbl() {
     }
 
 	return -DBL_MAX;
+}
+
+double
+VDPGPSClient::getAltitudeValueDbl() {
+    if(m_use_gpsd == true) {
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the altitude from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    return m_gps_data.fix.altitude;
+                }
+            }
+        }
+    } else{
+        return m_serialParserPtr->getAltitude(nullptr,false);
+    }
+
+    return -DBL_MAX;
 }
 
 std::pair<double,double>
