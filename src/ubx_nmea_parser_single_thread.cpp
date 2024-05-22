@@ -693,7 +693,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	                                                         sog^   cog^     fix mode^        */
 	out_t out_nmea = m_outBuffer.load();
 
-	int commas = 0, j = 0;
+	int commas = 0;
 
 	// Speed over ground, Course over ground, Fix mode
 	std::string sog, cog;
@@ -702,24 +702,20 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
 		if (nmea_response[i] == ',') {
 			commas++;
-			j = 0;
 		}
 		if (commas == 7) {
 			if (nmea_response[i+1] != ',') {
 				sog += nmea_response[i+1];
-				j++;
 			}
 		}
 		if (commas == 8) {
 			if (nmea_response[i+1] != ',') {
 				cog += nmea_response[i+1];
-				j++;
 			}
 		}
 		if (commas == 12) {
 			if (nmea_response[i+1] != ',') {
 				fix = nmea_response[i+1];
-				j++;
 			}
 		}
 	}
@@ -732,25 +728,25 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 
 	switch (fix) {
 		case 'N':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: No Fix (N)");
+			strcpy(out_nmea.fix_nmea,"Fix Mode: No Fix");
 			break;
 		case 'E':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: Estimated/Dead Reckoning Fix (E)");
+			strcpy(out_nmea.fix_nmea,"Fix Mode: Estimated/Dead Reckoning");
 			break;
 		case 'A':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: Autonomous GNSS Fix (A)");
+			strcpy(out_nmea.fix_nmea,"Fix Mode: Autonomous GNSS Fix (A) [NMEA]");
 			break;
 		case 'D':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: Differential GNSS Fix (D)");
+			strcpy(out_nmea.fix_nmea,"Fix Mode: DGNSS (D) [NMEA]");
 			break;
 		case 'F':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Float (F)");
+			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Float (F) [NMEA]");
 			break;
 		case 'R':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Fixed (R)");
+			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Fixed (R) [NMEA]");
 			break;
 		default:
-            strcpy(out_nmea.fix_nmea,"Fix Mode: Unknown (?)");
+            strcpy(out_nmea.fix_nmea,"Unknown/Invalid Fix Mode");
             break;
 	}
 
@@ -780,7 +776,7 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	out_t out_sts = m_outBuffer.load();
 
 	if (fix_flags < 0xD0){
-        strcpy(out_sts.fix_ubx, "Invalid fix (outside limits) and/or NO RTK");
+        strcpy(out_sts.fix_ubx, "Unknown/Invalid Fix Mode");
 		m_outBuffer.store(out_sts);
 		return;
     }
@@ -788,25 +784,25 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
     // implement same fix string format for both ubx and NMEA
 	switch (fix_mode) {
 		case 0:
-			strcpy(out_sts.fix_ubx,"No Fix Detected!");
+			strcpy(out_sts.fix_ubx,"Fix Mode: No Fix");
 			break;
 		case 1:
-			strcpy(out_sts.fix_ubx,"Fix mode: Dead reckoning only");
+			strcpy(out_sts.fix_ubx,"Fix Mode: Estimated/Dead Reckoning");
 			break;
 		case 2:
-			strcpy(out_sts.fix_ubx,"Fix mode: 2D-Fix");
+			strcpy(out_sts.fix_ubx,"Fix mode: 2D-Fix [UBX]");
 			break;
 		case 3:
-			strcpy(out_sts.fix_ubx,"Fix mode: 3D-Fix");
+			strcpy(out_sts.fix_ubx,"Fix mode: 3D-Fix [UBX]");
 			break;
 		case 4:
-			strcpy(out_sts.fix_ubx,"Fix mode: GPS + dead reckoning combined");
+			strcpy(out_sts.fix_ubx,"Fix mode: GPS + Dead Reckoning [UBX]");
 			break;
 		case 5:
-			strcpy(out_sts.fix_ubx,"Fix mode: Time-only Fix");
+			strcpy(out_sts.fix_ubx,"Fix mode: Time-only Fix [UBX]");
 			break;
 		default:
-			strcpy(out_sts.fix_ubx,"Unknown fix mode");
+			strcpy(out_sts.fix_ubx,"Unknown/Invalid Fix Mode");
 			break;
 	}
 	
