@@ -65,8 +65,10 @@ class UBXNMEAParserSingleThread {
         std::atomic<bool> *m_terminatorFlagPtr = nullptr; // Used in endless loops in order to terminate the program
         std::atomic<bool> m_stopParserFlag = false;
         bool m_parser_started=false;
+        bool m_2d_valid_fix = false;
+        bool m_3d_valid_fix = false;
 
-        ceSerial m_serial;
+    ceSerial m_serial;
 
         const std::vector<uint8_t> m_UBX_HEADER = {0xb5, 0x62};
 

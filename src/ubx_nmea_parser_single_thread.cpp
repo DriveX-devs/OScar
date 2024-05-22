@@ -690,14 +690,14 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 void
 UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	/* Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
-	                                                         sog^   cog^     fix mode^        */
+	                                                         sog^   cog^     fix mode^  ^fix validity       */
 	out_t out_nmea = m_outBuffer.load();
 
 	int commas = 0;
 
 	// Speed over ground, Course over ground, Fix mode
 	std::string sog, cog;
-	char fix = '\0';
+	char fix = '\0', fix_validity = '\0';
 
 	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
 		if (nmea_response[i] == ',') {
@@ -718,7 +718,13 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 				fix = nmea_response[i+1];
 			}
 		}
-	}
+
+        if (commas == 13) {
+            if (nmea_response[i+1] != ',') {
+                fix_validity = nmea_response[i+1];
+            }
+        }
+    }
 
 	if (sog.empty() == false) out_nmea.sog_nmea =  std::stod(sog) * 0.5144; //Coversion from knots to m/s
 	else out_nmea.sog_nmea = 0;
@@ -726,27 +732,48 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	if (cog.empty() == false) out_nmea.cog_nmea = std::stod(cog);
 	else out_nmea.cog_nmea = 0;
 
-	switch (fix) {
+    // Fix Validity Check
+    if (fix_validity != 'A') {
+        strcpy(out_nmea.fix_nmea,"Unknown/Invalid Fix Mode");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+
+    switch (fix) {
 		case 'N':
 			strcpy(out_nmea.fix_nmea,"Fix Mode: No Fix");
-			break;
+            m_2d_valid_fix = false;
+            m_3d_valid_fix = false;
+            break;
 		case 'E':
 			strcpy(out_nmea.fix_nmea,"Fix Mode: Estimated/Dead Reckoning");
+            m_2d_valid_fix = false;
+            m_3d_valid_fix = false;
 			break;
 		case 'A':
 			strcpy(out_nmea.fix_nmea,"Fix Mode: Autonomous GNSS Fix (A) [NMEA]");
+            m_2d_valid_fix = true;
+            m_3d_valid_fix = true;
 			break;
 		case 'D':
 			strcpy(out_nmea.fix_nmea,"Fix Mode: DGNSS (D) [NMEA]");
+            m_2d_valid_fix = true;
+            m_3d_valid_fix = true;
 			break;
 		case 'F':
 			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Float (F) [NMEA]");
+            m_2d_valid_fix = true;
+            m_3d_valid_fix = true;
 			break;
 		case 'R':
 			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Fixed (R) [NMEA]");
+            m_2d_valid_fix = true;
+            m_3d_valid_fix = true;
 			break;
 		default:
             strcpy(out_nmea.fix_nmea,"Unknown/Invalid Fix Mode");
+            m_2d_valid_fix = false;
+            m_3d_valid_fix = false;
             break;
 	}
 
@@ -777,33 +804,48 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 
 	if (fix_flags < 0xD0){
         strcpy(out_sts.fix_ubx, "Unknown/Invalid Fix Mode");
-		m_outBuffer.store(out_sts);
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+        m_outBuffer.store(out_sts);
 		return;
     }
 
-    // implement same fix string format for both ubx and NMEA
 	switch (fix_mode) {
 		case 0:
 			strcpy(out_sts.fix_ubx,"Fix Mode: No Fix");
+            m_2d_valid_fix = false;
+            m_3d_valid_fix = false;
 			break;
 		case 1:
 			strcpy(out_sts.fix_ubx,"Fix Mode: Estimated/Dead Reckoning");
-			break;
+            m_2d_valid_fix = false;
+            m_3d_valid_fix = false;
+            break;
 		case 2:
 			strcpy(out_sts.fix_ubx,"Fix mode: 2D-Fix [UBX]");
-			break;
+            m_2d_valid_fix = true;
+            m_3d_valid_fix = false;
+            break;
 		case 3:
 			strcpy(out_sts.fix_ubx,"Fix mode: 3D-Fix [UBX]");
-			break;
+            m_2d_valid_fix = true;
+            m_3d_valid_fix = true;
+            break;
 		case 4:
 			strcpy(out_sts.fix_ubx,"Fix mode: GPS + Dead Reckoning [UBX]");
-			break;
+            m_2d_valid_fix = true;
+            m_3d_valid_fix = true;
+            break;
 		case 5:
 			strcpy(out_sts.fix_ubx,"Fix mode: Time-only Fix [UBX]");
-			break;
+            m_2d_valid_fix = false;
+            m_3d_valid_fix = false;
+            break;
 		default:
 			strcpy(out_sts.fix_ubx,"Unknown/Invalid Fix Mode");
-			break;
+            m_2d_valid_fix = false;
+            m_3d_valid_fix = false;
+            break;
 	}
 	
 	// Updates the output buffer with new data
