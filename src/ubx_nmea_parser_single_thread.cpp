@@ -897,7 +897,7 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 /** Reads from serial port, filtering for NMEA sentences and UBX messages and parsing accordingly */
 void
 UBXNMEAParserSingleThread::readFromSerial() {
-	std::vector<uint8_t> ubx_message;
+	std::vector<uint8_t> ubx_message, wrong_input;
 	std::string nmea_sentence;
 
 	uint8_t byte;
@@ -915,6 +915,12 @@ UBXNMEAParserSingleThread::readFromSerial() {
 
         printf("%c",byte);
 
+        // This array is cleared every time a correct UBX/NMEA message is received
+        wrong_input.push_back(byte);
+        if (wrong_input.size() >= m_WRONG_INPUT_TRESHOLD) {
+            m_terminatorFlagPtr->store(true);
+        }
+
 		// NMEA sentences reading and parsing
 		if (started_nmea == false) {
 			if (byte == '$') {
@@ -929,6 +935,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
 				if(strstr(nmea_sentence.data(),"GNRMC") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) parseNmeaRmc(nmea_sentence);
 				if(strstr(nmea_sentence.data(),"GNGGA") != nullptr || strstr(nmea_sentence.data(),"GPGGA") != nullptr) parseNmeaGga(nmea_sentence);
 				nmea_sentence.clear();
+                wrong_input.clear();
 				break;
 			}
 		}
@@ -965,6 +972,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
 
 				//printUbxMessage(ubx_message);
 				ubx_message.clear();
+                wrong_input.clear();
 				break;
 			}
 		}
