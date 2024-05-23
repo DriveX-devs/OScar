@@ -29,7 +29,8 @@ class UBXNMEAParserSingleThread {
         std::tuple<double,double,double> getRawAccelerations(double *age_us, bool print_timestamp);
         std::tuple<double,double,double> getAttitude(double *age_us, bool print_timestamp);
         double getSpeed(double *age_us, bool print_timestamp_and_age);
-        double getCourseOverGround(double *age_us, bool print_timestamp_and_age);
+        double getCourseOverGroundUbx(double *age_us, bool print_timestamp_and_age);
+        double getCourseOverGroundNmea(double *age_us, bool print_timestamp_and_age);
         double getAltitude(double *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
         bool getFixValidity2D();

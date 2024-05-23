@@ -59,7 +59,7 @@ VDPGPSClient::getHeadingValue() {
         return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
     } else {
         if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
-            double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
+            double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
             return VDPValueConfidence<>(static_cast<int>(heading * DECI), HeadingConfidence_unavailable);
         } else return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
     }
@@ -170,7 +170,7 @@ VDPGPSClient::getHeadingValueDbl() {
         }
     } else {
         if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
-            return m_serialParserPtr->getCourseOverGround(nullptr, false);
+            return m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
         }
     }
 

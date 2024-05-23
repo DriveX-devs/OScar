@@ -604,7 +604,7 @@ UBXNMEAParserSingleThread::getSpeed(double *age_us, bool print_timestamp_and_age
 }
 
 double
-UBXNMEAParserSingleThread::getCourseOverGround(double *age_us, bool print_timestamp_and_age) {
+UBXNMEAParserSingleThread::getCourseOverGroundUbx(double *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return 0;
@@ -616,18 +616,35 @@ UBXNMEAParserSingleThread::getCourseOverGround(double *age_us, bool print_timest
 		auto end = now.time_since_epoch().count();
 
 		double age_ubx = end - tmp.lu_sog_cog_ubx;
-		double age_nmea = end - tmp.lu_sog_cog_nmea;
 
-		if (age_ubx <= age_nmea) {
-			if (print_timestamp_and_age == true) std::cout << "[Course Over Ground - UBX]  " <<  tmp.ts_sog_cog_ubx << "Age of Information: " << age_ubx << " us" << std::endl;;
-			*age_us = age_ubx;
-		} else {
-			if (print_timestamp_and_age == true) std::cout << "[Course Over Ground - NMEA] " << tmp.ts_sog_cog_nmea << "Age of Information: " << age_nmea << " us" << std::endl;
-			*age_us = age_nmea;
-		}
+		if (print_timestamp_and_age == true) {
+            std::cout << "[Course Over Ground - UBX]  " <<  tmp.ts_sog_cog_ubx << "Age of Information: " << age_ubx << " us" << std::endl;;
+        }
+		*age_us = age_ubx;
 	}
-	if (tmp.cog_ubx != 0) return tmp.cog_ubx;
-	return tmp.cog_nmea;
+	return tmp.cog_ubx;
+}
+
+double
+UBXNMEAParserSingleThread::getCourseOverGroundNmea(double *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+    if (age_us != nullptr) {
+        auto now = time_point_cast<microseconds>(system_clock::now());
+        auto end = now.time_since_epoch().count();
+
+        double age_nmea = end - tmp.lu_sog_cog_nmea;
+
+        if (print_timestamp_and_age == true) {
+            std::cout << "[Course Over Ground - NMEA]  " <<  tmp.ts_sog_cog_ubx << "Age of Information: " << age_nmea << " us" << std::endl;
+        }
+        *age_us = age_nmea;
+    }
+    return tmp.cog_nmea;
 }
 
 /** Retrieves the fix mode both from UBX and NMEA (checking in this order)
