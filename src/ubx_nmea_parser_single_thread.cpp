@@ -91,15 +91,16 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
 void
 UBXNMEAParserSingleThread::clearBuffer() {
 	out_t tmp;
-	strcpy(tmp.ts_pos,"Buffer empty");
-	strcpy(tmp.ts_utc_time,"Buffer empty");
-	strcpy(tmp.ts_acc,"Buffer empty");
-	strcpy(tmp.ts_att,"Buffer empty");
-	strcpy(tmp.ts_alt,"Buffer empty");
-	strcpy(tmp.ts_sog_cog_ubx,"Buffer empty");
-	strcpy(tmp.ts_sog_cog_nmea,"Buffer empty");
-	strcpy(tmp.fix_ubx,"Buffer empty");
-	strcpy(tmp.fix_nmea,"Buffer empty");
+	strcpy(tmp.ts_pos,"");
+	strcpy(tmp.ts_utc_time_ubx,"");
+    strcpy(tmp.ts_utc_time_nmea,"");
+	strcpy(tmp.ts_acc,"");
+	strcpy(tmp.ts_att,"");
+	strcpy(tmp.ts_alt,"");
+	strcpy(tmp.ts_sog_cog_ubx,"");
+	strcpy(tmp.ts_sog_cog_nmea,"");
+	strcpy(tmp.fix_ubx,"");
+	strcpy(tmp.fix_nmea,"");
 	tmp.raw_acc_x = 0;
 	tmp.raw_acc_y = 0;
 	tmp.raw_acc_z = 0;
@@ -131,7 +132,8 @@ UBXNMEAParserSingleThread::clearBuffer() {
 void
 UBXNMEAParserSingleThread::printBuffer() {
 	out_t tmp = m_outBuffer.load();
-	printf("[UTC TIME]  - %s\n", tmp.ts_utc_time);
+	printf("[UBX  - UTC TIME]  - %s\n", tmp.ts_utc_time_ubx);
+    printf("[NMEA - UTC TIME]  - %s\n", tmp.ts_utc_time_nmea);
 	printf("[UBX]  - %s\n", tmp.fix_ubx);
 	printf("[NMEA] - %s\n\n", tmp.fix_nmea);
 	printf("[Position]\nLat: %.8f   deg   -   Lon: %.8f   deg  -   Altitude: %.2f   m\n\n",decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon),tmp.alt);
@@ -140,6 +142,37 @@ UBXNMEAParserSingleThread::printBuffer() {
 	printf("[Accelerations (gravity-free)]\nX: %.3f  m/s^2  Y: %.3f  m/s^2  Z: %.3f  m/s^2\n\n",tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
 	printf("[Raw accelerations]\nX: %.3f  m/s^2  Y: %.3f  m/s  Z: %.3f  m/s\n\n",tmp.raw_acc_x,tmp.raw_acc_y,tmp.raw_acc_z);
 	printf("[Attitude]\nRoll: %.3f  deg  Pitch: %.3f  deg  Heading: %.3f  deg\n\n",tmp.roll,tmp.pitch,tmp.heading);
+}
+
+std::string
+UBXNMEAParserSingleThread::getUtcTimeUbx() {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return std::string("Error!");
+    }
+
+    out_t tmp = m_outBuffer.load();
+    std::string utc_time(tmp.ts_utc_time_ubx);
+
+    if (utc_time.empty() == false) {
+        return utc_time;
+    } else return std::string("Error. UBX UTC time string is empty.");
+}
+
+
+std::string
+UBXNMEAParserSingleThread::getUtcTimeNmea() {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return std::string("Error!");
+    }
+
+    out_t tmp = m_outBuffer.load();
+    std::string utc_time(tmp.ts_utc_time_nmea);
+
+    if (utc_time.empty() == false) {
+        return utc_time;
+    } else return std::string("Error. NMEA UTC time string is empty.");
 }
 
 /** Retrives and processes the specific position timestamp, calculates
@@ -253,7 +286,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 
 	// Uncomment this line to join the position timestamp and the UTC time string
 	// strcat(out_nmea.ts_pos, utc_time.data());
-	strcpy(out_nmea.ts_utc_time, utc_time.data());
+	strcpy(out_nmea.ts_utc_time_nmea, utc_time.data());
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
@@ -343,7 +376,7 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 
 	// Uncomment this line to join the position timestamp and the UTC time string
 	// strcat(out_nmea.ts_pos, utc_time.data());
-	strcpy(out_nmea.ts_utc_time, utc_time.data());
+	strcpy(out_nmea.ts_utc_time_nmea, utc_time.data());
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
@@ -659,9 +692,8 @@ UBXNMEAParserSingleThread::getFixMode() {
 	out_t tmp = m_outBuffer.load();
 	std::string fix(tmp.fix_ubx);
 
-	// Checks if the fix mode has been already obtained from UBX
-	if (fix.empty() == true || strstr(fix.data(),"Buffer empty") != nullptr) {
-		fix.clear();
+	// Checks if the fix mode has already been obtained from UBX
+	if (fix.empty() == true) {
 		strcpy(fix.data(),tmp.fix_nmea);
 		return fix;
 	}

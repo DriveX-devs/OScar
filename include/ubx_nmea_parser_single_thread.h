@@ -35,13 +35,16 @@ class UBXNMEAParserSingleThread {
         std::string getFixMode();
         bool getFixValidity2D();
         bool getFixValidity3D();
+        std::string getUtcTimeUbx();
+        std::string getUtcTimeNmea();
         int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
         void stopUBXNMEAParser();
     private:
         /* Buffer structure to be printed to the user */
         typedef struct Output {
             char ts_pos[100],
-                    ts_utc_time[100],
+                    ts_utc_time_ubx[100],
+                    ts_utc_time_nmea[100],
                     ts_acc[100],
                     ts_att[100],
                     ts_alt[100],
