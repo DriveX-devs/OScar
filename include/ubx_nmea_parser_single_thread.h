@@ -32,6 +32,8 @@ class UBXNMEAParserSingleThread {
         double getCourseOverGround(double *age_us, bool print_timestamp_and_age);
         double getAltitude(double *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
+        bool getFixValidity2D();
+        bool getFixValidity3D();
         int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
         void stopUBXNMEAParser();
     private:
@@ -68,7 +70,7 @@ class UBXNMEAParserSingleThread {
         bool m_2d_valid_fix = false;
         bool m_3d_valid_fix = false;
 
-    ceSerial m_serial;
+        ceSerial m_serial;
 
         const std::vector<uint8_t> m_UBX_HEADER = {0xb5, 0x62};
 

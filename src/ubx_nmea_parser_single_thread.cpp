@@ -652,6 +652,17 @@ UBXNMEAParserSingleThread::getFixMode() {
 	return fix;
 }
 
+bool
+UBXNMEAParserSingleThread::getFixValidity2D() {
+    if (m_2d_valid_fix == true) return true;
+    else return false;
+}
+bool
+UBXNMEAParserSingleThread::getFixValidity3D() {
+    if (m_3d_valid_fix == true) return true;
+    else return false;
+}
+
 /** Extracts the speed over ground (sog, 4 bytes) and course over ground (cog, 4 bytes) values from the
  *  UBX-NAV-PVT message by reading from byte 60 to byte 68 (the two values are store one after the other
  *

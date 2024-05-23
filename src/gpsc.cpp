@@ -58,8 +58,10 @@ VDPGPSClient::getHeadingValue() {
 
         return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
     } else {
-        double heading = m_serialParserPtr->getCourseOverGround(nullptr,false);
-        return VDPValueConfidence<>(static_cast<int>(heading * DECI),HeadingConfidence_unavailable);
+        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+            double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
+            return VDPValueConfidence<>(static_cast<int>(heading * DECI), HeadingConfidence_unavailable);
+        } else return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
     }
 }
 
@@ -82,8 +84,10 @@ VDPGPSClient::getSpeedValue() {
 
         return VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
     } else {
-        double speed = m_serialParserPtr->getSpeed(nullptr, false);
-        return VDPValueConfidence<>(static_cast<int>(speed * CENTI), SpeedConfidence_unavailable);
+        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+            double speed = m_serialParserPtr->getSpeed(nullptr, false);
+            return VDPValueConfidence<>(static_cast<int>(speed * CENTI), SpeedConfidence_unavailable);
+        } else return VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
     }
 }
 
@@ -106,8 +110,10 @@ VDPGPSClient::getAltitudeValue() {
         return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
 
     } else {
-        double altitude = m_serialParserPtr->getAltitude(nullptr, false);
-        return VDPValueConfidence<>(static_cast<int>(altitude * CENTI), AltitudeConfidence_unavailable);
+        if (m_serialParserPtr->getFixValidity3D() == true) {
+            double altitude = m_serialParserPtr->getAltitude(nullptr, false);
+            return VDPValueConfidence<>(static_cast<int>(altitude * CENTI), AltitudeConfidence_unavailable);
+        } else return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
     }
 }
 
@@ -133,8 +139,10 @@ VDPGPSClient::getCurrentPosition() {
 
         return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
     } else {
-        std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
-        return std::pair<long, long>(position.first * DOT_ONE_MICRO, position.second * DOT_ONE_MICRO);
+        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+            std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+            return std::pair<long, long>(position.first * DOT_ONE_MICRO, position.second * DOT_ONE_MICRO);
+        } else std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
     }
 }
 
@@ -161,7 +169,9 @@ VDPGPSClient::getHeadingValueDbl() {
             }
         }
     } else {
-        return m_serialParserPtr->getCourseOverGround(nullptr,false);
+        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+            return m_serialParserPtr->getCourseOverGround(nullptr, false);
+        }
     }
 
 	return -DBL_MAX;
@@ -184,7 +194,9 @@ VDPGPSClient::getSpeedValueDbl() {
             }
         }
     } else{
-        return m_serialParserPtr->getSpeed(nullptr,false);
+        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+            return m_serialParserPtr->getSpeed(nullptr, false);
+        }
     }
 
 	return -DBL_MAX;
@@ -207,7 +219,9 @@ VDPGPSClient::getAltitudeValueDbl() {
             }
         }
     } else{
-        return m_serialParserPtr->getAltitude(nullptr,false);
+        if (m_serialParserPtr->getFixValidity3D() == true) {
+            return m_serialParserPtr->getAltitude(nullptr, false);
+        }
     }
 
     return -DBL_MAX;
@@ -232,7 +246,9 @@ VDPGPSClient::getCurrentPositionDbl() {
             }
         }
     } else {
-        return m_serialParserPtr->getPosition(nullptr,false);
+        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+            return m_serialParserPtr->getPosition(nullptr, false);
+        }
     }
 
 	return std::pair<double,double>(-DBL_MAX,-DBL_MAX);
