@@ -11,6 +11,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstring>
+#include <sstream>
 #include <thread>
 #include <utility>
 #include <chrono>
@@ -71,21 +72,40 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
  *  a uint64_t return variable. */
 long
 UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
-	if (data.size() == 3) {
-		long value = (data[0] << 16) | (data[1] << 8) | (data[2]);
-		long signMask = 1 << ((data.size()*2) * 4 - 1);
-		long complementMask = signMask - 1;
-		return -(value & signMask) | (value & complementMask);
-	} else if (data.size() == 4) {
-		long value = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | (data[3]);
-		long signMask = 1 << ((data.size()*2) * 4 - 1);
-		long complementMask = signMask - 1;
-		return -(value & signMask) | (value & complementMask);
+    if (data.size() == 2) {
+        long value = (data[0] << 8) | (data[1]);
+        long signMask = 1 << ((data.size()*2) * 4 - 1);
+        long complementMask = signMask - 1;
+        return -(value & signMask) | (value & complementMask);
+    }
+    else if (data.size() == 3) {
+        long value = (data[0] << 16) | (data[1] << 8) | (data[2]);
+        long signMask = 1 << ((data.size()*2) * 4 - 1);
+        long complementMask = signMask - 1;
+        return -(value & signMask) | (value & complementMask);
+    }
+    else if (data.size() == 4) {
+        long value = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | (data[3]);
+        long signMask = 1 << ((data.size()*2) * 4 - 1);
+        long complementMask = signMask - 1;
+        return -(value & signMask) | (value & complementMask);
 	} else {
 		std::cerr << "Fatal Error: Invalid std::vector data size. Check ESF-RAW/NAV-ATT. Terminating. ";
-		*m_terminatorFlagPtr=true; // Breaks the endless loop and terminates the program
+		*m_terminatorFlagPtr = true; // Breaks the endless loop and terminates the program
 		return -1;
 	}
+}
+
+long
+UBXNMEAParserSingleThread::hexToSignedValue(uint8_t value) {
+    if (value >= 0xFF) {
+        std::cerr << "Fatal Error: Value too big. Try converting a vector. Terminating.";
+        *m_terminatorFlagPtr = true; // Breaks the endless loop and terminates the program
+        return -1;
+    }
+    long signMask = 1 << 7;
+    long complementMask = signMask - 1;
+    return -((long)value & signMask) | ((long)value & complementMask);
 }
 
 void
@@ -731,7 +751,34 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 	std::reverse(head_motion.begin(),head_motion.end());
 	out_pvt.cog_ubx = hexToSigned(head_motion) * 0.00001;
 
-	// Produces and prints to struct the current date-time timestamp
+    std::vector<uint8_t> utc_time(response.begin() + m_UBX_PAYLOAD_OFFSET + 4, response.begin() + m_UBX_PAYLOAD_OFFSET + 12);
+    std::ostringstream out;
+
+    // Check date and time validity
+    if (utc_time[7] != 0x3F) // strcpt(tmp.utc_time_ubx,"Invalid UTC Date/Time"); return;
+        utc_time.pop_back();
+
+    // Year parsing
+    std::vector<uint8_t> year(utc_time.begin(),utc_time.begin() + 2);
+    std::reverse(year.begin(),year.end());
+
+    // Month, Day, Hour, Minutes, Seconds parsing
+    uint8_t month = utc_time[2];
+    uint8_t day = utc_time[3];
+    uint8_t hour = utc_time[4];
+    uint8_t min = utc_time[5];
+    uint8_t sec = utc_time[6];
+
+    out << hexToSignedValue(day)   << "/"
+        << hexToSignedValue(month) << "/"
+        << hexToSigned(year) 	   << "  "
+        << hexToSignedValue(hour)  << ":"
+        << hexToSignedValue(min)   << ":"
+        << hexToSignedValue(sec) << "\n";
+
+    strcpy(out_pvt.ts_utc_time_ubx,out.str().data());
+
+    // Produces and prints to struct the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_pvt.ts_sog_cog_ubx,std::ctime(&now));
 
