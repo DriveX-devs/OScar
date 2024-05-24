@@ -755,8 +755,11 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     std::ostringstream out;
 
     // Check date and time validity
-    if (utc_time[7] != 0x3F) // strcpt(tmp.utc_time_ubx,"Invalid UTC Date/Time"); return;
-        utc_time.pop_back();
+    if (utc_time[7] != 0x3F)  {
+        strcpy(out_pvt.ts_utc_time_ubx,"Invalid UTC Date/Time [UBX-NAV-PVT]");
+        return;
+    }
+    utc_time.pop_back();
 
     // Year parsing
     std::vector<uint8_t> year(utc_time.begin(),utc_time.begin() + 2);
