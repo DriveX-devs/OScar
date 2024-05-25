@@ -26,12 +26,14 @@ class UBXNMEAParserSingleThread {
 
         std::pair<double,double> getPosition(double *age_us, bool print_timestamp);
         std::tuple<double,double,double> getAccelerations(double *age_us, bool print_timestamp);
+        std::tuple<double,double,double> getAngularRates(double *age_us, bool print_timestamp);
         std::tuple<double,double,double> getRawAccelerations(double *age_us, bool print_timestamp);
         std::tuple<double,double,double> getAttitude(double *age_us, bool print_timestamp);
         double getSpeed(double *age_us, bool print_timestamp_and_age);
         double getCourseOverGroundUbx(double *age_us, bool print_timestamp_and_age);
         double getCourseOverGroundNmea(double *age_us, bool print_timestamp_and_age);
         double getAltitude(double *age_us, bool print_timestamp_and_age);
+        double getYawRate(double *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
         bool getFixValidity2D();
         bool getFixValidity3D();
@@ -49,20 +51,25 @@ class UBXNMEAParserSingleThread {
                     ts_att[100],
                     ts_alt[100],
                     ts_comp_acc[100],
+                    ts_comp_ang_rate[100],
                     ts_sog_cog_ubx[100],
                     ts_sog_cog_nmea[100];					// Timestamps
             char fix_ubx[100],
                     fix_nmea[100];
             char cp_lat, cp_lon;						    // Latitude and longitude cardinal points
             double lat, lon, alt;                           // Latitude, longitude and altitude above sea level
-            double raw_acc_x, raw_acc_y, raw_acc_z,
-                    comp_acc_x, comp_acc_y, comp_acc_z;     // Accelerations
+            double raw_acc_x, raw_acc_y, raw_acc_z,         // Raw and compensated accelerations
+                   comp_acc_x, comp_acc_y, comp_acc_z,
+                   comp_ang_rate_x,                         // Compensated angular rates
+                   comp_ang_rate_y,
+                   comp_ang_rate_z;
             double roll, pitch, heading;				    // Attitude angles
             double sog_ubx, sog_nmea,
                     cog_ubx, cog_nmea;					    // Speed over ground and course over ground
             long lu_pos, lu_acc,
                  lu_att, lu_alt,
                  lu_comp_acc,
+                 lu_comp_ang_rate,
                  lu_sog_cog_ubx,
                  lu_sog_cog_nmea;						    // Last updates on relevant information
         } out_t;

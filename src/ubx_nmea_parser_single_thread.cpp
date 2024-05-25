@@ -117,6 +117,8 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	strcpy(tmp.ts_acc,"");
 	strcpy(tmp.ts_att,"");
 	strcpy(tmp.ts_alt,"");
+    strcpy(tmp.ts_comp_acc,"");
+    strcpy(tmp.ts_comp_ang_rate,"");
 	strcpy(tmp.ts_sog_cog_ubx,"");
 	strcpy(tmp.ts_sog_cog_nmea,"");
 	strcpy(tmp.fix_ubx,"");
@@ -127,6 +129,9 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	tmp.comp_acc_x = 0;
 	tmp.comp_acc_y = 0;
 	tmp.comp_acc_z = 0;
+    tmp.comp_ang_rate_x = 0;
+    tmp.comp_ang_rate_y = 0;
+    tmp.comp_ang_rate_z = 0;
 	tmp.lat = 0;
 	tmp.lon = 0;
 	tmp.alt = 0;
@@ -143,6 +148,8 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	tmp.lu_acc = 0;
 	tmp.lu_att = 0;
 	tmp.lu_alt = 0;
+    tmp.lu_comp_acc = 0;
+    tmp.lu_comp_ang_rate = 0;
 	tmp.lu_sog_cog_ubx = 0;
 	tmp.lu_sog_cog_nmea = 0;
 	m_outBuffer.store(tmp);
@@ -430,7 +437,7 @@ UBXNMEAParserSingleThread::getAltitude(double *age_us, bool print_timestamp) {
 	return tmp.alt;
 }
 
-/** getAccelerations(), getRawAccelerations() and getAttitude()
+/** getAccelerations(), getAngularRates(), getYawRate(), getRawAccelerations() and getAttitude()
  *  follow the same structure as getPosition but with the use of
  *  std::tuple instead of std::pair
  * 
@@ -452,6 +459,45 @@ UBXNMEAParserSingleThread::getAccelerations(double *age_us, bool print_timestamp
 		*age_us = (double)end - tmp.lu_comp_acc;
 	}
 	return std::make_tuple(tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
+}
+
+std::tuple<double,double,double>
+UBXNMEAParserSingleThread::getAngularRates(double *age_us, bool print_timestamp) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return std::make_tuple(0,0,0);
+    }
+
+    out_t tmp = m_outBuffer.load();
+    if (age_us != nullptr) {
+        if (print_timestamp == true) std::cout << "[Angular Rates (gravity-free)] " << tmp.ts_comp_ang_rate;
+
+        auto now = time_point_cast<microseconds>(system_clock::now());
+        auto end = now.time_since_epoch().count();
+
+        *age_us = (double)end - tmp.lu_comp_ang_rate;
+    }
+    return std::make_tuple(tmp.comp_ang_rate_x,tmp.comp_ang_rate_y,tmp.comp_ang_rate_z);
+}
+
+double
+UBXNMEAParserSingleThread::getYawRate(double *age_us, bool print_timestamp) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    if (age_us != nullptr) {
+        if (print_timestamp == true) std::cout << "[Yaw rate] " << tmp.ts_comp_ang_rate;
+
+        auto now = time_point_cast<microseconds>(system_clock::now());
+        auto end = now.time_since_epoch().count();
+
+        *age_us = (double)end - tmp.lu_comp_ang_rate;
+    }
+    return tmp.comp_ang_rate_z;
 }
 
 std::tuple<double,double,double>
@@ -774,10 +820,10 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 
     out << hexToSignedValue(day)   << "/"
         << hexToSignedValue(month) << "/"
-        << hexToSigned(year) 	   << "  "
+        << hexToSigned(year) 	     << "  "
         << hexToSignedValue(hour)  << ":"
         << hexToSignedValue(min)   << ":"
-        << hexToSignedValue(sec) << "\n";
+        << hexToSignedValue(sec)   << "\n";
 
     strcpy(out_pvt.ts_utc_time_ubx,out.str().data());
 
@@ -968,7 +1014,27 @@ void
 UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 	out_t out_ins = m_outBuffer.load();
 
-	std::vector<uint8_t> comp_acc_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 27);
+    // Calibration check
+    if (response[m_UBX_PAYLOAD_OFFSET + 2] != 0x3F) {
+        std::cerr << "Accelerometer/Gyroscope is not calibrated yet!" << std::endl;
+        return;
+    }
+
+    // Compensated angular rates
+    std::vector<uint8_t> comp_ang_rate_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 12, response.begin() + m_UBX_PAYLOAD_OFFSET + 15);
+    std::reverse(comp_ang_rate_x.begin(),comp_ang_rate_x.end());
+    out_ins.comp_ang_rate_x = hexToSigned(comp_ang_rate_x) * 0.001; // Accordingly scales to deg/s
+
+    std::vector<uint8_t> comp_ang_rate_y(response.begin() + m_UBX_PAYLOAD_OFFSET + 16, response.begin() + m_UBX_PAYLOAD_OFFSET + 19);
+    std::reverse(comp_ang_rate_y.begin(),comp_ang_rate_y.end());
+    out_ins.comp_ang_rate_y = hexToSigned(comp_ang_rate_y) * 0.001;
+
+    std::vector<uint8_t> comp_ang_rate_z(response.begin() + m_UBX_PAYLOAD_OFFSET + 12, response.begin() + m_UBX_PAYLOAD_OFFSET + 15);
+    std::reverse(comp_ang_rate_z.begin(),comp_ang_rate_z.end());
+    out_ins.comp_ang_rate_z = hexToSigned(comp_ang_rate_z) * 0.001;
+
+    // Compensated accelerations
+    std::vector<uint8_t> comp_acc_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 27);
 	std::reverse(comp_acc_x.begin(),comp_acc_x.end());
 	out_ins.comp_acc_x = hexToSigned(comp_acc_x) * 0.01; // Accordingly scales to m/s^2
 
@@ -978,17 +1044,20 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 
 	std::vector<uint8_t> comp_acc_z(response.begin() + m_UBX_PAYLOAD_OFFSET + 32, response.begin() + m_UBX_PAYLOAD_OFFSET + 35);
 	std::reverse(comp_acc_x.begin(),comp_acc_x.end());
-	out_ins.comp_acc_z = hexToSigned(comp_acc_z) * 0.01; // Accordingly scales to m/s^2
+	out_ins.comp_acc_z = hexToSigned(comp_acc_z) * 0.01;
 
 	// Produces and prints to struct the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_ins.ts_comp_acc,std::ctime(&now));
+    strcpy(out_ins.ts_comp_ang_rate,std::ctime(&now));
 
+    // Timestamps and last update (Same for accelerations and angular rate, but implemented as separate variables for scalability)
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
 	// Retrieves the time since epoch in microseconds and updates the output struct
 	out_ins.lu_comp_acc = update.time_since_epoch().count();
+    out_ins.lu_comp_ang_rate = update.time_since_epoch().count();
 
 	m_outBuffer.store(out_ins);
 }
