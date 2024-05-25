@@ -146,6 +146,59 @@ VDPGPSClient::getCurrentPosition() {
     }
 }
 
+VDPValueConfidence<>
+VDPGPSClient::getLongitudinalAccelerationValue() {
+    if(m_use_gpsd == true) {
+        /*
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the altitude from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    return VDPValueConfidence<>(m_gps_data.fix.altitude * CENTI, AltitudeConfidence_unavailable);
+                }
+            }
+        }
+        return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+        */
+    } else {
+        if (m_serialParserPtr->getFixValidity3D() == true) {
+            double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
+            return VDPValueConfidence<>(static_cast<int>(long_acc * CENTI), AccelerationConfidence_unavailable);
+        } else return VDPValueConfidence<>(AccelerationValue_unavailable, AccelerationConfidence_unavailable);
+    }
+}
+
+VDPValueConfidence<>
+VDPGPSClient::getYawRate() {
+    if(m_use_gpsd == true) {
+        /*
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the altitude from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    return VDPValueConfidence<>(m_gps_data.fix.altitude * CENTI, AltitudeConfidence_unavailable);
+                }
+            }
+        }
+        return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+        */
+    } else {
+        if (m_serialParserPtr->getFixValidity3D() == true) {
+            double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
+            return VDPValueConfidence<>(static_cast<int>(yaw_rate * CENTI), YawRateConfidence_unavailable);
+        } else return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+    }
+}
 
 double
 VDPGPSClient::getHeadingValueDbl() {
@@ -252,6 +305,62 @@ VDPGPSClient::getCurrentPositionDbl() {
     }
 
 	return std::pair<double,double>(-DBL_MAX,-DBL_MAX);
+}
+
+double
+VDPGPSClient::getLongitudinalAccelerationValueDbl() {
+    if(m_use_gpsd == true) {
+        /*
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    if (!isnan(m_gps_data.fix.latitude) && !isnan(m_gps_data.fix.longitude)) {
+                        return std::pair<double, double>(m_gps_data.fix.latitude, m_gps_data.fix.longitude);
+                    }
+                }
+            }
+        }
+         */
+    } else {
+        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+            return m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
+        }
+    }
+    return -DBL_MAX;
+}
+
+double
+VDPGPSClient::getYawRateDbl() {
+    if(m_use_gpsd == true) {
+        /*
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    if (!isnan(m_gps_data.fix.latitude) && !isnan(m_gps_data.fix.longitude)) {
+                        return std::pair<double, double>(m_gps_data.fix.latitude, m_gps_data.fix.longitude);
+                    }
+                }
+            }
+        }
+         */
+    } else {
+        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+            return m_serialParserPtr->getYawRate(nullptr, false);
+        }
+    }
+    return -DBL_MAX;
 }
 
 VDPGPSClient::CAM_mandatory_data_t

@@ -500,6 +500,26 @@ UBXNMEAParserSingleThread::getYawRate(double *age_us, bool print_timestamp) {
     return tmp.comp_ang_rate_z;
 }
 
+double
+UBXNMEAParserSingleThread::getLongitudinalAcceleration(double *age_us, bool print_timestamp) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    if (age_us != nullptr) {
+        if (print_timestamp == true) std::cout << "[Longitudinal Acceleration] " << tmp.ts_comp_acc;
+
+        auto now = time_point_cast<microseconds>(system_clock::now());
+        auto end = now.time_since_epoch().count();
+
+        *age_us = (double)end - tmp.lu_comp_acc;
+    }
+    return tmp.comp_acc_x;
+}
+
 std::tuple<double,double,double>
 UBXNMEAParserSingleThread::getRawAccelerations(double *age_us, bool print_timestamp) {
     if(m_parser_started==false) {

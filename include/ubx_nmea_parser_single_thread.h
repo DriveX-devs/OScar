@@ -34,6 +34,7 @@ class UBXNMEAParserSingleThread {
         double getCourseOverGroundNmea(double *age_us, bool print_timestamp_and_age);
         double getAltitude(double *age_us, bool print_timestamp_and_age);
         double getYawRate(double *age_us, bool print_timestamp_and_age);
+        double getLongitudinalAcceleration(double *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
         bool getFixValidity2D();
         bool getFixValidity3D();

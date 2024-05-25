@@ -95,6 +95,8 @@ class VDPGPSClient {
 		VDPValueConfidence<> getHeadingValue();
 		VDPValueConfidence<> getSpeedValue();
         VDPValueConfidence<> getAltitudeValue();
+        VDPValueConfidence<> getLongitudinalAccelerationValue();
+        VDPValueConfidence<> getYawRate();
 		// This function returns the current position in terms of <Lat [0.1 microdegrees],Lon [0.1 microdegrees]>
 		std::pair<long,long> getCurrentPosition();
 
@@ -102,6 +104,8 @@ class VDPGPSClient {
 		double getHeadingValueDbl();
 		double getSpeedValueDbl();
         double getAltitudeValueDbl();
+        double getLongitudinalAccelerationValueDbl();
+        double getYawRateDbl();
 		std::pair<double,double> getCurrentPositionDbl();
 
         bool setSerialParser(UBXNMEAParserSingleThread *serialParserPtr) {

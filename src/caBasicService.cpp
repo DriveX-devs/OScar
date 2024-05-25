@@ -97,7 +97,7 @@ CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandat
 
     /* Fill the basicContainer's station type */
     asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.stationType, m_stationtype);
-    if(m_vehicle==true) {
+    if(m_vehicle == true) {
         cam_mandatory_data=m_vdp->getCAMMandatoryData();
         /* Debug print: leave commented when releasing for testing or using for a use case */
         /*int64_t after=get_timestamp_us(); */
