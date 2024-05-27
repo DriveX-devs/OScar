@@ -82,7 +82,7 @@ CABasicService_error_t
 CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandatory_data_t &cam_mandatory_data) {
     CABasicService_error_t errval=CAM_NO_ERROR;
 
-    if(bool(msgstruct)==false) {
+    if(bool(msgstruct) == false) {
         return CAM_ALLOC_ERROR;
     }
 
@@ -131,9 +131,10 @@ CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandat
         asn1cpp::setField(msgstruct->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.yawRate.yawRateConfidence, cam_mandatory_data.yawRate.getConfidence ());
 
         /* Store all the "previous" values used in checkCamConditions() */
-        m_prev_pos=m_vdp->getCurrentPositionDbl();
-        m_prev_speed=m_vdp->getSpeedValueDbl();
+        m_prev_pos=m_vdp->getCurrentPosition();
+        m_prev_speed=m_vdp->getSpeedValue().getValue();
         m_prev_heading=m_vdp->getHeadingValue().getValue();
+
     } else {
         /* Fill the basicContainer */
         /* There is still no full RSU support in this release */
