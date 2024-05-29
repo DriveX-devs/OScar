@@ -173,7 +173,7 @@ VDPGPSClient::getLongitudinalAccelerationValue() {
         // Check if at least a 2D fix is present, else return 0 or unavailable
         if (m_serialParserPtr->getFixValidity3D() == true) {
             double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
-            return VDPValueConfidence<>(static_cast<int>(long_acc * CENTI), AccelerationConfidence_unavailable);
+            return VDPValueConfidence<>(static_cast<int>(long_acc * DECI), AccelerationConfidence_unavailable);
         } else return VDPValueConfidence<>(AccelerationValue_unavailable, AccelerationConfidence_unavailable);
     }
 }
