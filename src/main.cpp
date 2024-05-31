@@ -505,6 +505,7 @@ int main (int argc, char *argv[]) {
     // serial parser options
     std::string serial_device = "/dev/ttyACM0";
     int serial_device_baudrate = 115200;
+    long serial_device_validity_thr = 1;
 
 	unsigned long vehicleID = 0; // Vehicle ID
 	unsigned long VRUID = 0; // VRU ID
@@ -617,7 +618,10 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<int> SerialDeviceBaudrate("b","serial-device-baudrate","[Considered only if -g is not specified] Serial device baudrate for the GNSS receiver. Default: 115200",false,115200,"positive integer");
         cmd.add(SerialDeviceBaudrate);
 
-		// Vehicle Visualizer options
+        TCLAP::ValueArg<long> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive integer");
+        cmd.add(SerialDeviceValidityThr);
+
+        // Vehicle Visualizer options
 		TCLAP::ValueArg<long> VV_NodejsPortArg("1","vehviz-nodejs-port","Advanced option: set the port number for the UDP connection to the Vehicle Visualizer Node.js server",false,DEFAULT_VEHVIZ_NODEJS_UDP_PORT,"integer");
 		cmd.add(VV_NodejsPortArg);
 
@@ -702,6 +706,7 @@ int main (int argc, char *argv[]) {
         use_gpsd = UseGPSD.getValue();
         serial_device = SerialDevice.getValue();
         serial_device_baudrate = SerialDeviceBaudrate.getValue();
+        serial_device_validity_thr = SerialDeviceValidityThr.getValue();
 
 		if(enable_reception==false && enable_hmi==true) {
 			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
@@ -794,6 +799,7 @@ int main (int argc, char *argv[]) {
 
     // Configure the global serial parser if gpsd is not used
     if(!use_gpsd) {
+        serialParser.setValidityThreshold(serial_device_validity_thr);
         serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag);
     }
 

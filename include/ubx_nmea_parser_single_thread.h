@@ -24,22 +24,37 @@ class UBXNMEAParserSingleThread {
         static void printUbxMessage(std::vector<uint8_t> msg);
         static void printNmeaSentence(std::string s);
 
-        std::pair<double,double> getPosition(double *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getAccelerations(double *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getAngularRates(double *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getRawAccelerations(double *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getAttitude(double *age_us, bool print_timestamp);
-        double getSpeed(double *age_us, bool print_timestamp_and_age);
-        double getCourseOverGroundUbx(double *age_us, bool print_timestamp_and_age);
-        double getCourseOverGroundNmea(double *age_us, bool print_timestamp_and_age);
-        double getAltitude(double *age_us, bool print_timestamp_and_age);
-        double getYawRate(double *age_us, bool print_timestamp_and_age);
-        double getLongitudinalAcceleration(double *age_us, bool print_timestamp_and_age);
+        // Getters
+        std::pair<double,double> getPosition(long *age_us, bool print_timestamp);
+        std::tuple<double,double,double> getAccelerations(long *age_us, bool print_timestamp);
+        std::tuple<double,double,double> getAngularRates(long *age_us, bool print_timestamp);
+        std::tuple<double,double,double> getRawAccelerations(long *age_us, bool print_timestamp);
+        std::tuple<double,double,double> getAttitude(long *age_us, bool print_timestamp);
+        double getSpeed(long *age_us, bool print_timestamp_and_age);
+        double getCourseOverGroundUbx(long *age_us, bool print_timestamp_and_age);
+        double getCourseOverGroundNmea(long *age_us, bool print_timestamp_and_age);
+        double getAltitude(long *age_us, bool print_timestamp_and_age);
+        double getYawRate(long *age_us, bool print_timestamp_and_age);
+        double getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
-        bool getFixValidity2D();
-        bool getFixValidity3D();
         std::string getUtcTimeUbx();
         std::string getUtcTimeNmea();
+        long getValidityThreshold();
+
+        // Setters
+        bool setValidityThreshold(long threshold);
+
+        // Validity methods
+        bool getFixValidity2D();
+        bool getFixValidity3D();
+        bool getPositionValidity(bool print_error);
+        bool getRawAccelerationsValidity(bool print_error);
+        bool getAttitudeValidity(bool print_error);
+        bool getAccelerationsValidity(bool print_error);
+        bool getAltitudeValidity(bool print_error);
+        bool getYawRateValidity(bool print_error);
+        bool getSpeedAndCogValidity(bool print_error);
+
         int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
         void stopUBXNMEAParser();
     private:
@@ -79,8 +94,19 @@ class UBXNMEAParserSingleThread {
         std::atomic<bool> *m_terminatorFlagPtr = nullptr; // Used in endless loops in order to terminate the program
         std::atomic<bool> m_stopParserFlag = false;
         bool m_parser_started=false;
+
+        // Data validity flags and user-defined threshold
         bool m_2d_valid_fix = false;
         bool m_3d_valid_fix = false;
+        bool m_pos_valid = false;
+        bool m_acc_valid = false;
+        bool m_att_valid = false;
+        bool m_alt_valid = false;
+        bool m_comp_acc_valid = false;
+        bool m_comp_ang_rate_valid = false;
+        bool m_sog_cog_ubx_valid = false;
+        bool m_sog_cog_nmea_valid = false;
+        long m_validity_threshold = 0;
 
         ceSerial m_serial;
 

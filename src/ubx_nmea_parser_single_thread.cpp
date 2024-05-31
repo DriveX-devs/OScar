@@ -208,24 +208,26 @@ UBXNMEAParserSingleThread::getUtcTimeNmea() {
  * 
  *  Note: use first() and second() to access the element of a pair */
 std::pair<double,double>
-UBXNMEAParserSingleThread::getPosition(double *age_us, bool print_timestamp) {
+UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp) {
     if(m_parser_started==false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return std::make_pair(0,0);
     }
 
 	out_t tmp = m_outBuffer.load();
-	if (age_us != nullptr) {
-		if (print_timestamp == true) std::cout << "[Position] " << tmp.ts_pos;
 
-		// Gets current time with precision of microseconds
-		auto now = time_point_cast<microseconds>(system_clock::now());
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_pos;
 
-		// Converts time_point to microseconds
-		auto end = now.time_since_epoch().count();
+    if (print_timestamp == true) std::cout << "[Position timestamp] - " << tmp.ts_pos;
+    if (age_us != nullptr) *age_us = local_age_us;
 
-		*age_us = (double)end - tmp.lu_pos;
-	}
+    if (local_age_us > getValidityThreshold()) {
+        m_pos_valid = false;
+        return std::make_pair(0,0);
+    }
+    else m_pos_valid = true;
 	return std::make_pair(decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon));
 }
 
@@ -418,7 +420,7 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
  *  taken from the GNS/GGA NMEA sentences
  */
 double
-UBXNMEAParserSingleThread::getAltitude(double *age_us, bool print_timestamp) {
+UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_age) {
 	if(m_parser_started == false) {
 		std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
 		return 0;
@@ -426,14 +428,21 @@ UBXNMEAParserSingleThread::getAltitude(double *age_us, bool print_timestamp) {
 
 	out_t tmp = m_outBuffer.load();
 
-	if (age_us != nullptr) {
-		if (print_timestamp == true) std::cout << "[Altitude] " << tmp.ts_alt;
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_alt;
 
-		auto now = time_point_cast<microseconds>(system_clock::now());
-		auto end = now.time_since_epoch().count();
+    if (local_age_us > getValidityThreshold()) {
+        m_alt_valid = false;
+        return 0;
+    }
+    else m_alt_valid = true;
 
-		*age_us = (double)end - tmp.lu_alt;
-	}
+    if (print_timestamp_and_age == true) std::cout << "[Altitude timestamp] - " <<  tmp.ts_alt
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
 	return tmp.alt;
 }
 
@@ -443,45 +452,57 @@ UBXNMEAParserSingleThread::getAltitude(double *age_us, bool print_timestamp) {
  * 
  *  Note: use std::get<index>(object) to access the elements of a tuple. */
 std::tuple<double,double,double>
-UBXNMEAParserSingleThread::getAccelerations(double *age_us, bool print_timestamp) {
-    if(m_parser_started==false) {
+UBXNMEAParserSingleThread::getAccelerations(long *age_us, bool print_timestamp) {
+    if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return std::make_tuple(0,0,0);
     }
 
 	out_t tmp = m_outBuffer.load();
-	if (age_us != nullptr) {
-		if (print_timestamp == true) std::cout << "[Accelerations (gravity-free)] " << tmp.ts_comp_acc;
 
-		auto now = time_point_cast<microseconds>(system_clock::now());
-		auto end = now.time_since_epoch().count();
+	auto now = time_point_cast<microseconds>(system_clock::now());
+	auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_comp_acc;
 
-		*age_us = (double)end - tmp.lu_comp_acc;
-	}
+    if (local_age_us > getValidityThreshold()) {
+        m_comp_acc_valid = false;
+        return std::make_tuple(0,0,0);
+    }
+    else m_comp_acc_valid = true;
+
+    if (print_timestamp == true) std::cout << "[Accelerations timestamp] - " << tmp.ts_comp_acc;
+    if (age_us != nullptr) *age_us = local_age_us;
+
 	return std::make_tuple(tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
 }
 
 std::tuple<double,double,double>
-UBXNMEAParserSingleThread::getAngularRates(double *age_us, bool print_timestamp) {
+UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp) {
     if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return std::make_tuple(0,0,0);
     }
 
     out_t tmp = m_outBuffer.load();
-    if (age_us != nullptr) {
-        if (print_timestamp == true) std::cout << "[Angular Rates (gravity-free)] " << tmp.ts_comp_ang_rate;
 
-        auto now = time_point_cast<microseconds>(system_clock::now());
-        auto end = now.time_since_epoch().count();
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_comp_ang_rate;
 
-        *age_us = (double)end - tmp.lu_comp_ang_rate;
+    if (local_age_us > getValidityThreshold()) {
+        m_comp_ang_rate_valid = false;
+        return std::make_tuple(0,0,0);
     }
+    else m_comp_ang_rate_valid = true;
+
+    if (print_timestamp == true) std::cout << "[Angular rates timestamp] - " << tmp.ts_comp_ang_rate;
+    if (age_us != nullptr) *age_us = local_age_us;
+
     return std::make_tuple(tmp.comp_ang_rate_x,tmp.comp_ang_rate_y,tmp.comp_ang_rate_z);
 }
 
 double
-UBXNMEAParserSingleThread::getYawRate(double *age_us, bool print_timestamp) {
+UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return 0;
@@ -489,19 +510,27 @@ UBXNMEAParserSingleThread::getYawRate(double *age_us, bool print_timestamp) {
 
     out_t tmp = m_outBuffer.load();
 
-    if (age_us != nullptr) {
-        if (print_timestamp == true) std::cout << "[Yaw rate] " << tmp.ts_comp_ang_rate;
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_comp_ang_rate;
 
-        auto now = time_point_cast<microseconds>(system_clock::now());
-        auto end = now.time_since_epoch().count();
-
-        *age_us = (double)end - tmp.lu_comp_ang_rate;
+    if (local_age_us > getValidityThreshold()) {
+        m_comp_ang_rate_valid = false;
+        return 0;
     }
+    else m_comp_ang_rate_valid = true;
+
+    if (print_timestamp_and_age == true) std::cout << "[Yaw Rate timestamp] - " <<  tmp.ts_comp_ang_rate
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+
+    if (age_us != nullptr) *age_us = local_age_us;
+
     return tmp.comp_ang_rate_z;
 }
 
 double
-UBXNMEAParserSingleThread::getLongitudinalAcceleration(double *age_us, bool print_timestamp) {
+UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return 0;
@@ -509,33 +538,46 @@ UBXNMEAParserSingleThread::getLongitudinalAcceleration(double *age_us, bool prin
 
     out_t tmp = m_outBuffer.load();
 
-    if (age_us != nullptr) {
-        if (print_timestamp == true) std::cout << "[Longitudinal Acceleration] " << tmp.ts_comp_acc;
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_comp_acc;
 
-        auto now = time_point_cast<microseconds>(system_clock::now());
-        auto end = now.time_since_epoch().count();
-
-        *age_us = (double)end - tmp.lu_comp_acc;
+    if (local_age_us > getValidityThreshold()) {
+        m_comp_acc_valid = false;
+        return 0;
     }
+    else m_comp_acc_valid = true;
+
+    if (print_timestamp_and_age == true) std::cout << "[Longitudinal Acceleration timestamp] - " <<  tmp.ts_comp_acc
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
     return tmp.comp_acc_x;
 }
 
 std::tuple<double,double,double>
-UBXNMEAParserSingleThread::getRawAccelerations(double *age_us, bool print_timestamp) {
+UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestamp) {
     if(m_parser_started==false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return std::make_tuple(0,0,0);
     }
 
 	out_t tmp = m_outBuffer.load();
-	if (age_us != nullptr) {
-		if (print_timestamp == true) std::cout << "[Raw Accelerations] " << tmp.ts_acc;
 
-		auto now = time_point_cast<microseconds>(system_clock::now());
-		auto end = now.time_since_epoch().count();
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_acc;
 
-		*age_us = (double)end - tmp.lu_acc;
-	}
+    if (local_age_us > getValidityThreshold()) {
+        m_acc_valid = false;
+        return std::make_tuple(0,0,0);
+    }
+    else m_acc_valid = true;
+
+    if (print_timestamp == true) std::cout << "[Raw Accelerations timestamp] - " << tmp.ts_acc;
+    if (age_us != nullptr) *age_us = local_age_us;
+
 	return std::make_tuple(tmp.raw_acc_x,tmp.raw_acc_y,tmp.raw_acc_z);
 }
 
@@ -614,21 +656,27 @@ UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
 }
 
 std::tuple<double,double,double>
-UBXNMEAParserSingleThread::getAttitude(double *age_us, bool print_timestamp) {
+UBXNMEAParserSingleThread::getAttitude(long *age_us, bool print_timestamp) {
     if(m_parser_started==false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return std::make_tuple(0,0,0);
     }
 
 	out_t tmp = m_outBuffer.load();
-	if (age_us != nullptr) {
-		if (print_timestamp == true) std::cout << "[Attitude] " << tmp.ts_att;
 
-		auto now = time_point_cast<microseconds>(system_clock::now());
-		auto end = now.time_since_epoch().count();
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_att;
 
-		*age_us = (double)end - tmp.lu_att;
-	}
+    if (local_age_us > getValidityThreshold()) {
+        m_att_valid = false;
+        return std::make_tuple(0,0,0);
+    }
+    else m_att_valid = true;
+
+    if (print_timestamp == true) std::cout << "[Attitude timestamp] - " << tmp.ts_att;
+    if (age_us != nullptr) *age_us = local_age_us;
+
 	return std::make_tuple(tmp.roll,tmp.pitch,tmp.heading);
 }
 
@@ -692,77 +740,97 @@ UBXNMEAParserSingleThread::parseNavAtt(std::vector<uint8_t> response) {
  *  but when specified, they will provide the latest value retrieved
  *  specifying if it is from UBX or NMEA (in this priority order) */
 double
-UBXNMEAParserSingleThread::getSpeed(double *age_us, bool print_timestamp_and_age) {
+UBXNMEAParserSingleThread::getSpeed(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return 0;
     }
 
 	out_t tmp = m_outBuffer.load();
-	if (age_us != nullptr) {
-		auto now = time_point_cast<microseconds>(system_clock::now());
-		auto end = now.time_since_epoch().count();
 
-		double age_ubx = end - tmp.lu_sog_cog_ubx;
-		double age_nmea = end - tmp.lu_sog_cog_nmea;
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_nmea_us = end - tmp.lu_sog_cog_nmea;
+    long local_age_ubx_us = end - tmp.lu_sog_cog_ubx;
 
-		if (age_ubx <= age_nmea) {
-			if (print_timestamp_and_age == true) std::cout << "[Speed - UBX]  " <<  tmp.ts_sog_cog_ubx
-			                                     << "Age of information: " << age_ubx << " us"
-			                                     << std::endl << std::endl;
-			*age_us = age_ubx;
-		} else {
-			if (print_timestamp_and_age == true) std::cout << "[Speed - NMEA] " <<  tmp.ts_sog_cog_ubx
-			                                     << "Age of information: " << age_nmea << " us"
-			                                     << std::endl << std::endl;
-			*age_us = age_nmea;
-		}
+    if (local_age_nmea_us > getValidityThreshold()) {
+        m_sog_cog_nmea_valid = false;
+        return 0;
+    }
+    else m_sog_cog_nmea_valid = true;
+    if (local_age_ubx_us > getValidityThreshold()) {
+        m_sog_cog_ubx_valid = false;
+        return 0;
+    }
+    else m_sog_cog_ubx_valid = true;
+
+	if (local_age_ubx_us <= local_age_nmea_us) {
+		if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - UBX] - " <<  tmp.ts_sog_cog_ubx
+		                                     << "Age of information: " << local_age_ubx_us << " us"
+		                                     << std::endl << std::endl;
+		*age_us = local_age_ubx_us;
+	} else {
+		if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - NMEA] - " <<  tmp.ts_sog_cog_nmea
+		                                     << "Age of information: " << local_age_nmea_us << " us"
+		                                     << std::endl << std::endl;
+		*age_us = local_age_nmea_us;
 	}
+
 	if (tmp.sog_ubx != 0) return tmp.sog_ubx;
 	return tmp.sog_nmea;
 }
 
 double
-UBXNMEAParserSingleThread::getCourseOverGroundUbx(double *age_us, bool print_timestamp_and_age) {
-    if(m_parser_started==false) {
+UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return 0;
     }
 
 	out_t tmp = m_outBuffer.load();
-	if (age_us != nullptr) {
-		auto now = time_point_cast<microseconds>(system_clock::now());
-		auto end = now.time_since_epoch().count();
 
-		double age_ubx = end - tmp.lu_sog_cog_ubx;
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_sog_cog_ubx;
 
-		if (print_timestamp_and_age == true) {
-            std::cout << "[Course Over Ground - UBX]  " <<  tmp.ts_sog_cog_ubx << "Age of Information: " << age_ubx << " us" << std::endl;;
-        }
-		*age_us = age_ubx;
-	}
+    if (local_age_us > getValidityThreshold()) {
+        m_sog_cog_ubx_valid = false;
+        return 0;
+    }
+    else m_sog_cog_ubx_valid = true;
+
+    if (print_timestamp_and_age == true) std::cout << "[Course Over Ground timestamp - UBX] - " <<  tmp.ts_sog_cog_ubx
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+
+    if (age_us != nullptr) *age_us = local_age_us;
+
 	return tmp.cog_ubx;
 }
 
 double
-UBXNMEAParserSingleThread::getCourseOverGroundNmea(double *age_us, bool print_timestamp_and_age) {
-    if(m_parser_started==false) {
+UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return 0;
     }
 
     out_t tmp = m_outBuffer.load();
-    if (age_us != nullptr) {
-        auto now = time_point_cast<microseconds>(system_clock::now());
-        auto end = now.time_since_epoch().count();
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_sog_cog_nmea;
 
-        double age_nmea = end - tmp.lu_sog_cog_nmea;
-
-        if (print_timestamp_and_age == true) {
-            std::cout << "[Course Over Ground - NMEA]  " <<  tmp.ts_sog_cog_ubx << "Age of Information: " << age_nmea << " us" << std::endl;
-        }
-        *age_us = age_nmea;
+    if (local_age_us > getValidityThreshold()) {
+        m_sog_cog_nmea_valid = false;
+        return 0;
     }
+    else m_sog_cog_nmea_valid = true;
+
+    if (print_timestamp_and_age == true) std::cout << "[Course Over Ground timestamp - NMEA] - " <<  tmp.ts_sog_cog_nmea
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
     return tmp.cog_nmea;
 }
 
@@ -796,6 +864,86 @@ bool
 UBXNMEAParserSingleThread::getFixValidity3D() {
     if (m_3d_valid_fix == true) return true;
     else return false;
+}
+
+bool
+UBXNMEAParserSingleThread::getPositionValidity(bool print_error) {
+    if (m_pos_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated position value (age > threshold)!" << std::endl;
+        return false;
+    } else return m_pos_valid;
+}
+
+bool
+UBXNMEAParserSingleThread::getRawAccelerationsValidity(bool print_error) {
+    if (m_acc_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated raw accelerations value (age > threshold)!" << std::endl;
+        return false;
+    } else return m_acc_valid;
+}
+
+bool
+UBXNMEAParserSingleThread::getAttitudeValidity(bool print_error) {
+    if (m_att_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated attitude value (age > threshold)!" << std::endl;
+        return false;
+    } else return m_att_valid;
+}
+
+bool
+UBXNMEAParserSingleThread::getAccelerationsValidity(bool print_error) {
+    if (m_comp_acc_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated acceleration value (age > threshold)!" << std::endl;
+        return false;
+    } else return m_comp_acc_valid;
+}
+
+bool
+UBXNMEAParserSingleThread::getAltitudeValidity(bool print_error) {
+    if (m_alt_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated altitude value (age > threshold)!" << std::endl;
+        return false;
+    } else return m_alt_valid;
+}
+
+bool
+UBXNMEAParserSingleThread::getYawRateValidity(bool print_error) {
+    if (m_comp_ang_rate_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated yaw rate value (age > threshold)!" << std::endl;
+        return false;
+    } else return m_comp_ang_rate_valid;
+}
+
+bool
+UBXNMEAParserSingleThread::getSpeedAndCogValidity(bool print_error) {
+    if (m_sog_cog_ubx_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated UBX speed/course over ground value (age > threshold)!" << std::endl;
+        return false;
+    }
+    if (m_sog_cog_nmea_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated NMEA speed/course over ground value (age > threshold)!" << std::endl;
+        return false;
+    }
+    if (m_sog_cog_ubx_valid == true) return m_sog_cog_ubx_valid;
+    else return m_sog_cog_nmea_valid;
+}
+
+bool
+UBXNMEAParserSingleThread::setValidityThreshold(long threshold) {
+    if (m_validity_threshold != 0) return true; // The threshold has already been set
+    else {
+        m_validity_threshold = threshold;
+        return true;
+    }
+}
+
+long
+UBXNMEAParserSingleThread::getValidityThreshold() {
+    if (m_validity_threshold != 0) return m_validity_threshold * 1e6; // Microseconds
+    else {
+        std::cerr << "Error: data validity threshold has not been set!" << std::endl;
+        return -1;
+    }
 }
 
 /** Extracts the speed over ground (sog, 4 bytes) and course over ground (cog, 4 bytes) values from the
@@ -1101,7 +1249,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
             continue; // If the read operation fails, ignore the current value of "byte"
         }
 
-        printf("%c",byte);
+        //printf("%c",byte); // For debug purposes
 
         // This array is cleared every time a correct UBX/NMEA message is received
         wrong_input.push_back(byte);

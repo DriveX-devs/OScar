@@ -58,8 +58,8 @@ VDPGPSClient::getHeadingValue() {
 
         return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
     } else {
-        // Check if at least a 2D fix is present, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+        // Check if at least a 2D fix is present and if the data is not outdated, else return 0 or unavailable
+        if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
             double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
             return VDPValueConfidence<>(static_cast<int>(heading * DECI), HeadingConfidence_unavailable);
         } else return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
@@ -86,7 +86,7 @@ VDPGPSClient::getSpeedValue() {
         return VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
     } else {
         // Check if at least a 2D fix is present, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+        if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
             double speed = m_serialParserPtr->getSpeed(nullptr, false);
             return VDPValueConfidence<>(static_cast<int>(speed * CENTI), SpeedConfidence_unavailable);
         } else return VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
@@ -112,8 +112,8 @@ VDPGPSClient::getAltitudeValue() {
         return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
 
     } else {
-        // Check if at least a 2D fix is present, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity3D() == true) {
+        // Check if at least a 2D fix is present and if the value il not outdated else return 0 or unavailable
+        if (m_serialParserPtr->getFixValidity3D() == true && m_serialParserPtr->getAltitudeValidity(false) == true) {
             double altitude = m_serialParserPtr->getAltitude(nullptr, false);
             return VDPValueConfidence<>(static_cast<int>(altitude * CENTI), AltitudeConfidence_unavailable);
         } else return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
@@ -143,7 +143,7 @@ VDPGPSClient::getCurrentPosition() {
         return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
     } else {
         // Check if at least a 2D fix is present, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+        if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getPositionValidity(false) == true) {
             std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
             return std::pair<long, long>(position.first * DOT_ONE_MICRO, position.second * DOT_ONE_MICRO);
         } else std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
@@ -171,7 +171,7 @@ VDPGPSClient::getLongitudinalAccelerationValue() {
         */
     } else {
         // Check if at least a 2D fix is present, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity3D() == true) {
+        if (m_serialParserPtr->getFixValidity3D() == true && m_serialParserPtr->getAccelerationsValidity(false) == true) {
             double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
             return VDPValueConfidence<>(static_cast<int>(long_acc * DECI), AccelerationConfidence_unavailable);
         } else return VDPValueConfidence<>(AccelerationValue_unavailable, AccelerationConfidence_unavailable);
@@ -199,7 +199,7 @@ VDPGPSClient::getYawRate() {
         */
     } else {
         // Check if at least a 2D fix is present, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity3D() == true) {
+        if (m_serialParserPtr->getFixValidity3D() == true && m_serialParserPtr->getYawRateValidity(false) == true) {
             double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
             return VDPValueConfidence<>(static_cast<int>(yaw_rate * CENTI), YawRateConfidence_unavailable);
         } else return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
@@ -228,7 +228,7 @@ VDPGPSClient::getHeadingValueDbl() {
             }
         }
     } else {
-        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+        if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
             return m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
         } else return 0;
     }
@@ -253,7 +253,7 @@ VDPGPSClient::getSpeedValueDbl() {
             }
         }
     } else{
-        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+        if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
             return m_serialParserPtr->getSpeed(nullptr, false);
         } else return 0;
     }
@@ -278,7 +278,7 @@ VDPGPSClient::getAltitudeValueDbl() {
             }
         }
     } else{
-        if (m_serialParserPtr->getFixValidity3D() == true) {
+        if (m_serialParserPtr->getFixValidity3D() == true && m_serialParserPtr->getAttitudeValidity(false) == true) {
             return m_serialParserPtr->getAltitude(nullptr, false);
         } else return 0;
     }
@@ -305,8 +305,8 @@ VDPGPSClient::getCurrentPositionDbl() {
             }
         }
     } else {
-        // Check if at least a 2D fix is present, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+        // Check if at least a 2D fix is present and if data is not outdated, else return 0 or unavailable
+        if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getPositionValidity(false) == true) {
             return m_serialParserPtr->getPosition(nullptr, false);
         } else return std::make_pair(0,0);
     }
@@ -335,7 +335,7 @@ VDPGPSClient::getLongitudinalAccelerationValueDbl() {
         }
          */
     } else {
-        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+        if (m_serialParserPtr->getFixValidity3D() == true && m_serialParserPtr->getAccelerationsValidity(false) == true) {
             return m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
         } else return 0;
     }
@@ -363,7 +363,7 @@ VDPGPSClient::getYawRateDbl() {
         }
          */
     } else {
-        if (m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) {
+        if (m_serialParserPtr->getFixValidity3D() == true && m_serialParserPtr->getYawRateValidity(false) == true) {
             return m_serialParserPtr->getYawRate(nullptr, false);
         } else return 0;
     }
