@@ -223,7 +223,7 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp) {
     if (print_timestamp == true) std::cout << "[Position timestamp] - " << tmp.ts_pos;
     if (age_us != nullptr) *age_us = local_age_us;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_pos_valid = false;
         return std::make_pair(0,0);
     }
@@ -322,7 +322,13 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 
 	// Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
+    out_nmea.lu_alt = update.time_since_epoch().count();
 
+    // Validates data
+    m_pos_valid = true;
+    m_alt_valid = true;
+
+    // Updates the buffer
 	m_outBuffer.store(out_nmea);
 }
 
@@ -412,7 +418,13 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 
 	// Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
+    out_nmea.lu_alt = update.time_since_epoch().count();
 
+    // Validates data
+    m_pos_valid = true;
+    m_alt_valid = true;
+
+    // Updates the buffer
 	m_outBuffer.store(out_nmea);
 }
 
@@ -432,9 +444,9 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_alt;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_alt_valid = false;
-        return 0;
+        return -1;
     }
     else m_alt_valid = true;
 
@@ -464,7 +476,7 @@ UBXNMEAParserSingleThread::getAccelerations(long *age_us, bool print_timestamp) 
 	auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_acc;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid = false;
         return std::make_tuple(0,0,0);
     }
@@ -489,7 +501,7 @@ UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp) {
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_ang_rate;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid = false;
         return std::make_tuple(0,0,0);
     }
@@ -514,7 +526,7 @@ UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_ang_rate;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid = false;
         return 0;
     }
@@ -542,7 +554,7 @@ UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_acc;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid = false;
         return 0;
     }
@@ -569,7 +581,7 @@ UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestam
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_acc;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_acc_valid = false;
         return std::make_tuple(0,0,0);
     }
@@ -652,6 +664,10 @@ UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
 	// Retrieves the time since epoch in microseconds and updates the output struct
 	out_esf.lu_acc = update.time_since_epoch().count();
 
+    // Validates data
+    m_acc_valid = true;
+
+    // Updates the buffer
     m_outBuffer.store(out_esf);
 }
 
@@ -668,7 +684,7 @@ UBXNMEAParserSingleThread::getAttitude(long *age_us, bool print_timestamp) {
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_att;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_att_valid = false;
         return std::make_tuple(0,0,0);
     }
@@ -733,6 +749,10 @@ UBXNMEAParserSingleThread::parseNavAtt(std::vector<uint8_t> response) {
 	// Retrieves the time since epoch in microseconds and updates the output struct
 	out_att.lu_att = update.time_since_epoch().count();
 
+    // Validates data
+    m_att_valid = true;
+
+    // Updates buffer
 	m_outBuffer.store(out_att);
 }
 
@@ -755,12 +775,14 @@ UBXNMEAParserSingleThread::getSpeed(long *age_us, bool print_timestamp_and_age) 
 
     if (local_age_nmea_us > getValidityThreshold()) {
         m_sog_cog_nmea_valid = false;
-        return 0;
+        return -1;
     }
     else m_sog_cog_nmea_valid = true;
+
     if (local_age_ubx_us > getValidityThreshold()) {
+        std::cout << "speed ubx local age: " << local_age_ubx_us;
         m_sog_cog_ubx_valid = false;
-        return 0;
+        return -1;
     }
     else m_sog_cog_ubx_valid = true;
 
@@ -768,12 +790,12 @@ UBXNMEAParserSingleThread::getSpeed(long *age_us, bool print_timestamp_and_age) 
 		if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - UBX] - " <<  tmp.ts_sog_cog_ubx
 		                                     << "Age of information: " << local_age_ubx_us << " us"
 		                                     << std::endl << std::endl;
-		*age_us = local_age_ubx_us;
+		if (age_us != nullptr) *age_us = local_age_ubx_us;
 	} else {
 		if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - NMEA] - " <<  tmp.ts_sog_cog_nmea
 		                                     << "Age of information: " << local_age_nmea_us << " us"
 		                                     << std::endl << std::endl;
-		*age_us = local_age_nmea_us;
+        if (age_us != nullptr) *age_us = local_age_nmea_us;
 	}
 
 	if (tmp.sog_ubx != 0) return tmp.sog_ubx;
@@ -793,7 +815,7 @@ UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_times
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_ubx;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_ubx_valid = false;
         return 0;
     }
@@ -820,7 +842,7 @@ UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_time
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_nmea;
 
-    if (local_age_us > getValidityThreshold()) {
+    if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_nmea_valid = false;
         return 0;
     }
@@ -844,15 +866,14 @@ UBXNMEAParserSingleThread::getFixMode() {
     }
 
 	out_t tmp = m_outBuffer.load();
-	std::string fix(tmp.fix_ubx);
 
+    std::string fix_ubx(tmp.fix_ubx);
 	// Checks if the fix mode has already been obtained from UBX
-	if (fix.empty() == true) {
-		strcpy(fix.data(),tmp.fix_nmea);
-		return fix;
+	if (fix_ubx.empty() == true) {
+        std::string fix_nmea(tmp.fix_nmea);
+        return fix_nmea;
 	}
-
-	return fix;
+	return fix_ubx;
 }
 
 bool
@@ -1005,6 +1026,10 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 	// Retrieves the time since epoch in microseconds and updates the output struct
 	out_pvt.lu_sog_cog_ubx = update.time_since_epoch().count();
 
+    // Validates data
+    m_sog_cog_ubx_valid = true;
+
+    // Updates the buffer
 	m_outBuffer.store(out_pvt);
 }
 
@@ -1111,6 +1136,10 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	// Converts time_point to microseconds
 	out_nmea.lu_sog_cog_nmea = update.time_since_epoch().count();
 
+    // Validates data
+    m_sog_cog_nmea_valid = true;
+
+    // Updates the buffer
 	m_outBuffer.store(out_nmea);
 }
 
@@ -1227,6 +1256,11 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 	out_ins.lu_comp_acc = update.time_since_epoch().count();
     out_ins.lu_comp_ang_rate = update.time_since_epoch().count();
 
+    // Validates data
+    m_comp_acc_valid = true;
+    m_comp_ang_rate_valid = true;
+
+    // Updates the buffer
 	m_outBuffer.store(out_ins);
 }
 

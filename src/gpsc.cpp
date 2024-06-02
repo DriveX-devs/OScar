@@ -485,39 +485,60 @@ VDPGPSClient::getCAMMandatoryData() {
         }
     } else {
         std::string fixMode = m_serialParserPtr->getFixMode();
-        if(fixMode!="Fix Mode: No Fix" && fixMode!="Fix mode: Time-only Fix" && fixMode!="Unknown/Invalid Fix Mode") {
-            std::pair<double,double> position = m_serialParserPtr->getPosition(nullptr,false);
-            double speed = m_serialParserPtr->getSpeed(nullptr,false);
-            double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
-            double altitude = m_serialParserPtr->getAltitude(nullptr,false);
-            double yaw_rate = m_serialParserPtr->getYawRate(nullptr,false);
-            double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr,false);
+        if (fixMode != "Fix Mode: No Fix" && fixMode != "Fix mode: Time-only Fix" &&
+            fixMode != "Unknown/Invalid Fix Mode") {
 
-            CAMdata.speed = VDPValueConfidence<>(speed*CENTI,SpeedConfidence_unavailable);
-            CAMdata.latitude = (Latitude_t)(position.first*DOT_ONE_MICRO);
-            CAMdata.longitude = (Longitude_t)(position.second*DOT_ONE_MICRO);
-            CAMdata.altitude = VDPValueConfidence<>(altitude*CENTI,AltitudeConfidence_unavailable);
-            CAMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
-            CAMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
-            CAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
-            CAMdata.longAcceleration = VDPValueConfidence<>(long_acc * CENTI,AccelerationConfidence_unavailable);
+            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
+                double speed = m_serialParserPtr->getSpeed(nullptr, false);
+                CAMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
+            } else CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
 
-            if (static_cast<int>(heading * DECI) < 0 ||
-                static_cast<int>(heading * DECI) > 3601) {
-                CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
-            } else {
-                CAMdata.heading = VDPValueConfidence<>(static_cast<int>(heading * DECI),
-                                                       HeadingConfidence_unavailable);
-            }
+            if (m_serialParserPtr->getPositionValidity(false) == true) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+                CAMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
+            } else CAMdata.latitude = (Latitude_t) Latitude_unavailable;
+
+            if (m_serialParserPtr->getPositionValidity(false) == true) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+                CAMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
+            } else CAMdata.longitude = (Longitude_t) Longitude_unavailable;
+
+            if (m_serialParserPtr->getAltitudeValidity(false) == true) {
+                double altitude = m_serialParserPtr->getAltitude(nullptr, false);
+                CAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
+            } else CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+
+            CAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+            CAMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+            CAMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+
+            if (m_serialParserPtr->getAccelerationsValidity(false) == true) {
+                double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
+                CAMdata.longAcceleration = VDPValueConfidence<>(long_acc * CENTI, AccelerationConfidence_unavailable);
+            } else CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+
+            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
+                double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
+                if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
+                    CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+                } else CAMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
+            } else CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
 
             CAMdata.driveDirection = DriveDirection_unavailable;
-            CAMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable,CurvatureConfidence_unavailable);
+            CAMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);
             CAMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
             CAMdata.VehicleLength = m_vehicle_length;
             CAMdata.VehicleWidth = m_vehicle_width;
-            CAMdata.yawRate = VDPValueConfidence<>(yaw_rate * CENTI,YawRateConfidence_unavailable);
+
+            if (m_serialParserPtr->getYawRateValidity(false) == true) {
+                double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
+                CAMdata.yawRate = VDPValueConfidence<>(yaw_rate * CENTI, YawRateConfidence_unavailable);
+            } else CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+
             CAMdata.avail = true;
-        } else {
+
+        }
+        else {
             // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
             CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
             CAMdata.latitude = (Latitude_t) Latitude_unavailable;
@@ -526,7 +547,8 @@ VDPGPSClient::getCAMMandatoryData() {
             CAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
             CAMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
             CAMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
-            CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+            CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,
+                                                            AccelerationConfidence_unavailable);
             CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
             CAMdata.driveDirection = DriveDirection_unavailable;
             CAMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);
@@ -537,7 +559,6 @@ VDPGPSClient::getCAMMandatoryData() {
             CAMdata.avail = false;
         }
     }
-
     return CAMdata;
 }
 

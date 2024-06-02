@@ -257,9 +257,7 @@ void CAMtxThr(std::string gnss_device,
                 CAMdata = vdpgpsc.getCAMMandatoryData();
 
                 std::cout << "[INFO] [" << cnt_CAM << "] VDP GPS Client test result: Lat: " << CAMdata.latitude
-                          << " deg - Lon: " << CAMdata.longitude << " deg - Heading: " << CAMdata.heading.getValue() << std::endl
-                          << " speed: " << CAMdata.speed.getValue() << " altitude: " << CAMdata.altitude.getValue() << " yaw rate: " << CAMdata.yawRate.getValue()
-                          << " acceleration: " << CAMdata.longAcceleration.getValue() << std::endl;
+                          << " deg - Lon: " << CAMdata.longitude << " deg" << std::endl;
                 sleep(1);
                 cnt_CAM++;
             }
