@@ -756,11 +756,8 @@ UBXNMEAParserSingleThread::parseNavAtt(std::vector<uint8_t> response) {
 	m_outBuffer.store(out_att);
 }
 
-/** The following two funcitions act similarly to the ones defined before
- *  but when specified, they will provide the latest value retrieved
- *  specifying if it is from UBX or NMEA (in this priority order) */
 double
-UBXNMEAParserSingleThread::getSpeed(long *age_us, bool print_timestamp_and_age) {
+UBXNMEAParserSingleThread::getSpeedUbx(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return 0;
@@ -770,36 +767,46 @@ UBXNMEAParserSingleThread::getSpeed(long *age_us, bool print_timestamp_and_age) 
 
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
-    long local_age_nmea_us = end - tmp.lu_sog_cog_nmea;
-    long local_age_ubx_us = end - tmp.lu_sog_cog_ubx;
+    long local_age_us = end - tmp.lu_sog_cog_ubx;
 
-    if (local_age_nmea_us > getValidityThreshold()) {
-        m_sog_cog_nmea_valid = false;
-        return -1;
-    }
-    else m_sog_cog_nmea_valid = true;
-
-    if (local_age_ubx_us > getValidityThreshold()) {
-        std::cout << "speed ubx local age: " << local_age_ubx_us;
+    if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_ubx_valid = false;
-        return -1;
     }
     else m_sog_cog_ubx_valid = true;
 
-	if (local_age_ubx_us <= local_age_nmea_us) {
-		if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - UBX] - " <<  tmp.ts_sog_cog_ubx
-		                                     << "Age of information: " << local_age_ubx_us << " us"
-		                                     << std::endl << std::endl;
-		if (age_us != nullptr) *age_us = local_age_ubx_us;
-	} else {
-		if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - NMEA] - " <<  tmp.ts_sog_cog_nmea
-		                                     << "Age of information: " << local_age_nmea_us << " us"
-		                                     << std::endl << std::endl;
-        if (age_us != nullptr) *age_us = local_age_nmea_us;
-	}
+    if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - UBX] - " <<  tmp.ts_sog_cog_ubx
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
 
-	if (tmp.sog_ubx != 0) return tmp.sog_ubx;
-	return tmp.sog_nmea;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.sog_ubx;
+}
+
+double
+UBXNMEAParserSingleThread::getSpeedNmea(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_sog_cog_nmea;
+
+    if (local_age_us >= getValidityThreshold()) {
+        m_sog_cog_nmea_valid = false;
+    }
+    else m_sog_cog_nmea_valid = true;
+
+    if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - NMEA] - " <<  tmp.ts_sog_cog_nmea
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.sog_nmea;
 }
 
 double
@@ -817,7 +824,6 @@ UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_times
 
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_ubx_valid = false;
-        return 0;
     }
     else m_sog_cog_ubx_valid = true;
 
@@ -945,8 +951,7 @@ UBXNMEAParserSingleThread::getSpeedAndCogValidity(bool print_error) {
         std::cerr << "Error: Outdated NMEA speed/course over ground value (age > threshold)!" << std::endl;
         return false;
     }
-    if (m_sog_cog_ubx_valid == true) return m_sog_cog_ubx_valid;
-    else return m_sog_cog_nmea_valid;
+    return m_sog_cog_nmea_valid;
 }
 
 bool

@@ -60,7 +60,8 @@ VDPGPSClient::getHeadingValue() {
     } else {
         // Check if at least a 2D fix is present and if the data is not outdated, else return 0 or unavailable
         if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-            double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
+            double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
+            if (heading == 0) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
             return VDPValueConfidence<>(static_cast<int>(heading * DECI), HeadingConfidence_unavailable);
         } else return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
     }
@@ -87,7 +88,8 @@ VDPGPSClient::getSpeedValue() {
     } else {
         // Check if at least a 2D fix is present, else return 0 or unavailable
         if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-            double speed = m_serialParserPtr->getSpeed(nullptr, false);
+            double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
+            if (speed == 0) speed = m_serialParserPtr->getSpeedNmea(nullptr,false);
             return VDPValueConfidence<>(static_cast<int>(speed * CENTI), SpeedConfidence_unavailable);
         } else return VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
     }
@@ -229,7 +231,9 @@ VDPGPSClient::getHeadingValueDbl() {
         }
     } else {
         if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-            return m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
+            double heading_dbl = m_serialParserPtr->getCourseOverGroundUbx(nullptr,false);
+            if (heading_dbl != 0) return heading_dbl;
+            else return m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
         } else return 0;
     }
 
@@ -254,7 +258,9 @@ VDPGPSClient::getSpeedValueDbl() {
         }
     } else{
         if ((m_serialParserPtr->getFixValidity2D() == true || m_serialParserPtr->getFixValidity3D() == true) && m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-            return m_serialParserPtr->getSpeed(nullptr, false);
+            double speed_dbl = m_serialParserPtr->getSpeedUbx(nullptr,false);
+            if (speed_dbl != 0) return speed_dbl;
+            else return m_serialParserPtr->getSpeedNmea(nullptr,false);
         } else return 0;
     }
 
@@ -489,7 +495,11 @@ VDPGPSClient::getCAMMandatoryData() {
             fixMode != "Unknown/Invalid Fix Mode") {
 
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double speed = m_serialParserPtr->getSpeed(nullptr, false);
+                double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
+
+                // If no speed is available from UBX, use NMEA
+                if (speed == 0) speed = m_serialParserPtr->getSpeedNmea(nullptr,false);
+
                 CAMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
             } else CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
 
@@ -518,10 +528,15 @@ VDPGPSClient::getCAMMandatoryData() {
             } else CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
 
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
+                double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
+
+                // If no heading is available from UBX, use NMEA
+                if (heading == 0) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
+
                 if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
                     CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
                 } else CAMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
+
             } else CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
 
             CAMdata.driveDirection = DriveDirection_unavailable;
@@ -672,7 +687,7 @@ VDPGPSClient::CPM_mandatory_data_t VDPGPSClient::getCPMMandatoryData() {
         std::string fixMode = m_serialParserPtr->getFixMode();
         if (fixMode != "No Fix Detected!" && fixMode != "Fix mode: Time-only Fix" && fixMode != "Unknown fix mode") {
             std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
-            double speed = m_serialParserPtr->getSpeed(nullptr, false);
+            double speed = m_serialParserPtr->getSpeedNmea(nullptr, false);
             double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
 
             CPMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
