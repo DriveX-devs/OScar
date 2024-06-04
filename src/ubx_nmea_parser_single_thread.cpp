@@ -211,7 +211,7 @@ std::pair<double,double>
 UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp) {
     if(m_parser_started==false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
-        return std::make_pair(0,0);
+        return std::pair<double,double>(0,0);
     }
 
 	out_t tmp = m_outBuffer.load();
@@ -225,10 +225,10 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp) {
 
     if (local_age_us >= getValidityThreshold()) {
         m_pos_valid = false;
-        return std::make_pair(0,0);
     }
     else m_pos_valid = true;
-	return std::make_pair(decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon));
+
+	return std::pair<double,double>(decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon));
 }
 
 /** Checks and parses a GNGNS NMEA sentence in order to get the latitude and longitude data
@@ -446,7 +446,6 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
 
     if (local_age_us >= getValidityThreshold()) {
         m_alt_valid = false;
-        return -1;
     }
     else m_alt_valid = true;
 
@@ -478,7 +477,6 @@ UBXNMEAParserSingleThread::getAccelerations(long *age_us, bool print_timestamp) 
 
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid = false;
-        return std::make_tuple(0,0,0);
     }
     else m_comp_acc_valid = true;
 
@@ -503,7 +501,6 @@ UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp) {
 
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid = false;
-        return std::make_tuple(0,0,0);
     }
     else m_comp_ang_rate_valid = true;
 
@@ -528,7 +525,6 @@ UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age
 
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid = false;
-        return 0;
     }
     else m_comp_ang_rate_valid = true;
 
@@ -556,7 +552,6 @@ UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_
 
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid = false;
-        return 0;
     }
     else m_comp_acc_valid = true;
 
@@ -583,7 +578,6 @@ UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestam
 
     if (local_age_us >= getValidityThreshold()) {
         m_acc_valid = false;
-        return std::make_tuple(0,0,0);
     }
     else m_acc_valid = true;
 
@@ -686,7 +680,6 @@ UBXNMEAParserSingleThread::getAttitude(long *age_us, bool print_timestamp) {
 
     if (local_age_us >= getValidityThreshold()) {
         m_att_valid = false;
-        return std::make_tuple(0,0,0);
     }
     else m_att_valid = true;
 
@@ -850,7 +843,6 @@ UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_time
 
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_nmea_valid = false;
-        return 0;
     }
     else m_sog_cog_nmea_valid = true;
 
@@ -873,10 +865,17 @@ UBXNMEAParserSingleThread::getFixMode() {
 
 	out_t tmp = m_outBuffer.load();
 
-    std::string fix_ubx(tmp.fix_ubx);
+    //std::string fix_ubx(tmp.fix_ubx);
+    // TODO: remove this (local testing purposes)
+    std::string fix_ubx = "Fix mode: 3D-Fix [UBX]";
+    std::string fix_nmea = "Fix Mode: RTK Fixed (R) [NMEA]";
+    m_2d_valid_fix = true;
+    m_3d_valid_fix = true;
+
 	// Checks if the fix mode has already been obtained from UBX
 	if (fix_ubx.empty() == true) {
-        std::string fix_nmea(tmp.fix_nmea);
+        // TODO: uncomment this (local testing purposes)
+        //std::string fix_nmea(tmp.fix_nmea);
         return fix_nmea;
 	}
 	return fix_ubx;
@@ -1428,6 +1427,8 @@ UBXNMEAParserSingleThread::startUBXNMEAParser(std::string device, int baudrate, 
     m_serial.SetParity(parity);
     m_serial.SetStopBits(stop_bits);
     m_serial.SetPortName(device);
+
+    clearBuffer();
 
     if(terminatorFlagPtr==nullptr) {
         std::cerr << "Error: Invalid pointer to terminator flag. Terminating." << std::endl;
