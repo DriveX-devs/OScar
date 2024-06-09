@@ -503,7 +503,7 @@ int main (int argc, char *argv[]) {
     // serial parser options
     std::string serial_device = "/dev/ttyACM0";
     int serial_device_baudrate = 115200;
-    long serial_device_validity_thr = 1;
+    double serial_device_validity_thr = 1;
 
 	unsigned long vehicleID = 0; // Vehicle ID
 	unsigned long VRUID = 0; // VRU ID
@@ -616,7 +616,7 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<int> SerialDeviceBaudrate("b","serial-device-baudrate","[Considered only if -g is not specified] Serial device baudrate for the GNSS receiver. Default: 115200",false,115200,"positive integer");
         cmd.add(SerialDeviceBaudrate);
 
-        TCLAP::ValueArg<long> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive integer");
+        TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
         cmd.add(SerialDeviceValidityThr);
 
         // Vehicle Visualizer options

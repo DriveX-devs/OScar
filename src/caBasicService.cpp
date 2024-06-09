@@ -272,12 +272,12 @@ CABasicService::checkCamConditions()
   int64_t now;
   CABasicService_error_t cam_error;
   bool condition_verified;
-  static bool dyn_cond_verified=false;
-  FILE* f_out=nullptr;
-  bool first=true;
-  double currHead=(double)m_vdp->getHeadingValue().getValue()/10;
-  std::pair<double,double> currPos=m_vdp->getCurrentPositionDbl();
-  double currSpeed=m_vdp->getSpeedValue().getValue();
+  static bool dyn_cond_verified = false;
+  FILE* f_out = nullptr;
+  bool first = true;
+  double currHead = (double)m_vdp->getHeadingValue().getValue()/10;
+  std::pair<double,double> currPos = m_vdp->getCurrentPositionDbl();
+  double currSpeed = m_vdp->getSpeedValue().getValue();
   long int time_difference;
   double head_diff=-1;
   double pos_diff=-1;
@@ -305,19 +305,19 @@ CABasicService::checkCamConditions()
   }
 
   // The dissemination goes on until it is interrupted
-  while(m_terminateFlag==false) {
+  while(m_terminateFlag == false) {
     if(poll(&pollfddata,1,0)>0) {
       POLL_CLEAR_EVENT(clockFd);
 
       // Initializing
-      condition_verified=false;
-      std::string data_head="";
-      std::string data_pos="";
-      std::string data_speed="";
-      std::string data_time="";
+      condition_verified = false;
+      std::string data_head = "";
+      std::string data_pos = "";
+      std::string data_speed = "";
+      std::string data_time = "";
 
       // If no initial CAM has been triggered before checkCamConditions() has been called, throw an error
-      if(m_prev_heading==-1 || m_prev_speed==-1 || m_prev_pos.first==-DBL_MAX || m_prev_pos.second==-DBL_MAX)
+      if(m_prev_heading == -1 || m_prev_speed == -1 || m_prev_pos.first == -DBL_MAX || m_prev_pos.second == -DBL_MAX)
       {
         std::cerr << "Error. checkCamConditions() was called before sending any CAM and this is not allowed." << std::endl;
         terminateDissemination();
@@ -331,7 +331,6 @@ CABasicService::checkCamConditions()
       double headCheckDbl=(float)m_vdp->getHeadingValueDbl();
       currPos = m_vdp->getCurrentPositionDbl();
       long int speedCheck=m_vdp->getSpeedValue().getValue();
-
 
       /*
        * ETSI EN 302 637-2 V1.3.1 chap. 6.1.3 condition 1) (no DCC)
@@ -355,8 +354,8 @@ CABasicService::checkCamConditions()
         // If the heading difference with the previous CAM sent is more than 4°, then generate the CAM
         if (head_diff > 4.0 || head_diff < -4.0)
         {
-          cam_error=generateAndEncodeCam ();
-          if(cam_error==CAM_NO_ERROR)
+          cam_error=generateAndEncodeCam();
+          if(cam_error == CAM_NO_ERROR)
           {
             m_N_GenCam=0;
             condition_verified=true;

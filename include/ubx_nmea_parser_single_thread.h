@@ -25,11 +25,12 @@ class UBXNMEAParserSingleThread {
         static void printNmeaSentence(std::string s);
 
         // Getters
-        std::pair<double,double> getPosition(long *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getAccelerations(long *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getAngularRates(long *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getRawAccelerations(long *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getAttitude(long *age_us, bool print_timestamp);
+        std::pair<double,double> getPosition(long *age_us, bool print_timestamp_and_age);
+        // todo: later before commit: add timestamp and age in the missing functions
+        std::tuple<double,double,double> getAccelerations(long *age_us, bool print_timestamp_and_age);
+        std::tuple<double,double,double> getAngularRates(long *age_us, bool print_timestamp_and_age);
+        std::tuple<double,double,double> getRawAccelerations(long *age_us, bool print_timestamp_and_age);
+        std::tuple<double,double,double> getAttitude(long *age_us, bool print_timestamp_and_age);
         double getSpeedUbx(long *age_us, bool print_timestamp_and_age);
         double getSpeedNmea(long *age_us, bool print_timestamp_and_age);
         double getCourseOverGroundUbx(long *age_us, bool print_timestamp_and_age);
@@ -40,15 +41,15 @@ class UBXNMEAParserSingleThread {
         std::string getFixMode();
         std::string getUtcTimeUbx();
         std::string getUtcTimeNmea();
-        long getValidityThreshold();
+        double getValidityThreshold();
 
         // Setters
-        bool setValidityThreshold(long threshold);
+        bool setValidityThreshold(double threshold);
 
         // Validity methods
-        bool getFixValidity2D();
-        bool getFixValidity3D();
-        bool getPositionValidity(bool print_error);
+        bool getFixValidity2D(bool print_error);
+        bool getFixValidity3D(bool print_error);
+        std::atomic<bool> getPositionValidity(bool print_error);
         bool getRawAccelerationsValidity(bool print_error);
         bool getAttitudeValidity(bool print_error);
         bool getAccelerationsValidity(bool print_error);
@@ -97,17 +98,17 @@ class UBXNMEAParserSingleThread {
         bool m_parser_started=false;
 
         // Data validity flags and user-defined threshold
-        bool m_2d_valid_fix = false;
-        bool m_3d_valid_fix = false;
-        bool m_pos_valid = false;
-        bool m_acc_valid = false;
-        bool m_att_valid = false;
-        bool m_alt_valid = false;
-        bool m_comp_acc_valid = false;
-        bool m_comp_ang_rate_valid = false;
-        bool m_sog_cog_ubx_valid = false;
-        bool m_sog_cog_nmea_valid = false;
-        long m_validity_threshold = 0;
+        std::atomic<bool> m_2d_valid_fix = false;
+        std::atomic<bool> m_3d_valid_fix = false;
+        std::atomic<bool> m_pos_valid = false;
+        std::atomic<bool> m_acc_valid = false;
+        std::atomic<bool> m_att_valid = false;
+        std::atomic<bool> m_alt_valid = false;
+        std::atomic<bool> m_comp_acc_valid = false;
+        std::atomic<bool> m_comp_ang_rate_valid = false;
+        std::atomic<bool> m_sog_cog_ubx_valid = false;
+        std::atomic<bool> m_sog_cog_nmea_valid = false;
+        double m_validity_threshold = 0;
 
         ceSerial m_serial;
 
