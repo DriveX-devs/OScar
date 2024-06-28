@@ -85,7 +85,8 @@ namespace ldmmap {
             LDMMap_error_t getAllIDs(std::set<uint64_t> &selectedIDs);
 
             LDMMap_error_t getAllPOs(std::vector<returnedVehicleData_t> &selectedVehicles);
-            LDMMap_error_t updateCPMincluded(uint64_t stationID,uint64_t timestamp);
+            LDMMap_error_t updateCPMincluded(vehicleData_t newVehicleData);
+
 
             void setLoggingGNSSClient(VDPGPSClient *gpsc_ptr) {m_gpsc_ptr=gpsc_ptr;}
             LDMMap_error_t updateEgoPosition();

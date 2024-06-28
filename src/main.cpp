@@ -65,7 +65,7 @@ std::mutex syncmtx;
 std::condition_variable synccv;
 
 // Global flag to tell if the HMI has been enabled
-bool enable_hmi = false;
+bool enable_hmi = true;
 
 // Structure to store the options for the vehicle visualizer
 typedef struct vizOptions {

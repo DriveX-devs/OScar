@@ -46,6 +46,7 @@ namespace ldmmap
 			mapmutexptr = new std::shared_mutex();
 			lowerMap[key_lower].vehData = newVehicleData;
 			lowerMap[key_lower].phData = new PHpoints();
+			lowerMap[key_lower].vehData.lastCPMincluded = 0;
 
 			std::lock_guard<std::shared_mutex> lk(m_mainmapmut);
 
@@ -56,7 +57,6 @@ namespace ldmmap
 		} else {
 			if(m_ldmmap[key_upper].second.count(key_lower) == 0) {
 				m_card++;
-                m_ldmmap[key_upper].second[key_lower].vehData.lastCPMincluded = 0;
 				retval = LDMMAP_OK;
 			} else {
 				retval = LDMMAP_UPDATED;
@@ -68,6 +68,7 @@ namespace ldmmap
 			// INSERT operation -> create a new PHpoints object
 			if(retval == LDMMAP_OK) {
 				m_ldmmap[key_upper].second[key_lower].phData = new PHpoints();
+				m_ldmmap[key_upper].second[key_lower].vehData.lastCPMincluded = 0;
 			}
 		}
 
@@ -263,8 +264,8 @@ namespace ldmmap
 	}
 
     LDMMap::LDMMap_error_t
-    LDMMap::updateCPMincluded(uint64_t stationID, uint64_t timestamp) {
-        DEFINE_KEYS(key_upper,key_lower,stationID);
+    LDMMap::updateCPMincluded(vehicleData_t newVehicleData) {
+        DEFINE_KEYS(key_upper,key_lower,newVehicleData.stationID);
 
         std::shared_lock<std::shared_mutex> lk(m_mainmapmut);
 
@@ -275,7 +276,9 @@ namespace ldmmap
                 return LDMMAP_ITEM_NOT_FOUND;
             } else {
                 std::shared_lock<std::shared_mutex> lk(*m_ldmmap[key_upper].first);
-                m_ldmmap[key_upper].second[key_lower].phData->setCPMincluded();
+            	m_ldmmap[key_upper].second[key_lower].phData->insertCPMincluded(newVehicleData);
+            	m_ldmmap[key_upper].second[key_lower].vehData.lastCPMincluded = newVehicleData.timestamp_us;
+
             }
         }
 
@@ -331,6 +334,7 @@ namespace ldmmap
             vehdata.lon = (double) ego_data.longitude / DOT_ONE_MICRO;
             vehdata.elevation = (double) ego_data.altitude.getValue() / CENTI;
             vehdata.timestamp_us = get_timestamp_us();
+        	vehdata.stationType = StationType_LDM_passengerCar;
             if (ego_data.heading.getValue() == HeadingValue_unavailable) {
                 vehdata.heading = LDM_HEADING_UNAVAILABLE;
             } else {
