@@ -27,6 +27,7 @@ It also includes the implementation of the **ETSI Collective Perception Service 
 OScar thus supports the following message types:
 - Cooperative Awareness Messages (**CAMs**) according to [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf)
 - Vulnerable road users Awareness Messages (**VAMs**) according to [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf)
+- Collective Perception Messages (**CPMs**) according to [ETSI TS 103 324 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/103324/02.01.01_60/ts_103324v020101p.pdf)
 
 The support to other relevant message types is also planned for the near future:
 - Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf) (the encoding and decoding functions are already available and tested)
