@@ -408,6 +408,25 @@ void VAMtxThr(std::string gnss_device,
         try {
             vrudp.openConnection();
 
+            int vam_cnt_test=0;
+            while (true) {
+                VRUdp_position_latlon_t pos;
+
+                pos=vrudp.getPedPosition();
+
+                if(pos.lat>=-90.0 && pos.lat<=90.0 && pos.lon>=-180.0 && pos.lon <= 180.0) {
+                    std::cout << "[INFO] Position available after roughly " << vam_cnt_test << " seconds: latitude: " << pos.lat << " - longitude: " << pos.lon << std::endl;
+                    break;
+                } else {
+                    std::cout << "[INFO] Position not yet available. Unavail. value: " << pos.lat << ". Waiting 1 second and trying again..." << std::endl;
+                }
+
+                std::cout << "[INFO] Waiting for the VRU Data Provider to provide the position (a fix may not be yet available)..." << std::endl;
+
+                sleep(1);
+                vam_cnt_test++;
+            }
+
             std::cout << "[INFO] VAM Dissemination started!" << std::endl;
 
             VRUBasicService VBS;
