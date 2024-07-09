@@ -127,6 +127,10 @@ void VRUBasicService::startVamDissemination(int desync_ms){
   while(m_terminateFlag==false); // Disseminate VAMs
 }
 
+std::string VRUBasicService::printMinDist(double minDist) {
+    return ((minDist>-DBL_MAX && minDist<MAXFLOAT) ? std::to_string(minDist) : "unavailable");
+}
+
 void VRUBasicService::initDissemination(){
   m_trigg_cond = DISSEMINATION_START;
   #pragma GCC diagnostic push
@@ -336,7 +340,7 @@ void VRUBasicService::checkVamConditions(){
    		* distance smaller than 2 m and the vertical distance smaller than 5 m, a VAM must be transmitted
   		*/
   		
-  		data_safed = "[SAFE DISTANCES] LongSafeDist="+std::to_string(m_long_safe_d)+" LatSafeDist="+std::to_string(m_lat_safe_d)+" VertSafeDist="+std::to_string(m_vert_safe_d)+" MinLongDistVeh="+std::to_string(m_min_dist[1].longitudinal)+" MinLatDistVeh="+std::to_string(m_min_dist[1].lateral)+" MinVertDistVeh="+std::to_string(m_min_dist[1].vertical)+" MinLongDistPed="+std::to_string(m_min_dist[0].longitudinal)+" MinLatDistPed="+std::to_string(m_min_dist[0].lateral)+" MinVertDistPed="+std::to_string(m_min_dist[0].vertical)+"\n";
+  		data_safed = "[SAFE DISTANCES] LongSafeDist="+std::to_string(m_long_safe_d)+" LatSafeDist="+std::to_string(m_lat_safe_d)+" VertSafeDist="+std::to_string(m_vert_safe_d)+" MinLongDistVeh="+printMinDist(m_min_dist[1].longitudinal)+" MinLatDistVeh="+printMinDist(m_min_dist[1].lateral)+" MinVertDistVeh="+printMinDist(m_min_dist[1].vertical)+" MinLongDistPed="+printMinDist(m_min_dist[0].longitudinal)+" MinLatDistPed="+printMinDist(m_min_dist[0].lateral)+" MinVertDistPed="+printMinDist(m_min_dist[0].vertical)+"\n";
   		
   		if (!condition_verified && m_min_dist[1].longitudinal < m_long_safe_d && m_min_dist[1].lateral < m_lat_safe_d && m_min_dist[1].vertical < m_vert_safe_d)
     	{
