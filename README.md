@@ -6,6 +6,12 @@ Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [ra
 
 This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
+## How to cite OScar
+
+* M. Rapelli, F. Raviglione and C. Casetti,
+*"OScar: An ETSI-Compliant C-ITS Stack for Field-Testing with Embedded Hardware Devices"* in
+2024 22nd Mediterranean Communication and Computer Networking Conference (MedComNet), June 2024. DOI: 10.1109/MedComNet62012.2024.10578207 [URL](https://ieeexplore.ieee.org/document/10578207) [BibTeX](cite.bib)
+
 ## Overview
 
 The _OScar - Open Stack for car_ framework is an ongoing C++ open implementation of the ETSI C-ITS stack for vehicular communications. OScar is designed to be an efficient, lightweight, single-executable, self-contained implementation of the ETSI C-ITS standards.
@@ -14,7 +20,9 @@ OScar is meant to be used on real hardware boards for vehicular communication an
 
 This project includes a full open source implementation of the **ETSI CA Basic Service**, with reference to the standard [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf), including the **BTP** and **GeoNetworking** layers. CAMs **version 2** are currently being managed (there is no official support for the older CAMs version 1).
 
-It also includes an implementation of the **ETSI VRU awareness Basic Service (VBS)**, with reference to the standard [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf). The implementation is complete except for the clustering feature.
+It includes an implementation of the **ETSI VRU awareness Basic Service (VBS)**, with reference to the standard [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf). The implementation is complete except for the clustering feature.
+
+It also includes the implementation of the **ETSI Collective Perception Service (CPS)**, with reference to the standard [ETSI TS 103 324 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/103324/02.01.01_60/ts_103324v020101p.pdf), allowing the transmission of CPMs **version 2**.
 
 OScar thus supports the following message types:
 - Cooperative Awareness Messages (**CAMs**) according to [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf)
@@ -23,7 +31,6 @@ OScar thus supports the following message types:
 The support to other relevant message types is also planned for the near future:
 - Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf) (the encoding and decoding functions are already available and tested)
 - Infrastructure to Vehicle Information Messages (**IVIM**) according to [ETSI TS 103 301 V1.3.1 ](https://www.etsi.org/deliver/etsi_ts/103300_103399/103301/01.03.01_60/ts_103301v010301p.pdf), PD CEN ISO/TS 19321:2020 and BS EN ISO 14823:2017
-- Cooperative Perception Messages (**CPMs**) according to [ETSI TR 103 562 V2.1.1](https://www.etsi.org/deliver/etsi_tr/103500_103599/103562/02.01.01_60/tr_103562v020101p.pdf)
 - Electrical Vehicle Charging Spot Notifications (**EVCSNs**) according to [ETSI TS 101 556-1 V1.1.1](https://www.etsi.org/deliver/etsi_ts/101500_101599/10155601/01.01.01_60/ts_10155601v010101p.pdf)
 - An ETSI-compliant proposal of a new type of message, i.e., Cooperative Enhancement Messages (**CEMs**) for the exchange of raw GNSS data, according to [this paper](https://www.sciencedirect.com/science/article/abs/pii/S2214209622000444) and to the [ms-van3t-CAM2CEM project](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
 - Security header and certificate formats according to [ETSI TS 103 097 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103000_103099/103097/02.01.01_60/ts_103097v020101p.pdf)
