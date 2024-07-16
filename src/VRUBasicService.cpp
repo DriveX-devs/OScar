@@ -3,7 +3,7 @@
 //
 
 #include "VRUBasicService.h"
-#include "VRUdp.h"
+#include "gpsc.h"
 #include "LDMmap.h"
 #include "asn_utils.h"
 #include "utils.h"
@@ -152,7 +152,7 @@ void VRUBasicService::checkVamConditions(){
   bool first=true;
   double currHead;
   double currSpeed;
-  VRUdp_position_latlon_t currPos;
+  VDPGPSClient::VRU_position_latlon_t currPos;
   long int time_difference;
   double head_diff=-1;
   double pos_diff=-1;
@@ -532,7 +532,7 @@ bool VRUBasicService::checkVamRedundancyMitigation(){
   int64_t now = computeTimestampUInt64 ()/NANO_TO_MILLI;
   std::vector<ldmmap::LDMMap::returnedVehicleData_t> selectedStations;
 
-  VRUdp_position_latlon_t ped_pos = m_VRUdp->getPedPosition ();
+  VDPGPSClient::VRU_position_latlon_t ped_pos = m_VRUdp->getPedPosition ();
   double ped_speed = m_VRUdp->getPedSpeedValue ();
   double ped_heading = m_VRUdp->getPedHeadingValue ();
   ped_heading += (ped_heading>180.0) ? -360.0 : (ped_heading<-180.0) ? 360.0 : 0.0;
@@ -561,7 +561,7 @@ bool VRUBasicService::checkVamRedundancyMitigation(){
 VRUBasicService_error_t
 VRUBasicService::generateAndEncodeVam(){
   VRUBasicService_error_t errval = VAM_NO_ERROR;
-  VAM_mandatory_data_t vam_mandatory_data;
+  VDPGPSClient::VAM_mandatory_data_t vam_mandatory_data;
 
   int64_t now;
 

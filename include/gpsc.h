@@ -185,7 +185,7 @@ class VDPGPSClient {
         double getPedSpeedValue();
         double getPedHeadingValue();
 
-        std::vector<distance_t> get_min_distance(ldmmap::LDMMap* LDM);
+        std::vector<VDPGPSClient::distance_t> get_min_distance(ldmmap::LDMMap* LDM);
 
         // convertLatLontoXYZ_ECEF() still does not work as expected - kept for reference but it should not be used unless you know very well what you are doing!
         VRU_position_XYZ_t convertLatLontoXYZ_ECEF(VRU_position_latlon_t pos_latlon);
