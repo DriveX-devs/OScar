@@ -176,6 +176,8 @@ class VDPGPSClient {
             m_use_gpsd=use_gpsd;
         }
 
+        //VAMs
+
         // Function to retrieve the mandatory data for VAM messages
         VAM_mandatory_data_t getVAMMandatoryData();
 
