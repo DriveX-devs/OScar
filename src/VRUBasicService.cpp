@@ -127,6 +127,10 @@ void VRUBasicService::startVamDissemination(int desync_ms){
   while(m_terminateFlag==false); // Disseminate VAMs
 }
 
+std::string VRUBasicService::printMinDist(double minDist) {
+    return ((minDist>-DBL_MAX && minDist<MAXFLOAT) ? std::to_string(minDist) : "unavailable");
+}
+
 void VRUBasicService::initDissemination(){
   m_trigg_cond = DISSEMINATION_START;
   #pragma GCC diagnostic push
@@ -223,7 +227,7 @@ void VRUBasicService::checkVamConditions(){
   			head_diff += (head_diff>180.0) ? -360.0 : (head_diff<-180.0) ? 360.0 : 0.0;
 
   			// Create the data for the log print
-        data_head="[HEADING] HeadingUnavailable="+std::to_string((float)HeadingValue_unavailable/10)+" PrevHead="+std::to_string(m_prev_heading)+" CurrHead="+std::to_string(currHead)+" HeadDiff="+std::to_string(head_diff)+"\n";
+            data_head="[HEADING] HeadingUnavailable="+std::to_string((float)HeadingValue_unavailable/10)+" PrevHead="+std::to_string(m_prev_heading)+" CurrHead="+std::to_string(currHead)+" HeadDiff="+std::to_string(head_diff)+"\n";
         		
   			if (head_diff > m_head_th || head_diff < -m_head_th)
     		{
@@ -292,6 +296,8 @@ void VRUBasicService::checkVamConditions(){
 
   		if(currSpeed != (double)SpeedValue_unavailable && abs(currSpeed) < 1000000) { // Check if the speed has an out of range value
   			speed_diff = currSpeed - m_prev_speed;
+
+            data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
         
   			if (!condition_verified && !vamredmit_verified && (speed_diff > m_speed_th || speed_diff < -m_speed_th))
     		{
@@ -314,11 +320,11 @@ void VRUBasicService::checkVamConditions(){
     		}
   		} else{
   			m_prev_speed=SpeedValue_unavailable;
-        currSpeed=SpeedValue_unavailable;
-        speed_diff = currSpeed - m_prev_speed;
+            currSpeed=SpeedValue_unavailable;
+            speed_diff = currSpeed - m_prev_speed;
 
-        // Create the data for the log print
-        data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
+            // Create the data for the log print
+            data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
   		}
   		
   		// Computation of the longitudinal safe distance
@@ -334,7 +340,7 @@ void VRUBasicService::checkVamConditions(){
    		* distance smaller than 2 m and the vertical distance smaller than 5 m, a VAM must be transmitted
   		*/
   		
-  		data_safed = "[SAFE DISTANCES] LongSafeDist ="+std::to_string(m_long_safe_d)+" LatSafeDist="+std::to_string(m_lat_safe_d)+" VertSafeDist="+std::to_string(m_vert_safe_d)+" MinLongDistVeh="+std::to_string(m_min_dist[1].longitudinal)+" MinLatDistVeh="+std::to_string(m_min_dist[1].lateral)+" MinVertDistVeh="+std::to_string(m_min_dist[1].vertical)+" MinLongDistPed="+std::to_string(m_min_dist[0].longitudinal)+" MinLatDistPed="+std::to_string(m_min_dist[0].lateral)+" MinVertDistPed="+std::to_string(m_min_dist[0].vertical)+"\n";
+  		data_safed = "[SAFE DISTANCES] LongSafeDist="+std::to_string(m_long_safe_d)+" LatSafeDist="+std::to_string(m_lat_safe_d)+" VertSafeDist="+std::to_string(m_vert_safe_d)+" MinLongDistVeh="+printMinDist(m_min_dist[1].longitudinal)+" MinLatDistVeh="+printMinDist(m_min_dist[1].lateral)+" MinVertDistVeh="+printMinDist(m_min_dist[1].vertical)+" MinLongDistPed="+printMinDist(m_min_dist[0].longitudinal)+" MinLatDistPed="+printMinDist(m_min_dist[0].lateral)+" MinVertDistPed="+printMinDist(m_min_dist[0].vertical)+"\n";
   		
   		if (!condition_verified && m_min_dist[1].longitudinal < m_long_safe_d && m_min_dist[1].lateral < m_lat_safe_d && m_min_dist[1].vertical < m_vert_safe_d)
     	{

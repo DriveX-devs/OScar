@@ -47,9 +47,9 @@ public:
 
     private:
 
-    void generateAndEncodeCPM();
+    std::string generateAndEncodeCPM();
     int64_t computeTimestampUInt64();
-    bool checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data);
+    std::pair<bool, std::string> checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data);
 
     btp *m_btp;
 

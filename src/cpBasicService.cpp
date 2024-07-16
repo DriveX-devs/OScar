@@ -100,7 +100,7 @@ CPBasicService::initDissemination() {
         fprintf(stderr, "Error: no BTP object has been set. The CAM dissemination will not start.\n");
         return;
     }
-    generateAndEncodeCPM();
+    //generateAndEncodeCPM();
 
     // Create a new timer to periodically check the CAM conditions, according to the standard
     struct pollfd pollfddata;
@@ -125,12 +125,10 @@ CPBasicService::initDissemination() {
     {
         if(poll(&pollfddata,1,0)>0) {
             POLL_CLEAR_EVENT(clockFd);
-            generateAndEncodeCPM();
-            //TODO: properly write the log file
+            std::string log_data;
+            log_data = generateAndEncodeCPM();
             if(f_out!=nullptr) {
-                //get timestamp
-                std::string timestamp = std::to_string(computeTimestampUInt64()/NANO_TO_MILLI);
-                fprintf(f_out,"[CPservice]: CPM sent at %s [ms]\n",timestamp.c_str());
+                fprintf(f_out,"%s",log_data.c_str());
             }
         }
     }
@@ -144,10 +142,20 @@ CPBasicService::initDissemination() {
 
     close(clockFd);
 }
-bool CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data)
+std::pair <bool, std::string>
+CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data)
 {
+    bool condition_verified=false;
+    std::string motivation="None";
+    std::string data="";
+    std::string sent="FALSE";
+    std::string data_head="";
+    std::string data_pos="";
+    std::string data_speed="";
+    std::string data_time="";
+
     /*Perceived Object Container Inclusion Management as mandated by TS 103 324 Section 6.1.2.3*/
-    ldmmap::PHpoints::PHDataIter_t phdataiter = {.ptrDataArray=nullptr};
+    ldmmap::PHpoints::PHDataIter_t phdataiter = {.ptrDataArray=NULL};
     std::map<uint64_t, ldmmap::PHpoints::PHData_t> phPoints;
     if(PO_data->phData!=nullptr) {
         // Iterate over all the path history points, using the "iterate" method of the PHPoints object,
@@ -156,47 +164,95 @@ bool CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehi
             phPoints[phdataiter.data.timestamp_us]=phdataiter.data;
         }
     }
-    if (phPoints.empty())
-        return true;
+
     ldmmap::PHpoints::PHData_t previousCPM;
+
     /* 1.a The object has first been detected by the perception system after the last CPM generation event.*/
-    if((PO_data->phData->getCardinality() == 1) && (phPoints.begin ()->first > static_cast<long unsigned int>(lastCpmGen)))
-        return true;
+    if (phPoints.empty())
+    {
+        motivation = "First detection";
+        m_LDM->updateCPMincluded (PO_data->vehData);
+        data = "  [FIRST DETECTION]\n";
+        return std::make_pair(true, data);
+    }
 
     /* Get the last position of the reference point of this object lastly included in a CPM from the object pathHistory*/
     auto it = phPoints.rbegin ();
-    it ++;
     for(auto fromPrev = it; fromPrev!=phPoints.rend(); fromPrev++)
     {
-        if (fromPrev->second.CPMincluded)
+       if (fromPrev->second.CPMincluded)
         {
             previousCPM = fromPrev->second;
+            break;
         }
     }
+
+
     /* 1.b The Euclidian absolute distance between the current estimated position of the reference point of the
      * object and the estimated position of the reference point of this object lastly included in a CPM exceeds
      * 4 m. */
-    if(haversineDist(previousCPM.lon,previousCPM.lat,PO_data->vehData.lon,PO_data->vehData.lat) > 4.0)
-        return true;
+    double dist = haversineDist(previousCPM.lat,previousCPM.lon,PO_data->vehData.lat,PO_data->vehData.lon);
+    data_pos="  [DISTANCE] PrevLat="+std::to_string(previousCPM.lat)+" PrevLon="+std::to_string(previousCPM.lon)+" CurrLat="+std::to_string(PO_data->vehData.lat)+" CurrLon="+std::to_string(PO_data->vehData.lon)+" PosDiff="+std::to_string(dist)+"\n";
+    if(!condition_verified && dist > 4.0)
+    {
+        //std::cout << "[CP service] Distance check passed: " << dist << " m since last CPM"<< std::endl;
+        condition_verified = true;
+        if (motivation == "None"){
+            motivation = "Distance";
+        }
+    }
+
     /* 1.c The difference between the current estimated absolute speed of the reference point of the object and the
      * estimated absolute speed of the reference point of this object lastly included in a CPM exceeds 0,5 m/s. */
-    if(abs(previousCPM.speed_ms - PO_data->vehData.speed_ms) > 0.5)
-        return true;
+    double speed_diff = abs (PO_data->vehData.speed_ms - previousCPM.speed_ms);
+    data_speed="  [SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(previousCPM.speed_ms)+" CurrSpeed="+std::to_string(PO_data->vehData.speed_ms)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
+    if(!condition_verified && speed_diff > 0.5)
+    {
+        //std::cout << "[CP service] Speed check passed: " << speed_diff << " m/s since last CPM"<< std::endl;
+        condition_verified = true;
+        if (motivation == "None"){
+            motivation = "Speed";
+        }
+    }
+
     /* 1.d The difference between the orientation of the vector of the current estimated absolute velocity of the
      * reference point of the object and the estimated orientation of the vector of the absolute velocity of the
      * reference point of this object lastly included in a CPM exceeds 4 degrees. */
-    if(abs(previousCPM.heading - PO_data->vehData.heading) > 4)
-        return true;
-    /* 1.e The time elapsed since the last time the object was included in a CPM exceeds T_GenCpmMax. */
-    if(PO_data->vehData.lastCPMincluded)
+    double heading_diff = abs (PO_data->vehData.heading - previousCPM.heading);
+    heading_diff += (heading_diff>180.0) ? -360.0 : (heading_diff<-180.0) ? 360.0 : 0.0;
+    data_head="  [HEADING] HeadingUnavailable="+std::to_string((float)HeadingValue_unavailable/10)+" PrevHead="+std::to_string(previousCPM.heading)+" CurrHead="+std::to_string(PO_data->vehData.heading)+" HeadDiff="+std::to_string(heading_diff)+"\n";
+
+    if(!condition_verified && abs(previousCPM.heading - PO_data->vehData.heading) > 4)
     {
-        if(PO_data->vehData.lastCPMincluded < static_cast<uint64_t>(((computeTimestampUInt64 ()/NANO_TO_MILLI)-m_N_GenCpmMax)))
-            return true;
+        //std::cout << "[CP service] Heading check passed: " << abs(previousCPM.heading - PO_data->vehData.heading) << " degrees since last CPM"<< std::endl;
+        condition_verified = true;
+        if (motivation == "None"){
+            motivation = "Heading";
+        }
     }
-    return false;
+
+    /* 1.e The time elapsed since the last time the object was included in a CPM exceeds T_GenCpmMax. */
+    uint64_t now = computeTimestampUInt64 () / NANO_TO_MILLI;
+    uint64_t time_diff = now - previousCPM.timestamp_us/1000;
+    data_time="  [TIME] Timestamp="+std::to_string(now)+" LastCPMSend="+std::to_string(previousCPM.timestamp_us/1000)+" TimeThreshold="+std::to_string(m_N_GenCpmMax)+" TimeDiff="+std::to_string(time_diff)+"\n";
+    if(!condition_verified && time_diff > m_N_GenCpmMax)
+    {
+        //std::cout << "[CP service] Time check passed: " << time_diff << " ms since last CPM"<< std::endl;
+        condition_verified = true;
+        if (motivation == "None"){
+            motivation = "Time";
+        }
+    }
+
+    if (condition_verified) {
+        sent = "TRUE";
+    }
+    data += "  Condition verified:" + sent + " \n  [MOTIVATION] " + motivation + "\n" + data_pos + data_speed + data_head + data_time;
+
+    return std::make_pair(condition_verified, data);
 }
 
-void
+std::string
 CPBasicService::generateAndEncodeCPM()
 {
     VDPGPSClient::CPM_mandatory_data_t cpm_mandatory_data;
@@ -215,11 +271,14 @@ CPBasicService::generateAndEncodeCPM()
     if (bool (cpm) == false)
     {
         std::cerr <<"Warning: unable to encode CPM." << std::endl;
-        return;
+        std::string retdata = "\n[LOG] CPM generation event -- Sent = FALSE\n";
+        retdata += "[ERROR] Unable to encode CPM\n";
+        return  retdata;
     }
 
     //Schedule new CPM
-
+    std::string data="";
+    std::string sent="FALSE";
 
     auto CPMcontainers = asn1cpp::makeSeq (WrappedCpmContainers);
     auto POsContainer = asn1cpp::makeSeq (PerceivedObjectContainer);
@@ -234,11 +293,16 @@ CPBasicService::generateAndEncodeCPM()
             std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it;
             for (it = LDM_POs.begin (); it != LDM_POs.end (); it++)
             {
-
                 if (it->vehData.perceivedBy != (uint64_t) m_station_id)
+                {
                     continue;
-                if (!checkCPMconditions (it) && m_redundancy_mitigation)
+                }
+                data += "[OBJECT] ID="+std::to_string(it->vehData.stationID)+"\n";
+                auto check = checkCPMconditions (it);
+                data += check.second;
+                if (!check.first && m_redundancy_mitigation){
                     continue;
+                }
                 else
                 {
                     auto PO = asn1cpp::makeSeq (PerceivedObject);
@@ -322,8 +386,7 @@ CPBasicService::generateAndEncodeCPM()
                     //Push Perceived Object to the container
                     asn1cpp::sequenceof::pushList (*CPM_POs, PO);
                     //Update the timestamp of the last time this PO was included in a CPM
-                    m_LDM->updateCPMincluded (it->vehData.stationID,
-                                              computeTimestampUInt64 () / NANO_TO_MILLI);
+                    m_LDM->updateCPMincluded (it->vehData);
                     //Increase number of POs for the numberOfPerceivedObjects field in cpmParameters container
                     numberOfPOs++;
                 }
@@ -424,8 +487,12 @@ CPBasicService::generateAndEncodeCPM()
     else
     {
         //If no sensorInformationContainer and no perceivedObjectsContainer
-        if (numberOfPOs == 0)
-            return; //No CPM is generated in the current cycle
+        if (numberOfPOs == 0){
+            //No CPM is generated in the current cycle
+            std::string retdata = "\n[LOG] CPM generation event -- Sent = FALSE -- Timestamp = " + std::to_string(now) + " -- Time since last CPM = " + std::to_string(m_T_GenCpm_ms) + " ms\n";
+            retdata += data + "No perceived objects and no sensor information container\n";
+            return retdata;
+        }
     }
 
     if (numberOfPOs != 0)
@@ -445,7 +512,9 @@ CPBasicService::generateAndEncodeCPM()
     if(encode_result.size()<1)
     {
         std::cerr << "Warning: unable to encode CPM." << std::endl;
-        return;
+        std::string retdata = "\n[LOG] CPM generation event -- Sent = FALSE\n";
+        retdata += data + "[ERROR] Unable to encode CPM\n";
+        return retdata;
     }
 
     dataRequest.BTPType = BTP_B; //!< BTP-B
@@ -469,6 +538,10 @@ CPBasicService::generateAndEncodeCPM()
     // Store the time in which the last CPM (i.e. this one) has been generated and successfully sent
     m_T_GenCpm_ms=now-lastCpmGen;
     lastCpmGen = now;
+
+    std::string retdata = "\n[LOG] CPM generation event -- Sent = TRUE -- Timestamp = " + std::to_string(now) + " -- Time since last CPM = " + std::to_string(m_T_GenCpm_ms) + " ms\n";
+    retdata += data;
+    return retdata;
 }
 
 uint64_t

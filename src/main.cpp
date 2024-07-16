@@ -65,7 +65,7 @@ std::mutex syncmtx;
 std::condition_variable synccv;
 
 // Global flag to tell if the HMI has been enabled
-bool enable_hmi = false;
+bool enable_hmi = true;
 
 // Structure to store the options for the vehicle visualizer
 typedef struct vizOptions {
@@ -257,9 +257,7 @@ void CAMtxThr(std::string gnss_device,
                 CAMdata = vdpgpsc.getCAMMandatoryData();
 
                 std::cout << "[INFO] [" << cnt_CAM << "] VDP GPS Client test result: Lat: " << CAMdata.latitude
-                          << " deg - Lon: " << CAMdata.longitude << " deg - Heading: " << CAMdata.heading.getValue()
-                          << std::endl;
-
+                          << " deg - Lon: " << CAMdata.longitude << " deg" << std::endl;
                 sleep(1);
                 cnt_CAM++;
             }
@@ -408,6 +406,25 @@ void VAMtxThr(std::string gnss_device,
         try {
             vrudp.openConnection();
 
+            int vam_cnt_test=0;
+            while (true) {
+                VRUdp_position_latlon_t pos;
+
+                pos=vrudp.getPedPosition();
+
+                if(pos.lat>=-90.0 && pos.lat<=90.0 && pos.lon>=-180.0 && pos.lon <= 180.0) {
+                    std::cout << "[INFO] Position available after roughly " << vam_cnt_test << " seconds: latitude: " << pos.lat << " - longitude: " << pos.lon << std::endl;
+                    break;
+                } else {
+                    std::cout << "[INFO] Position not yet available. Unavail. value: " << pos.lat << ". Waiting 1 second and trying again..." << std::endl;
+                }
+
+                std::cout << "[INFO] Waiting for the VRU Data Provider to provide the position (a fix may not be yet available)..." << std::endl;
+
+                sleep(1);
+                vam_cnt_test++;
+            }
+
             std::cout << "[INFO] VAM Dissemination started!" << std::endl;
 
             VRUBasicService VBS;
@@ -505,6 +522,7 @@ int main (int argc, char *argv[]) {
     // serial parser options
     std::string serial_device = "/dev/ttyACM0";
     int serial_device_baudrate = 115200;
+    double serial_device_validity_thr = 1;
 
 	unsigned long vehicleID = 0; // Vehicle ID
 	unsigned long VRUID = 0; // VRU ID
@@ -617,7 +635,10 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<int> SerialDeviceBaudrate("b","serial-device-baudrate","[Considered only if -g is not specified] Serial device baudrate for the GNSS receiver. Default: 115200",false,115200,"positive integer");
         cmd.add(SerialDeviceBaudrate);
 
-		// Vehicle Visualizer options
+        TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
+        cmd.add(SerialDeviceValidityThr);
+
+        // Vehicle Visualizer options
 		TCLAP::ValueArg<long> VV_NodejsPortArg("1","vehviz-nodejs-port","Advanced option: set the port number for the UDP connection to the Vehicle Visualizer Node.js server",false,DEFAULT_VEHVIZ_NODEJS_UDP_PORT,"integer");
 		cmd.add(VV_NodejsPortArg);
 
@@ -702,6 +723,7 @@ int main (int argc, char *argv[]) {
         use_gpsd = UseGPSD.getValue();
         serial_device = SerialDevice.getValue();
         serial_device_baudrate = SerialDeviceBaudrate.getValue();
+        serial_device_validity_thr = SerialDeviceValidityThr.getValue();
 
 		if(enable_reception==false && enable_hmi==true) {
 			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
@@ -727,11 +749,12 @@ int main (int argc, char *argv[]) {
 		return 1;
 	}
 
+	/*
     if(use_gpsd==false) {
         std::cerr << "Error. The NMEA/UBX serial parser for positioning is not yet fully implemented. Please use libgps with --use-gpsd for the time being." << std::endl;
-
         return 1;
     }
+	*/
 
 	// Create the raw socket for the transmission of CAMs/VAMs, encapsulated inside GeoNetworking and BTP (in user space) 
 	int sockfd=-1;
@@ -793,6 +816,7 @@ int main (int argc, char *argv[]) {
 
     // Configure the global serial parser if gpsd is not used
     if(!use_gpsd) {
+        serialParser.setValidityThreshold(serial_device_validity_thr);
         serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag);
     }
 

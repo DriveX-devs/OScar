@@ -24,37 +24,72 @@ class UBXNMEAParserSingleThread {
         static void printUbxMessage(std::vector<uint8_t> msg);
         static void printNmeaSentence(std::string s);
 
-        std::pair<double,double> getPosition(double *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getAccelerations(double *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getRawAccelerations(double *age_us, bool print_timestamp);
-        std::tuple<double,double,double> getAttitude(double *age_us, bool print_timestamp);
-        double getSpeed(double *age_us, bool print_timestamp_and_age);
-        double getCourseOverGround(double *age_us, bool print_timestamp_and_age);
+        // Getters
+        std::pair<double,double> getPosition(long *age_us, bool print_timestamp_and_age);
+        // todo: later before commit: add timestamp and age in the missing functions
+        std::tuple<double,double,double> getAccelerations(long *age_us, bool print_timestamp_and_age);
+        std::tuple<double,double,double> getAngularRates(long *age_us, bool print_timestamp_and_age);
+        std::tuple<double,double,double> getRawAccelerations(long *age_us, bool print_timestamp_and_age);
+        std::tuple<double,double,double> getAttitude(long *age_us, bool print_timestamp_and_age);
+        double getSpeedUbx(long *age_us, bool print_timestamp_and_age);
+        double getSpeedNmea(long *age_us, bool print_timestamp_and_age);
+        double getCourseOverGroundUbx(long *age_us, bool print_timestamp_and_age);
+        double getCourseOverGroundNmea(long *age_us, bool print_timestamp_and_age);
+        double getAltitude(long *age_us, bool print_timestamp_and_age);
+        double getYawRate(long *age_us, bool print_timestamp_and_age);
+        double getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
+        std::string getUtcTimeUbx();
+        std::string getUtcTimeNmea();
+        double getValidityThreshold();
+
+        // Setters
+        bool setValidityThreshold(double threshold);
+
+        // Validity methods
+        bool getFixValidity2D(bool print_error);
+        bool getFixValidity3D(bool print_error);
+        std::atomic<bool> getPositionValidity(bool print_error);
+        bool getRawAccelerationsValidity(bool print_error);
+        bool getAttitudeValidity(bool print_error);
+        bool getAccelerationsValidity(bool print_error);
+        bool getAltitudeValidity(bool print_error);
+        bool getYawRateValidity(bool print_error);
+        bool getSpeedAndCogValidity(bool print_error);
+
         int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
         void stopUBXNMEAParser();
     private:
         /* Buffer structure to be printed to the user */
         typedef struct Output {
             char ts_pos[100],
+                    ts_utc_time_ubx[100],
+                    ts_utc_time_nmea[100],
                     ts_acc[100],
                     ts_att[100],
+                    ts_alt[100],
                     ts_comp_acc[100],
+                    ts_comp_ang_rate[100],
                     ts_sog_cog_ubx[100],
                     ts_sog_cog_nmea[100];					// Timestamps
             char fix_ubx[100],
                     fix_nmea[100];
-            char cp_lat, cp_lon;						// Latitude and longitude cardinal points
-            double lat, lon;
-            double raw_acc_x, raw_acc_y, raw_acc_z,
-                    comp_acc_x, comp_acc_y, comp_acc_z;  // Accelerations
-            double roll, pitch, heading;				// Attitude angles
+            char cp_lat, cp_lon;						    // Latitude and longitude cardinal points
+            double lat, lon, alt;                           // Latitude, longitude and altitude above sea level
+            double raw_acc_x, raw_acc_y, raw_acc_z,         // Raw and compensated accelerations
+                   comp_acc_x, comp_acc_y, comp_acc_z,
+                   comp_ang_rate_x,                         // Compensated angular rates
+                   comp_ang_rate_y,
+                   comp_ang_rate_z;
+            double roll, pitch, heading;				    // Attitude angles
             double sog_ubx, sog_nmea,
-                    cog_ubx, cog_nmea;					// Speed over ground and course over ground
-            long lu_pos, lu_acc, lu_att,
-                    lu_comp_acc,
-                    lu_sog_cog_ubx,
-                    lu_sog_cog_nmea;						 // Last updates on relevant information
+                    cog_ubx, cog_nmea;					    // Speed over ground and course over ground
+            long lu_pos, lu_acc,
+                 lu_att, lu_alt,
+                 lu_comp_acc,
+                 lu_comp_ang_rate,
+                 lu_sog_cog_ubx,
+                 lu_sog_cog_nmea;						    // Last updates on relevant information
         } out_t;
 
         std::atomic<out_t> m_outBuffer;
@@ -62,9 +97,23 @@ class UBXNMEAParserSingleThread {
         std::atomic<bool> m_stopParserFlag = false;
         bool m_parser_started=false;
 
+        // Data validity flags and user-defined threshold
+        std::atomic<bool> m_2d_valid_fix = false;
+        std::atomic<bool> m_3d_valid_fix = false;
+        std::atomic<bool> m_pos_valid = false;
+        std::atomic<bool> m_acc_valid = false;
+        std::atomic<bool> m_att_valid = false;
+        std::atomic<bool> m_alt_valid = false;
+        std::atomic<bool> m_comp_acc_valid = false;
+        std::atomic<bool> m_comp_ang_rate_valid = false;
+        std::atomic<bool> m_sog_cog_ubx_valid = false;
+        std::atomic<bool> m_sog_cog_nmea_valid = false;
+        double m_validity_threshold = 0;
+
         ceSerial m_serial;
 
         const std::vector<uint8_t> m_UBX_HEADER = {0xb5, 0x62};
+        const int m_WRONG_INPUT_TRESHOLD = 1000;
 
         // UBX Header (2 bytes) + message class (1 byte) + message ID (1 byte) + message length (2 bytes)
         const uint8_t m_UBX_PAYLOAD_OFFSET = 6;
@@ -72,11 +121,13 @@ class UBXNMEAParserSingleThread {
         // Mathematical and buffer operations
         static double decimal_deg(double value, char quadrant);
         long hexToSigned(std::vector<uint8_t> data);
+        long hexToSignedValue(uint8_t value);
         void clearBuffer();
         void printBuffer();
 
         // Parsers
         void parseNmeaGns(std::string nmea_response);
+        void parseNmeaGga(std::string nmea_response);
         void parseEsfRaw(std::vector<uint8_t> response);
         void parseNavAtt(std::vector<uint8_t> response);
         void parseNavPvt(std::vector<uint8_t> response);

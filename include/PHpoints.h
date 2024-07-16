@@ -67,6 +67,8 @@ namespace ldmmap {
 
             bool setCPMincluded();
 
+			PHpoints_retval_t insertCPMincluded(vehicleData_t newVehicleData);
+
 		private:
 			double m_distance_limit;
 			double m_min_dist_m;
