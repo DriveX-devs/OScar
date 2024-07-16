@@ -144,7 +144,7 @@ BasicSensorReader::readerLoop() {
                 vehicleData.vehicleLength = ldmmap::OptionalDataItem<long>((long) (STANDARD_OBJECT_LENGTH*DECI));
                 //vehicleData.angle = ldmmap::OptionalDataItem<long>((long) RAD_2_DEG(ego_heading)*DECI);
 
-                vehicleData.timestamp_us = computeTimestamp();
+                vehicleData.timestamp_us = computeTimestamp()/NANO_TO_MICRO;
                 vehicleData.confidence = 100; //TODO: implement confidence computation
                 auto db_retval=m_LDM->insert(vehicleData);
 
@@ -236,23 +236,13 @@ bool BasicSensorReader::stopReader() {
 }
 
 uint64_t BasicSensorReader::computeTimestamp() {
-    time_t seconds;
-    uint64_t microseconds;
-    struct timespec now;
+    int64_t int_tstamp=0;
 
-    if(clock_gettime(CLOCK_REALTIME, &now) == -1) {
-        perror("Cannot get the current microseconds UTC timestamp");
-        return -1;
-    }
+    struct timespec tv;
 
-    seconds=now.tv_sec;
-    microseconds=round(now.tv_nsec/1e3);
+    clock_gettime (CLOCK_MONOTONIC, &tv);
 
-    // milliseconds, due to the rounding operation, shall not exceed 999999
-    if(microseconds > 999999) {
-        seconds++;
-        microseconds=0;
-    }
+    int_tstamp=tv.tv_sec*1e9+tv.tv_nsec;
 
-    return seconds*1000000+microseconds;
+    return int_tstamp;
 }

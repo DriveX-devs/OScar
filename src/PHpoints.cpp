@@ -85,7 +85,6 @@ namespace ldmmap
 
 			if(point_dist<m_max_dist_m) {
 				if(point_dist<m_min_dist_m || fabs(angDiff(m_pDataArray[prev_idx].heading,newVehicleData.heading))<m_max_heading_diff_degs) {
-					// Skip this point
 					return PHP_SKIPPED;
 				}
 			}
@@ -129,7 +128,6 @@ namespace ldmmap
 	PHpoints::iterate(PHDataIter_t &PHDataIter, PHData_t *nextPHData) {
 		// We need to initizialize some variables when iterate() is called for the first time
 		if(PHDataIter.ptrDataArray==NULL) {
-
 			if(m_iterateFull == true) {
 				PHDataIter.cyclic_idx=m_next_idx;
 				PHDataIter.idx=0;
@@ -137,6 +135,7 @@ namespace ldmmap
 				PHDataIter.cyclic_idx=m_next_idx == 0 ? m_vectorReservedSize-1 : m_next_idx-1;
 				PHDataIter.idx=1;
 			}
+
 			PHDataIter.ptrDataArray=&m_pDataArray;
 			PHDataIter.pDataArraySize=m_PHpoints_size;
 		}
@@ -145,7 +144,7 @@ namespace ldmmap
 			if(PHDataIter.ptrDataArray==NULL) {
 				return PHP_ERROR;
 			}
-			
+
 			PHDataIter.cyclic_idx=PHDataIter.cyclic_idx == 0 ? m_vectorReservedSize-1 : PHDataIter.cyclic_idx-1;
 			PHDataIter.idx++;
 			PHDataIter.data=(*PHDataIter.ptrDataArray)[PHDataIter.cyclic_idx];
@@ -161,9 +160,10 @@ namespace ldmmap
 					nextPHData->point_distance=INVALID_PHDATA;
 				}
 			}
-
+			//std::cout << "Next PHData: ["<< PHDataIter.idx <<"] "  << PHDataIter.data.lon << " " << PHDataIter.data.lat << " " << PHDataIter.data.heading << " " << PHDataIter.data.timestamp_us/1000 << " " << PHDataIter.data.CPMincluded << std::endl; // [TBR]
 			return PHP_CONTINUE_ITERATION;
 		} else {
+			//std::cout << "PHpoints::iterate() reached the end of the PH points" << std::endl; // [TBR]
 			return PHP_TERMINATE_ITERATION;
 		}
 	}
@@ -185,4 +185,49 @@ namespace ldmmap
         }
         return false;
     }
+
+	PHpoints::PHpoints_retval_t
+	PHpoints::insertCPMincluded(vehicleData_t newVehicleData) {
+		double point_dist=0;
+
+		if(m_PHpoints_size>=1) {
+			// Get the index in the array of the previously saved point
+			int prev_idx = m_next_idx == 0 ? m_PHpoints_size-1 : m_next_idx-1;
+
+			point_dist=haversineDist(m_pDataArray[prev_idx].lat,m_pDataArray[prev_idx].lon,newVehicleData.lat,newVehicleData.lon);
+
+			if (m_removeOnlyOne == true) {
+				if(m_stored_distance>=m_distance_limit) {
+					m_stored_distance-=m_pDataArray[m_oldest_idx].point_distance;
+					m_PHpoints_size--;
+					m_oldest_idx=(m_oldest_idx+1)%m_vectorReservedSize;
+				}
+			} else {
+				while(m_stored_distance>=m_distance_limit && m_PHpoints_size>1) {
+					m_stored_distance-=m_pDataArray[m_oldest_idx].point_distance;
+					m_PHpoints_size--;
+					m_oldest_idx=(m_oldest_idx+1)%m_vectorReservedSize;
+				}
+			}
+
+			m_stored_distance+=point_dist;
+		}
+
+		if(m_PHpoints_size<m_vectorReservedSize) {
+			m_PHpoints_size++;
+		}
+
+		m_pDataArray[m_next_idx].lat=newVehicleData.lat;
+		m_pDataArray[m_next_idx].lon=newVehicleData.lon;
+		m_pDataArray[m_next_idx].elev=newVehicleData.elevation;
+		m_pDataArray[m_next_idx].heading=newVehicleData.heading;
+		m_pDataArray[m_next_idx].point_distance=point_dist;
+		m_pDataArray[m_next_idx].timestamp_us=newVehicleData.timestamp_us;
+		m_pDataArray[m_next_idx].speed_ms=newVehicleData.speed_ms;
+		m_pDataArray[m_next_idx].detected=newVehicleData.detected;
+		m_pDataArray[m_next_idx].CPMincluded=true;
+		m_next_idx=(m_next_idx+1)%m_vectorReservedSize;
+
+		return PHP_INSERTED;
+	}
 }

@@ -71,13 +71,14 @@ public:
     
     const long T_GenVamMin_ms = 100;
     const long T_GenVamMax_ms = 5000;
-    
 private:
     const size_t m_MaxPHLength = 23;
     
+    std::string printMinDist(double minDist);
     void initDissemination();
     void checkVamConditions();
     bool checkVamRedundancyMitigation();
+
     
     VRUBasicService_error_t generateAndEncodeVam();
     
