@@ -14,7 +14,7 @@
 #include <string>
 #include "asn_utils.h"
 #include "ubx_nmea_parser_single_thread.h"
-#include "LDMmap.h"
+// #include "LDMmap.h" (circular dependency problem fix)
 #include "StationType.h"
 
 extern "C" {
@@ -100,13 +100,6 @@ class VDPGPSClient {
             double x,y,z;
         } VRU_position_XYZ_t;
 
-        typedef struct distance {
-            double longitudinal,lateral,vertical;
-            StationId_t ID;
-            StationType_t station_type;
-            bool safe_dist;
-        } distance_t;
-
         VDPGPSClient(std::string server, long port) :
                 m_server(server), m_port(port) {
         };
@@ -185,8 +178,6 @@ class VDPGPSClient {
         double getPedSpeedValue();
         double getPedHeadingValue();
 
-        std::vector<VDPGPSClient::distance_t> get_min_distance(ldmmap::LDMMap* LDM);
-
         // convertLatLontoXYZ_ECEF() still does not work as expected - kept for reference but it should not be used unless you know very well what you are doing!
         VRU_position_XYZ_t convertLatLontoXYZ_ECEF(VRU_position_latlon_t pos_latlon);
 
@@ -195,7 +186,7 @@ class VDPGPSClient {
 
         void enableDebugPrints() {m_vru_debug=true;};
         void disableDebugPrints() {m_vru_debug=false;};
-
+        bool getDebugPrintsState() {return m_vru_debug;}
     private:
 		std::string m_server="localhost";
 		long m_port=2947;

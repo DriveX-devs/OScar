@@ -30,6 +30,9 @@ using std::chrono::system_clock;
     fcn(); \
   });
 
+static const double PI_CONST = 3.1415926535897932384626433832795028841971693993751058209;
+#define VRUDP_HEADING_UNAVAILABLE -DBL_MAX
+
 // VRU Basic Service constructor
 VRUBasicService::VRUBasicService(){
   m_station_id = ULONG_MAX;
@@ -76,6 +79,113 @@ VRUBasicService::VRUBasicService(){
   
   // The log file and .csv file are disabled by default
   m_log_filename = "dis";
+}
+
+std::vector<distance_t>
+VRUBasicService::get_min_distance(ldmmap::LDMMap* LDM) {
+    std::vector<distance_t> min_distance(2,{MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationId_t)0,(StationType_t)-1,false});
+    min_distance[0].station_type = StationType_pedestrian;
+    min_distance[1].station_type = StationType_passengerCar;
+
+    std::vector<ldmmap::LDMMap::returnedVehicleData_t> selectedStations;
+
+    // Extract all stations from the LDM
+    VDPGPSClient vrudp;
+    VDPGPSClient::VRU_position_latlon_t ped_pos = vrudp.getPedPosition();
+    LDM->rangeSelect(MAXFLOAT,ped_pos.lat,ped_pos.lon,selectedStations);
+
+    // Reference longitude (center meridian) for the Transverse Mercator projection (used to convert (Lat,Lon) to (x,y))
+    double lon0 = ped_pos.lon;
+
+    // Get position and heading of the current pedestrian
+    VDPGPSClient::VRU_position_XYZ_t pos_ped = vrudp.convertLatLontoXYZ_TM(ped_pos,lon0);
+    double ped_heading = vrudp.getPedHeadingValue();
+
+    // Iterate over all stations present in the LDM
+    for(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it = selectedStations.begin (); it!=selectedStations.end (); ++it){
+        distance_t curr_distance = {MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationId_t)0,(StationType_t)-1,false};
+        curr_distance.ID = it->vehData.stationID;
+        curr_distance.station_type = it->vehData.stationType;
+        VDPGPSClient::VRU_position_latlon_t pos_node;
+        VDPGPSClient::VRU_position_XYZ_t pos_node_xyz;
+
+        double node_heading = it->vehData.heading;
+
+        // If no heading is available for neither the remote node, nor the ego node, skip the distance check for this node, and leave the distances
+        // to the MAXFLOAT unavailable values
+        // We follow this procedure as, to the best of our knowledge, the standard does not specify what to do for unavailable heading values
+        if(node_heading==LDM_HEADING_UNAVAILABLE && ped_heading==VRUDP_HEADING_UNAVAILABLE) {
+            continue; // Go to the next node, skipping the distance check for the current node that will not be considered for the min_distance computation
+        }
+
+        // If a node has no defined heading (but we can get a heading value for the current ego node), consider the heading of the ego node (VRU)
+        // instead of the one of the remote node (VRU or vehicle)
+        // We follow this procedure as, to the best of our knowledge, the standard does not specify what to do for unavailable heading values
+        if(node_heading==LDM_HEADING_UNAVAILABLE) {
+            node_heading = ped_heading;
+        }
+
+        pos_node.lon = it->vehData.lon;
+        pos_node.lat = it->vehData.lat;
+        if(it->vehData.elevation != AltitudeValue_unavailable) {
+            pos_node.alt = it->vehData.elevation;
+            pos_node_xyz = vrudp.convertLatLontoXYZ_TM(pos_node,lon0);
+        } else {
+            pos_node_xyz = vrudp.convertLatLontoXYZ_TM(pos_node,lon0);
+        }
+
+        // Computation of the distances
+        // Old method: kept just for reference
+        // curr_distance.lateral = abs((pos_node_xyz.x - pos_ped.x)*cos(ped_heading));
+        // curr_distance.longitudinal = abs((pos_node_xyz.y - pos_ped.y)*cos(ped_heading));
+        // curr_distance.vertical = abs(pos_node_xyz.z - pos_ped.z);
+
+        // New method with angles computation
+        // According to ETSI TS 103 300-2 V2.1.1 (2020-05):
+        // Longitudinal Distance (LoD): estimated distance between the VRU and the vehicle along the direction of the vehicle heading
+        // Lateral Distance (LaD): estimated distance between the VRU and the vehicle perpendicular to the direction of the vehicle heading
+        // Vertical Distance (VD): estimated distance in vertical direction (height) between the VRU and the vehicle
+        double node_distance = sqrt((pos_node_xyz.x-pos_ped.x)*(pos_node_xyz.x-pos_ped.x)+(pos_node_xyz.y-pos_ped.y)*(pos_node_xyz.y-pos_ped.y));
+        if(pos_ped.y==pos_node_xyz.y && pos_ped.x==pos_node_xyz.x) {
+            curr_distance.longitudinal=0;
+            curr_distance.lateral=0;
+        } else {
+            curr_distance.longitudinal = abs(node_distance*cos((PI_CONST/2.0)-DEG_2_RAD_ASN_UTILS(node_heading)-atan2(pos_ped.y-pos_node_xyz.y,pos_ped.x-pos_node_xyz.x)));
+            curr_distance.lateral = abs(node_distance*sin((PI_CONST/2.0)-DEG_2_RAD_ASN_UTILS(node_heading)-atan2(pos_ped.y-pos_node_xyz.y,pos_ped.x-pos_node_xyz.x)));
+        }
+        curr_distance.vertical = abs(pos_node_xyz.z - pos_ped.z);
+
+        if(vrudp.getDebugPrintsState() == true) {
+            fprintf(stdout,"[DEBUG - Safe Dist] long=%.7lf, lat=%.7lf, vert=%.7lf, h=%.2lf, n_d=%.2lf (%.2lf),"
+                           "x_V=%.4lf, y_V=%.7lf, x_P=%.4lf, y_P=%.7lf, lat_V=%.7lf, lon_V=%.7lf, angle=%.3lf deg, beta_ang=%.3lf deg, sum_ang=%.3lf\n",
+                    curr_distance.longitudinal,curr_distance.lateral,curr_distance.vertical,node_heading,node_distance,
+                    haversineDist(pos_node.lat,pos_node.lon,ped_pos.lat,ped_pos.lon),
+                    pos_node_xyz.x,pos_node_xyz.y,pos_ped.x,pos_ped.y,pos_node.lat,pos_node.lon,
+                    RAD_2_DEG_ASN_UTILS((PI_CONST/2.0)-DEG_2_RAD_ASN_UTILS(node_heading)-atan2(pos_ped.y-pos_node_xyz.y,pos_ped.x-pos_node_xyz.x)),
+                    RAD_2_DEG_ASN_UTILS(atan2(pos_ped.y-pos_node_xyz.y,pos_ped.x-pos_node_xyz.x)),
+                    node_heading+RAD_2_DEG_ASN_UTILS(atan2(pos_ped.y-pos_node_xyz.y,pos_ped.x-pos_node_xyz.x))+RAD_2_DEG_ASN_UTILS((PI_CONST/2.0)-DEG_2_RAD_ASN_UTILS(node_heading)-atan2(pos_ped.y-pos_node_xyz.y,pos_ped.x-pos_node_xyz.x)));
+        }
+
+        if(curr_distance.station_type == StationType_pedestrian){
+            if(curr_distance.lateral<min_distance[0].lateral && curr_distance.longitudinal<min_distance[0].longitudinal && curr_distance.vertical < min_distance[0].vertical){
+                min_distance[0].lateral = curr_distance.lateral;
+                min_distance[0].longitudinal = curr_distance.longitudinal;
+                min_distance[0].vertical = curr_distance.vertical;
+
+                min_distance[0].ID = curr_distance.ID;
+            }
+        } else{
+            if(curr_distance.lateral<min_distance[1].lateral && curr_distance.longitudinal<min_distance[1].longitudinal && curr_distance.vertical < min_distance[1].vertical){
+                min_distance[1].lateral = curr_distance.lateral;
+                min_distance[1].longitudinal = curr_distance.longitudinal;
+                min_distance[1].vertical = curr_distance.vertical;
+
+                min_distance[1].ID = curr_distance.ID;
+            }
+        }
+    }
+
+    return min_distance;
 }
 
 void VRUBasicService::setStationProperties(unsigned long fixed_stationid, long fixed_stationtype){
@@ -331,7 +441,7 @@ void VRUBasicService::checkVamConditions(){
   		m_long_safe_d = abs(m_VRUdp->getPedSpeedValue ()*(T_GenVamMax_ms/1000));
 
   		// Get the minimum distance of other vehicles/pedestrians from the current pedestrian
-  		m_min_dist = m_VRUdp->get_min_distance (m_LDM);
+  		m_min_dist = get_min_distance (m_LDM);
   		
   		/* 1d)
    		* If the longitudinal distance between the originating ITS-S and the nearest pedestrian/vehicle

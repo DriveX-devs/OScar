@@ -45,6 +45,13 @@ typedef enum{
     SAFE_DISTANCES = 5,
 } triggcond_t;
 
+typedef struct distance {
+    double longitudinal,lateral,vertical;
+    StationId_t ID;
+    StationType_t station_type;
+    bool safe_dist;
+} distance_t;
+
 class VRUBasicService
 {
 public:
@@ -53,6 +60,7 @@ public:
     void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
     void setLogfile(std::string filename) {m_log_filename=filename;}
 
+    std::vector<distance_t> get_min_distance(ldmmap::LDMMap* LDM);
     void setStationID(unsigned long fixed_stationid);
     void setStationType(long fixed_stationtype);
     void setLDM(ldmmap::LDMMap* LDM){m_LDM = LDM;}
@@ -133,7 +141,7 @@ private:
     triggcond_t m_trigg_cond;
 
     // Variable containing the distance of the nearest vehicle and pedestrian from the current pedestrian
-    std::vector<VDPGPSClient::distance_t> m_min_dist;
+    std::vector<distance_t> m_min_dist;
 
     // VRU state variables
     int m_VRU_role;
