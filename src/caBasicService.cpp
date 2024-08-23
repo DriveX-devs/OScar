@@ -548,6 +548,46 @@ CABasicService::checkCamConditions()
         data+="[LOG] Timestamp="+std::to_string(time)+" CAMSend="+sent+" Motivation="+motivation+" HeadDiff="+std::to_string(head_diff)+" PosDiff="+std::to_string(pos_diff)+" SpeedDiff="+std::to_string(speed_diff)+" TimeDiff="+std::to_string(time_difference)+"\n";
         data=data+data_head+data_pos+data_speed+data_time+"\n";
 
+        /**
+         * Generate the serial parser data to be included in log
+         * NOTE: the follwing data has been exluded in order not to overcomplicate the log
+         * but it can be included if needed: angular rate, raw accelerations, altitude,
+         * validity threshold, UBX UTX Time, NMEA UTC Time
+         */
+
+        if (m_vdp->getSerialParser() == true) {
+            std::string parser_log_data = "[PARSER]";
+
+            std::string fix = m_vdp->getFixMode();
+            std::string data_fix = " Fix=" + fix;
+            std::tuple<double,double,double> accs = m_vdp->getAccelerations();
+            std::string data_accs =
+                    " Acc_x=" + std::to_string(std::get<0>(accs)) +
+                    " Acc_y=" + std::to_string(std::get<1>(accs)) +
+                    " Acc_y=" + std::to_string(std::get<2>(accs));
+            std::tuple<double,double,double> att = m_vdp->getAttitude();
+            std::string data_att =
+                    " Roll="  + std::to_string(std::get<0>(att)) +
+                    " Pitch=" + std::to_string(std::get<1>(att)) +
+                    " Yaw="   + std::to_string(std::get<2>(att));
+            double speed_ubx = m_vdp->getSpeedUbx();
+            std::string data_speed_ubx = " Speed(UBX)=" + std::to_string(speed_ubx);
+            double speed_nmea = m_vdp->getSpeedNmea();
+            std::string data_speed_nmea = " Speed(NMEA)=" + std::to_string(speed_nmea);
+            double cog_ubx = m_vdp->getCourseOverGroundUbx();
+            std::string data_cog_ubx = " Cog(UBX)=" + std::to_string(cog_ubx);
+            double cog_nmea = m_vdp->getCourseOverGroundNmea();
+            std::string data_cog_nmea = " Cog(NMEA)=" + std::to_string(cog_nmea);
+            double longit_acc = m_vdp->getLongitudinalAcceleration();
+            std::string data_longit_acc = " LongitudinalAcceleration=" + std::to_string(longit_acc);
+            double yaw_rate = m_vdp->getYawRate();
+            std::string data_yaw_rate = " YawRate=" + std::to_string(yaw_rate);
+
+            parser_log_data = parser_log_data + data_fix + data_accs + data_att + data_speed_ubx +
+                              data_speed_nmea + data_cog_ubx + data_cog_nmea + data_longit_acc + data_yaw_rate;
+            data = data + parser_log_data;
+        }
+
         // Print the data for the log
         fprintf(f_out,"%s", data.c_str());
       }

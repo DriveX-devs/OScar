@@ -108,12 +108,35 @@ class VDPGPSClient {
         double getYawRateDbl();
 		std::pair<double,double> getCurrentPositionDbl();
 
+        // For parser performance logging
+        std::pair<double,double> getPosition();
+        std::tuple<double,double,double> getAccelerations();
+        std::tuple<double,double,double> getAngularRates();
+        std::tuple<double,double,double> getRawAccelerations();
+        std::tuple<double,double,double> getAttitude();
+        double getSpeedUbx();
+        double getSpeedNmea();
+        double getCourseOverGroundUbx();
+        double getCourseOverGroundNmea();
+        double getAltitude();
+        double getYawRate();
+        double getLongitudinalAcceleration();
+        std::string getFixMode();
+        std::string getUtcTimeUbx();
+        std::string getUtcTimeNmea();
+        double getValidityThreshold();
+
         bool setSerialParser(UBXNMEAParserSingleThread *serialParserPtr) {
             if (serialParserPtr == nullptr) {
                 return false;
             }
             m_serialParserPtr = serialParserPtr;
             return true;
+        }
+
+        bool getSerialParser() {
+            if (m_serialParserPtr == nullptr) return false;
+            else return true;
         }
 
 		void setFixedVehicleLength(VDPValueConfidence<long,long> vehicle_length) {

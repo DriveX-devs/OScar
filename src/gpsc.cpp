@@ -33,6 +33,71 @@ VDPGPSClient::closeConnection() {
     }
 }
 
+// Serial parser performance log methods
+std::pair<double,double> VDPGPSClient::getPosition() {
+    return m_serialParserPtr->getPosition(nullptr,false);
+}
+
+std::tuple<double,double,double> VDPGPSClient::getAccelerations() {
+    return m_serialParserPtr->getAccelerations(nullptr,false);
+}
+
+std::tuple<double,double,double> VDPGPSClient::getAngularRates() {
+    return m_serialParserPtr->getAngularRates(nullptr,false);
+}
+
+std::tuple<double,double,double> VDPGPSClient::getRawAccelerations() {
+    return m_serialParserPtr->getRawAccelerations(nullptr,false);
+}
+
+std::tuple<double,double,double> VDPGPSClient::getAttitude() {
+    return m_serialParserPtr->getAttitude(nullptr,false);
+}
+
+double VDPGPSClient::getSpeedUbx() {
+    return m_serialParserPtr->getSpeedUbx(nullptr,false);
+}
+
+double VDPGPSClient::getSpeedNmea() {
+    return m_serialParserPtr->getSpeedNmea(nullptr,false);
+}
+
+double VDPGPSClient::getCourseOverGroundUbx() {
+    return m_serialParserPtr->getCourseOverGroundUbx(nullptr,false);
+}
+
+double VDPGPSClient::getCourseOverGroundNmea() {
+    return m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
+}
+
+double VDPGPSClient::getAltitude() {
+    return m_serialParserPtr->getAltitude(nullptr,false);
+}
+
+double VDPGPSClient::getYawRate() {
+    return m_serialParserPtr->getyawRate(nullptr,false);
+}
+
+double VDPGPSClient::getLongitudinalAcceleration() {
+    return m_serialParserPtr->getLongitudinalAcceleration(nullptr,false);
+}
+
+double VDPGPSClient::getValidityThreshold() {
+    return m_serialParserPtr->getValidityThreshold();
+}
+
+std::string VDPGPSClient::getFixMode() {
+    return m_serialParserPtr->getFixMode();
+}
+
+std::string VDPGPSClient::getUtcTimeUbx() {
+    return m_serialParserPtr->getUtcTimeUbx();
+}
+
+std::string VDPGPSClient::getUtcTimeNmea() {
+    return m_serialParserPtr->getUtcTimeNmea();
+}
+
 VDPValueConfidence<>
 VDPGPSClient::getHeadingValue() {
     if(m_use_gpsd==true) {
