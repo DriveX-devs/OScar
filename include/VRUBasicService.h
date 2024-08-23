@@ -1,7 +1,7 @@
 #ifndef VRUBasicService_h
 #define VRUBasicService_h
 
-#include "VRUdp.h"
+#include "gpsc.h"
 #include "LDMmap.h"
 #include "asn1cpp/Seq.hpp"
 #include "asn1cpp/Setter.hpp"
@@ -45,6 +45,13 @@ typedef enum{
     SAFE_DISTANCES = 5,
 } triggcond_t;
 
+typedef struct distance {
+    double longitudinal,lateral,vertical;
+    StationId_t ID;
+    StationType_t station_type;
+    bool safe_dist;
+} distance_t;
+
 class VRUBasicService
 {
 public:
@@ -53,11 +60,12 @@ public:
     void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
     void setLogfile(std::string filename) {m_log_filename=filename;}
 
+    std::vector<distance_t> get_min_distance(ldmmap::LDMMap* LDM);
     void setStationID(unsigned long fixed_stationid);
     void setStationType(long fixed_stationtype);
     void setLDM(ldmmap::LDMMap* LDM){m_LDM = LDM;}
     void setBTP(btp* btp){m_btp = btp;}
-    void setVRUdp(VRUdp* VRUdp) {m_VRUdp=VRUdp;}
+    void setVRUdp(VDPGPSClient* VRUdp) {m_VRUdp=VRUdp;}
     void setPositionThreshold(double pos_th) {m_pos_th=pos_th;}
     void setSpeedThreshold(double speed_th) {m_speed_th=speed_th;}
     void setHeadingThreshold(double head_th) {m_head_th=head_th;}
@@ -98,11 +106,11 @@ private:
     StationId_t m_station_id;
     StationType_t m_stationtype;
 
-    VRUdp* m_VRUdp;
+    VDPGPSClient* m_VRUdp;
 
     // Previous VAM relevant values
     double m_prev_heading;
-    VRUdp_position_latlon_t m_prev_pos;
+    VDPGPSClient::VRU_position_latlon_t m_prev_pos;
     double m_prev_speed;
 
     // Triggering conditions thresholds

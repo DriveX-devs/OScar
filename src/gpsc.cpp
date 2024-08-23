@@ -1,7 +1,25 @@
+/*
+ * VRUdp integration changes:
+ *
+ * */
+
 #include "gpsc.h"
+#include "HeadingConfidence.h"
 #include <stdexcept>
+#include <iostream>
 #include <math.h> 
 #include <cfloat>
+
+extern "C" {
+    #include "VAM.h"
+    #include "utmuts.h"
+}
+
+#define MIN_DIST_EQUAL_x_EPSILON 0.0001 // [m]
+static const double PI_CONST = 3.1415926535897932384626433832795028841971693993751058209;
+#define VRUDP_HEADING_UNAVAILABLE -DBL_MAX
+
+#define GPSSTATUS(gpsdata) gpsdata.fix.status
 
 void
 VDPGPSClient::openConnection() {
@@ -70,6 +88,41 @@ VDPGPSClient::getHeadingValue() {
     }
 }
 
+double VDPGPSClient::getPedHeadingValue() {
+    if(m_use_gpsd==true) {
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the heading from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { //&& GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    if (static_cast<int>(m_gps_data.fix.track * DECI) < 0 ||
+                        static_cast<int>(m_gps_data.fix.track * DECI) > 3601) {
+                        return VRUDP_HEADING_UNAVAILABLE;
+                    } else {
+                        return m_gps_data.fix.track;
+                    }
+                }
+            }
+        }
+    } else {
+        // Check if at least a 2D fix is present and if the data is not outdated, else return 0 or unavailable
+        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
+            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
+                double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
+                if (heading == 0) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
+
+                if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
+                    return VRUDP_HEADING_UNAVAILABLE;
+                } else return heading;
+            }
+        }
+    }
+}
+
 VDPValueConfidence<>
 VDPGPSClient::getSpeedValue() {
     if(m_use_gpsd==true) {
@@ -97,6 +150,35 @@ VDPGPSClient::getSpeedValue() {
         }
     }
 }
+
+double VDPGPSClient::getPedSpeedValue() {
+    if(m_use_gpsd==true) {
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    return m_gps_data.fix.speed;
+                } else return -DBL_MAX;
+            }
+        }
+    } else {
+        // Check if at least a 2D fix is present
+        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
+            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
+                double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
+                if (speed == 0) speed = m_serialParserPtr->getSpeedNmea(nullptr, false);
+                return speed;
+            } else return -DBL_MAX;
+        }
+    }
+}
+
+
 
 VDPValueConfidence<>
 VDPGPSClient::getAltitudeValue() {
@@ -155,6 +237,180 @@ VDPGPSClient::getCurrentPosition() {
         }
         return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
     }
+}
+
+VDPGPSClient::VRU_position_latlon_t
+VDPGPSClient::getPedPosition() {
+    VRU_position_latlon_t ped_pos{-DBL_MAX,-DBL_MAX,-DBL_MAX};
+    if(m_use_gpsd==true) {
+        int rval;
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read the speed from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    if (!isnan(m_gps_data.fix.latitude) && !isnan(m_gps_data.fix.longitude)) {
+                        ped_pos.lat = m_gps_data.fix.latitude;
+                        ped_pos.lon = m_gps_data.fix.longitude;
+                        if(m_gps_data.fix.mode == MODE_3D && !isnan(m_gps_data.fix.altitude)){
+                            ped_pos.alt = m_gps_data.fix.altitude;
+                        }
+                    }
+                }
+            }
+        }
+        return ped_pos;
+    } else {
+        // Check if at least a 2D fix is present
+        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
+            if (m_serialParserPtr->getPositionValidity(false) == true && m_serialParserPtr->getAltitudeValidity(false) == true) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+                double altitude = m_serialParserPtr->getAltitude(nullptr, false);
+                ped_pos.lat = position.first;
+                ped_pos.lon = position.second;
+                ped_pos.alt = altitude;
+            }
+        }
+        return ped_pos;
+    }
+}
+
+// convertLatLontoXYZ_ECEF() still does not work as expected - kept for reference but it should NOT be used unless you know very well what you are doing!
+VDPGPSClient::VRU_position_XYZ_t
+VDPGPSClient::convertLatLontoXYZ_ECEF(VDPGPSClient::VRU_position_latlon_t pos_latlon){
+    VDPGPSClient::VRU_position_XYZ_t pos_xyz = {-DBL_MAX,-DBL_MAX,-DBL_MAX};
+
+    {
+        std::cerr << "Error! convertLatLontoXYZ_ECEF() should not be used in the code! " <<
+                  "It has been just kept for reference: using it doesn't guarantee correct results when computing the safe distances for VAMs." <<
+                  std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    double N = 6378137.0/sqrt(1-(1/298.257223563)*(sin(pos_latlon.lat)*sin(pos_latlon.lat)));
+
+    if(pos_latlon.lat != -DBL_MAX && pos_latlon.lon != -DBL_MAX){
+        if(pos_latlon.alt != -DBL_MAX && pos_latlon.alt != AltitudeValue_unavailable){
+            pos_xyz.x = (N+pos_latlon.alt)*cos(pos_latlon.lat)*cos(pos_latlon.lon);
+            pos_xyz.y = (N+pos_latlon.alt)*cos(pos_latlon.lat)*sin(pos_latlon.lon);
+            pos_xyz.z = (N*(1-(1/298.257223563))+pos_latlon.alt)*sin(pos_latlon.lat);
+        } else{
+            pos_xyz.x = N*cos(pos_latlon.lat)*cos(pos_latlon.lon);
+            pos_xyz.y = N*cos(pos_latlon.lat)*sin(pos_latlon.lon);
+            pos_xyz.z = N*sin(pos_latlon.lat);
+        }
+    }
+
+    return pos_xyz;
+}
+
+VDPGPSClient::VRU_position_XYZ_t
+VDPGPSClient::convertLatLontoXYZ_TM(VDPGPSClient::VRU_position_latlon_t pos_latlon, double lon0){
+    VDPGPSClient::VRU_position_XYZ_t pos_xyz = {-DBL_MAX,-DBL_MAX,-DBL_MAX};
+    double x, y, gamma, k;
+    transverse_mercator_t transmerc = UTMUPS_init_UTM_TransverseMercator();
+
+    // Perform a Transverse Mercator projection considering "lon0" as center meridian
+    TransverseMercator_Forward(&transmerc,lon0,pos_latlon.lat,pos_latlon.lon,&x,&y,&gamma,&k);
+
+    if(m_vru_debug==true) {
+        fprintf(stdout,"[DEBUG] [Transverse Mercator Forward] lat=%.7lf, lon=%.7lf [lon0=%.7lf] -> x=%.7lf, y=%.7lf\n",
+                pos_latlon.lat,pos_latlon.lon,lon0,x,y);
+
+        double dbg_rev_lat,dbg_rev_lon,dbg_gamma,dbg_k;
+
+        TransverseMercator_Reverse(&transmerc,lon0,x,y,&dbg_rev_lat,&dbg_rev_lon,&dbg_gamma,&dbg_k);
+        fprintf(stdout,"[DEBUG] [Transverse Mercator Reverse] x=%.7lf, y=%.7lf [lon0=%.7lf] -> lat=%.7lf, lon=%.7lf\n",
+                x,y,lon0,dbg_rev_lat,dbg_rev_lon);
+    }
+
+    pos_xyz.x = x; // [m]
+    pos_xyz.y = y; // [m]
+    pos_xyz.z = pos_latlon.alt; // Altitude was already in [m] and it is not involved in the coordinate conversion
+
+    return pos_xyz;
+}
+
+VDPGPSClient::VAM_mandatory_data_t
+VDPGPSClient::getVAMMandatoryData() {
+    VAM_mandatory_data_t VAMdata={.avail=false};
+    int rval;
+
+    rval=gps_read(&m_gps_data,nullptr,0);
+
+    if(rval==-1) {
+        throw std::runtime_error("Cannot read data from GNSS device: " + std::string(gps_errstr(rval)));
+    } else {
+        // Check if the mode is set and if a fix has been obtained
+        if((m_gps_data.set & MODE_SET)==MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+            if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                /* Speed [0.01 m/s] */
+                VAMdata.speed = VDPValueConfidence<>(m_gps_data.fix.speed*CENTI,SpeedConfidence_unavailable);
+
+                /* Latitude WGS84 [0,1 microdegree] */
+                VAMdata.latitude = (Latitude_t)(m_gps_data.fix.latitude*DOT_ONE_MICRO);
+                /* Longitude WGS84 [0,1 microdegree] */
+                VAMdata.longitude = (Longitude_t)(m_gps_data.fix.longitude*DOT_ONE_MICRO);
+
+                int asnAltitudeValue=static_cast<int>(m_gps_data.fix.altitude*CENTI);
+                /* Altitude [0,01 m] */
+                if(m_gps_data.fix.mode == MODE_3D && asnAltitudeValue>=-100000 &&  asnAltitudeValue<=800000) {
+                    VAMdata.altitude = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.altitude*CENTI),AltitudeConfidence_unavailable);
+                } else {
+                    VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
+                }
+
+                /* Position Confidence Ellipse */
+                VAMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
+                VAMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
+                VAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
+
+                /* Heading WGS84 north [0.1 degree] - m_gps_data.fix.track should already provide a CW heading relative to North */
+                if(static_cast<int>(m_gps_data.fix.track*DECI)<0 || static_cast<int>(m_gps_data.fix.track*DECI)>3601) {
+                    VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+                } else {
+                    VAMdata.heading = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.track*DECI),HeadingConfidence_unavailable);
+                }
+
+                /* Longitudinal acceleration [0.1 m/s^2] */
+                VAMdata.longAcceleration = VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,AccelerationConfidence_unavailable);
+
+                /* This flag represents an easy way to understand if it was possible to read any valid data from the GNSS device */
+                VAMdata.avail = true;
+            }
+        } else{
+            // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
+
+            /* Speed [0.01 m/s] */
+            VAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable,SpeedConfidence_unavailable);
+
+            /* Latitude WGS84 [0,1 microdegree] */
+            VAMdata.latitude = (Latitude_t)Latitude_unavailable;
+            /* Longitude WGS84 [0,1 microdegree] */
+            VAMdata.longitude = (Longitude_t)Longitude_unavailable;
+
+            /* Altitude [0,01 m] */
+            VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
+
+            /* Position Confidence Ellipse */
+            VAMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
+            VAMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
+            VAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
+
+            /* Longitudinal acceleration [0.1 m/s^2] */
+            VAMdata.longAcceleration = VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,AccelerationConfidence_unavailable);
+
+            /* Heading WGS84 north [0.1 degree] */
+            VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+
+            VAMdata.avail = false;
+        }
+    }
+
+    return VAMdata;
 }
 
 VDPValueConfidence<>

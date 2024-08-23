@@ -7,10 +7,8 @@
 #include <atomic>
 // TCLAP headers
 #include "tclap/CmdLine.h"
-// VDP GPS Client
+// VDP GPS Client + VRUdp
 #include "gpsc.h"
-// VRUdp
-#include "VRUdp.h"
 // LDM
 #include "LDMmap.h"
 // CA Basic Service (TX only)
@@ -235,7 +233,7 @@ void CAMtxThr(std::string gnss_device,
         vdpgpsc.setSerialParser(&serialParser);
     }
 
-    VRUdp vrudp(gnss_device,gnss_port);
+    VDPGPSClient vrudp(gnss_device,gnss_port);
     GeoNet GN;
     btp BTP;
 
@@ -326,7 +324,7 @@ void CPMtxThr(std::string gnss_device,
 
     std::cout << use_gpsd << std::endl;
 
-    VRUdp vrudp(gnss_device,gnss_port);
+    VDPGPSClient vrudp(gnss_device,gnss_port);
     GeoNet GN;
     btp BTP;
 
@@ -398,7 +396,7 @@ void VAMtxThr(std::string gnss_device,
               bool use_gpsd) {
     bool m_retry_flag=false;
 
-    VRUdp vrudp(gnss_device,gnss_port);
+    VDPGPSClient vrudp(gnss_device,gnss_port);
     GeoNet GN;
     btp BTP;
 
@@ -408,7 +406,7 @@ void VAMtxThr(std::string gnss_device,
 
             int vam_cnt_test=0;
             while (true) {
-                VRUdp_position_latlon_t pos;
+                VDPGPSClient::VRU_position_latlon_t pos;
 
                 pos=vrudp.getPedPosition();
 

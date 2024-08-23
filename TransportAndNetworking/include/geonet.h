@@ -10,12 +10,13 @@
 #include <map>
 #include <set>
 #include <mutex>
+#include "gpsc.h"
 #include "basicHeader.h"
 #include "commonHeader.h"
 #include "shbHeader.h"
 #include "gbcHeader.h"
-#include "gpsc.h"
-#include "VRUdp.h"
+
+
 
 #define GN_ETHERTYPE 0x8947
 
@@ -29,7 +30,7 @@ class GeoNet {
 		void setStationID(unsigned long fixed_stationid);
 		void setStationType(long fixed_stationtype);
 		void setVDP(VDPGPSClient* vdp);
-		void setVRUdp(VRUdp* vrudp);
+		void setVRUdp(VDPGPSClient* vrudp);
 		void setSocketTx(int socket_tx_descr,int ifindex,uint8_t srcmac[6]);
 		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest);
 		
@@ -62,7 +63,7 @@ class GeoNet {
 		int m_socket_tx=-1;
 
 		VDPGPSClient* m_vdp;
-		VRUdp* m_vrudp;
+        VDPGPSClient* m_vrudp;
 		StationId_t m_station_id;
 		StationType_t m_stationtype;
 
