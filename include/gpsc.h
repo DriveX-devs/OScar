@@ -109,22 +109,22 @@ class VDPGPSClient {
 		std::pair<double,double> getCurrentPositionDbl();
 
         // For parser performance logging
-        std::pair<double,double> getPosition();
-        std::tuple<double,double,double> getAccelerations();
-        std::tuple<double,double,double> getAngularRates();
-        std::tuple<double,double,double> getRawAccelerations();
-        std::tuple<double,double,double> getAttitude();
-        double getSpeedUbx();
-        double getSpeedNmea();
-        double getCourseOverGroundUbx();
-        double getCourseOverGroundNmea();
-        double getAltitude();
-        double getYawRate();
-        double getLongitudinalAcceleration();
-        std::string getFixMode();
-        std::string getUtcTimeUbx();
-        std::string getUtcTimeNmea();
-        double getValidityThreshold();
+        std::pair<double,double> getParserPosition();
+        std::tuple<double,double,double> getParserAccelerations();
+        std::tuple<double,double,double> getParserAngularRates();
+        std::tuple<double,double,double> getParserRawAccelerations();
+        std::tuple<double,double,double> getParserAttitude();
+        double getParserSpeedUbx();
+        double getParserSpeedNmea();
+        double getParserCourseOverGroundUbx();
+        double getParserCourseOverGroundNmea();
+        double getParserAltitude();
+        double getParserYawRate();
+        double getParserLongitudinalAcceleration();
+        std::string getParserFixMode();
+        std::string getParserUtcTimeUbx();
+        std::string getParserUtcTimeNmea();
+        double getParserValidityThreshold();
 
         bool setSerialParser(UBXNMEAParserSingleThread *serialParserPtr) {
             if (serialParserPtr == nullptr) {

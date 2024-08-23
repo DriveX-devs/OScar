@@ -1116,10 +1116,10 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     }
     else out_nmea.sog_nmea = 0;
 
-    //todo: remove this (testing on vsim)
+    //TODO: remove this (testing on vsim)
     fix_validity = 'A';
     fix = 'R';
-    std::cout << cog.data();
+    //std::cout << cog.data();
 
     // Fix Validity Check
     if (fix_validity != 'A') {

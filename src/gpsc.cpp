@@ -2,6 +2,8 @@
 #include <stdexcept>
 #include <math.h> 
 #include <cfloat>
+#include <utility>
+#include <tuple>
 
 void
 VDPGPSClient::openConnection() {
@@ -34,67 +36,66 @@ VDPGPSClient::closeConnection() {
 }
 
 // Serial parser performance log methods
-std::pair<double,double> VDPGPSClient::getPosition() {
+std::pair<double,double> VDPGPSClient::getParserPosition() {
     return m_serialParserPtr->getPosition(nullptr,false);
 }
 
-std::tuple<double,double,double> VDPGPSClient::getAccelerations() {
+std::tuple<double,double,double> VDPGPSClient::getParserAccelerations() {
     return m_serialParserPtr->getAccelerations(nullptr,false);
 }
 
-std::tuple<double,double,double> VDPGPSClient::getAngularRates() {
+std::tuple<double,double,double> VDPGPSClient::getParserAngularRates() {
     return m_serialParserPtr->getAngularRates(nullptr,false);
 }
 
-std::tuple<double,double,double> VDPGPSClient::getRawAccelerations() {
+std::tuple<double,double,double> VDPGPSClient::getParserRawAccelerations() {
     return m_serialParserPtr->getRawAccelerations(nullptr,false);
 }
 
-std::tuple<double,double,double> VDPGPSClient::getAttitude() {
-    return m_serialParserPtr->getAttitude(nullptr,false);
-}
+std::tuple<double,double,double> VDPGPSClient::getParserAttitude() {
+    return m_serialParserPtr->getAttitude(nullptr,false);}
 
-double VDPGPSClient::getSpeedUbx() {
+double VDPGPSClient::getParserSpeedUbx() {
     return m_serialParserPtr->getSpeedUbx(nullptr,false);
 }
 
-double VDPGPSClient::getSpeedNmea() {
+double VDPGPSClient::getParserSpeedNmea() {
     return m_serialParserPtr->getSpeedNmea(nullptr,false);
 }
 
-double VDPGPSClient::getCourseOverGroundUbx() {
+double VDPGPSClient::getParserCourseOverGroundUbx() {
     return m_serialParserPtr->getCourseOverGroundUbx(nullptr,false);
 }
 
-double VDPGPSClient::getCourseOverGroundNmea() {
+double VDPGPSClient::getParserCourseOverGroundNmea() {
     return m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
 }
 
-double VDPGPSClient::getAltitude() {
+double VDPGPSClient::getParserAltitude() {
     return m_serialParserPtr->getAltitude(nullptr,false);
 }
 
-double VDPGPSClient::getYawRate() {
-    return m_serialParserPtr->getyawRate(nullptr,false);
+double VDPGPSClient::getParserYawRate() {
+    return m_serialParserPtr->getYawRate(nullptr,false);
 }
 
-double VDPGPSClient::getLongitudinalAcceleration() {
+double VDPGPSClient::getParserLongitudinalAcceleration() {
     return m_serialParserPtr->getLongitudinalAcceleration(nullptr,false);
 }
 
-double VDPGPSClient::getValidityThreshold() {
+double VDPGPSClient::getParserValidityThreshold() {
     return m_serialParserPtr->getValidityThreshold();
 }
 
-std::string VDPGPSClient::getFixMode() {
+std::string VDPGPSClient::getParserFixMode() {
     return m_serialParserPtr->getFixMode();
 }
 
-std::string VDPGPSClient::getUtcTimeUbx() {
+std::string VDPGPSClient::getParserUtcTimeUbx() {
     return m_serialParserPtr->getUtcTimeUbx();
 }
 
-std::string VDPGPSClient::getUtcTimeNmea() {
+std::string VDPGPSClient::getParserUtcTimeNmea() {
     return m_serialParserPtr->getUtcTimeNmea();
 }
 
