@@ -6,6 +6,7 @@
 #include "asn1cpp/Setter.hpp"
 #include "asn1cpp/SequenceOf.hpp"
 #include "btp.h"
+#include "LDMmap.h"
 #include <functional>
 #include <atomic>
 #include <thread>
