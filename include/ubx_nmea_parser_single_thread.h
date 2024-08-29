@@ -26,7 +26,6 @@ class UBXNMEAParserSingleThread {
 
         // Getters
         std::pair<double,double> getPosition(long *age_us, bool print_timestamp_and_age);
-        // todo: later before commit: add timestamp and age in the missing functions
         std::tuple<double,double,double> getAccelerations(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getAngularRates(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getRawAccelerations(long *age_us, bool print_timestamp_and_age);

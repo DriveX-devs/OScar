@@ -877,13 +877,15 @@ UBXNMEAParserSingleThread::getFixMode() {
 
 	out_t tmp = m_outBuffer.load();
 
-    //std::string fix_ubx(tmp.fix_ubx);
+    std::string fix_ubx(tmp.fix_ubx);
 
-    // TODO: remove this (local testing purposes. REMOVE FOR FIELD TEST)
+    /*
+    // remove this (local testing purposes. REMOVE FOR FIELD TEST)
     std::string fix_ubx = "Fix mode: 3D-Fix [UBX]";
     std::string fix_nmea = "Fix Mode: RTK Fixed (R) [NMEA]";
     m_3d_valid_fix = true;
     m_2d_valid_fix = true;
+    */
 
 	// Checks if the fix mode has already been obtained from UBX
 	if (fix_ubx.empty() == true) {
@@ -1116,9 +1118,11 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     }
     else out_nmea.sog_nmea = 0;
 
-    //TODO: remove this (testing on vsim)
+    /*
+    //remove this for field testing
     fix_validity = 'A';
     fix = 'R';
+    */
 
     // Fix Validity Check
     if (fix_validity != 'A') {
