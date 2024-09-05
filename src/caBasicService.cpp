@@ -491,8 +491,8 @@ CABasicService::checkCamConditions()
         std::string data="";
         std::string sent="false";
 
-        std::string motivation;
-        std::string joint;
+        std::string motivation="";
+        std::string joint="";
         int numConditions=0;
 
         // Check the motivation of the CAM sent

@@ -297,6 +297,7 @@ VDPGPSClient::getCurrentPosition() {
         // Check if at least a 2D fix is present
         if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
             if (m_serialParserPtr->getPositionValidity(false) == true) {
+                printf("GetPosition()\n");
                 std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
                 return std::pair<long, long>(position.first * DOT_ONE_MICRO, position.second * DOT_ONE_MICRO);
             }
@@ -502,7 +503,10 @@ VDPGPSClient::getLongitudinalAccelerationValue() {
         // Check if at least a 3D fix is present
         if (m_serialParserPtr->getFixValidity3D(false) == true && m_serialParserPtr->getAccelerationsValidity(false) == true) {
             double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
-            return VDPValueConfidence<>(static_cast<int>(long_acc * DECI), AccelerationConfidence_unavailable);
+            if (long_acc >= -16 && long_acc <= 16) {
+                return VDPValueConfidence<>(static_cast<int>(long_acc * DECI), AccelerationConfidence_unavailable);
+            }
+            else return VDPValueConfidence<>(AccelerationValue_unavailable, AccelerationConfidence_unavailable);
         }
         return VDPValueConfidence<>(AccelerationValue_unavailable, AccelerationConfidence_unavailable);
     }
@@ -827,11 +831,14 @@ getCAMMandatoryData() {
 
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
                 double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
-
                 // If no speed is available from UBX, use NMEA
-                if (speed == 0) speed = m_serialParserPtr->getSpeedNmea(nullptr,false);
+                if (speed == 0) {
+                    //speed = m_serialParserPtr->getSpeedNmea(nullptr,false);
+                }
+                if (speed >= 0 && speed <= 163.82) {
+                    CAMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
+                } else CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
 
-                CAMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
             } else CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
 
             if (m_serialParserPtr->getPositionValidity(false) == true) {
@@ -846,7 +853,9 @@ getCAMMandatoryData() {
 
             if (m_serialParserPtr->getAltitudeValidity(false) == true) {
                 double altitude = m_serialParserPtr->getAltitude(nullptr, false);
-                CAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
+                if (altitude * CENTI >= -100000 && altitude * CENTI <= 800000) {
+                    CAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
+                } else CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
             } else CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
 
             CAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
@@ -855,7 +864,10 @@ getCAMMandatoryData() {
 
             if (m_serialParserPtr->getAccelerationsValidity(false) == true) {
                 double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
-                CAMdata.longAcceleration = VDPValueConfidence<>(long_acc * CENTI, AccelerationConfidence_unavailable);
+                if (long_acc >= -16 && long_acc <= 16) {
+                    //CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+                    CAMdata.longAcceleration = VDPValueConfidence<>(long_acc * DECI, AccelerationConfidence_unavailable);
+                } else CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
             } else CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
 
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
@@ -878,7 +890,10 @@ getCAMMandatoryData() {
 
             if (m_serialParserPtr->getYawRateValidity(false) == true) {
                 double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
-                CAMdata.yawRate = VDPValueConfidence<>(yaw_rate * CENTI, YawRateConfidence_unavailable);
+                if (yaw_rate >= -327.66 && yaw_rate <= 327.66) {
+                    //CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+                    CAMdata.yawRate = VDPValueConfidence<>(yaw_rate * CENTI, YawRateConfidence_unavailable);
+                } else CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
             } else CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
 
             CAMdata.avail = true;
