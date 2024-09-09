@@ -71,7 +71,7 @@ GeoNet::setVDP (VDPGPSClient* vdp)
 }
 
 void
-GeoNet::setVRUdp (VRUdp* vrudp)
+GeoNet::setVRUdp (VDPGPSClient* vrudp)
 {
 	m_vrudp = vrudp;
 }
@@ -220,7 +220,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 	longPV.TST = get_timestamp_ms_gn32();
 
 	if(m_stationtype == StationType_pedestrian){
-		VRUdp_position_latlon_t POS_EPV = m_vrudp->getPedPosition();
+		VDPGPSClient::VRU_position_latlon_t POS_EPV = m_vrudp->getPedPosition();
 		longPV.latitude = (int32_t) (POS_EPV.lat*DOT_ONE_MICRO);
 		longPV.longitude = (int32_t) (POS_EPV.lon*DOT_ONE_MICRO);
 		longPV.positionAccuracy = false;

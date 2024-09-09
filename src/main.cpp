@@ -7,10 +7,8 @@
 #include <atomic>
 // TCLAP headers
 #include "tclap/CmdLine.h"
-// VDP GPS Client
+// VDP GPS Client + VRUdp
 #include "gpsc.h"
-// VRUdp
-#include "VRUdp.h"
 // LDM
 #include "LDMmap.h"
 // CA Basic Service (TX only)
@@ -235,7 +233,7 @@ void CAMtxThr(std::string gnss_device,
         vdpgpsc.setSerialParser(&serialParser);
     }
 
-    VRUdp vrudp(gnss_device,gnss_port);
+    VDPGPSClient vrudp(gnss_device,gnss_port);
     GeoNet GN;
     btp BTP;
 
@@ -257,9 +255,7 @@ void CAMtxThr(std::string gnss_device,
                 CAMdata = vdpgpsc.getCAMMandatoryData();
 
                 std::cout << "[INFO] [" << cnt_CAM << "] VDP GPS Client test result: Lat: " << CAMdata.latitude
-                          << " deg - Lon: " << CAMdata.longitude << " deg - Heading: " << CAMdata.heading.getValue()
-                          << std::endl;
-
+                          << " deg - Lon: " << CAMdata.longitude << " deg" << std::endl;
                 sleep(1);
                 cnt_CAM++;
             }
@@ -328,7 +324,7 @@ void CPMtxThr(std::string gnss_device,
 
     std::cout << use_gpsd << std::endl;
 
-    VRUdp vrudp(gnss_device,gnss_port);
+    VDPGPSClient vrudp(gnss_device,gnss_port);
     GeoNet GN;
     btp BTP;
 
@@ -400,7 +396,7 @@ void VAMtxThr(std::string gnss_device,
               bool use_gpsd) {
     bool m_retry_flag=false;
 
-    VRUdp vrudp(gnss_device,gnss_port);
+    VDPGPSClient vrudp(gnss_device,gnss_port);
     GeoNet GN;
     btp BTP;
 
@@ -410,7 +406,7 @@ void VAMtxThr(std::string gnss_device,
 
             int vam_cnt_test=0;
             while (true) {
-                VRUdp_position_latlon_t pos;
+                VDPGPSClient::VRU_position_latlon_t pos;
 
                 pos=vrudp.getPedPosition();
 
@@ -524,6 +520,7 @@ int main (int argc, char *argv[]) {
     // serial parser options
     std::string serial_device = "/dev/ttyACM0";
     int serial_device_baudrate = 115200;
+    double serial_device_validity_thr = 1;
 
 	unsigned long vehicleID = 0; // Vehicle ID
 	unsigned long VRUID = 0; // VRU ID
@@ -564,7 +561,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "2.0");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "3.7");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
@@ -636,7 +633,10 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<int> SerialDeviceBaudrate("b","serial-device-baudrate","[Considered only if -g is not specified] Serial device baudrate for the GNSS receiver. Default: 115200",false,115200,"positive integer");
         cmd.add(SerialDeviceBaudrate);
 
-		// Vehicle Visualizer options
+        TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
+        cmd.add(SerialDeviceValidityThr);
+
+        // Vehicle Visualizer options
 		TCLAP::ValueArg<long> VV_NodejsPortArg("1","vehviz-nodejs-port","Advanced option: set the port number for the UDP connection to the Vehicle Visualizer Node.js server",false,DEFAULT_VEHVIZ_NODEJS_UDP_PORT,"integer");
 		cmd.add(VV_NodejsPortArg);
 
@@ -721,6 +721,7 @@ int main (int argc, char *argv[]) {
         use_gpsd = UseGPSD.getValue();
         serial_device = SerialDevice.getValue();
         serial_device_baudrate = SerialDeviceBaudrate.getValue();
+        serial_device_validity_thr = SerialDeviceValidityThr.getValue();
 
 		if(enable_reception==false && enable_hmi==true) {
 			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
@@ -746,11 +747,12 @@ int main (int argc, char *argv[]) {
 		return 1;
 	}
 
+	/*
     if(use_gpsd==false) {
         std::cerr << "Error. The NMEA/UBX serial parser for positioning is not yet fully implemented. Please use libgps with --use-gpsd for the time being." << std::endl;
-
         return 1;
     }
+	*/
 
 	// Create the raw socket for the transmission of CAMs/VAMs, encapsulated inside GeoNetworking and BTP (in user space) 
 	int sockfd=-1;
@@ -812,6 +814,7 @@ int main (int argc, char *argv[]) {
 
     // Configure the global serial parser if gpsd is not used
     if(!use_gpsd) {
+        serialParser.setValidityThreshold(serial_device_validity_thr);
         serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag);
     }
 

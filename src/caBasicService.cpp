@@ -2,6 +2,7 @@
 #include "gpsc.h"
 #include "asn_utils.h"
 #include "utils.h"
+#include "LDMmap.h"
 #include <future>
 #include <chrono>
 #include <ctime>
@@ -82,7 +83,7 @@ CABasicService_error_t
 CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandatory_data_t &cam_mandatory_data) {
     CABasicService_error_t errval=CAM_NO_ERROR;
 
-    if(bool(msgstruct)==false) {
+    if(bool(msgstruct) == false) {
         return CAM_ALLOC_ERROR;
     }
 
@@ -97,7 +98,7 @@ CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandat
 
     /* Fill the basicContainer's station type */
     asn1cpp::setField(msgstruct->cam.camParameters.basicContainer.stationType, m_stationtype);
-    if(m_vehicle==true) {
+    if(m_vehicle == true) {
         cam_mandatory_data=m_vdp->getCAMMandatoryData();
         /* Debug print: leave commented when releasing for testing or using for a use case */
         /*int64_t after=get_timestamp_us(); */
@@ -134,6 +135,7 @@ CABasicService::fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandat
         m_prev_pos=m_vdp->getCurrentPositionDbl();
         m_prev_speed=m_vdp->getSpeedValueDbl();
         m_prev_heading=m_vdp->getHeadingValue().getValue();
+
     } else {
         /* Fill the basicContainer */
         /* There is still no full RSU support in this release */
@@ -271,12 +273,12 @@ CABasicService::checkCamConditions()
   int64_t now;
   CABasicService_error_t cam_error;
   bool condition_verified;
-  static bool dyn_cond_verified=false;
-  FILE* f_out=nullptr;
-  bool first=true;
-  double currHead=(double)m_vdp->getHeadingValue().getValue()/10;
-  std::pair<double,double> currPos=m_vdp->getCurrentPositionDbl();
-  double currSpeed=m_vdp->getSpeedValue().getValue();
+  static bool dyn_cond_verified = false;
+  FILE* f_out = nullptr;
+  bool first = true;
+  double currHead = (double)m_vdp->getHeadingValue().getValue()/10;
+  std::pair<double,double> currPos = m_vdp->getCurrentPositionDbl();
+  double currSpeed = m_vdp->getSpeedValue().getValue();
   long int time_difference;
   double head_diff=-1;
   double pos_diff=-1;
@@ -304,19 +306,19 @@ CABasicService::checkCamConditions()
   }
 
   // The dissemination goes on until it is interrupted
-  while(m_terminateFlag==false) {
+  while(m_terminateFlag == false) {
     if(poll(&pollfddata,1,0)>0) {
       POLL_CLEAR_EVENT(clockFd);
 
       // Initializing
-      condition_verified=false;
-      std::string data_head="";
-      std::string data_pos="";
-      std::string data_speed="";
-      std::string data_time="";
+      condition_verified = false;
+      std::string data_head = "";
+      std::string data_pos = "";
+      std::string data_speed = "";
+      std::string data_time = "";
 
       // If no initial CAM has been triggered before checkCamConditions() has been called, throw an error
-      if(m_prev_heading==-1 || m_prev_speed==-1 || m_prev_pos.first==-DBL_MAX || m_prev_pos.second==-DBL_MAX)
+      if(m_prev_heading == -1 || m_prev_speed == -1 || m_prev_pos.first == -DBL_MAX || m_prev_pos.second == -DBL_MAX)
       {
         std::cerr << "Error. checkCamConditions() was called before sending any CAM and this is not allowed." << std::endl;
         terminateDissemination();
@@ -330,7 +332,6 @@ CABasicService::checkCamConditions()
       double headCheckDbl=(float)m_vdp->getHeadingValueDbl();
       currPos = m_vdp->getCurrentPositionDbl();
       long int speedCheck=m_vdp->getSpeedValue().getValue();
-
 
       /*
        * ETSI EN 302 637-2 V1.3.1 chap. 6.1.3 condition 1) (no DCC)
@@ -354,8 +355,8 @@ CABasicService::checkCamConditions()
         // If the heading difference with the previous CAM sent is more than 4°, then generate the CAM
         if (head_diff > 4.0 || head_diff < -4.0)
         {
-          cam_error=generateAndEncodeCam ();
-          if(cam_error==CAM_NO_ERROR)
+          cam_error=generateAndEncodeCam();
+          if(cam_error == CAM_NO_ERROR)
           {
             m_N_GenCam=0;
             condition_verified=true;
@@ -490,9 +491,11 @@ CABasicService::checkCamConditions()
         std::string data="";
         std::string sent="false";
 
-        std::string motivation="";
-        std::string joint;
+
+        std::string motivation;
+        std::string joint="";
         int numConditions=0;
+        motivation="";
 
         // Check the motivation of the CAM sent
         if (!condition_verified) {
@@ -539,14 +542,55 @@ CABasicService::checkCamConditions()
             }
           }
 
-          if(condition_verified && strlen(motivation.c_str())==0) {
+          if(condition_verified && motivation.empty()) {
             motivation="numPkt";
           }
         }
 
         // Create the data for the log print
         data+="[LOG] Timestamp="+std::to_string(time)+" CAMSend="+sent+" Motivation="+motivation+" HeadDiff="+std::to_string(head_diff)+" PosDiff="+std::to_string(pos_diff)+" SpeedDiff="+std::to_string(speed_diff)+" TimeDiff="+std::to_string(time_difference)+"\n";
-        data=data+data_head+data_pos+data_speed+data_time+"\n";
+        data=data+data_head+data_pos+data_speed+data_time;
+        if (m_vdp->getSerialParser() == false) data = data + "\n";
+
+        /**
+         * Generate the serial parser data to be included in log
+         * NOTE: the follwing data has been exluded in order not to overcomplicate the log
+         * but it can be included if needed: angular rate, raw accelerations, altitude,
+         * validity threshold, UBX UTX Time, NMEA UTC Time
+         */
+
+        if (m_vdp->getSerialParser() == true) {
+            std::string parser_log_data = "[PARSER]";
+
+            std::string fix = m_vdp->getParserFixMode();
+            std::string data_fix = " Fix=" + fix;
+            std::tuple<double,double,double> accs = m_vdp->getParserAccelerations();
+            std::string data_accs =
+                    " Acc_x=" + std::to_string(std::get<0>(accs)) +
+                    " Acc_y=" + std::to_string(std::get<1>(accs)) +
+                    " Acc_y=" + std::to_string(std::get<2>(accs));
+            std::tuple<double,double,double> att = m_vdp->getParserAttitude();
+            std::string data_att =
+                    " Roll="  + std::to_string(std::get<0>(att)) +
+                    " Pitch=" + std::to_string(std::get<1>(att)) +
+                    " Yaw="   + std::to_string(std::get<2>(att));
+            double speed_ubx = m_vdp->getParserSpeedUbx();
+            std::string data_speed_ubx = " Speed(UBX)=" + std::to_string(speed_ubx);
+            double speed_nmea = m_vdp->getParserSpeedNmea();
+            std::string data_speed_nmea = " Speed(NMEA)=" + std::to_string(speed_nmea);
+            double cog_ubx = m_vdp->getParserCourseOverGroundUbx();
+            std::string data_cog_ubx = " Cog(UBX)=" + std::to_string(cog_ubx);
+            double cog_nmea = m_vdp->getParserCourseOverGroundNmea();
+            std::string data_cog_nmea = " Cog(NMEA)=" + std::to_string(cog_nmea);
+            double longit_acc = m_vdp->getParserLongitudinalAcceleration();
+            std::string data_longit_acc = " LongitudinalAcceleration=" + std::to_string(longit_acc);
+            double yaw_rate = m_vdp->getParserYawRate();
+            std::string data_yaw_rate = " YawRate=" + std::to_string(yaw_rate);
+
+            parser_log_data = parser_log_data + data_fix + data_accs + data_att + data_speed_ubx +
+                              data_speed_nmea + data_cog_ubx + data_cog_nmea + data_longit_acc + data_yaw_rate;
+            data = data + parser_log_data + "\n\n";
+        }
 
         // Print the data for the log
         fprintf(f_out,"%s", data.c_str());

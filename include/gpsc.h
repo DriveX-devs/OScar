@@ -1,3 +1,12 @@
+
+/* Integration changes
+ * -merged VDPValueConfidence in VPDValueConfidence
+ * -merged extern and includes
+ * -added data structures (changed VRUdp_[...] to VRU_[...])
+ * -unified PosConfidenceEllipse_t in the exsisting VDP one
+ * -modified debug flag from m_debug to m_vru_debug
+ */
+
 #ifndef VDPGPSC_H
 #define VDPGPSC_H
 
@@ -5,9 +14,12 @@
 #include <string>
 #include "asn_utils.h"
 #include "ubx_nmea_parser_single_thread.h"
+// #include "LDMmap.h" (circular dependency problem fix)
+#include "StationType.h"
 
 extern "C" {
 	#include "CAM.h"
+    #include "VAM.h"
 }
 
 template <class V = int, class C = int>
@@ -53,24 +65,43 @@ class VDPGPSClient {
 	        VDPValueConfidence<> yawRate;
       	} CAM_mandatory_data_t;
 
-    typedef struct CPM_mandatory_data {
-        bool avail;
-        VDPValueConfidence<> speed;
-        long longitude;
-        long latitude;
-        VDPValueConfidence<> altitude;
-        VDP_PosConfidenceEllipse_t posConfidenceEllipse;
-        VDPValueConfidence<> longAcceleration;
-        VDPValueConfidence<> heading;
-        VDPValueConfidence<> curvature;
-        int curvature_calculation_mode; // enum
-        VDPValueConfidence<long,long> VehicleLength;
-        int VehicleWidth;
-        VDPValueConfidence<> yawRate;
-    } CPM_mandatory_data_t;
+        typedef struct CPM_mandatory_data {
+            bool avail;
+            VDPValueConfidence<> speed;
+            long longitude;
+            long latitude;
+            VDPValueConfidence<> altitude;
+            VDP_PosConfidenceEllipse_t posConfidenceEllipse;
+            VDPValueConfidence<> longAcceleration;
+            VDPValueConfidence<> heading;
+            VDPValueConfidence<> curvature;
+            int curvature_calculation_mode; // enum
+            VDPValueConfidence<long,long> VehicleLength;
+            int VehicleWidth;
+            VDPValueConfidence<> yawRate;
+        } CPM_mandatory_data_t;
 
-		VDPGPSClient(std::string server, long port) :
-			m_server(server), m_port(port) {
+        typedef struct VAM_mandatory_data {
+            bool avail;
+            VDPValueConfidence<> speed;
+            long longitude;
+            long latitude;
+            VDPValueConfidence<> altitude;
+            VDP_PosConfidenceEllipse_t posConfidenceEllipse;
+            VDPValueConfidence<> longAcceleration;
+            VDPValueConfidence<> heading;
+        } VAM_mandatory_data_t;
+
+        typedef struct VRU_position_latlon {
+            double lat,lon,alt;
+        } VRU_position_latlon_t;
+
+        typedef struct VRU_position_XYZ {
+            double x,y,z;
+        } VRU_position_XYZ_t;
+
+        VDPGPSClient(std::string server, long port) :
+                m_server(server), m_port(port) {
         };
 
 		VDPGPSClient() {};
@@ -94,13 +125,37 @@ class VDPGPSClient {
 
 		VDPValueConfidence<> getHeadingValue();
 		VDPValueConfidence<> getSpeedValue();
+        VDPValueConfidence<> getAltitudeValue();
+        VDPValueConfidence<> getLongitudinalAccelerationValue();
+        VDPValueConfidence<> getYawRate();
 		// This function returns the current position in terms of <Lat [0.1 microdegrees],Lon [0.1 microdegrees]>
 		std::pair<long,long> getCurrentPosition();
 
 		// Standard types
 		double getHeadingValueDbl();
 		double getSpeedValueDbl();
+        double getAltitudeValueDbl();
+        double getLongitudinalAccelerationValueDbl();
+        double getYawRateDbl();
 		std::pair<double,double> getCurrentPositionDbl();
+
+        // For parser performance logging
+        std::pair<double,double> getParserPosition();
+        std::tuple<double,double,double> getParserAccelerations();
+        std::tuple<double,double,double> getParserAngularRates();
+        std::tuple<double,double,double> getParserRawAccelerations();
+        std::tuple<double,double,double> getParserAttitude();
+        double getParserSpeedUbx();
+        double getParserSpeedNmea();
+        double getParserCourseOverGroundUbx();
+        double getParserCourseOverGroundNmea();
+        double getParserAltitude();
+        double getParserYawRate();
+        double getParserLongitudinalAcceleration();
+        std::string getParserFixMode();
+        std::string getParserUtcTimeUbx();
+        std::string getParserUtcTimeNmea();
+        double getParserValidityThreshold();
 
         bool setSerialParser(UBXNMEAParserSingleThread *serialParserPtr) {
             if (serialParserPtr == nullptr) {
@@ -108,6 +163,11 @@ class VDPGPSClient {
             }
             m_serialParserPtr = serialParserPtr;
             return true;
+        }
+
+        bool getSerialParser() {
+            if (m_serialParserPtr == nullptr) return false;
+            else return true;
         }
 
 		void setFixedVehicleLength(VDPValueConfidence<long,long> vehicle_length) {
@@ -131,7 +191,26 @@ class VDPGPSClient {
         void selectGPSD(bool use_gpsd) {
             m_use_gpsd=use_gpsd;
         }
-	private:
+
+        //VAMs
+
+        // Function to retrieve the mandatory data for VAM messages
+        VAM_mandatory_data_t getVAMMandatoryData();
+
+        VRU_position_latlon_t getPedPosition();
+        double getPedSpeedValue();
+        double getPedHeadingValue();
+
+        // convertLatLontoXYZ_ECEF() still does not work as expected - kept for reference but it should not be used unless you know very well what you are doing!
+        VRU_position_XYZ_t convertLatLontoXYZ_ECEF(VRU_position_latlon_t pos_latlon);
+
+        // Working properly
+        VRU_position_XYZ_t convertLatLontoXYZ_TM(VRU_position_latlon_t pos_latlon, double lon0);
+
+        void enableDebugPrints() {m_vru_debug=true;};
+        void disableDebugPrints() {m_vru_debug=false;};
+        bool getDebugPrintsState() {return m_vru_debug;}
+    private:
 		std::string m_server="localhost";
 		long m_port=2947;
 
@@ -142,7 +221,7 @@ class VDPGPSClient {
 		long m_vehicle_width=VehicleWidth_unavailable;
 
         bool m_use_gpsd=false;
-
+        bool m_vru_debug = false;
         UBXNMEAParserSingleThread *m_serialParserPtr;
 };
 
