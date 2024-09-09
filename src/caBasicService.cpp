@@ -492,8 +492,9 @@ CABasicService::checkCamConditions()
         std::string sent="false";
 
         std::string motivation;
-        std::string joint;
+        std::string joint="";
         int numConditions=0;
+        motivation="";
 
         // Check the motivation of the CAM sent
         if (!condition_verified) {
@@ -540,7 +541,7 @@ CABasicService::checkCamConditions()
             }
           }
 
-          if(condition_verified && strlen(motivation.c_str())==0) {
+          if(condition_verified && motivation.empty()) {
             motivation="numPkt";
           }
         }

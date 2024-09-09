@@ -70,30 +70,44 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
  *
  *  NOTE: This works only for 3 and 4-dimensioned arrays but it can be extended using
  *  a uint64_t return variable. */
-long
+int32_t
 UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
+    int32_t value = 0;
     if (data.size() == 2) {
-        long value = (data[0] << 8) | (data[1]);
-        long signMask = 1 << ((data.size()*2) * 4 - 1);
-        long complementMask = signMask - 1;
-        return -(value & signMask) | (value & complementMask);
+        value |= (data[0] << 8);
+        value |= data[1];
+        if (value & 0x80000000) {
+            value = ~value + 1;
+            return -static_cast<int32_t>(value);
+        }
+        return value;
     }
     else if (data.size() == 3) {
-        long value = (data[0] << 16) | (data[1] << 8) | (data[2]);
-        long signMask = 1 << ((data.size()*2) * 4 - 1);
-        long complementMask = signMask - 1;
-        return -(value & signMask) | (value & complementMask);
+        value |= (data[0] << 16);
+        value |= (data[1] << 8);
+        value |= data[2];
+        if (value & 0x80000000) {
+            value = ~value + 1;
+            return -static_cast<int32_t>(value);
+        }
+        return value;
     }
     else if (data.size() == 4) {
-        long value = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | (data[3]);
-        long signMask = 1 << ((data.size()*2) * 4 - 1);
-        long complementMask = signMask - 1;
-        return -(value & signMask) | (value & complementMask);
-	} else {
-		std::cerr << "Fatal Error: Invalid std::vector data size. Check ESF-RAW/NAV-ATT. Terminating. ";
-		*m_terminatorFlagPtr = true; // Breaks the endless loop and terminates the program
-		return -1;
-	}
+        value |= (data[0] << 24);
+        value |= (data[1] << 16);
+        value |= (data[2] << 8);
+        value |= data[3];
+        if (value & 0x80000000) {
+            value = ~value + 1;
+            return -static_cast<int32_t>(value);
+        }
+        return value;
+    }
+    else {
+        std::cerr << "Fatal Error: Invalid std::vector data size. Check ESF-RAW/NAV-ATT. Terminating. ";
+        //*m_terminatorFlagPtr = true; // Breaks the endless loop and terminates the program
+        return -1;
+    }
 }
 
 long
@@ -636,7 +650,7 @@ UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
 
             	/* Produces the final signed value and scales it, dividing by 2^10
             	 * as indicated in 3.2.7.5 Sensor data types (Integration manual) */
-            	out_esf.raw_acc_x = (double)hexToSigned(esf_data)/1024;
+            	out_esf.raw_acc_x = static_cast<double>(hexToSigned(esf_data))/1024;
 
 				esf_data.clear();
 				j = 0;
@@ -644,14 +658,14 @@ UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
             if (esf_data[3] == 0x11) {
             	esf_data.erase(esf_data.begin()+3,esf_data.end());
             	std::reverse(esf_data.begin(),esf_data.end());
-            	out_esf.raw_acc_y = (double)hexToSigned(esf_data)/1024;
+            	out_esf.raw_acc_y = static_cast<double>(hexToSigned(esf_data))/1024;
             	esf_data.clear();
 				j = 0;
 			}
             if (esf_data[3] == 0x12) {
             	esf_data.erase(esf_data.begin()+3,esf_data.end());
             	std::reverse(esf_data.begin(),esf_data.end());
-            	out_esf.raw_acc_z = (double)hexToSigned(esf_data)/1024;
+            	out_esf.raw_acc_z = static_cast<double>(hexToSigned(esf_data))/1024;
             	esf_data.clear();
 				j = 0;
 			}
@@ -726,18 +740,18 @@ UBXNMEAParserSingleThread::parseNavAtt(std::vector<uint8_t> response) {
 			std::reverse(att_data.begin(),att_data.end());
 
 			// Converts to signed value and scales accordingly
-			out_att.roll = hexToSigned(att_data) * 0.00001;
+			out_att.roll = static_cast<double>(hexToSigned(att_data)) * 0.00001;
 
 			att_data.clear();
 		}
 		if (i == 22) {
 			std::reverse(att_data.begin(),att_data.end());
-			out_att.pitch = hexToSigned(att_data) * 0.00001;
+			out_att.pitch = static_cast<double>(hexToSigned(att_data)) * 0.00001;
 			att_data.clear();
 		}
 		if (i == 26) {
 			std::reverse(att_data.begin(),att_data.end());
-			out_att.heading = hexToSigned(att_data) * 0.00001;
+			out_att.heading = static_cast<double>(hexToSigned(att_data)) * 0.00001;
 			att_data.clear();
 			break;
 		}
@@ -1004,12 +1018,19 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 	 * Converts the arrays in little endian and retrieves the single signed value after scaling accordingly */
 	std::vector<uint8_t> sog(response.begin() + m_UBX_PAYLOAD_OFFSET + 60, response.begin() + m_UBX_PAYLOAD_OFFSET + 64);
 	std::reverse(sog.begin(),sog.end());
-	out_pvt.sog_ubx = hexToSigned(sog) * 0.001; // Converts from mm/s to m/s
+	out_pvt.sog_ubx = static_cast<double>(hexToSigned(sog)) * 0.001; // Converts from mm/s to m/s
 
 	std::vector<uint8_t> head_motion(response.begin() + m_UBX_PAYLOAD_OFFSET + 64, response.begin() + m_UBX_PAYLOAD_OFFSET + 68);
 	std::reverse(head_motion.begin(),head_motion.end());
-	out_pvt.cog_ubx = hexToSigned(head_motion) * 0.00001;
+	out_pvt.cog_ubx = static_cast<double>(hexToSigned(head_motion)) * 0.00001;
 
+    // Updates the buffer
+    m_outBuffer.store(out_pvt);
+
+    /*
+     * todo: revisit later this part (caused a bug on cog_ubx and sog_ubx)
+     * consider rewriting "hexToSignedValue()"
+     *
     std::vector<uint8_t> utc_time(response.begin() + m_UBX_PAYLOAD_OFFSET + 4, response.begin() + m_UBX_PAYLOAD_OFFSET + 12);
     std::ostringstream out;
 
@@ -1049,12 +1070,11 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 
 	// Retrieves the time since epoch in microseconds and updates the output struct
 	out_pvt.lu_sog_cog_ubx = update.time_since_epoch().count();
+    */
 
     // Validates data
     m_sog_cog_ubx_valid = true;
 
-    // Updates the buffer
-	m_outBuffer.store(out_pvt);
 }
 
 /** Follows the same approach adopted in parseNmeaGns() by scanning the sentence counting
@@ -1254,37 +1274,31 @@ void
 UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 	out_t out_ins = m_outBuffer.load();
 
-    // Calibration check
-    if (response[m_UBX_PAYLOAD_OFFSET + 2] != 0x3F) {
-        std::cerr << "Accelerometer/Gyroscope is not calibrated yet!" << std::endl;
-        return;
-    }
-
     // Compensated angular rates
-    std::vector<uint8_t> comp_ang_rate_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 12, response.begin() + m_UBX_PAYLOAD_OFFSET + 15);
+    std::vector<uint8_t> comp_ang_rate_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 12, response.begin() + m_UBX_PAYLOAD_OFFSET + 16);
     std::reverse(comp_ang_rate_x.begin(),comp_ang_rate_x.end());
-    out_ins.comp_ang_rate_x = hexToSigned(comp_ang_rate_x) * 0.001; // Accordingly scales to deg/s
+    out_ins.comp_ang_rate_x = static_cast<double>(hexToSigned(comp_ang_rate_x)) * 0.001; // Accordingly scales to deg/s
 
-    std::vector<uint8_t> comp_ang_rate_y(response.begin() + m_UBX_PAYLOAD_OFFSET + 16, response.begin() + m_UBX_PAYLOAD_OFFSET + 19);
+    std::vector<uint8_t> comp_ang_rate_y(response.begin() + m_UBX_PAYLOAD_OFFSET + 16, response.begin() + m_UBX_PAYLOAD_OFFSET + 20);
     std::reverse(comp_ang_rate_y.begin(),comp_ang_rate_y.end());
-    out_ins.comp_ang_rate_y = hexToSigned(comp_ang_rate_y) * 0.001;
+    out_ins.comp_ang_rate_y = static_cast<double>(hexToSigned(comp_ang_rate_y)) * 0.001;
 
-    std::vector<uint8_t> comp_ang_rate_z(response.begin() + m_UBX_PAYLOAD_OFFSET + 12, response.begin() + m_UBX_PAYLOAD_OFFSET + 15);
+    std::vector<uint8_t> comp_ang_rate_z(response.begin() + m_UBX_PAYLOAD_OFFSET + 20, response.begin() + m_UBX_PAYLOAD_OFFSET + 24);
     std::reverse(comp_ang_rate_z.begin(),comp_ang_rate_z.end());
-    out_ins.comp_ang_rate_z = hexToSigned(comp_ang_rate_z) * 0.001;
+    out_ins.comp_ang_rate_z = static_cast<double>(hexToSigned(comp_ang_rate_z)) * 0.001;
 
     // Compensated accelerations
-    std::vector<uint8_t> comp_acc_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 27);
+    std::vector<uint8_t> comp_acc_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 28);
 	std::reverse(comp_acc_x.begin(),comp_acc_x.end());
-	out_ins.comp_acc_x = hexToSigned(comp_acc_x) * 0.01; // Accordingly scales to m/s^2
+	out_ins.comp_acc_x = static_cast<double>(hexToSigned(comp_acc_x)) * 0.01; // Accordingly scales to m/s^2
 
-	std::vector<uint8_t> comp_acc_y(response.begin() + m_UBX_PAYLOAD_OFFSET + 28, response.begin() + m_UBX_PAYLOAD_OFFSET + 31);
-	std::reverse(comp_acc_x.begin(),comp_acc_x.end());
-	out_ins.comp_acc_y = hexToSigned(comp_acc_y) * 0.01;
+	std::vector<uint8_t> comp_acc_y(response.begin() + m_UBX_PAYLOAD_OFFSET + 28, response.begin() + m_UBX_PAYLOAD_OFFSET + 32);
+	std::reverse(comp_acc_y.begin(),comp_acc_y.end());
+	out_ins.comp_acc_y = static_cast<double>(hexToSigned(comp_acc_y)) * 0.01;
 
-	std::vector<uint8_t> comp_acc_z(response.begin() + m_UBX_PAYLOAD_OFFSET + 32, response.begin() + m_UBX_PAYLOAD_OFFSET + 35);
-	std::reverse(comp_acc_x.begin(),comp_acc_x.end());
-	out_ins.comp_acc_z = hexToSigned(comp_acc_z) * 0.01;
+	std::vector<uint8_t> comp_acc_z(response.begin() + m_UBX_PAYLOAD_OFFSET + 32, response.begin() + m_UBX_PAYLOAD_OFFSET + 36);
+	std::reverse(comp_acc_z.begin(),comp_acc_z.end());
+	out_ins.comp_acc_z = static_cast<double>(hexToSigned(comp_acc_z)) * 0.01;
 
 	// Produces and prints to struct the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -1310,20 +1324,23 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 /** Reads from serial port, filtering for NMEA sentences and UBX messages and parsing accordingly */
 void
 UBXNMEAParserSingleThread::readFromSerial() {
-	std::vector<uint8_t> ubx_message, wrong_input;
+
+    std::vector<uint8_t> ubx_message, wrong_input;
 	std::string nmea_sentence;
 
-	uint8_t byte;
+	uint8_t byte = 0x00;
+    uint8_t byte_previous = 0x00;
 	bool success = false;
 	bool started_ubx = false;
 	bool started_nmea = false;
 	long unsigned int expectedLength = 0;
 	std::string expectedLengthStr;
 
-	while (true) {
+    while (true) {
+
 		byte = m_serial.ReadChar(success);
         if(!success) {
-            continue; // If the read operation fails, ignore the current value of "byte"
+            continue;
         }
 
         //printf("%c",byte); // For debug purposes
@@ -1331,81 +1348,129 @@ UBXNMEAParserSingleThread::readFromSerial() {
         // This array is cleared every time a correct UBX/NMEA message is received
         wrong_input.push_back(byte);
         if (wrong_input.size() >= m_WRONG_INPUT_TRESHOLD) {
+            std::cerr << "Error. Wrong input detected. Size: " << wrong_input.size() << " . Terminating. Content: ";
+            for(int i=0;i<wrong_input.size();i++) {
+                printf("%02X-",wrong_input[i]);
+            }
+            printf("\n");
+            printf("byte = %02X\n",byte);
+            printf("byte_previous = %02X\n",byte_previous);
+            printf("expectedLength = %lu\n",expectedLength);
+            wrong_input.clear();
             m_terminatorFlagPtr->store(true);
         }
 
-		// NMEA sentences reading and parsing
-		if (started_nmea == false) {
-			if (byte == '$') {
-				started_nmea = true;
-				nmea_sentence.push_back(byte);
-			}
-		}
-		else {
-			if (byte != '$') nmea_sentence.push_back(byte);
-			if (byte == '\n') {
-				if(strstr(nmea_sentence.data(),"GNGNS") != nullptr || strstr(nmea_sentence.data(),"GPGNS") != nullptr) parseNmeaGns(nmea_sentence);
-				if(strstr(nmea_sentence.data(),"GNRMC") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) parseNmeaRmc(nmea_sentence);
-				if(strstr(nmea_sentence.data(),"GNGGA") != nullptr || strstr(nmea_sentence.data(),"GPGGA") != nullptr) parseNmeaGga(nmea_sentence);
-				nmea_sentence.clear();
-                wrong_input.clear();
-				break;
-			}
-		}
+       // NMEA sentences reading and parsing
+       if (started_nmea == false) {
+           if (byte == '$') {
+               nmea_sentence.push_back(byte);
+               wrong_input.clear();
+               started_nmea = true;
+           }
+       }
+       else {
+           if (byte != '$') nmea_sentence.push_back(byte);
+           if (byte == '\n') {
+
+               if(strstr(nmea_sentence.data(),"GNGNS") != nullptr || strstr(nmea_sentence.data(),"GPGNS") != nullptr) {
+                   started_nmea = false;
+                   parseNmeaGns(nmea_sentence);
+               }
+
+               if(strstr(nmea_sentence.data(),"GNRMC") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) {
+                   started_nmea = false;
+                   parseNmeaRmc(nmea_sentence);
+               }
+               if(strstr(nmea_sentence.data(),"GNGGA") != nullptr || strstr(nmea_sentence.data(),"GPGGA") != nullptr) {
+                   started_nmea = false;
+                   parseNmeaGga(nmea_sentence);
+               }
+               nmea_sentence.clear();
+               break;
+           }
+       }
 
 		// UBX Messages reading and parsing
-		if (started_ubx == false) {
-			if (byte == m_UBX_HEADER[1]) {
-				started_ubx = true;
-				ubx_message.push_back(byte);
-			} else if (byte == m_UBX_HEADER[0]) {
-				ubx_message.push_back(byte);
-			}
-		} else {
-			ubx_message.push_back(byte);
-			if (ubx_message.size() == 6) {
-				sprintf(expectedLengthStr.data(),"%02X%02X",ubx_message[5],ubx_message[4]);
-				expectedLength = std::stol(expectedLengthStr,nullptr,16) + 8; // 8 bytes for header and checksum
-				expectedLengthStr.clear();
-			}
-			if (expectedLength > 0 && ubx_message.size() == expectedLength) {
+       if (started_ubx == false) {
+           if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
+               ubx_message.push_back(byte_previous);
+               ubx_message.push_back(byte);
+               wrong_input.clear();
+               started_ubx = true;
+           }
+       } else { // started_ubx is true
+           ubx_message.push_back(byte);
+           if (ubx_message.size() == 6) {
+               sprintf(expectedLengthStr.data(),"%02X%02X",ubx_message[5],ubx_message[4]);
+               expectedLength = std::stol(expectedLengthStr,nullptr,16) + 8; // 8 bytes for header and checksum
+               expectedLengthStr.clear();
+           }
+           // printf("expectedLength = %lu\n",expectedLength);
+           if (expectedLength > 0 && ubx_message.size() == expectedLength) {
 
-				// Configuration messages
-				if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
-					std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
-                    *m_terminatorFlagPtr=true;
-				}
+               // Configuration messages
+               if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
+                   std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
+                   *m_terminatorFlagPtr=true;
+               }
 
-				// Data messages
-				if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) parseNavStatus(ubx_message);
-				if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) parseEsfRaw(ubx_message);
-				if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) parseEsfIns(ubx_message);
-				if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) parseNavAtt(ubx_message);
-				if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) parseNavPvt(ubx_message);
+               // Data messages
+               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
+                   started_ubx = false;
+                   parseNavStatus(ubx_message);
+               }
+               if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
+                   started_ubx = false;
+                   parseEsfRaw(ubx_message);
 
-				//printUbxMessage(ubx_message);
-				ubx_message.clear();
-                wrong_input.clear();
-				break;
-			}
-		}
-		if (expectedLength > 0 && ubx_message.size() == expectedLength) {
-			break;
-		}
-	}
+               }
+               if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
+                   started_ubx = false;
+                   //todo: review this
+                   // Calibration checks
+                   // If there are uncalibrated measures, ignore them
+                   /*
+                   if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
+                       std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
+                       break;
+                   }
+                   if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
+                       std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
+                       break;
+                   }
+                   */
+                   parseEsfIns(ubx_message);
+               }
+               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
+                   started_ubx = false;
+                   parseNavAtt(ubx_message);
+               }
+               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
+                   started_ubx = false;
+                   parseNavPvt(ubx_message);
+               }
+               ubx_message.clear();
+               break;
+           }
+       }
+       byte_previous = byte;
+
+        //printf("byte = %02X\n",byte);
+        //printf("byte_previous = %02X\n",byte_previous);
+   }
 }
 
 /** Enables the necessary messages for data retrieving by sending a UBX-CFG-VALSET poll request.
  * Implements also a CFG-VALSET poll request in order to disable the messages.
- * Then encapsultates "readFromSerial()" and executes it endlessly until the global atomic err_flag is raised.
+ * Then encapsulates "readFromSerial()" and executes it endlessly until the global atomic err_flag is raised.
  *
  * NOTE: This function is executed in a parallel thread (see main()) */
 void
 UBXNMEAParserSingleThread::readData() {
 	
 	// Initialization and preliminary operation on data buffer
-	clearBuffer();
     m_terminatorFlagPtr->store(false);
+    clearBuffer();
 
     std::cout << "Serial data reader thread started." << std::endl;
 
