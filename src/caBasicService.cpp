@@ -491,9 +491,10 @@ CABasicService::checkCamConditions()
         std::string data="";
         std::string sent="false";
 
-        std::string motivation="";
+        std::string motivation;
         std::string joint="";
         int numConditions=0;
+        motivation="";
 
         // Check the motivation of the CAM sent
         if (!condition_verified) {
@@ -540,7 +541,7 @@ CABasicService::checkCamConditions()
             }
           }
 
-          if(condition_verified && strlen(motivation.c_str())==0) {
+          if(condition_verified && motivation.empty()) {
             motivation="numPkt";
           }
         }
@@ -566,7 +567,7 @@ CABasicService::checkCamConditions()
             std::string data_accs =
                     " Acc_x=" + std::to_string(std::get<0>(accs)) +
                     " Acc_y=" + std::to_string(std::get<1>(accs)) +
-                    " Acc_y=" + std::to_string(std::get<2>(accs));
+                    " Acc_z=" + std::to_string(std::get<2>(accs));
             std::tuple<double,double,double> att = m_vdp->getParserAttitude();
             std::string data_att =
                     " Roll="  + std::to_string(std::get<0>(att)) +
