@@ -38,6 +38,8 @@ class UBXNMEAParserSingleThread {
         double getYawRate(long *age_us, bool print_timestamp_and_age);
         double getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
+        std::string getFixModeUbx();
+        std::string getFixModeNmea();
         std::string getUtcTimeUbx();
         std::string getUtcTimeNmea();
         double getValidityThreshold();

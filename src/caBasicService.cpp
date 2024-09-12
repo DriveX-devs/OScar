@@ -557,32 +557,40 @@ CABasicService::checkCamConditions()
          * but it can be included if needed: angular rate, raw accelerations, altitude,
          * validity threshold, UBX UTX Time, NMEA UTC Time
          */
-
         if (m_vdp->getSerialParser() == true) {
             std::string parser_log_data = "[PARSER]";
 
-            std::string fix = m_vdp->getParserFixMode();
-            std::string data_fix = " Fix=" + fix;
+            std::string fix_ubx = m_vdp->getParserFixModeUbx();
+            std::string fix_nmea = m_vdp->getParserFixModeUbx();
+            std::string data_fix = " Fix[UBX]=" + fix_ubx + "Fix[NMEA]" + fix_nmea;
+
             std::tuple<double,double,double> accs = m_vdp->getParserAccelerations();
             std::string data_accs =
                     " Acc_x=" + std::to_string(std::get<0>(accs)) +
                     " Acc_y=" + std::to_string(std::get<1>(accs)) +
                     " Acc_z=" + std::to_string(std::get<2>(accs));
+
             std::tuple<double,double,double> att = m_vdp->getParserAttitude();
             std::string data_att =
                     " Roll="  + std::to_string(std::get<0>(att)) +
                     " Pitch=" + std::to_string(std::get<1>(att)) +
                     " Yaw="   + std::to_string(std::get<2>(att));
+
             double speed_ubx = m_vdp->getParserSpeedUbx();
             std::string data_speed_ubx = " Speed(UBX)=" + std::to_string(speed_ubx);
+
             double speed_nmea = m_vdp->getParserSpeedNmea();
             std::string data_speed_nmea = " Speed(NMEA)=" + std::to_string(speed_nmea);
+
             double cog_ubx = m_vdp->getParserCourseOverGroundUbx();
             std::string data_cog_ubx = " Cog(UBX)=" + std::to_string(cog_ubx);
+
             double cog_nmea = m_vdp->getParserCourseOverGroundNmea();
             std::string data_cog_nmea = " Cog(NMEA)=" + std::to_string(cog_nmea);
+
             double longit_acc = m_vdp->getParserLongitudinalAcceleration();
             std::string data_longit_acc = " LongitudinalAcceleration=" + std::to_string(longit_acc);
+
             double yaw_rate = m_vdp->getParserYawRate();
             std::string data_yaw_rate = " YawRate=" + std::to_string(yaw_rate);
 

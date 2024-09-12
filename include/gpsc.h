@@ -153,6 +153,8 @@ class VDPGPSClient {
         double getParserYawRate();
         double getParserLongitudinalAcceleration();
         std::string getParserFixMode();
+        std::string getParserFixModeUbx();
+        std::string getParserFixModeNmea();
         std::string getParserUtcTimeUbx();
         std::string getParserUtcTimeNmea();
         double getParserValidityThreshold();

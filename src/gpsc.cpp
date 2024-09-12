@@ -109,6 +109,14 @@ std::string VDPGPSClient::getParserFixMode() {
     return m_serialParserPtr->getFixMode();
 }
 
+std::string VDPGPSClient::getParserFixModeUbx() {
+    return m_serialParserPtr->getFixModeUbx();
+}
+
+std::string VDPGPSClient::getParserFixModeNmea() {
+    return m_serialParserPtr->getFixModeNmea();
+}
+
 std::string VDPGPSClient::getParserUtcTimeUbx() {
     return m_serialParserPtr->getUtcTimeUbx();
 }
