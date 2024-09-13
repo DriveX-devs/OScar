@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <arpa/inet.h>
 
+#define acceleration_threshold 4.722 // 17 km/h^2
+
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
 using std::chrono::seconds;
@@ -574,7 +576,7 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
         double acceleration = speed_diff / time_diff_ms;
         acceleration = acceleration * 1000; // Convert to m/s^2
         //std::cout << "[CP service] Acceleration: " << acceleration << " m/s^2 | Speed diff: " << speed_diff << " m/s since last CPM | Time diff: " << time_diff_ms << " ms" << std::endl;
-        if (acceleration > 17)
+        if (acceleration > acceleration_threshold)
             speed_diff = 0;
     }
 
