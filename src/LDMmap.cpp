@@ -361,10 +361,6 @@ namespace ldmmap
             }
             //std::cout << "[LDM] Ego Position: [" << vehdata.lat << ", " << vehdata.lon << "], heading: " << vehdata.heading << ", speed: " << vehdata.speed_ms << " m/s" << std::endl;
         }
-        else
-        {
-            std::cout << "Ego position not updated, no GNSS data available" << std::endl;
-        }
         return LDMMAP_OK;
     }
 }

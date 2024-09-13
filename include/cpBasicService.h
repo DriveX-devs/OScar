@@ -51,6 +51,8 @@ public:
     void setOwnPublicIP(std::string own_public_IP) {m_own_public_IP=own_public_IP;}
     void disableOwnPrivateIP() {m_own_private_IP="0.0.0.0";}
     void disableOwnPublicIP() {m_own_private_IP="0.0.0.0";}
+    void setFaultyAccelerationCheck(bool value) {m_check_faulty_acceleration = value;}
+    void setSpeedTriggering(bool value) {m_speed_triggering = value;}
 
     void initDissemination();
 
@@ -64,8 +66,7 @@ public:
 
     std::string generateAndEncodeCPM();
     int64_t computeTimestampUInt64();
-    std::pair<bool, std::string> checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data);
-    std::pair<bool, std::string> checkCPMconditionsLocal(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data, VDPGPSClient::CPM_mandatory_data_t ego_data);
+    std::pair<bool, std::string> checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data, VDPGPSClient::CPM_mandatory_data_t ego_data);
 
     btp *m_btp;
 
@@ -83,6 +84,8 @@ public:
     bool m_real_time;
     bool m_vehicle;
     bool m_redundancy_mitigation;
+    bool m_check_faulty_acceleration;
+    bool m_speed_triggering;
     VDPGPSClient* m_vdp;
 
     ldmmap::LDMMap* m_LDM;
