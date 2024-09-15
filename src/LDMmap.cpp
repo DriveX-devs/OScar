@@ -23,6 +23,7 @@ namespace ldmmap
 
 		m_central_lat = 0.0;
 		m_central_lon = 0.0;
+        m_ego_lon = 0.0;
 	}
 
 	LDMMap::~LDMMap() {
@@ -46,6 +47,8 @@ namespace ldmmap
 			mapmutexptr = new std::shared_mutex();
 			lowerMap[key_lower].vehData = newVehicleData;
 			lowerMap[key_lower].phData = new PHpoints();
+            lowerMap[key_lower].kf = new KalmanFilter(0.05);
+            lowerMap[key_lower].kf->init_step(newVehicleData);
 			lowerMap[key_lower].vehData.lastCPMincluded = 0;
 
 			std::lock_guard<std::shared_mutex> lk(m_mainmapmut);
@@ -68,12 +71,19 @@ namespace ldmmap
 			// INSERT operation -> create a new PHpoints object
 			if(retval == LDMMAP_OK) {
 				m_ldmmap[key_upper].second[key_lower].phData = new PHpoints();
+                m_ldmmap[key_upper].second[key_lower].kf = new KalmanFilter(0.04);
+                m_ldmmap[key_upper].second[key_lower].kf->init_step(newVehicleData);
 				m_ldmmap[key_upper].second[key_lower].vehData.lastCPMincluded = 0;
 			}
 		}
 
 		// std::cout << "Updating vehicle: " << newVehicleData.stationID << std::endl;
 		m_ldmmap[key_upper].second[key_lower].phData->insert(newVehicleData);
+        if(newVehicleData.detected)
+        {
+            //std::cout << "[LDM] KF step for object " << newVehicleData.stationID << std::endl;
+            m_ldmmap[key_upper].second[key_lower].kf->update(((double) newVehicleData.xDistance)/CENTI, ((double) newVehicleData.yDistance)/CENTI, m_ego_lon);
+        }
 
 		return retval;
 	}
@@ -332,6 +342,7 @@ namespace ldmmap
             vehdata.detected = false;
             vehdata.lat = (double) ego_data.latitude / DOT_ONE_MICRO;
             vehdata.lon = (double) ego_data.longitude / DOT_ONE_MICRO;
+            m_ego_lon = vehdata.lon;
             vehdata.elevation = (double) ego_data.altitude.getValue() / CENTI;
             vehdata.timestamp_us = get_timestamp_us();
         	vehdata.stationType = StationType_LDM_passengerCar;

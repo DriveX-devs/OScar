@@ -154,6 +154,7 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
     std::string data_pos="";
     std::string data_speed="";
     std::string data_time="";
+    std::string data_kf="";
 
     /*Perceived Object Container Inclusion Management as mandated by TS 103 324 Section 6.1.2.3*/
     ldmmap::PHpoints::PHDataIter_t phdataiter = {.ptrDataArray=NULL};
@@ -198,9 +199,10 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
     {
         //std::cout << "[CP service] Distance check passed: " << dist << " m since last CPM"<< std::endl;
         condition_verified = true;
-        if (motivation == "None"){
-            motivation = "Distance";
-        }
+//        if (motivation == "None"){
+//            motivation = "Distance";
+//        }
+        motivation += "Distance ";
     }
 
     /* 1.c The difference between the current estimated absolute speed of the reference point of the object and the
@@ -211,9 +213,10 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
     {
         //std::cout << "[CP service] Speed check passed: " << speed_diff << " m/s since last CPM"<< std::endl;
         condition_verified = true;
-        if (motivation == "None"){
-            motivation = "Speed";
-        }
+//        if (motivation == "None"){
+//            motivation = "Speed";
+//        }
+        motivation += "Speed ";
     }
 
     /* 1.d The difference between the orientation of the vector of the current estimated absolute velocity of the
@@ -227,9 +230,10 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
     {
         //std::cout << "[CP service] Heading check passed: " << abs(previousCPM.heading - PO_data->vehData.heading) << " degrees since last CPM"<< std::endl;
         condition_verified = true;
-        if (motivation == "None"){
-            motivation = "Heading";
-        }
+//        if (motivation == "None"){
+//            motivation = "Heading";
+//        }
+        motivation += "Heading ";
     }
 
     /* 1.e The time elapsed since the last time the object was included in a CPM exceeds T_GenCpmMax. */
@@ -240,9 +244,10 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
     {
         //std::cout << "[CP service] Time check passed: " << time_diff << " ms since last CPM"<< std::endl;
         condition_verified = true;
-        if (motivation == "None"){
-            motivation = "Time";
-        }
+//        if (motivation == "None"){
+//            motivation = "Time";
+//        }
+        motivation += "Time ";
     }
 
     if (condition_verified) {
@@ -266,6 +271,8 @@ CPBasicService::generateAndEncodeCPM()
 
     long numberOfPOs = 0;
 
+    m_T_GenCpm_ms=now-lastCpmGen;
+
     /* Collect data for mandatory containers */
     auto cpm = asn1cpp::makeSeq (CollectivePerceptionMessage);
 
@@ -280,6 +287,8 @@ CPBasicService::generateAndEncodeCPM()
     //Schedule new CPM
     std::string data="";
     std::string sent="FALSE";
+
+    cpm_mandatory_data = m_vdp->getCPMMandatoryData ();
 
     auto CPMcontainers = asn1cpp::makeSeq (WrappedCpmContainers);
     auto POsContainer = asn1cpp::makeSeq (PerceivedObjectContainer);
@@ -298,10 +307,24 @@ CPBasicService::generateAndEncodeCPM()
                 {
                     continue;
                 }
+                if ((computeTimestampUInt64()/NANO_TO_MICRO - it->vehData.timestamp_us)/1000 > 2000)
+                {
+                    //std::cout << "Vehicle " << it->vehData.stationID << " is too old to be in the LDM -- > " << (computeTimestampUInt64()/NANO_TO_MICRO - it->vehData.timestamp_us)/1000
+                    //<< " ms old" << std::endl;
+                    // remove it from m_lastCPM
+                    m_lastCPM.erase(it->vehData.stationID);
+                    continue;
+                }
+
                 data += "[OBJECT] ID="+std::to_string(it->vehData.stationID)+"\n";
-                auto check = checkCPMconditions (it);
+                //auto check = checkCPMconditions (it);
+                auto check = checkCPMconditionsLocal(it, cpm_mandatory_data);
                 data += check.second;
                 if (!check.first && m_redundancy_mitigation){
+//                    m_lastCPM[it->vehData.stationID].latest_lat = it->vehData.lat;
+//                    m_lastCPM[it->vehData.stationID].latest_lon = it->vehData.lon;
+//                    m_lastCPM[it->vehData.stationID].latest_speed_ms = it->vehData.speed_ms;
+//                    m_lastCPM[it->vehData.stationID].latest_timestamp_us = computeTimestampUInt64()/NANO_TO_MICRO;
                     continue;
                 }
                 else
@@ -342,6 +365,7 @@ CPBasicService::generateAndEncodeCPM()
                     asn1cpp::setField (acceleration->present,
                                        Acceleration3dWithConfidence_PR_cartesianAcceleration);
                     auto cartesianAcceleration = asn1cpp::makeSeq (AccelerationCartesian);
+                    // We skip acceleration for now (we don't have it from the GPS client)
                     /*
                     asn1cpp::setField (cartesianAcceleration->xAcceleration.value,
                                        it->vehData.xAcc.getData ());
@@ -387,7 +411,19 @@ CPBasicService::generateAndEncodeCPM()
                     //Push Perceived Object to the container
                     asn1cpp::sequenceof::pushList (*CPM_POs, PO);
                     //Update the timestamp of the last time this PO was included in a CPM
-                    m_LDM->updateCPMincluded (it->vehData);
+                    //m_LDM->updateCPMincluded (it->vehData);
+                    lastCPM_t lastCPM;
+                    lastCPM.heading = it->vehData.heading;
+                    lastCPM.lat = it->vehData.lat;
+                    lastCPM.lon = it->vehData.lon;
+                    lastCPM.speed_ms = it->vehData.speed_ms;
+                    lastCPM.timestamp_us = computeTimestampUInt64()/NANO_TO_MICRO;
+                    lastCPM.latest_lat = it->vehData.lat;
+                    lastCPM.latest_lon = it->vehData.lon;
+                    lastCPM.latest_speed_ms = it->vehData.speed_ms;
+                    lastCPM.latest_timestamp_us = computeTimestampUInt64()/NANO_TO_MICRO;
+                    m_lastCPM[it->vehData.stationID] = lastCPM;
+
                     //Increase number of POs for the numberOfPerceivedObjects field in cpmParameters container
                     numberOfPOs++;
                 }
@@ -397,6 +433,12 @@ CPBasicService::generateAndEncodeCPM()
                 asn1cpp::setField (POsContainer->perceivedObjects, CPM_POs);
                 asn1cpp::setField (POsContainer->numberOfPerceivedObjects, numberOfPOs);
             }
+        }
+
+        if (LDM_POs.empty())
+        {
+            // Clean the lastCPM map
+            m_lastCPM.clear();
         }
     }
 
@@ -414,8 +456,6 @@ CPBasicService::generateAndEncodeCPM()
     */
     asn1cpp::setField (cpm->payload.managementContainer.referenceTime,
                        compute_timestampIts () % 65536);
-
-    cpm_mandatory_data = m_vdp->getCPMMandatoryData ();
 
     /* Fill the managementContainer */
     asn1cpp::setField (cpm->payload.managementContainer.referencePosition.altitude.altitudeValue,
@@ -484,14 +524,18 @@ CPBasicService::generateAndEncodeCPM()
                            sensorInfoContainer);
         asn1cpp::sequenceof::pushList (cpm->payload.cpmContainers, CPMcontainer);
         m_T_LastSensorInfoContainer = now;
+        data += "  CPM sent due to sensor information container\n";
     }
     else
     {
         //If no sensorInformationContainer and no perceivedObjectsContainer
         if (numberOfPOs == 0){
             //No CPM is generated in the current cycle
-            std::string retdata = "\n[LOG] CPM generation event -- Sent = FALSE -- Timestamp = " + std::to_string(now) + " -- Time since last CPM = " + std::to_string(m_T_GenCpm_ms) + " ms\n";
-            retdata += data + "No perceived objects and no sensor information container\n";
+            long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            std::string retdata = "\n[LOG] CPM generation event -- Sent = FALSE -- Timestamp = " + std::to_string(time)
+                    + " -- ETSI_timestamp=" + std::to_string(compute_timestampIts () % 65536)
+                    + " -- Time since last CPM = " + std::to_string(m_T_GenCpm_ms) + " ms\n";
+            // retdata += data + "No perceived objects and no sensor information container\n";
             return retdata;
         }
     }
@@ -539,8 +583,10 @@ CPBasicService::generateAndEncodeCPM()
     // Store the time in which the last CPM (i.e. this one) has been generated and successfully sent
     m_T_GenCpm_ms=now-lastCpmGen;
     lastCpmGen = now;
-
-    std::string retdata = "\n[LOG] CPM generation event -- Sent = TRUE -- Timestamp = " + std::to_string(now) + " -- Time since last CPM = " + std::to_string(m_T_GenCpm_ms) + " ms\n";
+    long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+    std::string retdata = "\n[LOG] CPM generation event -- Sent = TRUE -- Timestamp=" + std::to_string(time)
+            + " -- ETSI_timestamp=" + std::to_string(compute_timestampIts () % 65536)
+            + " -- Time since last CPM=" + std::to_string(m_T_GenCpm_ms) + " ms\n";
     retdata += data;
     return retdata;
 }
@@ -565,6 +611,121 @@ CPBasicService::computeTimestampUInt64()
     int_tstamp=tv.tv_sec*1e9+tv.tv_nsec;
 
     return int_tstamp;
+}
+
+std::pair<bool, std::string>
+CPBasicService::checkCPMconditionsLocal(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data, VDPGPSClient::CPM_mandatory_data_t ego_data) {
+
+    bool condition_verified=false;
+    std::string motivation="None";
+    std::string data="";
+    std::string sent="FALSE";
+    std::string data_head="";
+    std::string data_pos="";
+    std::string data_speed="";
+    std::string data_time="";
+
+    /*Perceived Object Container Inclusion Management as mandated by TS 103 324 Section 6.1.2.3*/
+    /* 1.a The object has first been detected by the perception system after the last CPM generation event.*/
+    if (m_lastCPM.find(PO_data->vehData.stationID) == m_lastCPM.end())
+    {
+        motivation = "First detection";
+        data = "  [FIRST DETECTION]\n";
+        return std::make_pair(true, data);
+    }
+
+    lastCPM_t previousCPM = m_lastCPM[PO_data->vehData.stationID];
+    PO_data->vehData.lon = PO_data->kf->get_state().lon;
+    PO_data->vehData.lat = PO_data->kf->get_state().lat;
+    /* 1.b The Euclidian absolute distance between the current estimated position of the reference point of the
+     * object and the estimated position of the reference point of this object lastly included in a CPM exceeds
+     * 4 m. */
+    double dist = haversineDist(previousCPM.lat,previousCPM.lon,PO_data->vehData.lat,PO_data->vehData.lon);
+    data_pos="  [DISTANCE] PrevLat="+std::to_string(previousCPM.lat)+" PrevLon="+std::to_string(previousCPM.lon)+" CurrLat="+std::to_string(PO_data->vehData.lat)+" CurrLon="+std::to_string(PO_data->vehData.lon)+" PosDiff="+std::to_string(dist)+"\n";
+    if(!condition_verified && dist > 4.0)
+    {
+        //std::cout << "[CP service] Distance check passed: " << dist << " m since last CPM"<< std::endl;
+        condition_verified = true;
+        if (motivation == "None"){
+            motivation = "Distance";
+        }
+    }
+
+    // -----------------------------------------------------TESTING KALMAN FILTER-----------------------------------------------------//
+    double dist_latest, kf_xSpeed, kf_ySpeed, ego_xSpeed, ego_ySpeed, ego_heading;
+    dist_latest = haversineDist(previousCPM.latest_lat,previousCPM.latest_lon,PO_data->vehData.lat,PO_data->vehData.lon);
+
+    kf_xSpeed = PO_data->kf->get_state().vx;
+    kf_ySpeed = PO_data->kf->get_state().vy;
+    //Compute absolute speed x and y from ego_data speed and heading and PO_data x and y components
+    ego_heading = 90 - (double) (ego_data.heading.getValue()) / DECI;
+    if (ego_heading < 0){
+        ego_heading += 360;
+    }
+    ego_xSpeed = ego_data.speed.getValue() * cos(ego_heading * M_PI / 180);
+    ego_ySpeed = ego_data.speed.getValue() * sin(ego_heading * M_PI / 180);
+    //Compute absolute speed
+    PO_data->vehData.xSpeed =  (long) (kf_xSpeed * CENTI + ego_xSpeed);
+    PO_data->vehData.ySpeed =  (long) (kf_ySpeed * CENTI + ego_ySpeed);
+    PO_data->vehData.speed_ms = sqrt(pow((double) PO_data->vehData.xSpeed, 2) + pow((double) PO_data->vehData.ySpeed, 2)) / 100;
+
+    //print all the data
+    //std::cout << "[OBJECT "<< PO_data->vehData.stationID << "] KF xSpeed: " << kf_xSpeed << " KF ySpeed: " << kf_ySpeed << " Ego xSpeed: " << ego_xSpeed << " Ego ySpeed: " << ego_ySpeed << " Computed xSpeed: " << PO_data->vehData.xSpeed << " Computed ySpeed: " << PO_data->vehData.ySpeed << std::endl;
+
+    // -----------------------------------------------------TESTING KALMAN FILTER-----------------------------------------------------//
+
+    /* 1.c The difference between the current estimated absolute speed of the reference point of the object and the
+     * estimated absolute speed of the reference point of this object lastly included in a CPM exceeds 0,5 m/s. */
+    double speed_diff = abs (PO_data->vehData.speed_ms - previousCPM.speed_ms);
+    data_speed="  [SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)
+            +" PrevSpeed="+std::to_string(previousCPM.speed_ms)
+            +" CurrSpeed="+std::to_string(PO_data->vehData.speed_ms) + " (LatestLat=" + std::to_string(previousCPM.latest_lat) + " LatestLon=" + std::to_string(previousCPM.latest_lon) + " DistFromLatest=" + std::to_string(dist_latest) + " LatestTimestamp=" + std::to_string(previousCPM.latest_timestamp_us/1000) + ")"
+            +" SpeedDiff="+std::to_string(speed_diff)+"\n";
+    if(!condition_verified && speed_diff > 0.5)
+    {
+        //std::cout << "[CP service] Speed check passed: " << speed_diff << " m/s since last CPM"<< std::endl;
+        condition_verified = true;
+        if (motivation == "None"){
+            motivation = "Speed";
+        }
+    }
+
+    /* 1.d The difference between the orientation of the vector of the current estimated absolute velocity of the
+     * reference point of the object and the estimated orientation of the vector of the absolute velocity of the
+     * reference point of this object lastly included in a CPM exceeds 4 degrees. */
+    double heading_diff = abs (PO_data->vehData.heading - previousCPM.heading);
+    heading_diff += (heading_diff>180.0) ? -360.0 : (heading_diff<-180.0) ? 360.0 : 0.0;
+    data_head="  [HEADING] HeadingUnavailable="+std::to_string((float)HeadingValue_unavailable/10)+" PrevHead="+std::to_string(previousCPM.heading)+" CurrHead="+std::to_string(PO_data->vehData.heading)+" HeadDiff="+std::to_string(heading_diff)+"\n";
+
+    if(!condition_verified && abs(previousCPM.heading - PO_data->vehData.heading) > 4)
+    {
+        //std::cout << "[CP service] Heading check passed: " << abs(previousCPM.heading - PO_data->vehData.heading) << " degrees since last CPM"<< std::endl;
+        condition_verified = true;
+        if (motivation == "None"){
+            motivation = "Heading";
+        }
+    }
+
+    /* 1.e The time elapsed since the last time the object was included in a CPM exceeds T_GenCpmMax. */
+    uint64_t now = computeTimestampUInt64 () / NANO_TO_MILLI;
+    uint64_t time_diff = now - previousCPM.timestamp_us/1000;
+    data_time="  [TIME] Timestamp="+std::to_string(now)+" LastCPMSend="+std::to_string(previousCPM.timestamp_us/1000)+" TimeThreshold="+std::to_string(m_N_GenCpmMax)+" TimeDiff="+std::to_string(time_diff)+"\n";
+    if(!condition_verified && time_diff > m_N_GenCpmMax)
+    {
+        //std::cout << "[CP service] Time check passed: " << time_diff << " ms since last CPM"<< std::endl;
+        condition_verified = true;
+        if (motivation == "None"){
+            motivation = "Time";
+        }
+    }
+
+    if (condition_verified) {
+        sent = "TRUE";
+    }
+    data += "  Condition verified:" + sent + " \n  [MOTIVATION] " + motivation + "\n" + data_pos + data_speed + data_head + data_time;
+
+    return std::make_pair(condition_verified, data);
+
 }
 
 

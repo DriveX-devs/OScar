@@ -4,6 +4,7 @@
 #include "PHpoints.h"
 #include "vehicleDataDef.h"
 #include "gpsc.h"
+#include "kalman_filter.h"
 #include <unordered_map>
 #include <vector>
 #include <set>
@@ -24,6 +25,7 @@ namespace ldmmap {
 	    	typedef struct {
 	    		vehicleData_t vehData;
 	    		PHpoints *phData;
+                	KalmanFilter *kf;
 	    	} returnedVehicleData_t;
 
 	    	LDMMap();
@@ -106,6 +108,7 @@ namespace ldmmap {
 			// By default, they are both set to 0.0
 			double m_central_lat;
 			double m_central_lon;
+            double m_ego_lon;
             StationId_t m_station_id;
             VDPGPSClient *m_gpsc_ptr;
 

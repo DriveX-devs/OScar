@@ -554,6 +554,9 @@ int main (int argc, char *argv[]) {
 	// Vehicle Visualizer options
 	vizOptions_t vizOpts;
 
+    // Wrong input threshold
+    long wrong_input_threshold = 1000;
+
     std::string can_device = "none";
 
     // true if gpsd is used to gather positioning data, false if the internal NMEA+UBX parser is used
@@ -656,6 +659,9 @@ int main (int argc, char *argv[]) {
 			false,DEFAULT_VEHVIZ_NODEJS_UDP_ADDR,"IPv4 address string");
 		cmd.add(VV_NodejsAddrArg);
 
+        TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
+        cmd.add(WrongInputTsholdArg);
+
 		TCLAP::SwitchArg EnableHMIArg("m","enable-HMI","Enable the OScar HMI",false);
 		cmd.add(EnableHMIArg);
 
@@ -722,6 +728,8 @@ int main (int argc, char *argv[]) {
         serial_device = SerialDevice.getValue();
         serial_device_baudrate = SerialDeviceBaudrate.getValue();
         serial_device_validity_thr = SerialDeviceValidityThr.getValue();
+
+        wrong_input_threshold = WrongInputTsholdArg.getValue();
 
 		if(enable_reception==false && enable_hmi==true) {
 			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
@@ -815,6 +823,7 @@ int main (int argc, char *argv[]) {
     // Configure the global serial parser if gpsd is not used
     if(!use_gpsd) {
         serialParser.setValidityThreshold(serial_device_validity_thr);
+        serialParser.setWrongInputThreshold(wrong_input_threshold);
         serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag);
     }
 

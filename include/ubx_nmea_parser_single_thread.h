@@ -61,6 +61,8 @@ class UBXNMEAParserSingleThread {
 
         int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
         void stopUBXNMEAParser();
+
+        void setWrongInputThreshold(int threshold) {m_WRONG_INPUT_TRESHOLD=threshold;}
     private:
         /* Buffer structure to be printed to the user */
         typedef struct Output {
@@ -116,6 +118,7 @@ class UBXNMEAParserSingleThread {
 
         const std::vector<uint8_t> m_UBX_HEADER = {0xb5, 0x62};
         const int m_WRONG_INPUT_THRESHOLD = 1000;
+
 
         // UBX Header (2 bytes) + message class (1 byte) + message ID (1 byte) + message length (2 bytes)
         const uint8_t m_UBX_PAYLOAD_OFFSET = 6;

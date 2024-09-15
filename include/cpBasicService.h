@@ -15,6 +15,20 @@ extern "C" {
 #include "CollectivePerceptionMessage.h"
 }
 
+typedef struct{
+    double heading;
+    double lat;
+    double lon;
+    double speed_ms;
+    uint64_t timestamp_us;
+
+    double latest_lat;
+    double latest_lon;
+    double latest_speed_ms;
+    uint64_t latest_timestamp_us;
+
+}lastCPM_t;
+
 class CPBasicService
 {
 public:
@@ -51,6 +65,7 @@ public:
     std::string generateAndEncodeCPM();
     int64_t computeTimestampUInt64();
     std::pair<bool, std::string> checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data);
+    std::pair<bool, std::string> checkCPMconditionsLocal(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator PO_data, VDPGPSClient::CPM_mandatory_data_t ego_data);
 
     btp *m_btp;
 
@@ -71,6 +86,8 @@ public:
     VDPGPSClient* m_vdp;
 
     ldmmap::LDMMap* m_LDM;
+
+    std::map<uint64_t, lastCPM_t> m_lastCPM;
 
     std::atomic<bool> m_terminateFlag;
 

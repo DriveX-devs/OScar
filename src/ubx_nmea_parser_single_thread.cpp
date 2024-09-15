@@ -1398,9 +1398,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                 printf("%02X-", wrong_input[i]);
             }
             printf("\n");
-            printf("byte = %02X\n", byte);
-            printf("byte_previous = %02X\n", byte_previous);
-            printf("expectedLength = %lu\n", expectedLength);
+
+            printf("byte = %02X\n",byte);
+            printf("byte_previous = %02X\n",byte_previous);
+            printf("expectedLength = %lu\n",expectedLength);
+            
             wrong_input.clear();
             m_terminatorFlagPtr->store(true);
         }
