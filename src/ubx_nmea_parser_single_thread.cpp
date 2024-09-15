@@ -22,14 +22,10 @@ using namespace std::chrono;
 /* Prints a UBX message in the format index[byte] (for debug purposes) */
 void
 UBXNMEAParserSingleThread::printUbxMessage(std::vector<uint8_t> msg) {
-	// Printing message (for debug purposes)
-	std::cout << "message size: " << msg.size() << std::endl;
-
-
-	for (long unsigned int i = 0; i < msg.size(); i++) {
-		printf("%ld[%02X] ", i, msg[i]);
-	}
-	std::cout << " |{END}" << std::endl << std::endl;
+    std::cout << "message size: " << msg.size() << std::endl;
+    for (long unsigned int i = 0; i < msg.size(); i++) {
+        printf("%ld[%02X] ", i, msg[i]);
+    }
 }
 
 /* Prints a NMEA sentence (printable chars only) */
@@ -183,6 +179,30 @@ UBXNMEAParserSingleThread::printBuffer() {
 	printf("[Accelerations (gravity-free)]\nX: %.3f  m/s^2  Y: %.3f  m/s^2  Z: %.3f  m/s^2\n\n",tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
 	printf("[Raw accelerations]\nX: %.3f  m/s^2  Y: %.3f  m/s  Z: %.3f  m/s\n\n",tmp.raw_acc_x,tmp.raw_acc_y,tmp.raw_acc_z);
 	printf("[Attitude]\nRoll: %.3f  deg  Pitch: %.3f  deg  Heading: %.3f  deg\n\n",tmp.roll,tmp.pitch,tmp.heading);
+}
+
+bool UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
+    uint8_t CK_A = 0x00;
+    uint8_t CK_B = 0x00;
+
+    for (long unsigned int i = 0; i < msg.size(); i++) {
+        if (i >=2 && i <= msg.size() -3) { //checksum calculation range
+            CK_A = CK_A + msg[i];
+            CK_B = CK_B + CK_A;
+
+            CK_A &= 0xFF;
+            CK_B &= 0xFF;
+        }
+    }
+
+    if (msg[msg.size() -2] == CK_A && msg[msg.size()-1] == CK_B) {
+        return true;
+        //std::cerr << "Invalid checksum" << std::endl;
+    }
+    else {
+        //printf("\nCK_A: %02X  CK_B: %02X\n\n", CK_A,CK_B);
+        return false;
+    }
 }
 
 std::string
@@ -909,6 +929,31 @@ UBXNMEAParserSingleThread::getFixMode() {
 	return fix_ubx;
 }
 
+std::string
+UBXNMEAParserSingleThread::getFixModeUbx() {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return "PARSER_NOT_STARTED";
+    }
+
+    out_t tmp = m_outBuffer.load();
+    std::string fix_ubx(tmp.fix_ubx);
+
+    return fix_ubx;
+}
+std::string
+UBXNMEAParserSingleThread::getFixModeNmea() {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return "PARSER_NOT_STARTED";
+    }
+
+    out_t tmp = m_outBuffer.load();
+    std::string fix_nmea(tmp.fix_nmea);
+
+    return fix_nmea;
+}
+
 bool
 UBXNMEAParserSingleThread::getFixValidity2D(bool print_error) {
     if (m_2d_valid_fix == false && print_error == true) {
@@ -1146,48 +1191,45 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 
     // Fix Validity Check
     if (fix_validity != 'A') {
-        strcpy(out_nmea.fix_nmea,"Unknown/Invalid Fix Mode");
+        strcpy(out_nmea.fix_nmea,"Unknown/Invalid[NMEA]");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
-
-    switch (fix) {
-		case 'N':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: No Fix");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-		case 'E':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: Estimated/Dead Reckoning");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-			break;
-		case 'A':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: Autonomous GNSS Fix (A) [NMEA]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-			break;
-		case 'D':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: DGNSS (D) [NMEA]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-			break;
-		case 'F':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Float (F) [NMEA]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-			break;
-		case 'R':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Fixed (R) [NMEA]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-			break;
-		default:
-            strcpy(out_nmea.fix_nmea,"Unknown/Invalid Fix Mode");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-	}
+    else if (fix == 'N') {
+        strcpy(out_nmea.fix_nmea, "NoFix[NMEA]");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix == 'E') {
+        strcpy(out_nmea.fix_nmea, "Estimated/Dead Reckoning[NMEA]");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix == 'A') {
+        strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix[NMEA]");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix == 'D') {
+        strcpy(out_nmea.fix_nmea,"DGNSS[NMEA]");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+        }
+    else if (fix == 'F') {
+        strcpy(out_nmea.fix_nmea, "RTKFloat[NMEA]");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix == 'R') {
+        strcpy(out_nmea.fix_nmea, "RTKFixed[NMEA]");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else {
+        strcpy(out_nmea.fix_nmea, "Unknown/Invalid Fix Mode");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
 
 	// Produces and prints the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -1219,50 +1261,48 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	out_t out_sts = m_outBuffer.load();
 
 	if (fix_flags < 0xD0){
-        strcpy(out_sts.fix_ubx, "Unknown/Invalid Fix Mode");
+        strcpy(out_sts.fix_ubx, "Unknown/Invalid[UBX]");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
         m_outBuffer.store(out_sts);
 		return;
     }
 
-	switch (fix_mode) {
-		case 0:
-			strcpy(out_sts.fix_ubx,"Fix Mode: No Fix");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-			break;
-		case 1:
-			strcpy(out_sts.fix_ubx,"Fix Mode: Estimated/Dead Reckoning");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-		case 2:
-			strcpy(out_sts.fix_ubx,"Fix mode: 2D-Fix [UBX]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = false;
-            break;
-		case 3:
-			strcpy(out_sts.fix_ubx,"Fix mode: 3D-Fix [UBX]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-            break;
-		case 4:
-			strcpy(out_sts.fix_ubx,"Fix mode: GPS + Dead Reckoning [UBX]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-            break;
-		case 5:
-			strcpy(out_sts.fix_ubx,"Fix mode: Time-only Fix [UBX]");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-		default:
-			strcpy(out_sts.fix_ubx,"Unknown/Invalid Fix Mode");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-	}
+    if (fix_mode == 0x00) {
+        strcpy(out_sts.fix_ubx, "NoFix[UBX]");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix_mode == 0x01) {
+        strcpy(out_sts.fix_ubx, "Estimated/DeadReckoning[UBX]");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix_mode == 0x02) {
+        strcpy(out_sts.fix_ubx, "2D-Fix[UBX]");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = false;
+    }
+    else if (fix_mode == 0x03) {
+        strcpy(out_sts.fix_ubx, "3D-Fix[UBX]");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix_mode == 0x04) {
+        strcpy(out_sts.fix_ubx, "GPS+DeadReckoning[UBX]");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix_mode == 0x05) {
+        strcpy(out_sts.fix_ubx, "TimeOnly[UBX]");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else {
+        strcpy(out_sts.fix_ubx, "Unknown/Invalid[UBX]");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
 	
 	// Updates the output buffer with new data
 	m_outBuffer.store(out_sts);
@@ -1325,20 +1365,25 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 void
 UBXNMEAParserSingleThread::readFromSerial() {
 
-    std::vector<uint8_t> ubx_message, wrong_input;
-	std::string nmea_sentence;
+    std::vector<uint8_t> ubx_message, ubx_message_overlapped, wrong_input;
+    std::string nmea_sentence;
 
-	uint8_t byte = 0x00;
+    uint8_t byte = 0x00;
     uint8_t byte_previous = 0x00;
-	bool success = false;
-	bool started_ubx = false;
-	bool started_nmea = false;
-	long unsigned int expectedLength = 0;
-	std::string expectedLengthStr;
+
+    bool started_ubx = false;
+    bool started_ubx_overlapped = false;
+    bool started_nmea = false;
+    bool success = false;
+    long unsigned int expectedLength = 0;
+    long unsigned int expectedLengthOverlapped = 0;
+    std::string expectedLengthStr;
+    std::string expectedLengthStrOverlapped;
 
     while (true) {
 
-		byte = m_serial.ReadChar(success);
+        byte = m_serial.ReadChar(success);
+
         if(!success) {
             continue;
         }
@@ -1347,117 +1392,248 @@ UBXNMEAParserSingleThread::readFromSerial() {
 
         // This array is cleared every time a correct UBX/NMEA message is received
         wrong_input.push_back(byte);
-        if (wrong_input.size() >= m_WRONG_INPUT_TRESHOLD) {
+        if (wrong_input.size() >= m_WRONG_INPUT_THRESHOLD) {
             std::cerr << "Error. Wrong input detected. Size: " << wrong_input.size() << " . Terminating. Content: ";
-            for(int i=0;i<wrong_input.size();i++) {
-                printf("%02X-",wrong_input[i]);
+            for (int i = 0; i < wrong_input.size(); i++) {
+                printf("%02X-", wrong_input[i]);
             }
             printf("\n");
+
             printf("byte = %02X\n",byte);
             printf("byte_previous = %02X\n",byte_previous);
             printf("expectedLength = %lu\n",expectedLength);
+            
             wrong_input.clear();
             m_terminatorFlagPtr->store(true);
         }
 
-       // NMEA sentences reading and parsing
-       if (started_nmea == false) {
-           if (byte == '$') {
-               nmea_sentence.push_back(byte);
-               wrong_input.clear();
-               started_nmea = true;
-           }
-       }
-       else {
-           if (byte != '$') nmea_sentence.push_back(byte);
-           if (byte == '\n') {
+        // NMEA sentences reading and parsing
+        if (started_nmea == false) {
+            if (byte == '$') {
+                nmea_sentence.push_back(byte);
+                wrong_input.clear();
+                started_nmea = true;
+            }
+        } else {
+            if (byte != '$') nmea_sentence.push_back(byte);
+            if (byte == '\n') {
 
-               if(strstr(nmea_sentence.data(),"GNGNS") != nullptr || strstr(nmea_sentence.data(),"GPGNS") != nullptr) {
-                   started_nmea = false;
-                   parseNmeaGns(nmea_sentence);
-               }
+                if (strstr(nmea_sentence.data(), "GNGNS") != nullptr ||
+                    strstr(nmea_sentence.data(), "GPGNS") != nullptr) {
+                    started_nmea = false;
+                    parseNmeaGns(nmea_sentence);
+                }
 
-               if(strstr(nmea_sentence.data(),"GNRMC") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) {
-                   started_nmea = false;
-                   parseNmeaRmc(nmea_sentence);
-               }
-               if(strstr(nmea_sentence.data(),"GNGGA") != nullptr || strstr(nmea_sentence.data(),"GPGGA") != nullptr) {
-                   started_nmea = false;
-                   parseNmeaGga(nmea_sentence);
-               }
-               nmea_sentence.clear();
-               break;
-           }
-       }
+                if (strstr(nmea_sentence.data(), "GNRMC") != nullptr ||
+                    strstr(nmea_sentence.data(), "GPRMC") != nullptr) {
+                    started_nmea = false;
+                    parseNmeaRmc(nmea_sentence);
+                }
+                if (strstr(nmea_sentence.data(), "GNGGA") != nullptr ||
+                    strstr(nmea_sentence.data(), "GPGGA") != nullptr) {
+                    started_nmea = false;
+                    parseNmeaGga(nmea_sentence);
+                }
+                nmea_sentence.clear();
+                break;
+            }
+        }
+        if (started_ubx == false) {
+            if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
+                ubx_message.push_back(byte_previous);
+                ubx_message.push_back(byte);
+                wrong_input.clear();
+                started_ubx = true;
+                continue;
+            }
+        } else { // started_ubx is true
 
-		// UBX Messages reading and parsing
-       if (started_ubx == false) {
-           if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
-               ubx_message.push_back(byte_previous);
-               ubx_message.push_back(byte);
-               wrong_input.clear();
-               started_ubx = true;
-           }
-       } else { // started_ubx is true
-           ubx_message.push_back(byte);
-           if (ubx_message.size() == 6) {
-               sprintf(expectedLengthStr.data(),"%02X%02X",ubx_message[5],ubx_message[4]);
-               expectedLength = std::stol(expectedLengthStr,nullptr,16) + 8; // 8 bytes for header and checksum
-               expectedLengthStr.clear();
-           }
-           // printf("expectedLength = %lu\n",expectedLength);
-           if (expectedLength > 0 && ubx_message.size() == expectedLength) {
+            // check if B5 62 is part of the current message or if it's a new message
+            if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
+                // if length is not reached -> surely it's an overlapping message
+                if (ubx_message.size() <= 4) {
+                    std::cout << "length not reached!" << std::endl; //debug
+                    //printf("byte: %02X byte_previous: %02X\n", byte, byte_previous);
+                    //printUbxMessage(ubx_message);
+                    ubx_message.clear();
+                    ubx_message.push_back(byte_previous);
+                    ubx_message.push_back(byte);
+                    wrong_input.clear();
+                    continue;
+                }
+                //if a B5 62 sequence is read in the middle of the message, start storing bytes also into the overlapped msg
+                ubx_message_overlapped.clear();
+                ubx_message_overlapped.push_back(byte_previous);
+                ubx_message_overlapped.push_back(byte);
+                ubx_message.push_back(byte);
+                wrong_input.clear();
+                started_ubx_overlapped = true;
+                continue;
+            }
 
-               // Configuration messages
-               if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
-                   std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
-                   *m_terminatorFlagPtr=true;
-               }
+            ubx_message.push_back(byte);
+            wrong_input.clear();
 
-               // Data messages
-               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
-                   started_ubx = false;
-                   parseNavStatus(ubx_message);
-               }
-               if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
-                   started_ubx = false;
-                   parseEsfRaw(ubx_message);
+            // now use the length and checksum to see which message is valid and which is not
+            if (ubx_message.size() == 6) {
+                sprintf(expectedLengthStr.data(), "%02X%02X", ubx_message[5], ubx_message[4]);
+                //since length is referred to payload only, add 8 bytes (6 bytes for header, class and length fields + 2 bytes for checksum field)
+                expectedLength = std::stol(expectedLengthStr, nullptr, 16) + 8;
+                expectedLengthStr.clear();
+            }
 
-               }
-               if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
-                   started_ubx = false;
-                   //todo: review this
-                   // Calibration checks
-                   // If there are uncalibrated measures, ignore them
-                   /*
-                   if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
-                       std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
-                       break;
-                   }
-                   if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
-                       std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
-                       break;
-                   }
-                   */
-                   parseEsfIns(ubx_message);
-               }
-               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
-                   started_ubx = false;
-                   parseNavAtt(ubx_message);
-               }
-               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
-                   started_ubx = false;
-                   parseNavPvt(ubx_message);
-               }
-               ubx_message.clear();
-               break;
-           }
-       }
-       byte_previous = byte;
+            if (expectedLength > 0 && ubx_message.size() == expectedLength) {
+                //std::cout << "normal msg" << std::endl;
+                //printUbxMessage(ubx_message); //debug
+                if (started_ubx_overlapped == false) {
+                    if (validateUbxMessage(ubx_message) == true) {
+                        // Configuration messages
+                        if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
+                            std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
+                            // *m_terminatorFlagPtr=true;
+                        }
 
+                        // Parse data messages
+                        if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
+                            started_ubx = false;
+                            parseNavStatus(ubx_message);
+                        }
+                        if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
+                            started_ubx = false;
+                            parseEsfRaw(ubx_message);
+                        }
+                        if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
+                            started_ubx = false;
+                            //todo: review this
+                            // Calibration checks
+                            // If there are uncalibrated measures, ignore them
+                            /*
+                            if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
+                                std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
+                                break;
+                            }
+                            if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
+                                std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
+                                break;
+                            }
+                            */
+                            parseEsfIns(ubx_message);
+                        }
+                        if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
+                            started_ubx = false;
+                            parseNavAtt(ubx_message);
+                        }
+                        if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
+                            started_ubx = false;
+                            parseNavPvt(ubx_message);
+                        }
+
+                        // clear everything and start a new read
+                        ubx_message_overlapped.clear();
+                        started_ubx_overlapped = false;
+
+                        //printUbxMessage(ubx_message);
+                        ubx_message.clear();
+                        started_ubx = false;
+                        continue;
+
+                    } else {
+                        //invalid message, discard it and start a new read
+                        //std::cerr << "UBX message: Invalid checksum" << std::endl;
+
+                        //printUbxMessage(ubx_message);
+                        ubx_message_overlapped.clear();
+                        started_ubx_overlapped = false;
+
+                        //printUbxMessage(ubx_message);
+                        ubx_message.clear();
+                        started_ubx = false;
+                        continue;
+                    }
+                }
+            }
+
+            // Overlapped message checks section
+            if (started_ubx_overlapped == true) {
+                ubx_message_overlapped.push_back(byte);
+                wrong_input.clear();
+
+                if (ubx_message_overlapped.size() == 6) {
+                    sprintf(expectedLengthStrOverlapped.data(), "%02X%02X", ubx_message_overlapped[5],
+                            ubx_message_overlapped[4]);
+                    expectedLengthOverlapped = std::stol(expectedLengthStrOverlapped, nullptr, 16) +
+                                               8; // 8 bytes for header and checksum
+                    expectedLengthStrOverlapped.clear();
+                }
+
+                if (expectedLengthOverlapped > 0 && ubx_message_overlapped.size() == expectedLengthOverlapped) {
+                    //std::cout << "overlapped msg" << std::endl;
+                    //printUbxMessage(ubx_message_overlapped); //debug
+                    if (validateUbxMessage(ubx_message_overlapped) == true) {
+                        // Configuration messages
+                        if (ubx_message_overlapped[2] == 0x05 && ubx_message_overlapped[3] == 0x00) {
+                            std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
+                            // *m_terminatorFlagPtr=true;
+                        }
+
+                        // Parse overlapped message
+                        if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x03) {
+                            started_ubx = false;
+                            parseNavStatus(ubx_message_overlapped);
+                        }
+                        if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x03) {
+                            started_ubx = false;
+                            parseEsfRaw(ubx_message_overlapped);
+                        }
+                        if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x15) {
+                            started_ubx = false;
+                            //todo: review this
+                            // Calibration checks
+                            // If there are uncalibrated measures, ignore them
+                            /*
+                            if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
+                                std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
+                                break;
+                            }
+                            if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
+                                std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
+                                break;
+                            }
+                            */
+                            parseEsfIns(ubx_message_overlapped);
+                        }
+                        if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x05) {
+                            started_ubx = false;
+                            parseNavAtt(ubx_message_overlapped);
+                        }
+                        if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x07) {
+                            started_ubx = false;
+                            parseNavPvt(ubx_message_overlapped);
+                        }
+
+                        ubx_message.clear();
+                        started_ubx = false;
+
+                        ubx_message_overlapped.clear();
+                        //printUbxMessage(ubx_message_overlapped);
+                        started_ubx_overlapped = false;
+                    } else {
+                        //invalid overlapped message, discard it and move on with the ubx_message
+                        //std::cerr << "UBX Overlapped message: Invalid checksum" << std::endl;
+                        ubx_message.clear();
+                        started_ubx = false;
+
+                        ubx_message_overlapped.clear();
+                        //printUbxMessage(ubx_message_overlapped);
+                        started_ubx_overlapped = false;
+                    }
+                }
+            }
+        }
+        byte_previous = byte;
         //printf("byte = %02X\n",byte);
-        //printf("byte_previous = %02X\n",byte_previous);
-   }
+        // printf("byte_previous = %02X\n",byte_previous);
+    }
 }
 
 /** Enables the necessary messages for data retrieving by sending a UBX-CFG-VALSET poll request.

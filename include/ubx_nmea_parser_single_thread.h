@@ -38,6 +38,8 @@ class UBXNMEAParserSingleThread {
         double getYawRate(long *age_us, bool print_timestamp_and_age);
         double getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
+        std::string getFixModeUbx();
+        std::string getFixModeNmea();
         std::string getUtcTimeUbx();
         std::string getUtcTimeNmea();
         double getValidityThreshold();
@@ -46,6 +48,7 @@ class UBXNMEAParserSingleThread {
         bool setValidityThreshold(double threshold);
 
         // Validity methods
+        bool validateUbxMessage(std::vector<uint8_t> msg);
         bool getFixValidity2D(bool print_error);
         bool getFixValidity3D(bool print_error);
         std::atomic<bool> getPositionValidity(bool print_error);
@@ -114,7 +117,8 @@ class UBXNMEAParserSingleThread {
         ceSerial m_serial;
 
         const std::vector<uint8_t> m_UBX_HEADER = {0xb5, 0x62};
-        int m_WRONG_INPUT_TRESHOLD = 1000;
+        const int m_WRONG_INPUT_THRESHOLD = 1000;
+
 
         // UBX Header (2 bytes) + message class (1 byte) + message ID (1 byte) + message length (2 bytes)
         const uint8_t m_UBX_PAYLOAD_OFFSET = 6;
