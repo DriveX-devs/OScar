@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <arpa/inet.h>
 
-#define acceleration_threshold 4.722 // 17 km/h^2
+#define acceleration_threshold 17.0
 
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
