@@ -217,7 +217,8 @@ void CAMtxThr(std::string gnss_device,
            double speed_th,
            double head_th,
            bool rx_enabled,
-           bool use_gpsd) {
+           bool use_gpsd,
+           bool enable_security) {
     bool m_retry_flag=false;
 
     // VDP (Vehicle Data Provider) GPS Client object test
@@ -245,6 +246,7 @@ void CAMtxThr(std::string gnss_device,
             GN.setVDP(&vdpgpsc);
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
+            GN.setSecurity(enable_security);
             BTP.setGeoNet(&GN);
 
             while (cnt_CAM < 10) {
@@ -535,6 +537,7 @@ int main (int argc, char *argv[]) {
 	bool enable_reception = false;
 	bool disable_selfMAC_check = false;
 	int json_over_tcp_port = 49000;
+    bool enable_security = false;
 
     bool check_faulty_object_acceleration = false;
     bool disable_cpm_speed_triggering = false;
@@ -576,13 +579,13 @@ int main (int argc, char *argv[]) {
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
 		cmd.add(vifName);
-		
+
 		TCLAP::ValueArg<std::string> LogfileCAM("L","log-file-CAM","Print on file the log for the CAM condition checks. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileCAM);
-		
+
 		TCLAP::ValueArg<std::string> LogfileVAM("F","log-file-VAM","Print on file the log for the VAM condition checks. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileVAM);
-		
+
 		TCLAP::ValueArg<std::string> LogfileReception("R","log-file-Reception","Print on file the data retrieved from CAM/VAM/DENM reception. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileReception);
 
@@ -597,19 +600,19 @@ int main (int argc, char *argv[]) {
 
 		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service Station ID",false,0,"unsigned integer");
 		cmd.add(VehicleIDArg);
-		
+
 		TCLAP::ValueArg<unsigned long> VRUIDArg("r","VRU-id","VRU Basic Service Station ID",false,1000,"unsigned integer");
 		cmd.add(VRUIDArg);
-		
+
 		TCLAP::SwitchArg CAMsDissArg("C","enable-CAMs-dissemination","Enable the dissemination of standard CAMs",false);
 		cmd.add(CAMsDissArg);
-		
+
 		TCLAP::SwitchArg VAMsDissArg("V","enable-VAMs-dissemination","Enable the dissemination of VAMs",false);
 		cmd.add(VAMsDissArg);
 
         TCLAP::SwitchArg CPMsDissArg("M","enable-CPMs-dissemination","Enable the dissemination of CPMs",false);
         cmd.add(CPMsDissArg);
-		
+
 		TCLAP::SwitchArg DENMsDecArg("d","enable-DENMs-decoding","Enable the decoding of DENMs",false);
 		cmd.add(DENMsDecArg);
 
@@ -653,6 +656,9 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<long> VV_WebInterfacePortArg("2","vehviz-web-interface-port","set the port at which the web interface of the Vehicle Visualizer will be available",false,DEFAULT_VEHVIZ_WEB_PORT,"integer");
 		cmd.add(VV_WebInterfacePortArg);
 
+        TCLAP::SwitchArg SecurityArg("9","enable-CAMs-security","Enable the security features of standard CAMs",false);
+        cmd.add(SecurityArg);
+
 		TCLAP::ValueArg<double> VV_UpdateIntervalArg("3","vehviz-update-interval-sec",
 			"Advanced option: this option can be used to modify the update rate of the web-based GUI. "
 			"Warning: decreasing too much this value will affect the LDM database performance!"
@@ -691,7 +697,7 @@ int main (int argc, char *argv[]) {
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
-		
+
 		log_filename_CAM=LogfileCAM.getValue();
 		log_filename_VAM=LogfileVAM.getValue();
 		log_filename_rcv=LogfileReception.getValue();
@@ -707,6 +713,7 @@ int main (int argc, char *argv[]) {
 		enable_VAM_dissemination=VAMsDissArg.getValue();
         enable_CPM_dissemination=CPMsDissArg.getValue();
 		enable_DENM_decoding=DENMsDecArg.getValue();
+        enable_security=SecurityArg.getValue();
 
         check_faulty_object_acceleration=CheckFaultyObjectAcceleration.getValue();
         disable_cpm_speed_triggering=DisableCPMSpeedTriggering.getValue();
@@ -714,7 +721,7 @@ int main (int argc, char *argv[]) {
 		udp_sock_addr=UDPSockAddrArg.getValue();
 		udp_bind_ip=UDPBindIPArg.getValue();
 		extra_position_udp=ExtraPosUDPArg.getValue();
-		
+
 		rx_opts.gnss_device = gnss_device;
 		rx_opts.dissemination_device = dissem_vif;
 
@@ -753,7 +760,7 @@ int main (int argc, char *argv[]) {
 		}
 
 		std::cout << "[INFO] CAM/VAM dissemination interface: " << dissem_vif << std::endl;
-	} catch (TCLAP::ArgException &tclape) { 
+	} catch (TCLAP::ArgException &tclape) {
 		std::cerr << "TCLAP error: " << tclape.error() << " for argument " << tclape.argId() << std::endl;
 
 		return 1;
@@ -778,7 +785,7 @@ int main (int argc, char *argv[]) {
     }
 	*/
 
-	// Create the raw socket for the transmission of CAMs/VAMs, encapsulated inside GeoNetworking and BTP (in user space) 
+	// Create the raw socket for the transmission of CAMs/VAMs, encapsulated inside GeoNetworking and BTP (in user space)
 	int sockfd=-1;
 	sockfd=socket(AF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
 
@@ -830,7 +837,7 @@ int main (int argc, char *argv[]) {
 			<< "Socket: " << sockfd << ". Error: " << strerror(errno) << "." << std::endl;
 		exit(EXIT_FAILURE);
 	}
-	
+
 	// Create a new DB object
 	ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
     db_ptr->setStationID(vehicleID);
@@ -851,7 +858,7 @@ int main (int argc, char *argv[]) {
     }
     ldmgpsc.openConnection();
     db_ptr->setLoggingGNSSClient(&ldmgpsc);
-	
+
 	// We have to create a thread reading periodically (e.g. every 5 s) the database through the pointer "db_ptr" and "cleaning" the entries
 	// which are too old
 	pthread_create(&dbcleaner_tid,NULL,DBcleaner_callback,(void *) db_ptr);
@@ -886,7 +893,8 @@ int main (int argc, char *argv[]) {
                                         speed_th,
                                         head_th,
                                         enable_reception,
-                                        use_gpsd);
+                                        use_gpsd,
+                                        enable_security);
     }
     if(enable_VAM_dissemination) {
         txThreads.emplace_back(VAMtxThr,
@@ -933,7 +941,7 @@ int main (int argc, char *argv[]) {
                                use_gpsd);
     }
 
-	
+
 	// Reception loop (using the main thread)
 	if(enable_reception==true) {
 		fprintf(stdout,"Configuring socket for reception. Descriptor: %d\n",sockfd);
@@ -941,7 +949,7 @@ int main (int argc, char *argv[]) {
 		if(terminatorFlag==false) {
 			// Create the main SocketClient object for the reception of the V2X messages
 			SocketClient mainRecvClient(sockfd,&rx_opts, db_ptr, log_filename_rcv);
-			
+
 			if(enable_DENM_decoding) {
 				mainRecvClient.enableDENMdecoding();
 			}
@@ -979,7 +987,7 @@ int main (int argc, char *argv[]) {
 			logginggpsc.closeConnection();
 		}
 	}
-	
+
 	exit_failure:
 
     for(auto& t : txThreads) {
@@ -987,7 +995,7 @@ int main (int argc, char *argv[]) {
     }
 
 	terminatorFlag=true;
-	
+
 	pthread_join(dbcleaner_tid,nullptr);
 
 	if(enable_hmi==true) {
