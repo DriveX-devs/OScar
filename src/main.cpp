@@ -312,7 +312,9 @@ void CPMtxThr(std::string gnss_device,
               bool extra_position_udp,
               std::string log_filename_CPM,
               ldmmap::LDMMap *db_ptr,
-              bool use_gpsd) {
+              bool use_gpsd,
+              bool check_faulty_object_acceleration,
+              bool disable_cpm_speed_triggering) {
     bool m_retry_flag=false;
 
     VDPGPSClient vdpgpsc(gnss_device,gnss_port);
@@ -358,7 +360,9 @@ void CPMtxThr(std::string gnss_device,
             CPBS.setBTP(&BTP);
             CPBS.setStationProperties(vehicleID, StationType_passengerCar);
             CPBS.setVDP(&vdpgpsc);
-            CPBS.setLDM(db_ptr);;
+            CPBS.setLDM(db_ptr);
+            CPBS.setFaultyAccelerationCheck(check_faulty_object_acceleration);
+            CPBS.setSpeedTriggering(!disable_cpm_speed_triggering);
             if (log_filename_CPM != "dis" && log_filename_CPM != "") {
                 CPBS.setLogfile(log_filename_CPM);
             }
@@ -532,6 +536,9 @@ int main (int argc, char *argv[]) {
 	bool disable_selfMAC_check = false;
 	int json_over_tcp_port = 49000;
 
+    bool check_faulty_object_acceleration = false;
+    bool disable_cpm_speed_triggering = false;
+
 	std::string udp_sock_addr = "dis";
 	std::string udp_bind_ip = "0.0.0.0";
 	bool extra_position_udp = false;
@@ -662,6 +669,12 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
         cmd.add(WrongInputTsholdArg);
 
+        TCLAP::SwitchArg CheckFaultyObjectAcceleration("6","check-faulty-object-acceleration","Advanced option: enable the check of faulty acceleration values of the objects in the CPMs.",false);
+        cmd.add(CheckFaultyObjectAcceleration);
+
+        TCLAP::SwitchArg DisableCPMSpeedTriggering("7","disable-cpm-speed-triggering","Advanced option: disable the triggering of the CPMs based on speed variation.",false);
+        cmd.add(DisableCPMSpeedTriggering);
+
 		TCLAP::SwitchArg EnableHMIArg("m","enable-HMI","Enable the OScar HMI",false);
 		cmd.add(EnableHMIArg);
 
@@ -694,6 +707,9 @@ int main (int argc, char *argv[]) {
 		enable_VAM_dissemination=VAMsDissArg.getValue();
         enable_CPM_dissemination=CPMsDissArg.getValue();
 		enable_DENM_decoding=DENMsDecArg.getValue();
+
+        check_faulty_object_acceleration=CheckFaultyObjectAcceleration.getValue();
+        disable_cpm_speed_triggering=DisableCPMSpeedTriggering.getValue();
 
 		udp_sock_addr=UDPSockAddrArg.getValue();
 		udp_bind_ip=UDPBindIPArg.getValue();
@@ -903,7 +919,9 @@ int main (int argc, char *argv[]) {
                                         extra_position_udp,
                                         log_filename_CPM,
                                         db_ptr,
-                                        use_gpsd);
+                                        use_gpsd,
+                                        check_faulty_object_acceleration,
+                                        disable_cpm_speed_triggering);
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
