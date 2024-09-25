@@ -8,6 +8,8 @@
 #ifndef	ASN_SYSTEM_H
 #define	ASN_SYSTEM_H
 
+#include <arpa/inet.h> /* For htonl() and ntohl() */
+
 #ifdef	HAVE_CONFIG_H
 #include "config.h"
 #endif

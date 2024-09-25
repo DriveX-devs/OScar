@@ -116,7 +116,7 @@ $(OBJ_VEHVIS_DIR)/%.o: $(SRC_VEHVIS_DIR)/%.cc
 
 $(OBJ_ASN1_DIR)/%.o: $(SRC_ASN1_DIR)/%.c
 	@ mkdir -p $(OBJ_ASN1_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -Wno-incompatible-pointer-types -c $< -o $@
 
 $(OBJ_ETSI_DIR)/%.o: $(SRC_ETSI_DIR)/%.c
 	@ mkdir -p $(OBJ_ETSI_DIR)
