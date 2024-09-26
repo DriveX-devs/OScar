@@ -474,7 +474,7 @@ Security::createSecurePacket (GNDataRequest_t dataRequest)
 
     // For each second it will send a signer part with certificate, otherwise it will send digest.
 
-    if (computeTimestampUInt64() - m_timestampLastCertificate >= 1000 ||  m_timestampLastCertificate == 0)
+    if ((computeTimestampUInt64() - m_timestampLastCertificate) / NANO_TO_MILLI >= 1000 ||  m_timestampLastCertificate == 0)
     {
 
         m_timestampLastCertificate = computeTimestampUInt64();
