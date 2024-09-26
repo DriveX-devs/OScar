@@ -172,12 +172,14 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 		return REP_INTERVAL_LOW;
 	}
 
-	//Basic Header field setting according to ETSI EN 302 636-4-1 [10.3.2]
-	basicHeader.SetVersion (m_GnPtotocolVersion);
+    //Basic Header field setting according to ETSI EN 302 636-4-1 [10.3.2]
+    basicHeader.SetVersion (m_GnPtotocolVersion);
 
-	//Security option not implemented
-	basicHeader.SetNextHeader (1);//! Next Header: Common Header (1)
-	if(dataRequest.GNMaxLife != 0) {
+    if (enableSecurity && dataRequest.GNType == TSB) {
+        basicHeader.SetNextHeader (2);
+    } else basicHeader.SetNextHeader (1);
+
+    if(dataRequest.GNMaxLife != 0) {
 		basicHeader.SetLifeTime(encodeLT(dataRequest.GNMaxLife));
 	} else {
 		basicHeader.SetLifeTime(encodeLT(m_GnDefaultPacketLifetime));
@@ -278,13 +280,15 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
         // else if(basicH.GetVersion() == 0) {
             // std::cerr<< "[WARN] [Decoder] Unexpected GeoNetworking version \"0\"" << std::endl;
         // }
-        //2)Check NH field
-        if(basicH.GetNextHeader()==2) //a) if NH=0 or NH=1 proceed with common header procesing
+        // 2) Check NH field
+        if(enableSecurity && basicH.GetNextHeader()==2)
         {
-            //Secured packet
-            std::cerr << "[ERROR] [Decoder] Secured packet not supported" << std::endl;
-            return GN_SECURED_ERROR;
+            if(m_security.extractSecurePacket (*dataIndication) == Security::SECURITY_VERIFICATION_FAILED) {
+                std::cerr << "[ERROR] [Decoder] Security verification failed" << std::endl;
+                return GN_SECURED_ERROR;
+            }
         }
+
         if(!decodeLT(basicH.GetLifeTime(),&dataIndication->GNRemainingLife))
         {
             std::cerr << "[ERROR] [Decoder] Unable to decode lifetime field" << std::endl;
@@ -352,10 +356,12 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	// Add them to the final packet (the innermost header goes first)
 	dataRequest.data.addHeader(shbHeaderSerialized);
 
-	dataRequest.data.addHeader(commonHeaderSerialized);
-	dataRequest.data.addHeader(basicHeaderSerialized);
+    dataRequest.data.addHeader(commonHeaderSerialized);
+    if(enableSecurity){
+        dataRequest = m_security.createSecurePacket (dataRequest);
+    }
+    dataRequest.data.addHeader(basicHeaderSerialized);
 
-	//2)Security setting -not implemeted yet-
 	//3)If not suitable neighbour exist in the LocT and the SCF for the traffic class is set:
 	// This part is not yet implemented in OCABS
 	// if((dataRequest.GNTraClass > 128) && (!hasNeighbour ())) {
