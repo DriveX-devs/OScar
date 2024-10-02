@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <shared_mutex>
+#include <string>
 
 #define vehicleDataVector_t(name) std::vector<ldmmap::vehicleData_t> name;
 
