@@ -560,8 +560,8 @@ CABasicService::checkCamConditions()
             std::string parser_log_data = "[PARSER]";
 
             std::string fix_ubx = m_vdp->getParserFixModeUbx();
-            std::string fix_nmea = m_vdp->getParserFixModeUbx();
-            std::string data_fix = " Fix[UBX]=" + fix_ubx + "Fix[NMEA]" + fix_nmea;
+            std::string fix_nmea = m_vdp->getParserFixModeNmea();
+            std::string data_fix = " Fix[UBX]=" + fix_ubx + " " + "Fix[NMEA]=" + fix_nmea;
 
             std::tuple<double,double,double> accs = m_vdp->getParserAccelerations();
             std::string data_accs =

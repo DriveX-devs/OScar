@@ -1135,7 +1135,8 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 
 	// Speed over ground, Course over ground, Fix mode
 	std::string sog, cog;
-	char fix = '\0', fix_validity = '\0';
+	char fix = '\0';
+    char fix_validity = '\0';
 
 	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
 		if (nmea_response[i] == ',') {
@@ -1154,14 +1155,9 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 		if (commas == 12) {
 			if (nmea_response[i+1] != ',') {
 				fix = nmea_response[i+1];
+                fix_validity = nmea_response[i+3];
 			}
 		}
-
-        if (commas == 13) {
-            if (nmea_response[i+1] != ',') {
-                fix_validity = nmea_response[i+1];
-            }
-        }
     }
 
     // Check if speed and heading are negative and parses accondingly using stod
@@ -1190,8 +1186,9 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     */
 
     // Fix Validity Check
+    // Possible status values: V = data invalid, A = data valid
     if (fix_validity != 'A') {
-        strcpy(out_nmea.fix_nmea,"Unknown/Invalid[NMEA]");
+        strcpy(out_nmea.fix_nmea,"Invalid[NMEA]");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
@@ -1201,7 +1198,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         m_3d_valid_fix = false;
     }
     else if (fix == 'E') {
-        strcpy(out_nmea.fix_nmea, "Estimated/Dead Reckoning[NMEA]");
+        strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning[NMEA]");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
@@ -1226,7 +1223,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         m_3d_valid_fix = true;
     }
     else {
-        strcpy(out_nmea.fix_nmea, "Unknown/Invalid Fix Mode");
+        strcpy(out_nmea.fix_nmea, "Unknown/Invalid[NMEA]");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
@@ -1261,7 +1258,7 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	out_t out_sts = m_outBuffer.load();
 
 	if (fix_flags < 0xD0){
-        strcpy(out_sts.fix_ubx, "Unknown/Invalid[UBX]");
+        strcpy(out_sts.fix_ubx, "Invalid[UBX]");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
         m_outBuffer.store(out_sts);
