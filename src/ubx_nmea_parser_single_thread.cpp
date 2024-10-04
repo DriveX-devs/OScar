@@ -1137,8 +1137,6 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	std::string sog, cog;
 	char fix = '\0';
     char fix_validity = nmea_response[nmea_response.size() - 6];
-    std::cout << "Fix validity: " << fix_validity << std::endl;
-    std::cout << nmea_response << std::endl;
 
 	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
 		if (nmea_response[i] == ',') {
