@@ -1136,7 +1136,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	// Speed over ground, Course over ground, Fix mode
 	std::string sog, cog;
 	char fix = '\0';
-    char fix_validity = nmea_response[nmea_response.size() - 5];
+    char fix_validity = nmea_response[nmea_response.size() - 6];
     std::cout << "Fix validity: " << fix_validity << std::endl;
     std::cout << nmea_response << std::endl;
 
