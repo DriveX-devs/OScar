@@ -924,6 +924,7 @@ UBXNMEAParserSingleThread::getFixMode() {
 	// Checks if the fix mode has already been obtained from UBX
 	if (fix_ubx.empty() == true) {
         std::string fix_nmea(tmp.fix_nmea);
+        if (fix_nmea.empty()) fix_nmea = "Unavailable";
         return fix_nmea;
 	}
 	return fix_ubx;
@@ -938,6 +939,7 @@ UBXNMEAParserSingleThread::getFixModeUbx() {
 
     out_t tmp = m_outBuffer.load();
     std::string fix_ubx(tmp.fix_ubx);
+    if (fix_ubx.empty()) fix_ubx = "Unavailable";
 
     return fix_ubx;
 }
@@ -950,6 +952,7 @@ UBXNMEAParserSingleThread::getFixModeNmea() {
 
     out_t tmp = m_outBuffer.load();
     std::string fix_nmea(tmp.fix_nmea);
+    if (fix_nmea.empty()) fix_nmea = "Unavailable";
 
     return fix_nmea;
 }
@@ -1187,44 +1190,44 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     // Fix Validity Check
     // Possible status values: V = data invalid, A = data valid
     if (fix == 'N') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "NoFix[NMEA][V]");
-        else strcpy(out_nmea.fix_nmea, "NoFix[NMEA]");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "NoFixV");
+        else strcpy(out_nmea.fix_nmea, "NoFix");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
     else if (fix == 'E') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning[NMEA][V]");
-        else strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning[NMEA]");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoningV");
+        else strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
     else if (fix == 'A') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix[NMEA][V]");
-        else strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix[NMEA]");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "AutonomousGNSSFixV");
+        else strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
     }
     else if (fix == 'D') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea,"DGNSS[NMEA][V]");
-        else strcpy(out_nmea.fix_nmea,"DGNSS[NMEA]");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea,"DGNSSV");
+        else strcpy(out_nmea.fix_nmea,"DGNSS");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
         }
     else if (fix == 'F') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFloat[NMEA][V]");
-        else strcpy(out_nmea.fix_nmea, "RTKFloat[NMEA]");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFloatV");
+        else strcpy(out_nmea.fix_nmea, "RTKFloat");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
     }
     else if (fix == 'R') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFixed[NMEA][V]");
-        else strcpy(out_nmea.fix_nmea, "RTKFixed[NMEA]");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFixedV");
+        else strcpy(out_nmea.fix_nmea, "RTKFixed");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
     }
     else {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Unknown/Invalid[NMEA][V]");
-        else strcpy(out_nmea.fix_nmea, "Unknown/Invalid[NMEA]");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Unknown/InvalidV");
+        else strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
