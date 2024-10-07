@@ -35,6 +35,9 @@ GeoNet::GeoNet() {
 }
 
 GeoNet::~GeoNet() {
+    if (f_out != nullptr) {
+        fclose(f_out);
+    }
 	closeUDPsocket();
 }
 
@@ -50,6 +53,20 @@ GeoNet::setStationProperties(unsigned long fixed_stationid,long fixed_stationtyp
 	// ETSI EN 302 636-4-1 [10.2.2] : the egoPV shall be updated with a minimum freq of th GN constant itsGNminUpdateFrequencyEPV
 	MakeManagedconfiguredAddress (m_GnLocalGnAddr,m_stationtype,m_GNAddress); //! Initial address config on MANAGED(1) mode ETSI EN 302 636-4-1 [10.2.1.3]
 }
+
+void GeoNet::setLogFile2(const std::string &filename) {
+    m_log_filename2 = filename;
+    if (m_log_filename2 != "dis" && m_log_filename2 != "") {
+        char file[filename.size() + 1];
+        snprintf(file, sizeof(file), "%s", filename.c_str());
+
+        f_out = fopen(file, "w");
+        if (f_out == nullptr) {
+            std::cerr << "Cannot open log file for writing." << std::endl;
+        }
+    }
+}
+
 
 void
 GeoNet::setStationID(unsigned long fixed_stationid)
@@ -283,9 +300,21 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
         // 2) Check NH field
         if(enableSecurity && basicH.GetNextHeader()==2)
         {
+            long int start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            if (f_out != nullptr) {
+                fprintf(f_out, "[DECODE] Start time: %ld ms, ", start_ms);
+            }
+
             if(m_security.extractSecurePacket (*dataIndication) == Security::SECURITY_VERIFICATION_FAILED) {
                 std::cerr << "[ERROR] [Decoder] Security verification failed" << std::endl;
                 return GN_SECURED_ERROR;
+            }
+
+            long int end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            long int diff_ms = end_ms - start_ms;
+
+            if (f_out != nullptr) {
+                fprintf(f_out, "End time: %ld ms, Difference: %ld ms\n", end_ms, diff_ms);
             }
         }
 
@@ -358,7 +387,19 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 
     dataRequest.data.addHeader(commonHeaderSerialized);
     if(enableSecurity){
+        long int start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+        if (f_out != nullptr) {
+            fprintf(f_out, "[ENCODE] Start time: %ld ms, ", start_ms);
+        }
+
         dataRequest = m_security.createSecurePacket (dataRequest);
+
+        long int end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+        long int diff_ms = end_ms - start_ms;
+
+        if (f_out != nullptr) {
+            fprintf(f_out, "End time: %ld ms, Difference: %ld ms\n", end_ms, diff_ms);
+        }
     }
     dataRequest.data.addHeader(basicHeaderSerialized);
 

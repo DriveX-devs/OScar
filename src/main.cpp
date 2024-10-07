@@ -212,6 +212,7 @@ void CAMtxThr(std::string gnss_device,
            std::string udp_bind_ip,
            bool extra_position_udp,
            std::string log_filename_CAM,
+           std::string log_filename_GNsecurity,
            ldmmap::LDMMap *db_ptr,
            double pos_th,
            double speed_th,
@@ -247,6 +248,9 @@ void CAMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
+            if(log_filename_GNsecurity != "dis" && log_filename_GNsecurity != ""){
+                GN.setLogFile2(log_filename_GNsecurity);
+            }
             BTP.setGeoNet(&GN);
 
             while (cnt_CAM < 10) {
@@ -514,7 +518,9 @@ void radarReaderThr(std::string gnss_device, long gnss_port, std::string can_dev
 
 int main (int argc, char *argv[]) {
 	std::string dissem_vif = "wlan0";
+
 	std::string log_filename_CAM = "dis";
+    std::string log_filename_GNsecurity = "dis";
 	std::string log_filename_VAM = "dis";
 	std::string log_filename_rcv = "dis";
     std::string log_filename_CPM = "cps_dis";
@@ -582,7 +588,10 @@ int main (int argc, char *argv[]) {
 		
 		TCLAP::ValueArg<std::string> LogfileCAM("L","log-file-CAM","Print on file the log for the CAM condition checks. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileCAM);
-		
+
+        TCLAP::ValueArg<std::string> LogfileGNsecurity("a","log-file-GNsecurity","Print on file the log for the GN security checks. Default: (disabled).",false,"dis","string");
+        cmd.add(LogfileGNsecurity);
+
 		TCLAP::ValueArg<std::string> LogfileVAM("F","log-file-VAM","Print on file the log for the VAM condition checks. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileVAM);
 		
@@ -699,6 +708,7 @@ int main (int argc, char *argv[]) {
 		dissem_vif=vifName.getValue();
 		
 		log_filename_CAM=LogfileCAM.getValue();
+        log_filename_GNsecurity=LogfileGNsecurity.getValue();
 		log_filename_VAM=LogfileVAM.getValue();
 		log_filename_rcv=LogfileReception.getValue();
         log_filename_CPM=LogfileCPM.getValue();
@@ -888,6 +898,7 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_CAM,
+                                        log_filename_GNsecurity,
                                         db_ptr,
                                         pos_th,
                                         speed_th,
