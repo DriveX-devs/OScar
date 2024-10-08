@@ -300,22 +300,28 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
         // 2) Check NH field
         if(enableSecurity && basicH.GetNextHeader()==2)
         {
-            long int start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+            long int start_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             if (f_out != nullptr) {
-                fprintf(f_out, "[DECODE] Start time: %ld ms, ", start_ms);
+                fprintf(f_out, "[DECODE] Start time: %ld us, ", start_us);
             }
 
-            if(m_security.extractSecurePacket (*dataIndication) == Security::SECURITY_VERIFICATION_FAILED) {
+            if(m_security.extractSecurePacket (*dataIndication, isCertificate) == Security::SECURITY_VERIFICATION_FAILED) {
                 std::cerr << "[ERROR] [Decoder] Security verification failed" << std::endl;
                 return GN_SECURED_ERROR;
             }
-
-            long int end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-            long int diff_ms = end_ms - start_ms;
+            long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+            long int diff_us = end_us - start_us;
 
             if (f_out != nullptr) {
-                fprintf(f_out, "End time: %ld ms, Difference: %ld ms\n", end_ms, diff_ms);
+                fprintf(f_out, "End time: %ld us, Difference: %ld us. ", end_us, diff_us);
+                if (isCertificate) {
+                    fprintf(f_out, "[CERTIFICATE]\n");
+                } else {
+                    fprintf(f_out, "[DIGEST]\n");
+                }
             }
+
         }
 
         if(!decodeLT(basicH.GetLifeTime(),&dataIndication->GNRemainingLife))
@@ -387,20 +393,28 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 
     dataRequest.data.addHeader(commonHeaderSerialized);
     if(enableSecurity){
-        long int start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+        long int start_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
         if (f_out != nullptr) {
-            fprintf(f_out, "[ENCODE] Start time: %ld ms, ", start_ms);
+            fprintf(f_out, "[ENCODE] Start time: %ld us, ", start_us);
         }
 
-        dataRequest = m_security.createSecurePacket (dataRequest);
+        dataRequest = m_security.createSecurePacket (dataRequest, isCertificate);
 
-        long int end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-        long int diff_ms = end_ms - start_ms;
+        long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+        long int diff_us = end_us - start_us;
 
         if (f_out != nullptr) {
-            fprintf(f_out, "End time: %ld ms, Difference: %ld ms\n", end_ms, diff_ms);
+            fprintf(f_out, "End time: %ld us, Difference: %ld us. ", end_us, diff_us);
+            if (isCertificate) {
+                fprintf(f_out, "[CERTIFICATE]\n");
+            } else {
+                fprintf(f_out, "[DIGEST]\n");
+            }
         }
+
     }
+
     dataRequest.data.addHeader(basicHeaderSerialized);
 
 	//3)If not suitable neighbour exist in the LocT and the SCF for the traffic class is set:

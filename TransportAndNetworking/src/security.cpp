@@ -434,7 +434,7 @@ Security::signatureVerification (const std::string& tbsData_hex, const std::stri
 }
 
 GNDataRequest_t
-Security::createSecurePacket (GNDataRequest_t dataRequest)
+Security::createSecurePacket (GNDataRequest_t dataRequest, bool &isCertificate)
 {
 
     auto ieeeData = asn1cpp::makeSeq (Ieee1609Dot2Data);
@@ -480,7 +480,7 @@ Security::createSecurePacket (GNDataRequest_t dataRequest)
         m_timestampLastCertificate = computeTimestampUInt64();
 
         GNpublicKey public_key = generateECKeyPair ();
-
+        isCertificate = true;
         asn1cpp::setField (signData->signer.present, SignerIdentifier_PR_certificate);
         // Signed Data, Signer part with always 1 Certificate in the Sequence.
         auto certList = asn1cpp::makeSeq (SequenceOfCertificate);
@@ -554,6 +554,7 @@ Security::createSecurePacket (GNDataRequest_t dataRequest)
         // Signed Data, Signer field: version with only digest, other wireshark message with certificate option
         asn1cpp::setField (signData->signer.present, SignerIdentifier_PR_digest);
         asn1cpp::setField (signData->signer.choice.digest, m_digest);
+        isCertificate = false;
     }
 
     std::string tbs_hex = asn1cpp::oer::encode (tbs);
@@ -588,7 +589,7 @@ Security::createSecurePacket (GNDataRequest_t dataRequest)
 }
 
 Security::Security_error_t
-Security::extractSecurePacket (GNDataIndication_t &dataIndication) {
+Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCertificate) {
 
     asn1cpp::Seq<Ieee1609Dot2Data> ieeeData_decoded;
 
@@ -634,8 +635,10 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication) {
         auto present3 = asn1cpp::getField (signedDataDecoded->signer.present, SignerIdentifier_PR);
 
         if (present3 == SignerIdentifier_PR_digest) {
+            isCertificate = false;
             secureDataPacket.content.signData.signerId.digest =  asn1cpp::getField (signedDataDecoded->signer.choice.digest, std::string);
         } else if (present3 == SignerIdentifier_PR_certificate) {
+            isCertificate = true;
             std::string verificationKey;
             //There is always only one certificate, but to be sure a for is implemented.
             int size = asn1cpp::sequenceof::getSize(signedDataDecoded->signer.choice.certificate);

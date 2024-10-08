@@ -128,8 +128,8 @@ public:
     std::string s;
   }GNsignMaterial;
 
-  GNDataRequest_t createSecurePacket(GNDataRequest_t dataRequest);
-  Security_error_t extractSecurePacket(GNDataIndication_t &dataIndication);
+  GNDataRequest_t createSecurePacket(GNDataRequest_t dataRequest, bool &isCertificate);
+  Security_error_t extractSecurePacket(GNDataIndication_t &dataIndication, bool &isCertificate);
 
 
   /**

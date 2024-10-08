@@ -66,6 +66,7 @@ class GeoNet {
 
         Security m_security;
         bool enableSecurity;
+		bool isCertificate;
 
         FILE* f_out = nullptr; // Log file pointer
         std::string m_log_filename2 = "dis";
