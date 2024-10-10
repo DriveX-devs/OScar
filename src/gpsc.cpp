@@ -878,6 +878,11 @@ getCAMMandatoryData() {
                 } else CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
             } else CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
 
+            double hdd = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
+            if (hdd == 0) hdd = m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
+
+            // printf("BEFORE: %.2lf\n",hdd);
+            // printf("VALID? %d\n",m_serialParserPtr->getSpeedAndCogValidity(true));
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
                 double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
 
@@ -889,6 +894,8 @@ getCAMMandatoryData() {
                 } else CAMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
 
             } else CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+
+            // printf("AFTER: %d\n",CAMdata.heading.getValue());
 
             CAMdata.driveDirection = DriveDirection_unavailable;
             CAMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);

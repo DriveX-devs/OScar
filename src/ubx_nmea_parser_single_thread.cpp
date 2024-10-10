@@ -861,6 +861,10 @@ UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_times
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_ubx;
 
+    // std::cout << "lu_sog_cog_ubx: " << tmp.lu_sog_cog_ubx << std::endl;
+    // std::cout << "AGE UBX: " << local_age_us << std::endl;
+    // std::cout << "VALIDITY THRESHOLD: " << getValidityThreshold() << std::endl;
+
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_ubx_valid.store(false);
     }
@@ -886,6 +890,8 @@ UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_time
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_nmea;
+
+    // printf("AGE NMEA: %ld\n",local_age_us);
 
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_nmea_valid.store(false);
@@ -1072,9 +1078,6 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 	std::reverse(head_motion.begin(),head_motion.end());
 	out_pvt.cog_ubx = static_cast<double>(hexToSigned(head_motion)) * 0.00001;
 
-    // Updates the buffer
-    m_outBuffer.store(out_pvt);
-
     /*
      * todo: revisit later this part (caused a bug on cog_ubx and sog_ubx)
      * consider rewriting "hexToSignedValue()"
@@ -1112,13 +1115,16 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     // Produces and prints to struct the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_pvt.ts_sog_cog_ubx,std::ctime(&now));
+    */
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
 	// Retrieves the time since epoch in microseconds and updates the output struct
 	out_pvt.lu_sog_cog_ubx = update.time_since_epoch().count();
-    */
+
+    // Updates the buffer
+    m_outBuffer.store(out_pvt);
 
     // Validates data
     m_sog_cog_ubx_valid = true;
@@ -1140,6 +1146,8 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	std::string sog, cog;
 	char fix = '\0';
     char fix_validity = nmea_response[nmea_response.size() - 6];
+
+    printf("fix validity: %c\n",fix_validity);
 
 	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
 		if (nmea_response[i] == ',') {
@@ -1190,43 +1198,43 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     // Fix Validity Check
     // Possible status values: V = data invalid, A = data valid
     if (fix == 'N') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "NoFixV");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "NoFix (V)");
         else strcpy(out_nmea.fix_nmea, "NoFix");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
     else if (fix == 'E') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoningV");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning (V)");
         else strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
     else if (fix == 'A') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "AutonomousGNSSFixV");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix (V)");
         else strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
     }
     else if (fix == 'D') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea,"DGNSSV");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea,"DGNSS (V)");
         else strcpy(out_nmea.fix_nmea,"DGNSS");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
         }
     else if (fix == 'F') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFloatV");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFloat (V)");
         else strcpy(out_nmea.fix_nmea, "RTKFloat");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
     }
     else if (fix == 'R') {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFixedV");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFixed (V)");
         else strcpy(out_nmea.fix_nmea, "RTKFixed");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
     }
     else {
-        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Unknown/InvalidV");
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Unknown/Invalid (V)");
         else strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
@@ -1262,7 +1270,7 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	out_t out_sts = m_outBuffer.load();
 
 	if (fix_flags < 0xD0){
-        strcpy(out_sts.fix_ubx, "Invalid[UBX]");
+        strcpy(out_sts.fix_ubx, "Invalid");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
         m_outBuffer.store(out_sts);
@@ -1270,37 +1278,37 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
     }
 
     if (fix_mode == 0x00) {
-        strcpy(out_sts.fix_ubx, "NoFix[UBX]");
+        strcpy(out_sts.fix_ubx, "NoFix");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
     else if (fix_mode == 0x01) {
-        strcpy(out_sts.fix_ubx, "Estimated/DeadReckoning[UBX]");
-        m_2d_valid_fix = false;
-        m_3d_valid_fix = false;
+        strcpy(out_sts.fix_ubx, "Estimated/DeadReckoning");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
     }
     else if (fix_mode == 0x02) {
-        strcpy(out_sts.fix_ubx, "2D-Fix[UBX]");
+        strcpy(out_sts.fix_ubx, "2D-Fix");
         m_2d_valid_fix = true;
         m_3d_valid_fix = false;
     }
     else if (fix_mode == 0x03) {
-        strcpy(out_sts.fix_ubx, "3D-Fix[UBX]");
+        strcpy(out_sts.fix_ubx, "3D-Fix");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
     }
     else if (fix_mode == 0x04) {
-        strcpy(out_sts.fix_ubx, "GPS+DeadReckoning[UBX]");
+        strcpy(out_sts.fix_ubx, "GPS+DeadReckoning");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
     }
     else if (fix_mode == 0x05) {
-        strcpy(out_sts.fix_ubx, "TimeOnly[UBX]");
+        strcpy(out_sts.fix_ubx, "TimeOnly");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
     else {
-        strcpy(out_sts.fix_ubx, "Unknown/Invalid[UBX]");
+        strcpy(out_sts.fix_ubx, "Unknown/Invalid");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
@@ -1418,6 +1426,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
         } else {
             if (byte != '$') nmea_sentence.push_back(byte);
             if (byte == '\n') {
+                // printf("%s\n",nmea_sentence.c_str());
 
                 if (strstr(nmea_sentence.data(), "GNGNS") != nullptr ||
                     strstr(nmea_sentence.data(), "GPGNS") != nullptr) {
@@ -1428,6 +1437,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                 if (strstr(nmea_sentence.data(), "GNRMC") != nullptr ||
                     strstr(nmea_sentence.data(), "GPRMC") != nullptr) {
                     started_nmea = false;
+                    // printf("UHHH!!! BECCAAAATAAAA! %s\n",nmea_sentence.c_str());
                     parseNmeaRmc(nmea_sentence);
                 }
                 if (strstr(nmea_sentence.data(), "GNGGA") != nullptr ||
