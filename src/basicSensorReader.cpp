@@ -57,6 +57,8 @@ BasicSensorReader::readerLoop() {
         } else {
             double phi_left = ((radar_msg.data[0] << 8) | (radar_msg.data[1])) & 0x07FF;
             phi_left = phi_left * VO_0x_phi_left_FACTOR + VO_0x_phi_left_OFFSET;
+            uint8_t radar_class = (radar_msg.data[0] >> 5) & 0x07;
+            auto classification = (classification_t) radar_class;
             double phi_right = ((radar_msg.data[2] << 8) | (radar_msg.data[3])) & 0x07FF;
             phi_right = phi_right * VO_0x_phi_right_FACTOR + VO_0x_phi_right_OFFSET;
             double dx_v = ((radar_msg.data[4] << 8) | (radar_msg.data[5])) & 0x0FFF;
@@ -84,7 +86,22 @@ BasicSensorReader::readerLoop() {
                 ldmmap::vehicleData_t vehicleData;
                 //vehicleData.exteriorLights = ldmmap::OptionalDataItem<uint8_t>(false);
                 vehicleData.detected = true;
-                vehicleData.stationType = ldmmap::StationType_LDM_detectedPassengerCar;
+
+                // TODO check how reliable is the classification
+                if (m_enable_classification)
+                {
+                    if (classification == CAR || classification == SEMI)
+                        vehicleData.stationType = ldmmap::StationType_LDM_detectedPassengerCar; // SEMI should be a truck but from tests, cars are classified as SEMI
+                    else if (classification == CYCLE)
+                        vehicleData.stationType = ldmmap::StationType_LDM_detectedPedestrian;
+                    else
+                        vehicleData.stationType = ldmmap::StationType_LDM_detectedLightTruck;  // UNKNOWN or NOT_DEFINED
+                }
+                else
+                {
+                    vehicleData.stationType = ldmmap::StationType_LDM_detectedPassengerCar;
+                }
+
                 vehicleData.perceivedBy = (uint64_t) m_stationID;
 
                 VDPGPSClient::CAM_mandatory_data_t ego_data = m_gpsc_ptr->getCAMMandatoryData();
@@ -113,15 +130,36 @@ BasicSensorReader::readerLoop() {
 
 
                 vehicleData.heading = ego_data.heading.getValue(); // [0.1 degrees]
-                // TODO: implement kalman filter for speed computation
                 vehicleData.xSpeed = ego_data.speed.getValue() * cos(ego_heading_cart); // [0.01 m/s]
                 vehicleData.ySpeed = ego_data.speed.getValue() * sin(ego_heading_cart); // [0.01 m/s]
                 vehicleData.speed_ms = ego_data.speed.getValue() * 0.01; // [m/s]
                 vehicleData.stationID = radar_msg.can_id;
-                /*
-                std::cout << "Object "<< vehicleData.stationID <<  " xDistance: " << xDistance << " yDistance: " << yDistance << std::endl;
-                std::cout << " Ego Vehicle lat: " << ego_lat << " lon: " << ego_lon << " heading: " << ego_heading << std::endl;
-                 */
+
+                if (m_verbose)
+                {
+                    std::string class_str;
+                    switch (classification)
+                    {
+                        case CAR:
+                            class_str = "CAR";
+                            break;
+                        case SEMI:
+                            class_str = "SEMI";
+                            break;
+                        case CYCLE:
+                            class_str = "CYCLE";
+                            break;
+                        case NOT_DEFINED:
+                            class_str = "NOT_DEFINED";
+                            break;
+                        case UNKNOWN:
+                            class_str = "UNKNOWN";
+                            break;
+                    }
+                    std::cout << "[SENSOR READER]" << std::endl;
+                    std::cout << "    Object "<< vehicleData.stationID <<  " - xDistance: " << xDistance << "m - yDistance: " << yDistance << "m - class: " << class_str << std::endl;
+                    std::cout << "    Ego Vehicle - lat: " << ego_lat << " - lon: " << ego_lon << " - heading: " << ego_heading << std::endl;
+                }
 
                 transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();
                 double lat1, lon1, ego_x, ego_y;
@@ -152,15 +190,6 @@ BasicSensorReader::readerLoop() {
                     std::cerr << "Warning! Insert on the database for object " << (int) vehicleData.stationID << "failed!" << std::endl;
                 }
 
-                //print the perceived object's vehicle data
-                /*
-                std::cout << "Perceived object's vehicle data: " << std::endl;
-                std::cout << "xDistance: " << vehicleData.xDistance << ", ";
-                std::cout << "yDistance: " << vehicleData.yDistance << ", ";
-                std::cout << "heading: " << vehicleData.heading << ", ";
-                std::cout << "width: " << width << ", ";
-                std::cout << "[lat, lon]: [" << vehicleData.lat << ", " << vehicleData.lon << "]" << std::endl;
-                 */
             }
         }
     }
