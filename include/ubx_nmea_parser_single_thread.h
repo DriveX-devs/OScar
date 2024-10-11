@@ -48,6 +48,7 @@ class UBXNMEAParserSingleThread {
         bool setValidityThreshold(double threshold);
 
         // Validity methods
+        bool validateNmeaSentence(const std::string& nmeaMessage);
         bool validateUbxMessage(std::vector<uint8_t> msg);
         bool getFixValidity2D(bool print_error);
         bool getFixValidity3D(bool print_error);

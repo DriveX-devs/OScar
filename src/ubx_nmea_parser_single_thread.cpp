@@ -205,6 +205,38 @@ bool UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
     }
 }
 
+bool
+UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) {
+    // Check that the message starts with '$' and contains '*'
+    if (nmeaMessage.front() != '$' || nmeaMessage.find('*') == std::string::npos) {
+        return false;  // Invalid format
+    }
+
+    // Find the position of the '*' character
+    size_t asteriskPos = nmeaMessage.find('*');
+
+    // Ensure there's enough space for the checksum after '*'
+    if (asteriskPos + 2 >= nmeaMessage.length()) {
+        return false;  // Invalid or missing checksum
+    }
+
+    // XOR all characters between '$' and '*' (exclusive)
+    unsigned char checksum = 0;
+    for (size_t i = 1; i < asteriskPos; ++i) {
+        checksum ^= static_cast<unsigned char>(nmeaMessage[i]);
+    }
+
+    // Convert checksum to hexadecimal string (two uppercase digits)
+    char hexChecksum[3];
+    snprintf(hexChecksum, sizeof(hexChecksum), "%02X", checksum);
+
+    // Extract the provided checksum from the message (characters after '*')
+    std::string providedChecksum = nmeaMessage.substr(asteriskPos + 1, 2);
+
+    // Compare the calculated checksum with the provided one
+    return providedChecksum == hexChecksum;
+}
+
 std::string
 UBXNMEAParserSingleThread::getUtcTimeUbx() {
     if(m_parser_started == false) {
@@ -1137,22 +1169,37 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 void
 UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	/* Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
-	                                                         sog^   cog^     fix mode^  ^fix validity       */
-	out_t out_nmea = m_outBuffer.load();
+	                            ^fix validity                sog^   cog^     fix mode^         */
+    std::vector<std::string> fields;
+    std::stringstream ss(nmea_response);
+    std::string field;
 
-	int commas = 0;
+    out_t out_nmea = m_outBuffer.load();
 
-	// Speed over ground, Course over ground, Fix mode
-	std::string sog, cog;
-	char fix = '\0';
-    char fix_validity = nmea_response[nmea_response.size() - 6];
+    while (std::getline(ss, field, ',')) {
+        fields.push_back(field);
+    }
 
-    printf("fix validity: %c\n",fix_validity);
+    /*
+    std::cout << "Fix: " << fields[12] << "Validity: " << fields[2]
+    << "SOG: " << fields[7] << "COG" << fields[8] << std::endl;
+    */
 
+    char fix = fields[12].at(0);
+    char fix_validity = fields[2].at(0);
+    std::string sog = fields[7];
+    std::string cog = fields[8];
+
+    /*
 	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
 		if (nmea_response[i] == ',') {
 			commas++;
 		}
+        if (commas == 2) {
+            if (nmea_response[i+1] != ',') {
+                fix_validity = nmea_response[i+1];
+            }
+        }
 		if (commas == 7) {
 			if (nmea_response[i+1] != ',') {
 				sog += nmea_response[i+1];
@@ -1169,6 +1216,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 			}
 		}
     }
+     */
 
     // Check if speed and heading are negative and parses accondingly using stod
     if (cog.empty() == false) {
@@ -1377,9 +1425,15 @@ UBXNMEAParserSingleThread::readFromSerial() {
     std::vector<uint8_t> ubx_message, ubx_message_overlapped, wrong_input;
     std::string nmea_sentence;
 
+    // todo: remove this (debug)
+    int nav_status_cnt = 0;
+    int esf_raw_cnt = 0;
+    int esf_ins_cnt = 0;
+    int nav_att_cnt = 0;
+    int nav_pvt_cnt = 0;
+
     uint8_t byte = 0x00;
     uint8_t byte_previous = 0x00;
-
     bool started_ubx = false;
     bool started_ubx_overlapped = false;
     bool started_nmea = false;
@@ -1422,33 +1476,51 @@ UBXNMEAParserSingleThread::readFromSerial() {
                 nmea_sentence.push_back(byte);
                 wrong_input.clear();
                 started_nmea = true;
+                continue;
             }
         } else {
             if (byte != '$') nmea_sentence.push_back(byte);
-            if (byte == '\n') {
-                // printf("%s\n",nmea_sentence.c_str());
-
-                if (strstr(nmea_sentence.data(), "GNGNS") != nullptr ||
-                    strstr(nmea_sentence.data(), "GPGNS") != nullptr) {
-                    started_nmea = false;
-                    parseNmeaGns(nmea_sentence);
-                }
-
-                if (strstr(nmea_sentence.data(), "GNRMC") != nullptr ||
-                    strstr(nmea_sentence.data(), "GPRMC") != nullptr) {
-                    started_nmea = false;
-                    // printf("UHHH!!! BECCAAAATAAAA! %s\n",nmea_sentence.c_str());
-                    parseNmeaRmc(nmea_sentence);
-                }
-                if (strstr(nmea_sentence.data(), "GNGGA") != nullptr ||
-                    strstr(nmea_sentence.data(), "GPGGA") != nullptr) {
-                    started_nmea = false;
-                    parseNmeaGga(nmea_sentence);
-                }
+            // If another $ is found, start over
+            else {
                 nmea_sentence.clear();
-                break;
+                nmea_sentence.push_back(byte);
+                continue;
+            }
+            if (byte == '\n' && nmea_sentence.size() >= 9) { // 9 = min. valid sentence lenght e.g. $--XXX*hh
+                if (validateNmeaSentence(nmea_sentence)) {
+                    if (nmea_sentence.compare(0, 6, "$GNGNS") == 0 ||
+                        nmea_sentence.compare(0, 6, "$GPGNS") == 0) {
+                        started_nmea = false;
+                        parseNmeaGns(nmea_sentence);
+                        nmea_sentence.clear();
+                        continue;
+                    }
+
+                    if (nmea_sentence.compare(0, 6, "$GNRMC") == 0 ||
+                        nmea_sentence.compare(0, 6, "$GPRMC") == 0) {
+                        started_nmea = false;
+                        parseNmeaRmc(nmea_sentence);
+                        nmea_sentence.clear();
+                        continue;
+                    }
+                    if (nmea_sentence.compare(0, 6, "$GNGGA") == 0 ||
+                        nmea_sentence.compare(0, 6, "$GPGGA") == 0) {
+                        started_nmea = false;
+                        parseNmeaGga(nmea_sentence);
+                        nmea_sentence.clear();
+                        continue;
+                    }
+                }
+                else {
+                    // If sentence is not valid, start over
+                    started_nmea = false;
+                    nmea_sentence.clear();
+                    continue;
+                }
             }
         }
+
+        // UBX reading logic
         if (started_ubx == false) {
             if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
                 ubx_message.push_back(byte_previous);
@@ -1506,15 +1578,35 @@ UBXNMEAParserSingleThread::readFromSerial() {
 
                         // Parse data messages
                         if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
+                            // Parse, clear everything and start a new read
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
+                            nav_status_cnt++;
+                            printf("0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
                             parseNavStatus(ubx_message);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
                         if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
+                            // Parse, clear everything and start a new read
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
+                            esf_raw_cnt++;
+                            printf("1003_ESF-RAW_cnt: %d\n", esf_raw_cnt);
                             parseEsfRaw(ubx_message);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
                         if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
                             //todo: review this
                             // Calibration checks
                             // If there are uncalibrated measures, ignore them
@@ -1528,15 +1620,37 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 break;
                             }
                             */
+                            esf_ins_cnt++;
+                            printf("1015_ESF-INS_cnt: %d\n", esf_ins_cnt);
                             parseEsfIns(ubx_message);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
                         if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
+                            nav_att_cnt++;
+                            printf("0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
                             parseNavAtt(ubx_message);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
                         if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
+                            nav_pvt_cnt++;
+                            printf("0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
                             parseNavPvt(ubx_message);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
 
                         // clear everything and start a new read
@@ -1549,7 +1663,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                         continue;
 
                     } else {
-                        //invalid message, discard it and start a new read
+                        // Invalid or unhandled message, discard it and start a new read
                         //std::cerr << "UBX message: Invalid checksum" << std::endl;
 
                         //printUbxMessage(ubx_message);
@@ -1589,14 +1703,31 @@ UBXNMEAParserSingleThread::readFromSerial() {
 
                         // Parse overlapped message
                         if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x03) {
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
+                            nav_status_cnt++;
+                            printf("ov_0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
                             parseNavStatus(ubx_message_overlapped);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
                         if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x03) {
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
+                            esf_raw_cnt++;
+                            printf("ov_1003_ESF_RAW_cnt: %d\n", esf_raw_cnt);
                             parseEsfRaw(ubx_message_overlapped);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
                         if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x15) {
+                            started_ubx_overlapped = false;
                             started_ubx = false;
                             //todo: review this
                             // Calibration checks
@@ -1611,17 +1742,42 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 break;
                             }
                             */
+
+                            esf_ins_cnt++;
+                            printf("ov_1015_ESF_INS_cnt: %d\n", esf_ins_cnt);
                             parseEsfIns(ubx_message_overlapped);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
+
                         }
                         if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x05) {
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
+                            nav_att_cnt++;
+                            printf("ov_0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
                             parseNavAtt(ubx_message_overlapped);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
                         if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x07) {
+                            started_ubx_overlapped = false;
                             started_ubx = false;
+
+                            nav_pvt_cnt++;
+                            printf("ov_0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
                             parseNavPvt(ubx_message_overlapped);
+
+                            ubx_message.clear();
+                            ubx_message_overlapped.clear();
+                            continue;
                         }
 
+                        // Invalid or unhandled overlapped message, discard it and start a new read
                         ubx_message.clear();
                         started_ubx = false;
 
