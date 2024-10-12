@@ -197,10 +197,11 @@ bool UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
 
     if (msg[msg.size() -2] == CK_A && msg[msg.size()-1] == CK_B) {
         return true;
-        //std::cerr << "Invalid checksum" << std::endl;
     }
     else {
-        //printf("\nCK_A: %02X  CK_B: %02X\n\n", CK_A,CK_B);
+        //todo: remove/comment (debug)
+        //printf("\n\nINVALID MESSAGE: CK_A: %02X  CK_B: %02X\n\n", CK_A,CK_B);
+        //printUbxMessage(msg);
         return false;
     }
 }
@@ -310,62 +311,40 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
 void
 UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 
-	out_t out_nmea = m_outBuffer.load();
+    out_t out_nmea = m_outBuffer.load();
 
-	int commas = 0;
+    std::vector<std::string> fields;
+    std::stringstream ss(nmea_response);
+    std::string field;
+
+    while (std::getline(ss, field, ',')) {
+        fields.push_back(field);
+    }
 
 	// Latitude and Longitude substrings to be converted to double using std::stod() later
-	std::string utc_time = "UTC Time: ", slat, slon, salt;
-	char cp_lat = '\0', cp_lon = '\0'; // cardinal points (N, S, W, E)
+	std::string utc_time = "UTC Time: " + fields[1];
+    std::string slat = fields[2];
+    std::string slon = fields[4];
+    std::string salt = fields[9];
 
-	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
-		if (nmea_response[i] == ',') {
-			commas++;
-		}
-		// UTC time (hhmmss.ss)
-		if (commas == 1){
-			if (nmea_response[i+1] != ',') {
-				utc_time += nmea_response[i+1];
-			}
-		}
-		// Latitude string
-		if (commas == 2){
-			if (nmea_response[i+1] != ',') {
-				slat += nmea_response[i+1];
-			}
-		}
-		// Latitude cardinal point
-		if (commas == 3) {
-			if (cp_lat != '\0') continue;
-			cp_lat = nmea_response[i+1];
-		}
-		// Longitude string
-		if (commas == 4){
-			if (nmea_response[i+1] != ',') {
-				slon += nmea_response[i+1];
-			}
-		}
-		// Longitude cardinal point
-		if (commas == 5) {
-			if (cp_lon != '\0') continue;
-			cp_lon = nmea_response[i+1];
-		}
-		// Altitude above mean sea level
-		if (commas == 9) {
-			if(nmea_response[i+1] != ',') {
-				salt += nmea_response[i+1];
-			}
-		}
-	}
+    // cardinal points (N, S, W, E)
+	char cp_lat = fields[3].at(0);
+    char cp_lon = fields[5].at(0);
 
-	if (slat.empty() == false) out_nmea.lat = std::stod(slat);
+    /* debug
+    std::cout << nmea_response;
+    std::cout << utc_time << " Lat: " << slat << " Lon: " << slon
+              << " Alt: " << salt << " cp lat: " << cp_lat << " cp lon: " << cp_lon << std::endl;
+    */
+
+    if (!slat.empty()) out_nmea.lat = std::stod(slat);
 	else out_nmea.lat = 0;
 
-	if (slon.empty() == false) out_nmea.lon = std::stod(slon);
+	if (!slon.empty()) out_nmea.lon = std::stod(slon);
 	else out_nmea.lon = 0;
 
 	// Check if the altitude is negative and parses accondingly using stod
-	if (salt.empty() == false) {
+	if (!salt.empty()) {
 		if (salt[0] == '-') {
 			salt = salt.erase(0,1);
 			out_nmea.alt = std::stod(salt) * -1;
@@ -408,60 +387,32 @@ void
 UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	out_t out_nmea = m_outBuffer.load();
 
-	int commas = 0;
+    std::vector<std::string> fields;
+    std::stringstream ss(nmea_response);
+    std::string field;
+
+    while (std::getline(ss, field, ',')) {
+        fields.push_back(field);
+    }
 
 	// Latitude and Longitude substrings to be converted to double using std::stod() later
-	std::string utc_time = "UTC Time: ", slat, slon, salt;
-	char cp_lat = '\0', cp_lon = '\0'; // cardinal points (N, S, W, E)
+	std::string utc_time = "UTC Time: " + fields[1];
+    std::string slat = fields[2];
+    std::string slon = fields[4];
+    std::string salt = fields[9];
 
-	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
-		if (nmea_response[i] == ',') {
-			commas++;
-		}
-		// UTC time (hhmmss.ss)
-		if (commas == 1){
-			if (nmea_response[i+1] != ',') {
-				utc_time += nmea_response[i+1];
-			}
-		}
-		// Latitude string
-		if (commas == 2){
-			if (nmea_response[i+1] != ',') {
-				slat += nmea_response[i+1];
-			}
-		}
-		// Latitude cardinal point
-		if (commas == 3) {
-			if (cp_lat != '\0') continue;
-			cp_lat = nmea_response[i+1];
-		}
-		// Longitude string
-		if (commas == 4){
-			if (nmea_response[i+1] != ',') {
-				slon += nmea_response[i+1];
-			}
-		}
-		// Longitude cardinal point
-		if (commas == 5) {
-			if (cp_lon != '\0') continue;
-			cp_lon = nmea_response[i+1];
-		}
-		// Altitude above mean sea level
-		if (commas == 9) {
-			if (nmea_response[i+1] != ',') {
-				salt += nmea_response[i+1];
-			}
-		}
-	}
+    // cardinal points (N, S, W, E)
+	char cp_lat = fields[3].at(0);
+    char cp_lon = fields[5].at(0);
 
-	if (slat.empty() == false) out_nmea.lat = std::stod(slat);
+	if (!slat.empty()) out_nmea.lat = std::stod(slat);
 	else out_nmea.lat = 0;
 
-	if (slon.empty() == false) out_nmea.lon = std::stod(slon);
+	if (!slon.empty()) out_nmea.lon = std::stod(slon);
 	else out_nmea.lon = 0;
 
 	// Check if the altitude is negative and parses accondingly using stod
-	if (salt.empty() == false) {
+	if (!salt.empty()) {
 		if (salt[0] == '-') {
             salt = salt.erase(0,1);
             out_nmea.alt = std::stod(salt) * -1;
@@ -1180,43 +1131,10 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         fields.push_back(field);
     }
 
-    /*
-    std::cout << "Fix: " << fields[12] << "Validity: " << fields[2]
-    << "SOG: " << fields[7] << "COG" << fields[8] << std::endl;
-    */
-
     char fix = fields[12].at(0);
     char fix_validity = fields[2].at(0);
     std::string sog = fields[7];
     std::string cog = fields[8];
-
-    /*
-	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
-		if (nmea_response[i] == ',') {
-			commas++;
-		}
-        if (commas == 2) {
-            if (nmea_response[i+1] != ',') {
-                fix_validity = nmea_response[i+1];
-            }
-        }
-		if (commas == 7) {
-			if (nmea_response[i+1] != ',') {
-				sog += nmea_response[i+1];
-			}
-		}
-		if (commas == 8) {
-			if (nmea_response[i+1] != ',') {
-				cog += nmea_response[i+1];
-			}
-		}
-		if (commas == 12) {
-			if (nmea_response[i+1] != ',') {
-				fix = nmea_response[i+1];
-			}
-		}
-    }
-     */
 
     // Check if speed and heading are negative and parses accondingly using stod
     if (cog.empty() == false) {
@@ -1426,6 +1344,9 @@ UBXNMEAParserSingleThread::readFromSerial() {
     std::string nmea_sentence;
 
     // todo: remove this (debug)
+    int rmc_cnt = 0;
+    int gns_cnt = 0;
+    int gga_cnt = 0;
     int nav_status_cnt = 0;
     int esf_raw_cnt = 0;
     int esf_ins_cnt = 0;
@@ -1447,7 +1368,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
 
         byte = m_serial.ReadChar(success);
 
-        if(!success) {
+        if (!success) {
             continue;
         }
 
@@ -1462,337 +1383,361 @@ UBXNMEAParserSingleThread::readFromSerial() {
             }
             printf("\n");
 
-            printf("byte = %02X\n",byte);
-            printf("byte_previous = %02X\n",byte_previous);
-            printf("expectedLength = %lu\n",expectedLength);
-            
+            printf("byte = %02X\n", byte);
+            printf("byte_previous = %02X\n", byte_previous);
+            printf("expectedLength = %lu\n", expectedLength);
+
             wrong_input.clear();
             m_terminatorFlagPtr->store(true);
         }
 
         // NMEA sentences reading and parsing
-        if (started_nmea == false) {
-            if (byte == '$') {
-                nmea_sentence.push_back(byte);
-                wrong_input.clear();
-                started_nmea = true;
-                continue;
-            }
-        } else {
-            if (byte != '$') nmea_sentence.push_back(byte);
-            // If another $ is found, start over
-            else {
-                nmea_sentence.clear();
-                nmea_sentence.push_back(byte);
-                continue;
-            }
-            if (byte == '\n' && nmea_sentence.size() >= 9) { // 9 = min. valid sentence lenght e.g. $--XXX*hh
-                if (validateNmeaSentence(nmea_sentence)) {
-                    if (nmea_sentence.compare(0, 6, "$GNGNS") == 0 ||
-                        nmea_sentence.compare(0, 6, "$GPGNS") == 0) {
-                        started_nmea = false;
-                        parseNmeaGns(nmea_sentence);
-                        nmea_sentence.clear();
-                        continue;
-                    }
-
-                    if (nmea_sentence.compare(0, 6, "$GNRMC") == 0 ||
-                        nmea_sentence.compare(0, 6, "$GPRMC") == 0) {
-                        started_nmea = false;
-                        parseNmeaRmc(nmea_sentence);
-                        nmea_sentence.clear();
-                        continue;
-                    }
-                    if (nmea_sentence.compare(0, 6, "$GNGGA") == 0 ||
-                        nmea_sentence.compare(0, 6, "$GPGGA") == 0) {
-                        started_nmea = false;
-                        parseNmeaGga(nmea_sentence);
-                        nmea_sentence.clear();
-                        continue;
-                    }
-                }
-                else {
-                    // If sentence is not valid, start over
-                    started_nmea = false;
-                    nmea_sentence.clear();
+        if (started_ubx == false) {
+            if (started_nmea == false) {
+                if (byte == '$') {
+                    nmea_sentence.push_back(byte);
+                    wrong_input.clear();
+                    started_nmea = true;
                     continue;
+                }
+            } else {
+                if (byte != '$') {
+                    nmea_sentence.push_back(byte);
+                    wrong_input.clear();
+                }
+                // If another $ is found, start over
+                else {
+                    nmea_sentence.clear();
+                    nmea_sentence.push_back(byte);
+                    wrong_input.clear();
+                    continue;
+                }
+                if (byte == '\n' && nmea_sentence.size() >= 9) { // 9 = min. valid sentence lenght e.g. $--XXX*hh
+                    if (validateNmeaSentence(nmea_sentence)) {
+                        if (nmea_sentence.compare(0, 6, "$GNGNS") == 0 ||
+                            nmea_sentence.compare(0, 6, "$GPGNS") == 0) {
+                            started_nmea = false;
+
+                            gns_cnt++;
+                            printf("gns_cnt: %d\n",gns_cnt);
+
+                            parseNmeaGns(nmea_sentence);
+                            nmea_sentence.clear();
+                            continue;
+                        }
+
+                        if (nmea_sentence.compare(0, 6, "$GNRMC") == 0 ||
+                            nmea_sentence.compare(0, 6, "$GPRMC") == 0) {
+                            started_nmea = false;
+
+                            rmc_cnt++;
+                            printf("rmc_cnt: %d\n",rmc_cnt);
+
+                            parseNmeaRmc(nmea_sentence);
+                            nmea_sentence.clear();
+                            continue;
+                        }
+                        if (nmea_sentence.compare(0, 6, "$GNGGA") == 0 ||
+                            nmea_sentence.compare(0, 6, "$GPGGA") == 0) {
+                            started_nmea = false;
+
+                            gga_cnt++;
+                            printf("gga_cnt: %d\n",gga_cnt);
+
+                            parseNmeaGga(nmea_sentence);
+                            nmea_sentence.clear();
+                            continue;
+                        }
+                    } else {
+                        // If sentence is not valid, start over
+                        started_nmea = false;
+                        nmea_sentence.clear();
+                        continue;
+                    }
                 }
             }
         }
 
         // UBX reading logic
-        if (started_ubx == false) {
-            if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
-                ubx_message.push_back(byte_previous);
-                ubx_message.push_back(byte);
-                wrong_input.clear();
-                started_ubx = true;
-                continue;
-            }
-        } else { // started_ubx is true
-
-            // check if B5 62 is part of the current message or if it's a new message
-            if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
-                // if length is not reached -> surely it's an overlapping message
-                if (ubx_message.size() <= 4) {
-                    std::cout << "length not reached!" << std::endl; //debug
-                    //printf("byte: %02X byte_previous: %02X\n", byte, byte_previous);
-                    //printUbxMessage(ubx_message);
-                    ubx_message.clear();
+        if (started_nmea == false) {
+            if (started_ubx == false) {
+                if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
+                    expectedLength = 0;
                     ubx_message.push_back(byte_previous);
                     ubx_message.push_back(byte);
                     wrong_input.clear();
+                    started_ubx = true;
                     continue;
                 }
-                //if a B5 62 sequence is read in the middle of the message, start storing bytes also into the overlapped msg
-                ubx_message_overlapped.clear();
-                ubx_message_overlapped.push_back(byte_previous);
-                ubx_message_overlapped.push_back(byte);
-                ubx_message.push_back(byte);
-                wrong_input.clear();
-                started_ubx_overlapped = true;
-                continue;
-            }
+            } else { // started_ubx is true
 
-            ubx_message.push_back(byte);
-            wrong_input.clear();
-
-            // now use the length and checksum to see which message is valid and which is not
-            if (ubx_message.size() == 6) {
-                sprintf(expectedLengthStr.data(), "%02X%02X", ubx_message[5], ubx_message[4]);
-                //since length is referred to payload only, add 8 bytes (6 bytes for header, class and length fields + 2 bytes for checksum field)
-                expectedLength = std::stol(expectedLengthStr, nullptr, 16) + 8;
-                expectedLengthStr.clear();
-            }
-
-            if (expectedLength > 0 && ubx_message.size() == expectedLength) {
-                //std::cout << "normal msg" << std::endl;
-                //printUbxMessage(ubx_message); //debug
-                if (started_ubx_overlapped == false) {
-                    if (validateUbxMessage(ubx_message) == true) {
-                        // Configuration messages
-                        if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
-                            std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
-                            // *m_terminatorFlagPtr=true;
-                        }
-
-                        // Parse data messages
-                        if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
-                            // Parse, clear everything and start a new read
-                            started_ubx_overlapped = false;
-                            started_ubx = false;
-
-                            nav_status_cnt++;
-                            printf("0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
-                            parseNavStatus(ubx_message);
-
-                            ubx_message.clear();
-                            ubx_message_overlapped.clear();
-                            continue;
-                        }
-                        if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
-                            // Parse, clear everything and start a new read
-                            started_ubx_overlapped = false;
-                            started_ubx = false;
-
-                            esf_raw_cnt++;
-                            printf("1003_ESF-RAW_cnt: %d\n", esf_raw_cnt);
-                            parseEsfRaw(ubx_message);
-
-                            ubx_message.clear();
-                            ubx_message_overlapped.clear();
-                            continue;
-                        }
-                        if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
-                            started_ubx_overlapped = false;
-                            started_ubx = false;
-
-                            //todo: review this
-                            // Calibration checks
-                            // If there are uncalibrated measures, ignore them
-                            /*
-                            if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
-                                std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
-                                break;
-                            }
-                            if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
-                                std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
-                                break;
-                            }
-                            */
-                            esf_ins_cnt++;
-                            printf("1015_ESF-INS_cnt: %d\n", esf_ins_cnt);
-                            parseEsfIns(ubx_message);
-
-                            ubx_message.clear();
-                            ubx_message_overlapped.clear();
-                            continue;
-                        }
-                        if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
-                            started_ubx_overlapped = false;
-                            started_ubx = false;
-
-                            nav_att_cnt++;
-                            printf("0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
-                            parseNavAtt(ubx_message);
-
-                            ubx_message.clear();
-                            ubx_message_overlapped.clear();
-                            continue;
-                        }
-                        if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
-                            started_ubx_overlapped = false;
-                            started_ubx = false;
-
-                            nav_pvt_cnt++;
-                            printf("0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
-                            parseNavPvt(ubx_message);
-
-                            ubx_message.clear();
-                            ubx_message_overlapped.clear();
-                            continue;
-                        }
-
-                        // clear everything and start a new read
-                        ubx_message_overlapped.clear();
-                        started_ubx_overlapped = false;
-
+                // check if B5 62 is part of the current message or if it's a new message
+                if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
+                    // if length is not reached -> surely it's an overlapping message
+                    if (ubx_message.size() <= 4) {
+                        std::cout << "length not reached!" << std::endl; //debug
+                        //printf("byte: %02X byte_previous: %02X\n", byte, byte_previous);
                         //printUbxMessage(ubx_message);
                         ubx_message.clear();
-                        started_ubx = false;
-                        continue;
-
-                    } else {
-                        // Invalid or unhandled message, discard it and start a new read
-                        //std::cerr << "UBX message: Invalid checksum" << std::endl;
-
-                        //printUbxMessage(ubx_message);
-                        ubx_message_overlapped.clear();
-                        started_ubx_overlapped = false;
-
-                        //printUbxMessage(ubx_message);
-                        ubx_message.clear();
-                        started_ubx = false;
+                        ubx_message.push_back(byte_previous);
+                        ubx_message.push_back(byte);
+                        wrong_input.clear();
                         continue;
                     }
+                    //if a B5 62 sequence is read in the middle of the message, start storing bytes also into the overlapped msg
+                    expectedLengthOverlapped = 0;
+                    ubx_message_overlapped.clear();
+                    ubx_message_overlapped.push_back(byte_previous);
+                    ubx_message_overlapped.push_back(byte);
+                    ubx_message.push_back(byte);
+                    wrong_input.clear();
+                    started_ubx_overlapped = true;
+                    continue;
                 }
-            }
 
-            // Overlapped message checks section
-            if (started_ubx_overlapped == true) {
-                ubx_message_overlapped.push_back(byte);
+                ubx_message.push_back(byte);
                 wrong_input.clear();
 
-                if (ubx_message_overlapped.size() == 6) {
-                    sprintf(expectedLengthStrOverlapped.data(), "%02X%02X", ubx_message_overlapped[5],
-                            ubx_message_overlapped[4]);
-                    expectedLengthOverlapped = std::stol(expectedLengthStrOverlapped, nullptr, 16) +
-                                               8; // 8 bytes for header and checksum
-                    expectedLengthStrOverlapped.clear();
+                // now use the length and checksum to see which message is valid and which is not
+                if (ubx_message.size() == 6) {
+                    sprintf(expectedLengthStr.data(), "%02X%02X", ubx_message[5], ubx_message[4]);
+                    //since length is referred to payload only, add 8 bytes (6 bytes for header, class and length fields + 2 bytes for checksum field)
+                    expectedLength = std::stol(expectedLengthStr, nullptr, 16) + 8;
+                    expectedLengthStr.clear();
+                }
+                if (expectedLength > 0 && ubx_message.size() == expectedLength) {
+                    //std::cout << "normal msg" << std::endl;
+                    //printUbxMessage(ubx_message); //debug
+
+                    if (started_ubx_overlapped == false) {
+                        if (validateUbxMessage(ubx_message) == true) {
+
+                            // Configuration messages
+                            if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
+                                std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
+                                // *m_terminatorFlagPtr=true;
+                            }
+
+                            // Parse data messages
+                            if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
+                                // Parse, clear everything and start a new read
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+
+                                nav_status_cnt++;
+                                printf("0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
+                                parseNavStatus(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
+                                // Parse, clear everything and start a new read
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+
+                                esf_raw_cnt++;
+                                printf("1003_ESF-RAW_cnt: %d\n", esf_raw_cnt);
+                                parseEsfRaw(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+
+                                //todo: review this
+                                // Calibration checks
+                                // If there are uncalibrated measures, ignore them
+                                /*
+                                if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
+                                    std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
+                                    break;
+                                }
+                                if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
+                                    std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
+                                    break;
+                                }
+                                */
+
+                                esf_ins_cnt++;
+                                printf("1015_ESF-INS_cnt: %d\n", esf_ins_cnt);
+
+                                parseEsfIns(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+
+                                nav_att_cnt++;
+                                printf("0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
+                                parseNavAtt(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+
+                                nav_pvt_cnt++;
+                                printf("0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
+                                parseNavPvt(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+
+                            // clear everything and start a new read
+                            ubx_message_overlapped.clear();
+                            started_ubx_overlapped = false;
+
+                            //printUbxMessage(ubx_message);
+                            ubx_message.clear();
+                            started_ubx = false;
+                            continue;
+
+                        } else {
+                            // Invalid or invalid unhandled message, discard it and start a new read
+                            //std::cerr << "UBX message: Invalid checksum" << std::endl;
+                            ubx_message_overlapped.clear();
+                            started_ubx_overlapped = false;
+
+                            //printUbxMessage(ubx_message);
+                            ubx_message.clear();
+                            started_ubx = false;
+                            continue;
+                        }
+                    }
                 }
 
-                if (expectedLengthOverlapped > 0 && ubx_message_overlapped.size() == expectedLengthOverlapped) {
-                    //std::cout << "overlapped msg" << std::endl;
-                    //printUbxMessage(ubx_message_overlapped); //debug
-                    if (validateUbxMessage(ubx_message_overlapped) == true) {
-                        // Configuration messages
-                        if (ubx_message_overlapped[2] == 0x05 && ubx_message_overlapped[3] == 0x00) {
-                            std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
-                            // *m_terminatorFlagPtr=true;
-                        }
+                // Overlapped message checks section
+                if (started_ubx_overlapped == true) {
+                    ubx_message_overlapped.push_back(byte);
+                    wrong_input.clear();
 
-                        // Parse overlapped message
-                        if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x03) {
-                            started_ubx_overlapped = false;
-                            started_ubx = false;
+                    if (ubx_message_overlapped.size() == 6) {
+                        sprintf(expectedLengthStrOverlapped.data(), "%02X%02X", ubx_message_overlapped[5],
+                                ubx_message_overlapped[4]);
+                        expectedLengthOverlapped = std::stol(expectedLengthStrOverlapped, nullptr, 16) +
+                                                   8; // 8 bytes for header and checksum
+                        expectedLengthStrOverlapped.clear();
+                    }
 
-                            nav_status_cnt++;
-                            printf("ov_0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
-                            parseNavStatus(ubx_message_overlapped);
-
-                            ubx_message.clear();
-                            ubx_message_overlapped.clear();
-                            continue;
-                        }
-                        if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x03) {
-                            started_ubx_overlapped = false;
-                            started_ubx = false;
-
-                            esf_raw_cnt++;
-                            printf("ov_1003_ESF_RAW_cnt: %d\n", esf_raw_cnt);
-                            parseEsfRaw(ubx_message_overlapped);
-
-                            ubx_message.clear();
-                            ubx_message_overlapped.clear();
-                            continue;
-                        }
-                        if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x15) {
-                            started_ubx_overlapped = false;
-                            started_ubx = false;
-                            //todo: review this
-                            // Calibration checks
-                            // If there are uncalibrated measures, ignore them
-                            /*
-                            if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
-                                std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
-                                break;
+                    if (expectedLengthOverlapped > 0 && ubx_message_overlapped.size() == expectedLengthOverlapped) {
+                        //std::cout << "overlapped msg" << std::endl;
+                        //printUbxMessage(ubx_message_overlapped); //debug
+                        if (validateUbxMessage(ubx_message_overlapped) == true) {
+                            // Configuration messages
+                            if (ubx_message_overlapped[2] == 0x05 && ubx_message_overlapped[3] == 0x00) {
+                                std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
+                                // *m_terminatorFlagPtr=true;
                             }
-                            if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
-                                std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
-                                break;
+
+                            // Parse overlapped message
+                            if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x03) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+
+                                nav_status_cnt++;
+                                printf("ov_0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
+                                parseNavStatus(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
                             }
-                            */
+                            if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x03) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
 
-                            esf_ins_cnt++;
-                            printf("ov_1015_ESF_INS_cnt: %d\n", esf_ins_cnt);
-                            parseEsfIns(ubx_message_overlapped);
+                                esf_raw_cnt++;
+                                printf("ov_1003_ESF_RAW_cnt: %d\n", esf_raw_cnt);
+                                parseEsfRaw(ubx_message_overlapped);
 
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x15) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                //todo: review this
+                                // Calibration checks
+                                // If there are uncalibrated measures, ignore them
+                                /*
+                                if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
+                                    std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
+                                    break;
+                                }
+                                if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
+                                    std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
+                                    break;
+                                }
+                                */
+
+                                esf_ins_cnt++;
+                                printf("ov_1015_ESF_INS_cnt: %d\n", esf_ins_cnt);
+                                parseEsfIns(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+
+                            }
+                            if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x05) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+
+                                nav_att_cnt++;
+                                printf("ov_0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
+                                parseNavAtt(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x07) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+
+                                nav_pvt_cnt++;
+                                printf("ov_0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
+                                parseNavPvt(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+
+                            // Invalid or unhandled overlapped message, discard it and start a new read
                             ubx_message.clear();
-                            ubx_message_overlapped.clear();
-                            continue;
-
-                        }
-                        if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x05) {
-                            started_ubx_overlapped = false;
                             started_ubx = false;
 
-                            nav_att_cnt++;
-                            printf("ov_0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
-                            parseNavAtt(ubx_message_overlapped);
-
-                            ubx_message.clear();
                             ubx_message_overlapped.clear();
-                            continue;
-                        }
-                        if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x07) {
+                            //printUbxMessage(ubx_message_overlapped);
                             started_ubx_overlapped = false;
+                            continue;
+                        } else {
+                            //invalid overlapped message, discard it and move on with the ubx_message
+                            //std::cerr << "UBX Overlapped message: Invalid checksum" << std::endl;
+                            ubx_message.clear();
                             started_ubx = false;
 
-                            nav_pvt_cnt++;
-                            printf("ov_0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
-                            parseNavPvt(ubx_message_overlapped);
-
-                            ubx_message.clear();
                             ubx_message_overlapped.clear();
+                            //printUbxMessage(ubx_message_overlapped);
+                            started_ubx_overlapped = false;
                             continue;
                         }
-
-                        // Invalid or unhandled overlapped message, discard it and start a new read
-                        ubx_message.clear();
-                        started_ubx = false;
-
-                        ubx_message_overlapped.clear();
-                        //printUbxMessage(ubx_message_overlapped);
-                        started_ubx_overlapped = false;
-                    } else {
-                        //invalid overlapped message, discard it and move on with the ubx_message
-                        //std::cerr << "UBX Overlapped message: Invalid checksum" << std::endl;
-                        ubx_message.clear();
-                        started_ubx = false;
-
-                        ubx_message_overlapped.clear();
-                        //printUbxMessage(ubx_message_overlapped);
-                        started_ubx_overlapped = false;
                     }
                 }
             }

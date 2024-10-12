@@ -834,6 +834,7 @@ getCAMMandatoryData() {
         }
     } else {
         std::string fixMode = m_serialParserPtr->getFixMode();
+        //todo: update/fix this check and all the other ones
         if (fixMode != "Fix Mode: No Fix" && fixMode != "Fix mode: Time-only Fix" &&
             fixMode != "Unknown/Invalid Fix Mode") {
 
