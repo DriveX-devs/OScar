@@ -623,7 +623,7 @@ CABasicService::checkCamConditions()
         if (m_vdp->getSerialParser() == false) data = data + "\n";
         else {
             parser_log_data = parser_log_data + data_fix + data_cog_ubx + data_cog_nmea
-                    + data_lat_ubx + data_lat_nmea + data_lon_ubx + data_lon_nmea
+                    + data_lat_ubx + data_lon_ubx + data_lat_nmea + data_lon_nmea
                     + data_sog_ubx + data_sog_nmea + data_accs + data_att + data_longit_acc
                     + data_yaw_rate;
             data = data + parser_log_data + "\n\n";
