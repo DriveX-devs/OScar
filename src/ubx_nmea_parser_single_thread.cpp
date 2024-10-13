@@ -143,15 +143,21 @@ UBXNMEAParserSingleThread::clearBuffer() {
     tmp.comp_ang_rate_y = 0;
     tmp.comp_ang_rate_z = 0;
 	tmp.lat = 0;
+    tmp.lat_ubx = 0;
+    tmp.lat_nmea = 0;
 	tmp.lon = 0;
+    tmp.lon_ubx = 0;
+    tmp.lon_nmea = 0;
 	tmp.alt = 0;
-	tmp.cp_lat = '\0';
-	tmp.cp_lon = '\0';
+    tmp.alt_ubx = 0;
+    tmp.alt_nmea = 0;
 	tmp.roll = 0;
 	tmp.pitch = 0;
 	tmp.heading = 0;
+    tmp.sog = 0;
 	tmp.sog_ubx = 0;
 	tmp.sog_nmea = 0;
+    tmp.cog = 0;
 	tmp.cog_ubx = 0;
 	tmp.cog_nmea = 0;
 	tmp.lu_pos = 0;
@@ -173,7 +179,7 @@ UBXNMEAParserSingleThread::printBuffer() {
     printf("[NMEA - UTC TIME]  - %s\n", tmp.ts_utc_time_nmea);
 	printf("[UBX]  - %s\n", tmp.fix_ubx);
 	printf("[NMEA] - %s\n\n", tmp.fix_nmea);
-	printf("[Position]\nLat: %.8f   deg   -   Lon: %.8f   deg  -   Altitude: %.2f   m\n\n",decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon),tmp.alt);
+	printf("[Position]\nLat: %.8f   deg   -   Lon: %.8f   deg  -   Altitude: %.2f   m\n\n",tmp.lat,tmp.lon,tmp.alt);
 	printf("[Speed over ground]\n(UBX): %.3f m/s   -   (NMEA): %.3f m/s\n\n",tmp.sog_ubx,tmp.sog_nmea);
 	printf("[Course over ground]\n(UBX): %.3f deg   -   (NMEA): %.3f deg\n\n",tmp.cog_ubx,tmp.cog_nmea);
 	printf("[Accelerations (gravity-free)]\nX: %.3f  m/s^2  Y: %.3f  m/s^2  Z: %.3f  m/s^2\n\n",tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
@@ -298,7 +304,7 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
     }
     else m_pos_valid.store(true);
 
-	return std::pair<double,double>(decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon));
+	return std::pair<double,double>(tmp.lat,tmp.lon);
 }
 
 /** Checks and parses a GNGNS NMEA sentence in order to get the latitude and longitude data
@@ -337,25 +343,31 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
               << " Alt: " << salt << " cp lat: " << cp_lat << " cp lon: " << cp_lon << std::endl;
     */
 
-    if (!slat.empty()) out_nmea.lat = std::stod(slat);
-	else out_nmea.lat = 0;
+    if (!slat.empty()) {
+        out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
+        out_nmea.lat_nmea = out_nmea.lat;
+    }
+	else out_nmea.lat = 900000001; // Latitude_unavailable
 
-	if (!slon.empty()) out_nmea.lon = std::stod(slon);
-	else out_nmea.lon = 0;
+	if (!slon.empty()) {
+        out_nmea.lon = decimal_deg(std::stod(slon),cp_lon);
+        out_nmea.lon_nmea = out_nmea.lon;
+    }
+	else out_nmea.lon = 1800000001; // Longitude_unavailable
 
 	// Check if the altitude is negative and parses accondingly using stod
 	if (!salt.empty()) {
 		if (salt[0] == '-') {
 			salt = salt.erase(0,1);
 			out_nmea.alt = std::stod(salt) * -1;
+            out_nmea.alt_nmea = out_nmea.alt;
 		}
-		else
-		out_nmea.alt = std::stod(salt);
+		else {
+            out_nmea.alt = std::stod(salt);
+            out_nmea.alt_nmea = out_nmea.alt;
+        }
 	}
-	else out_nmea.alt = 0;
-
-	out_nmea.cp_lat = cp_lat;
-	out_nmea.cp_lon = cp_lon;
+	else out_nmea.alt = 800001; // AltitudeValue_unavailable
 
 	// Produces and processes the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -405,25 +417,31 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	char cp_lat = fields[3].at(0);
     char cp_lon = fields[5].at(0);
 
-	if (!slat.empty()) out_nmea.lat = std::stod(slat);
-	else out_nmea.lat = 0;
+	if (!slat.empty()) {
+        out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
+        out_nmea.lat_nmea = out_nmea.lat;
+    }
+	else out_nmea.lat = 900000001; // Latitude_unavailable
 
-	if (!slon.empty()) out_nmea.lon = std::stod(slon);
-	else out_nmea.lon = 0;
+	if (!slon.empty()) {
+        out_nmea.lon = decimal_deg(std::stod(slon),cp_lon);
+        out_nmea.lon_nmea = out_nmea.lon;
+    }
+	else out_nmea.lon = 1800000001; //Longitude_unavailable
 
 	// Check if the altitude is negative and parses accondingly using stod
 	if (!salt.empty()) {
 		if (salt[0] == '-') {
             salt = salt.erase(0,1);
             out_nmea.alt = std::stod(salt) * -1;
+            out_nmea.alt_nmea = out_nmea.alt;
 		}
-		else
-		out_nmea.alt = std::stod(salt);
+		else {
+            out_nmea.alt = std::stod(salt);
+            out_nmea.alt_nmea = out_nmea.alt;
+        }
 	}
-	else out_nmea.alt = 0;
-
-	out_nmea.cp_lat = cp_lat;
-	out_nmea.cp_lon = cp_lon;
+	else out_nmea.alt = 800001; //AltitudeValue_unvailable
 
 	// Produces and processes the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -1055,15 +1073,32 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 	 * Converts the arrays in little endian and retrieves the single signed value after scaling accordingly */
 	std::vector<uint8_t> sog(response.begin() + m_UBX_PAYLOAD_OFFSET + 60, response.begin() + m_UBX_PAYLOAD_OFFSET + 64);
 	std::reverse(sog.begin(),sog.end());
-	out_pvt.sog_ubx = static_cast<double>(hexToSigned(sog)) * 0.001; // Converts from mm/s to m/s
+	out_pvt.sog = static_cast<double>(hexToSigned(sog)) * 0.001; // Converts from mm/s to m/s
+    out_pvt.sog_ubx = out_pvt.sog;
 
 	std::vector<uint8_t> head_motion(response.begin() + m_UBX_PAYLOAD_OFFSET + 64, response.begin() + m_UBX_PAYLOAD_OFFSET + 68);
 	std::reverse(head_motion.begin(),head_motion.end());
-	out_pvt.cog_ubx = static_cast<double>(hexToSigned(head_motion)) * 0.00001;
+	out_pvt.cog = static_cast<double>(hexToSigned(head_motion)) * 0.00001;
+    out_pvt.cog_ubx = out_pvt.cog;
+
+    std::vector<uint8_t> lat(response.begin() + m_UBX_PAYLOAD_OFFSET + 28, response.begin() + m_UBX_PAYLOAD_OFFSET + 32);
+    std::reverse(lat.begin(),lat.end());
+    out_pvt.lat = static_cast<double>(hexToSigned(lat)) * 0.0000001;
+    out_pvt.lat_ubx = out_pvt.lat;
+
+    std::vector<uint8_t> lon(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 28);
+    std::reverse(lon.begin(),lon.end());
+    out_pvt.lon = static_cast<double>(hexToSigned(lon)) * 0.0000001;
+    out_pvt.lon_ubx = out_pvt.lon;
+
+    std::vector<uint8_t> alt(response.begin() + m_UBX_PAYLOAD_OFFSET + 36, response.begin() + m_UBX_PAYLOAD_OFFSET + 40);
+    std::reverse(alt.begin(),alt.end());
+    out_pvt.alt = static_cast<double>(hexToSigned(alt)) * 0.001; // Convert from mm to m
+    out_pvt.alt_ubx = out_pvt.alt;
 
     /*
      * todo: revisit later this part (caused a bug on cog_ubx and sog_ubx)
-     * consider rewriting "hexToSignedValue()"
+     *
      *
     std::vector<uint8_t> utc_time(response.begin() + m_UBX_PAYLOAD_OFFSET + 4, response.begin() + m_UBX_PAYLOAD_OFFSET + 12);
     std::ostringstream out;
@@ -1140,19 +1175,29 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     if (cog.empty() == false) {
         if (cog[0] == '-') {
             cog = cog.erase(0,1);
-            out_nmea.cog_nmea = std::stod(cog) * -1;
+            out_nmea.cog = std::stod(cog) * -1;
+            out_nmea.cog_nmea = out_nmea.cog;
         }
-        else out_nmea.cog_nmea = std::stod(cog);
+        else {
+            out_nmea.cog_nmea = std::stod(cog);
+            out_nmea.cog_nmea = out_nmea.cog;
+        }
     }
+    // todo: this should be unavailable
     else out_nmea.cog_nmea = 0;
 
     if (sog.empty() == false) {
         if (sog[0] == '-') {
             sog = sog.erase(0,1);
-            out_nmea.sog_nmea = std::stod(sog) * -0.5144; // Conversion from knots to m/s
+            out_nmea.sog = std::stod(sog) * -0.5144; // Conversion from knots to m/s
+            out_nmea.sog_nmea = out_nmea.sog;
         }
-        else out_nmea.sog_nmea = std::stod(sog) * 0.5144;
+        else {
+            out_nmea.sog = std::stod(sog) * 0.5144;
+            out_nmea.sog_nmea = out_nmea.sog;
+        }
     }
+    // todo: put to unavailable
     else out_nmea.sog_nmea = 0;
 
     /*

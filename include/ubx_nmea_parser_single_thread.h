@@ -79,15 +79,17 @@ class UBXNMEAParserSingleThread {
                     ts_sog_cog_nmea[100];					// Timestamps
             char fix_ubx[100],
                     fix_nmea[100];
-            char cp_lat, cp_lon;						    // Latitude and longitude cardinal points
-            double lat, lon, alt;                           // Latitude, longitude and altitude above sea level
+            double lat, lon, alt,
+                    lat_ubx, lon_ubx, alt_ubx,
+                    lat_nmea, lon_nmea, alt_nmea;           // Latitude, longitude and altitude above sea level
             double raw_acc_x, raw_acc_y, raw_acc_z,         // Raw and compensated accelerations
                    comp_acc_x, comp_acc_y, comp_acc_z,
                    comp_ang_rate_x,                         // Compensated angular rates
                    comp_ang_rate_y,
                    comp_ang_rate_z;
             double roll, pitch, heading;				    // Attitude angles
-            double sog_ubx, sog_nmea,
+            double sog, cog,
+                    sog_ubx, sog_nmea,
                     cog_ubx, cog_nmea;					    // Speed over ground and course over ground
             long lu_pos, lu_acc,
                  lu_att, lu_alt,
