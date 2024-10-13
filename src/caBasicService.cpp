@@ -367,14 +367,6 @@ CABasicService::checkCamConditions()
                     " Pitch=" + std::to_string(std::get<1>(att)) +
                     " Yaw="   + std::to_string(std::get<2>(att));
 
-            //todo: manage this in the checks in checkCamCondition
-            double speed_ubx = m_vdp->getParserSpeedUbx();
-            std::string data_speed_ubx = " Speed(UBX)=" + std::to_string(speed_ubx);
-
-            double speed_nmea = m_vdp->getParserSpeedNmea();
-            std::string data_speed_nmea = " Speed(NMEA)=" + std::to_string(speed_nmea);
-
-
             double longit_acc = m_vdp->getParserLongitudinalAcceleration();
             data_longit_acc = " LongitudinalAcceleration=" + std::to_string(longit_acc);
 
@@ -449,10 +441,11 @@ CABasicService::checkCamConditions()
       data_pos="[DISTANCE] PrevLat="+std::to_string(m_prev_pos.first)+" PrevLon="+std::to_string(m_prev_pos.second)+" CurrLat="+std::to_string(currPos.first)+" CurrLon="+std::to_string(currPos.second)+" PosDiff="+std::to_string(pos_diff)+"\n";
       if (m_vdp->getSerialParser() == true) {
           std::pair<double,double> pos_ubx = m_vdp->getParserPositionUbx();
-          data_lat_ubx = " Lat(UBX)=" + std::to_string(pos_ubx.first,pos_ubx.second);
-
-          double cog_nmea = m_vdp->getParserCourseOverGroundNmea();
-          std::string data_cog_nmea = " Cog(NMEA)=" + std::to_string(cog_nmea);
+          std::pair<double,double> pos_nmea = m_vdp->getParserPositionNmea();
+          data_lat_ubx = " Lat(UBX)=" + std::to_string(pos_ubx.first);
+          data_lon_ubx = " Lon(UBX)=" + std::to_string(pos_ubx.second);
+          data_lat_nmea = " Lat(NMEA)=" + std::to_string(pos_nmea.first);
+          data_lon_nmea = " Lon(NMEA)=" + std::to_string(pos_nmea.second);
       }
 
       // If the position difference with the previous CAM sent is more than 4m, then generate the CAM
@@ -483,6 +476,14 @@ CABasicService::checkCamConditions()
 
         // Create the data for the log print
         data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
+        if (m_vdp->getSerialParser() == true) {
+            double speed_ubx = m_vdp->getParserSpeedUbx();
+            double speed_nmea = m_vdp->getParserSpeedNmea();
+            data_sog_ubx = " Speed(UBX)=" + std::to_string(speed_ubx);
+            data_sog_nmea = " Speed(NMEA)=" + std::to_string(speed_nmea);
+        }
+
+
         // If the speed difference with the previous CAM sent is more than 0.5 m/s, then generate the CAM
         if (!condition_verified && (speed_diff > 0.5 || speed_diff < -0.5))
         {
@@ -506,6 +507,10 @@ CABasicService::checkCamConditions()
 
         // Create the data for the log print
         data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
+        if (m_vdp->getSerialParser() == true) {
+            data_sog_ubx = " Speed(UBX)=Unavailable";
+            data_sog_nmea = " Speed(NMEA)=Unavailable";
+        }
       }
 
 
@@ -617,8 +622,10 @@ CABasicService::checkCamConditions()
         data=data+data_head+data_pos+data_speed+data_time;
         if (m_vdp->getSerialParser() == false) data = data + "\n";
         else {
-            parser_log_data = parser_log_data + data_fix + data_accs + data_att + data_speed_ubx +
-                              data_speed_nmea + data_cog_ubx + data_cog_nmea + data_longit_acc + data_yaw_rate;
+            parser_log_data = parser_log_data + data_fix + data_cog_ubx + data_cog_nmea
+                    + data_lat_ubx + data_lat_nmea + data_lon_ubx + data_lon_nmea
+                    + data_sog_ubx + data_sog_nmea + data_accs + data_att + data_longit_acc
+                    + data_yaw_rate;
             data = data + parser_log_data + "\n\n";
         }
 

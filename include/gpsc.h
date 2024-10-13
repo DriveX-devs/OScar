@@ -141,6 +141,8 @@ class VDPGPSClient {
 
         // For parser performance logging
         std::pair<double,double> getParserPosition();
+        std::pair<double,double> getParserPositionUbx();
+        std::pair<double,double> getParserPositionNmea();
         std::tuple<double,double,double> getParserAccelerations();
         std::tuple<double,double,double> getParserAngularRates();
         std::tuple<double,double,double> getParserRawAccelerations();

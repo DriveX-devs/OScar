@@ -58,6 +58,14 @@ std::pair<double,double> VDPGPSClient::getParserPosition() {
     return m_serialParserPtr->getPosition(nullptr,false);
 }
 
+std::pair<double,double> VDPGPSClient::getParserPositionUbx() {
+    return m_serialParserPtr->getPositionUbx(nullptr,false);
+}
+
+std::pair<double,double> VDPGPSClient::getParserPositionNmea() {
+    return m_serialParserPtr->getPositionNmea(nullptr,false);
+}
+
 std::tuple<double,double,double> VDPGPSClient::getParserAccelerations() {
     return m_serialParserPtr->getAccelerations(nullptr,false);
 }

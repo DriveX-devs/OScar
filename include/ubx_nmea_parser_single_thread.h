@@ -26,6 +26,8 @@ class UBXNMEAParserSingleThread {
 
         // Getters
         std::pair<double,double> getPosition(long *age_us, bool print_timestamp_and_age);
+        std::pair<double,double> getPositionUbx(long *age_us, bool print_timestamp_and_age);
+        std::pair<double,double> getPositionNmea(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getAccelerations(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getAngularRates(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getRawAccelerations(long *age_us, bool print_timestamp_and_age);
@@ -68,6 +70,8 @@ class UBXNMEAParserSingleThread {
         /* Buffer structure to be printed to the user */
         typedef struct Output {
             char ts_pos[100],
+                    ts_pos_ubx[100],
+                    ts_pos_nmea[100],
                     ts_utc_time_ubx[100],
                     ts_utc_time_nmea[100],
                     ts_acc[100],
@@ -91,10 +95,12 @@ class UBXNMEAParserSingleThread {
             double sog, cog,
                     sog_ubx, sog_nmea,
                     cog_ubx, cog_nmea;					    // Speed over ground and course over ground
-            long lu_pos, lu_acc,
-                 lu_att, lu_alt,
+            long lu_pos, lu_pos_ubx, lu_pos_nmea,
+                 lu_acc, lu_att,
+                 lu_alt, lu_alt_ubx, lu_alt_nmea,
                  lu_comp_acc,
                  lu_comp_ang_rate,
+                 lu_sog_cog,
                  lu_sog_cog_ubx,
                  lu_sog_cog_nmea;						    // Last updates on relevant information
         } out_t;

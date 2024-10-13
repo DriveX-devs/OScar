@@ -122,6 +122,8 @@ void
 UBXNMEAParserSingleThread::clearBuffer() {
 	out_t tmp;
 	strcpy(tmp.ts_pos,"");
+    strcpy(tmp.ts_pos_ubx,"");
+    strcpy(tmp.ts_pos_nmea,"");
 	strcpy(tmp.ts_utc_time_ubx,"");
     strcpy(tmp.ts_utc_time_nmea,"");
 	strcpy(tmp.ts_acc,"");
@@ -161,11 +163,16 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	tmp.cog_ubx = 0;
 	tmp.cog_nmea = 0;
 	tmp.lu_pos = 0;
+    tmp.lu_pos_ubx = 0;
+    tmp.lu_pos_nmea = 0;
 	tmp.lu_acc = 0;
 	tmp.lu_att = 0;
 	tmp.lu_alt = 0;
+    tmp.lu_alt_ubx = 0;
+    tmp.lu_alt_nmea = 0;
     tmp.lu_comp_acc = 0;
     tmp.lu_comp_ang_rate = 0;
+    tmp.lu_sog_cog = 0;
 	tmp.lu_sog_cog_ubx = 0;
 	tmp.lu_sog_cog_nmea = 0;
 	m_outBuffer.store(tmp);
@@ -307,6 +314,62 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
 	return std::pair<double,double>(tmp.lat,tmp.lon);
 }
 
+std::pair<double,double>
+UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return std::pair<double,double>(0,0);
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_pos_ubx;
+    long validity_thr = getValidityThreshold();
+
+    if (print_timestamp_and_age == true) std::cout << "[Position(UBX)] - " <<  tmp.ts_pos_ubx
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    if (local_age_us >= validity_thr) {
+        m_pos_valid.store(false);
+    }
+    else m_pos_valid.store(true);
+
+    return std::pair<double,double>(tmp.lat_ubx,tmp.lon_ubx);
+}
+
+std::pair<double,double>
+UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return std::pair<double,double>(0,0);
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_pos_nmea;
+    long validity_thr = getValidityThreshold();
+
+    if (print_timestamp_and_age == true) std::cout << "[Position(NMEA)] - " <<  tmp.ts_pos_nmea
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    if (local_age_us >= validity_thr) {
+        m_pos_valid.store(false);
+    }
+    else m_pos_valid.store(true);
+
+    return std::pair<double,double>(tmp.lat_nmea,tmp.lon_nmea);
+}
+
+
+
 /** Checks and parses a GNGNS NMEA sentence in order to get the latitude and longitude data
  *
  *  The function scans the sentence by counting the commas encountered.
@@ -382,7 +445,9 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 
 	// Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
+	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
     out_nmea.lu_alt = update.time_since_epoch().count();
+    out_nmea.lu_alt_nmea = out_nmea.lu_alt;
 
     // Validates data
     m_pos_valid = true;
@@ -456,7 +521,9 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 
 	// Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
+	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
     out_nmea.lu_alt = update.time_since_epoch().count();
+    out_nmea.lu_alt_nmea = out_nmea.lu_alt;
 
     // Validates data
     m_pos_valid = true;
@@ -1133,13 +1200,20 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     // Produces and prints to struct the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_pvt.ts_sog_cog_ubx,std::ctime(&now));
+	strcpy(out_pvt.ts_pos_ubx,std::ctime(&now));
+	strcpy(out_pvt.ts_nmea_ubx,std::ctime(&now));
     */
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
 	// Retrieves the time since epoch in microseconds and updates the output struct
-	out_pvt.lu_sog_cog_ubx = update.time_since_epoch().count();
+	out_pvt.lu_sog_cog = update.time_since_epoch().count();
+	out_pvt.lu_sog_cog_ubx = out_pvt.lu_sog_cog;
+	out_pvt.lu_pos = update.time_since_epoch().count();
+	out_pvt.lu_pos_ubx = out_pvt.lu_pos;
+    out_pvt.lu_alt = update.time_since_epoch().count();
+    out_pvt.lu_alt_ubx = out_pvt.lu_alt;
 
     // Updates the buffer
     m_outBuffer.store(out_pvt);
@@ -1259,7 +1333,8 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
 	// Converts time_point to microseconds
-	out_nmea.lu_sog_cog_nmea = update.time_since_epoch().count();
+	out_nmea.lu_sog_cog = update.time_since_epoch().count();
+	out_nmea.lu_sog_cog_nmea = out_nmea.lu_sog_cog;
 
     // Validates data
     m_sog_cog_nmea_valid = true;
