@@ -1257,8 +1257,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
             out_nmea.cog_nmea = out_nmea.cog;
         }
     }
-    // todo: this should be unavailable
-    else out_nmea.cog_nmea = 0;
+    else out_nmea.cog_nmea = 3601; // HeadingValue_unavailable
 
     if (sog.empty() == false) {
         if (sog[0] == '-') {
@@ -1271,8 +1270,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
             out_nmea.sog_nmea = out_nmea.sog;
         }
     }
-    // todo: put to unavailable
-    else out_nmea.sog_nmea = 0;
+    else out_nmea.sog_nmea = 16383; // SpeedValue_unavailable
 
     /*
     //remove this for field testing
@@ -1539,7 +1537,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             started_nmea = false;
 
                             gns_cnt++;
-                            printf("gns_cnt: %d\n",gns_cnt);
+                            //printf("gns_cnt: %d\n",gns_cnt);
 
                             parseNmeaGns(nmea_sentence);
                             nmea_sentence.clear();
@@ -1551,7 +1549,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             started_nmea = false;
 
                             rmc_cnt++;
-                            printf("rmc_cnt: %d\n",rmc_cnt);
+                            //printf("rmc_cnt: %d\n",rmc_cnt);
 
                             parseNmeaRmc(nmea_sentence);
                             nmea_sentence.clear();
@@ -1562,7 +1560,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             started_nmea = false;
 
                             gga_cnt++;
-                            printf("gga_cnt: %d\n",gga_cnt);
+                            //printf("gga_cnt: %d\n",gga_cnt);
 
                             parseNmeaGga(nmea_sentence);
                             nmea_sentence.clear();
@@ -1645,7 +1643,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
 
                                 nav_status_cnt++;
-                                printf("0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
+                                //printf("0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
                                 parseNavStatus(ubx_message);
 
                                 ubx_message.clear();
@@ -1658,7 +1656,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
 
                                 esf_raw_cnt++;
-                                printf("1003_ESF-RAW_cnt: %d\n", esf_raw_cnt);
+                                //printf("1003_ESF-RAW_cnt: %d\n", esf_raw_cnt);
                                 parseEsfRaw(ubx_message);
 
                                 ubx_message.clear();
@@ -1684,7 +1682,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 */
 
                                 esf_ins_cnt++;
-                                printf("1015_ESF-INS_cnt: %d\n", esf_ins_cnt);
+                                //printf("1015_ESF-INS_cnt: %d\n", esf_ins_cnt);
 
                                 parseEsfIns(ubx_message);
 
@@ -1697,7 +1695,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
 
                                 nav_att_cnt++;
-                                printf("0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
+                                //printf("0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
                                 parseNavAtt(ubx_message);
 
                                 ubx_message.clear();
@@ -1709,7 +1707,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
 
                                 nav_pvt_cnt++;
-                                printf("0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
+                                //printf("0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
                                 parseNavPvt(ubx_message);
 
                                 ubx_message.clear();
@@ -1769,7 +1767,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
 
                                 nav_status_cnt++;
-                                printf("ov_0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
+                                //printf("ov_0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
                                 parseNavStatus(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1781,7 +1779,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
 
                                 esf_raw_cnt++;
-                                printf("ov_1003_ESF_RAW_cnt: %d\n", esf_raw_cnt);
+                                //printf("ov_1003_ESF_RAW_cnt: %d\n", esf_raw_cnt);
                                 parseEsfRaw(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1806,7 +1804,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 */
 
                                 esf_ins_cnt++;
-                                printf("ov_1015_ESF_INS_cnt: %d\n", esf_ins_cnt);
+                                //printf("ov_1015_ESF_INS_cnt: %d\n", esf_ins_cnt);
                                 parseEsfIns(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1819,7 +1817,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
 
                                 nav_att_cnt++;
-                                printf("ov_0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
+                                //printf("ov_0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
                                 parseNavAtt(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1831,7 +1829,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
 
                                 nav_pvt_cnt++;
-                                printf("ov_0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
+                                //printf("ov_0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
                                 parseNavPvt(ubx_message_overlapped);
 
                                 ubx_message.clear();
