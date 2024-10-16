@@ -7,6 +7,7 @@
 #include <vector>
 #include <openssl/obj_mac.h>
 #include <openssl/err.h>
+#include <chrono>
 #include <openssl/bn.h>
 #include <iostream>
 #include <string>
@@ -57,25 +58,11 @@ Security::Security ()
 
 }
 
-int64_t
-Security::computeTimestampUInt64()
-{
-    int64_t int_tstamp=0;
-
-    struct timespec tv;
-
-    clock_gettime (CLOCK_MONOTONIC, &tv);
-
-    int_tstamp=tv.tv_sec*1e9+tv.tv_nsec;
-
-    return int_tstamp;
-}
-
 void Security::mapCleaner ()
 {
-    uint64_t now = computeTimestampUInt64();
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
     for (auto it = m_receivedCertificates.begin(); it != m_receivedCertificates.end(); ) {
-        if (it->first < now - 1000) {
+        if (it->first < now - 5000) {
             it = m_receivedCertificates.erase(it);
         } else {
             ++it;
@@ -83,8 +70,6 @@ void Security::mapCleaner ()
     }
     //m_eventCleaner = Simulator::Schedule(MilliSeconds(1000), &Security::mapCleaner, this);
 }
-
-
 
 
 std::vector<unsigned char>
@@ -473,11 +458,11 @@ Security::createSecurePacket (GNDataRequest_t dataRequest, bool &isCertificate)
     asn1cpp::setField (signData->tbsData, tbs);
 
     // For each second it will send a signer part with certificate, otherwise it will send digest.
-
-    if ((computeTimestampUInt64() - m_timestampLastCertificate) / NANO_TO_MILLI >= 1000 ||  m_timestampLastCertificate == 0)
+    uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+    if (now - m_timestampLastCertificate >= 1000 ||  m_timestampLastCertificate == 0)
     {
 
-        m_timestampLastCertificate = computeTimestampUInt64();
+        m_timestampLastCertificate = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 
         GNpublicKey public_key = generateECKeyPair ();
         isCertificate = true;
@@ -593,12 +578,12 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
 
     asn1cpp::Seq<Ieee1609Dot2Data> ieeeData_decoded;
 
-    unsigned char *buffer = dataIndication.data;
+    std::vector<unsigned char> bufferCopy(dataIndication.data, dataIndication.data + dataIndication.lenght);
     uint32_t sizeB = dataIndication.lenght;
-    std::string packetContent((char *) buffer, (int) sizeB);
 
-    ieeeData_decoded = asn1cpp::oer::decode (packetContent, Ieee1609Dot2Data);
-    delete[] buffer;
+    std::string packetContent((char *) bufferCopy.data(), sizeB);
+
+    ieeeData_decoded = asn1cpp::oer::decode(packetContent, Ieee1609Dot2Data);
 
     GNsecDP secureDataPacket;
 
@@ -745,9 +730,9 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
 
                 std::string certHex = asn1cpp::oer::encode (certDecoded);
                 std::pair<std::string, std::string> pair = std::make_pair (verificationKey,certHex);
-                uint64_t timestamp = computeTimestampUInt64();
+                uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
                 m_receivedCertificates[timestamp] = pair;
-                mapCleaner();
+                //mapCleaner();
 
             }
         }
@@ -782,6 +767,7 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
 
         std::string tbs_hex = asn1cpp::oer::encode(tbsDecoded);
         if (m_receivedCertificates.empty()) {
+            std::cerr << "[INFO] No certificate received" << std::endl;
             return SECURITY_VERIFICATION_FAILED;
         } else {
             //for every item in map do signature verification
@@ -801,9 +787,9 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
     }
 
     packetBuffer pktbuf(secureDataPacket.content.signData.tbsData.unsecureData.c_str(), static_cast<unsigned int>(secureDataPacket.content.signData.tbsData.unsecureData.size()));
-    unsigned char *buf = (unsigned char *) pktbuf.getBufferAlloc();
 
-    dataIndication.data = buf;
+    dataIndication.data = const_cast<unsigned char *>(pktbuf.getBufferPointer());
+    dataIndication.lenght = pktbuf.getBufferSize();
 
     return SECURITY_OK;
 }

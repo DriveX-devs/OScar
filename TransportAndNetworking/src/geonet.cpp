@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <iomanip>
 #include "functional"
 #include "geonet.h"
 
@@ -305,11 +306,27 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
             if (f_out != nullptr) {
                 fprintf(f_out, "[DECODE] Start time: %ld us, ", start_us);
             }
+            //code to print the packet before security verification
+            for (size_t i = 0; i < dataIndication->lenght; ++i) {
+                std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(dataIndication->data[i]) << " ";
+            }
+            std::cout << std::dec << std::endl;
+            std::cout << dataIndication->lenght << std::endl;
 
             if(m_security.extractSecurePacket (*dataIndication, isCertificate) == Security::SECURITY_VERIFICATION_FAILED) {
-                std::cerr << "[ERROR] [Decoder] Security verification failed" << std::endl;
+                std::cout << "[INFO] [Decoder] Security verification failed" << std::endl;
                 return GN_SECURED_ERROR;
+            } else {
+                std::cout << "[INFO] [Decoder] Security verification successful" << std::endl;
             }
+
+            //code to print the packet after security verification
+            for (size_t i = 0; i < dataIndication->lenght; ++i) {
+                std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(dataIndication->data[i]) << " ";
+            }
+            std::cout << std::dec << std::endl; // Reset to decimal format
+            std::cout << dataIndication->lenght << std::endl;
+
             long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
             long int diff_us = end_us - start_us;
 

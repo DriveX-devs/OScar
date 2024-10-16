@@ -184,7 +184,6 @@ private:
   std::vector<unsigned char> hexStringToBytes(const std::string& hex);
   void computeSHA256(const std::vector<unsigned char>& data, unsigned char hash[SHA256_DIGEST_LENGTH]);
   std::vector<unsigned char> concatenateHashes(const unsigned char hash1[SHA256_DIGEST_LENGTH], const unsigned char hash2[SHA256_DIGEST_LENGTH]);
-  int64_t computeTimestampUInt64();
   void print_openssl_error();
   GNpublicKey generateECKeyPair();
   ECDSA_SIG* signHash(const unsigned char* hash, EC_KEY* ec_key);
