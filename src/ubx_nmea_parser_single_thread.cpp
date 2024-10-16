@@ -17,6 +17,9 @@
 #include <chrono>
 #include <algorithm>
 
+//todo: remove this
+#include <fstream>
+
 using namespace std::chrono;
 
 /* Prints a UBX message in the format index[byte] (for debug purposes) */
@@ -1462,14 +1465,19 @@ UBXNMEAParserSingleThread::readFromSerial() {
     std::string nmea_sentence;
 
     // todo: remove this (debug)
-    int rmc_cnt = 0;
-    int gns_cnt = 0;
-    int gga_cnt = 0;
-    int nav_status_cnt = 0;
-    int esf_raw_cnt = 0;
-    int esf_ins_cnt = 0;
-    int nav_att_cnt = 0;
-    int nav_pvt_cnt = 0;
+    static int rmc_cnt = 0;
+    static int gns_cnt = 0;
+    static int gga_cnt = 0;
+    static int nav_status_cnt = 0;
+    static int esf_raw_cnt = 0;
+    static int esf_ins_cnt = 0;
+    static int nav_att_cnt = 0;
+    static int nav_pvt_cnt = 0;
+    static int invalid_ubx_cnt = 0;
+    static int unhandled_ubx_cnt = 0;
+    static int invalid_nmea_cnt = 0;
+    static int unhandled_nmea_cnt = 0;
+
 
     uint8_t byte = 0x00;
     uint8_t byte_previous = 0x00;
@@ -1516,6 +1524,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     nmea_sentence.push_back(byte);
                     wrong_input.clear();
                     started_nmea = true;
+
+                    byte_previous = byte;
                     continue;
                 }
             } else {
@@ -1528,6 +1538,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     nmea_sentence.clear();
                     nmea_sentence.push_back(byte);
                     wrong_input.clear();
+
+                    byte_previous = byte;
                     continue;
                 }
                 if (byte == '\n' && nmea_sentence.size() >= 9) { // 9 = min. valid sentence lenght e.g. $--XXX*hh
@@ -1535,11 +1547,13 @@ UBXNMEAParserSingleThread::readFromSerial() {
                         if (nmea_sentence.compare(0, 6, "$GNGNS") == 0 ||
                             nmea_sentence.compare(0, 6, "$GPGNS") == 0) {
                             started_nmea = false;
+                            byte_previous = byte;
 
                             gns_cnt++;
-                            //printf("gns_cnt: %d\n",gns_cnt);
+                            std::cout << "gns: " << gns_cnt << '\n';
 
                             parseNmeaGns(nmea_sentence);
+
                             nmea_sentence.clear();
                             continue;
                         }
@@ -1547,29 +1561,48 @@ UBXNMEAParserSingleThread::readFromSerial() {
                         if (nmea_sentence.compare(0, 6, "$GNRMC") == 0 ||
                             nmea_sentence.compare(0, 6, "$GPRMC") == 0) {
                             started_nmea = false;
+                            byte_previous = byte;
 
                             rmc_cnt++;
-                            //printf("rmc_cnt: %d\n",rmc_cnt);
+                            std::cout << "rmc: " << rmc_cnt << '\n';
 
                             parseNmeaRmc(nmea_sentence);
+
                             nmea_sentence.clear();
                             continue;
                         }
                         if (nmea_sentence.compare(0, 6, "$GNGGA") == 0 ||
                             nmea_sentence.compare(0, 6, "$GPGGA") == 0) {
                             started_nmea = false;
+                            byte_previous = byte;
 
                             gga_cnt++;
-                            //printf("gga_cnt: %d\n",gga_cnt);
+                            std::cout << "gga: " << gga_cnt << '\n';
 
                             parseNmeaGga(nmea_sentence);
+
                             nmea_sentence.clear();
                             continue;
                         }
-                    } else {
-                        // If sentence is not valid, start over
+
+                        // Valid but unhandled NMEA sentence, ignore it and start over
+                        unhandled_nmea_cnt++;
+                        //std::cout << "unhandled_nmea: " << unhandled_nmea_cnt << '\n';
                         started_nmea = false;
                         nmea_sentence.clear();
+
+                        byte_previous = byte;
+                        continue;
+
+                    } else { // Invalid sentence
+                        // If sentence is not valid, start over
+                        invalid_nmea_cnt++;
+                        std::cout << "invalid_nmea: " << invalid_nmea_cnt << '\n';
+
+                        started_nmea = false;
+                        nmea_sentence.clear();
+
+                        byte_previous = byte;
                         continue;
                     }
                 }
@@ -1585,13 +1618,15 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     ubx_message.push_back(byte);
                     wrong_input.clear();
                     started_ubx = true;
+
+                    byte_previous = byte;
                     continue;
                 }
             } else { // started_ubx is true
 
                 // check if B5 62 is part of the current message or if it's a new message
                 if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
-                    // if length is not reached -> surely it's an overlapping message
+                    // if length is nt reached -> surely it's an overlapping message
                     if (ubx_message.size() <= 4) {
                         std::cout << "length not reached!" << std::endl; //debug
                         //printf("byte: %02X byte_previous: %02X\n", byte, byte_previous);
@@ -1600,6 +1635,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
                         ubx_message.push_back(byte_previous);
                         ubx_message.push_back(byte);
                         wrong_input.clear();
+
+                        byte_previous = byte;
                         continue;
                     }
                     //if a B5 62 sequence is read in the middle of the message, start storing bytes also into the overlapped msg
@@ -1610,6 +1647,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     ubx_message.push_back(byte);
                     wrong_input.clear();
                     started_ubx_overlapped = true;
+
+                    byte_previous = byte;
                     continue;
                 }
 
@@ -1641,9 +1680,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 // Parse, clear everything and start a new read
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 nav_status_cnt++;
-                                //printf("0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
+                                std::cout << "nav_status: " << nav_status_cnt << '\n';
+
                                 parseNavStatus(ubx_message);
 
                                 ubx_message.clear();
@@ -1654,9 +1695,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 // Parse, clear everything and start a new read
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 esf_raw_cnt++;
-                                //printf("1003_ESF-RAW_cnt: %d\n", esf_raw_cnt);
+                                std::cout << "esf_raw: " << esf_raw_cnt << '\n';
+
                                 parseEsfRaw(ubx_message);
 
                                 ubx_message.clear();
@@ -1666,6 +1709,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 //todo: review this
                                 // Calibration checks
@@ -1682,7 +1726,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 */
 
                                 esf_ins_cnt++;
-                                //printf("1015_ESF-INS_cnt: %d\n", esf_ins_cnt);
+                                std::cout << "esf_ins: " << esf_ins_cnt << '\n';
 
                                 parseEsfIns(ubx_message);
 
@@ -1693,9 +1737,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 nav_att_cnt++;
-                                //printf("0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
+                                std::cout << "nav_att: " << nav_att_cnt << '\n';
+
                                 parseNavAtt(ubx_message);
 
                                 ubx_message.clear();
@@ -1705,15 +1751,20 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 nav_pvt_cnt++;
-                                //printf("0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
+                                std::cout << "nav_pvt: " << nav_pvt_cnt << '\n';
+
                                 parseNavPvt(ubx_message);
 
                                 ubx_message.clear();
                                 ubx_message_overlapped.clear();
                                 continue;
                             }
+                            // Valid but unhandled message
+                            unhandled_ubx_cnt++;
+                            std::cout << "unhandled_ubx_cnt: " << unhandled_ubx_cnt << '\n';
 
                             // clear everything and start a new read
                             ubx_message_overlapped.clear();
@@ -1722,9 +1773,14 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             //printUbxMessage(ubx_message);
                             ubx_message.clear();
                             started_ubx = false;
+
+                            byte_previous = byte;
                             continue;
 
-                        } else {
+                        } else { // Invalid message
+                            invalid_ubx_cnt++;
+                            std::cout << "invalid_ubx_cnt: " << invalid_ubx_cnt << '\n';
+
                             // Invalid or invalid unhandled message, discard it and start a new read
                             //std::cerr << "UBX message: Invalid checksum" << std::endl;
                             ubx_message_overlapped.clear();
@@ -1733,6 +1789,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             //printUbxMessage(ubx_message);
                             ubx_message.clear();
                             started_ubx = false;
+
+                            byte_previous = byte;
                             continue;
                         }
                     }
@@ -1744,10 +1802,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     wrong_input.clear();
 
                     if (ubx_message_overlapped.size() == 6) {
-                        sprintf(expectedLengthStrOverlapped.data(), "%02X%02X", ubx_message_overlapped[5],
-                                ubx_message_overlapped[4]);
-                        expectedLengthOverlapped = std::stol(expectedLengthStrOverlapped, nullptr, 16) +
-                                                   8; // 8 bytes for header and checksum
+                        sprintf(expectedLengthStrOverlapped.data(), "%02X%02X", ubx_message_overlapped[5],ubx_message_overlapped[4]);
+                        expectedLengthOverlapped = std::stol(expectedLengthStrOverlapped, nullptr, 16) + 8; // 8 bytes for header and checksum
                         expectedLengthStrOverlapped.clear();
                     }
 
@@ -1765,9 +1821,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x03) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 nav_status_cnt++;
-                                //printf("ov_0103_NAV-STATUS_cnt: %d\n", nav_status_cnt);
+                                std::cout << "ov_nav_status: " << nav_status_cnt << '\n';
+
                                 parseNavStatus(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1777,9 +1835,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x03) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 esf_raw_cnt++;
-                                //printf("ov_1003_ESF_RAW_cnt: %d\n", esf_raw_cnt);
+                                std::cout << "ov_esf_raw: " << esf_raw_cnt << '\n';
+
                                 parseEsfRaw(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1789,6 +1849,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x15) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
                                 //todo: review this
                                 // Calibration checks
                                 // If there are uncalibrated measures, ignore them
@@ -1804,7 +1865,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 */
 
                                 esf_ins_cnt++;
-                                //printf("ov_1015_ESF_INS_cnt: %d\n", esf_ins_cnt);
+                                std::cout << "ov_esf_ins: " << esf_ins_cnt << '\n';
+
                                 parseEsfIns(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1815,9 +1877,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x05) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 nav_att_cnt++;
-                                //printf("ov_0105_NAV-ATT_cnt: %d\n", nav_att_cnt);
+                                std::cout << "ov_nav_att: " << nav_att_cnt << '\n';
+
                                 parseNavAtt(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1827,9 +1891,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x07) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+                                byte_previous = byte;
 
                                 nav_pvt_cnt++;
-                                //printf("ov_0107_NAV-PVT_cnt: %d\n", nav_pvt_cnt);
+                                std::cout << "ov_nav_pvt: " << nav_pvt_cnt << '\n';
+
                                 parseNavPvt(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1837,15 +1903,25 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 continue;
                             }
 
-                            // Invalid or unhandled overlapped message, discard it and start a new read
+                            //todo: remove this (dbug)
+                            unhandled_ubx_cnt++;
+                            std::cout << "ov_unhandled_cnt: " << unhandled_ubx_cnt << '\n';
+
+                            // Unhandled overlapped message, discard it and start a new read
                             ubx_message.clear();
                             started_ubx = false;
 
                             ubx_message_overlapped.clear();
                             //printUbxMessage(ubx_message_overlapped);
                             started_ubx_overlapped = false;
+
+                            byte_previous = byte;
                             continue;
                         } else {
+                            //todo: remove this
+                            invalid_ubx_cnt++;
+                            std::cout << "ov_invalid_cnt: " << invalid_ubx_cnt << '\n';
+
                             //invalid overlapped message, discard it and move on with the ubx_message
                             //std::cerr << "UBX Overlapped message: Invalid checksum" << std::endl;
                             ubx_message.clear();
@@ -1854,6 +1930,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             ubx_message_overlapped.clear();
                             //printUbxMessage(ubx_message_overlapped);
                             started_ubx_overlapped = false;
+
+                            byte_previous = byte;
                             continue;
                         }
                     }
