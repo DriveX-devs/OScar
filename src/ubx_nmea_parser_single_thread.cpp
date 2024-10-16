@@ -17,9 +17,6 @@
 #include <chrono>
 #include <algorithm>
 
-//todo: remove this
-#include <fstream>
-
 using namespace std::chrono;
 
 /* Prints a UBX message in the format index[byte] (for debug purposes) */
@@ -215,7 +212,6 @@ bool UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
         return true;
     }
     else {
-        //todo: remove/comment (debug)
         //printf("\n\nINVALID MESSAGE: CK_A: %02X  CK_B: %02X\n\n", CK_A,CK_B);
         //printUbxMessage(msg);
         return false;
@@ -1464,21 +1460,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
     std::vector<uint8_t> ubx_message, ubx_message_overlapped, wrong_input;
     std::string nmea_sentence;
 
-    // todo: remove this (debug)
-    static int rmc_cnt = 0;
-    static int gns_cnt = 0;
-    static int gga_cnt = 0;
-    static int nav_status_cnt = 0;
-    static int esf_raw_cnt = 0;
-    static int esf_ins_cnt = 0;
-    static int nav_att_cnt = 0;
-    static int nav_pvt_cnt = 0;
-    static int invalid_ubx_cnt = 0;
-    static int unhandled_ubx_cnt = 0;
-    static int invalid_nmea_cnt = 0;
-    static int unhandled_nmea_cnt = 0;
-
-
     uint8_t byte = 0x00;
     uint8_t byte_previous = 0x00;
     bool started_ubx = false;
@@ -1549,9 +1530,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             started_nmea = false;
                             byte_previous = byte;
 
-                            gns_cnt++;
-                            std::cout << "gns: " << gns_cnt << '\n';
-
                             parseNmeaGns(nmea_sentence);
 
                             nmea_sentence.clear();
@@ -1563,9 +1541,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             started_nmea = false;
                             byte_previous = byte;
 
-                            rmc_cnt++;
-                            std::cout << "rmc: " << rmc_cnt << '\n';
-
                             parseNmeaRmc(nmea_sentence);
 
                             nmea_sentence.clear();
@@ -1576,9 +1551,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             started_nmea = false;
                             byte_previous = byte;
 
-                            gga_cnt++;
-                            std::cout << "gga: " << gga_cnt << '\n';
-
                             parseNmeaGga(nmea_sentence);
 
                             nmea_sentence.clear();
@@ -1586,8 +1558,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                         }
 
                         // Valid but unhandled NMEA sentence, ignore it and start over
-                        unhandled_nmea_cnt++;
-                        //std::cout << "unhandled_nmea: " << unhandled_nmea_cnt << '\n';
                         started_nmea = false;
                         nmea_sentence.clear();
 
@@ -1595,10 +1565,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                         continue;
 
                     } else { // Invalid sentence
-                        // If sentence is not valid, start over
-                        invalid_nmea_cnt++;
-                        std::cout << "invalid_nmea: " << invalid_nmea_cnt << '\n';
-
                         started_nmea = false;
                         nmea_sentence.clear();
 
@@ -1682,9 +1648,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
                                 byte_previous = byte;
 
-                                nav_status_cnt++;
-                                std::cout << "nav_status: " << nav_status_cnt << '\n';
-
                                 parseNavStatus(ubx_message);
 
                                 ubx_message.clear();
@@ -1696,9 +1659,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
                                 byte_previous = byte;
-
-                                esf_raw_cnt++;
-                                std::cout << "esf_raw: " << esf_raw_cnt << '\n';
 
                                 parseEsfRaw(ubx_message);
 
@@ -1725,9 +1685,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 }
                                 */
 
-                                esf_ins_cnt++;
-                                std::cout << "esf_ins: " << esf_ins_cnt << '\n';
-
                                 parseEsfIns(ubx_message);
 
                                 ubx_message.clear();
@@ -1738,9 +1695,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
                                 byte_previous = byte;
-
-                                nav_att_cnt++;
-                                std::cout << "nav_att: " << nav_att_cnt << '\n';
 
                                 parseNavAtt(ubx_message);
 
@@ -1753,9 +1707,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
                                 byte_previous = byte;
 
-                                nav_pvt_cnt++;
-                                std::cout << "nav_pvt: " << nav_pvt_cnt << '\n';
-
                                 parseNavPvt(ubx_message);
 
                                 ubx_message.clear();
@@ -1763,10 +1714,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 continue;
                             }
                             // Valid but unhandled message
-                            unhandled_ubx_cnt++;
-                            std::cout << "unhandled_ubx_cnt: " << unhandled_ubx_cnt << '\n';
-
-                            // clear everything and start a new read
                             ubx_message_overlapped.clear();
                             started_ubx_overlapped = false;
 
@@ -1778,11 +1725,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             continue;
 
                         } else { // Invalid message
-                            invalid_ubx_cnt++;
-                            std::cout << "invalid_ubx_cnt: " << invalid_ubx_cnt << '\n';
-
-                            // Invalid or invalid unhandled message, discard it and start a new read
-                            //std::cerr << "UBX message: Invalid checksum" << std::endl;
                             ubx_message_overlapped.clear();
                             started_ubx_overlapped = false;
 
@@ -1823,9 +1765,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
                                 byte_previous = byte;
 
-                                nav_status_cnt++;
-                                std::cout << "ov_nav_status: " << nav_status_cnt << '\n';
-
                                 parseNavStatus(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1836,9 +1775,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
                                 byte_previous = byte;
-
-                                esf_raw_cnt++;
-                                std::cout << "ov_esf_raw: " << esf_raw_cnt << '\n';
 
                                 parseEsfRaw(ubx_message_overlapped);
 
@@ -1864,9 +1800,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 }
                                 */
 
-                                esf_ins_cnt++;
-                                std::cout << "ov_esf_ins: " << esf_ins_cnt << '\n';
-
                                 parseEsfIns(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1879,9 +1812,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
                                 byte_previous = byte;
 
-                                nav_att_cnt++;
-                                std::cout << "ov_nav_att: " << nav_att_cnt << '\n';
-
                                 parseNavAtt(ubx_message_overlapped);
 
                                 ubx_message.clear();
@@ -1893,19 +1823,12 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
                                 byte_previous = byte;
 
-                                nav_pvt_cnt++;
-                                std::cout << "ov_nav_pvt: " << nav_pvt_cnt << '\n';
-
                                 parseNavPvt(ubx_message_overlapped);
 
                                 ubx_message.clear();
                                 ubx_message_overlapped.clear();
                                 continue;
                             }
-
-                            //todo: remove this (dbug)
-                            unhandled_ubx_cnt++;
-                            std::cout << "ov_unhandled_cnt: " << unhandled_ubx_cnt << '\n';
 
                             // Unhandled overlapped message, discard it and start a new read
                             ubx_message.clear();
@@ -1918,10 +1841,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             byte_previous = byte;
                             continue;
                         } else {
-                            //todo: remove this
-                            invalid_ubx_cnt++;
-                            std::cout << "ov_invalid_cnt: " << invalid_ubx_cnt << '\n';
-
                             //invalid overlapped message, discard it and move on with the ubx_message
                             //std::cerr << "UBX Overlapped message: Invalid checksum" << std::endl;
                             ubx_message.clear();

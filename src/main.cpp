@@ -247,7 +247,7 @@ void CAMtxThr(std::string gnss_device,
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             BTP.setGeoNet(&GN);
 
-            /* todo: remove this
+
             while (cnt_CAM < 10) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
@@ -260,7 +260,7 @@ void CAMtxThr(std::string gnss_device,
                 sleep(1);
                 cnt_CAM++;
             }
-            */
+
 
             std::cout << "[INFO] CAM Dissemination started!" << std::endl;
 
