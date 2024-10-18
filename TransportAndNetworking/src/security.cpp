@@ -68,7 +68,6 @@ void Security::mapCleaner ()
             ++it;
         }
     }
-    //m_eventCleaner = Simulator::Schedule(MilliSeconds(1000), &Security::mapCleaner, this);
 }
 
 
@@ -732,7 +731,7 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
                 std::pair<std::string, std::string> pair = std::make_pair (verificationKey,certHex);
                 uint64_t timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
                 m_receivedCertificates[timestamp] = pair;
-                //mapCleaner();
+                mapCleaner();
 
             }
         }
@@ -786,10 +785,9 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
         secureDataPacket.content.unsecuredData = asn1cpp::getField (contentDecoded->choice.unsecuredData, std::string);
     }
 
-    packetBuffer pktbuf(secureDataPacket.content.signData.tbsData.unsecureData.c_str(), static_cast<unsigned int>(secureDataPacket.content.signData.tbsData.unsecureData.size()));
-
-    dataIndication.data = const_cast<unsigned char *>(pktbuf.getBufferPointer());
-    dataIndication.lenght = pktbuf.getBufferSize();
+    dataIndication.data = new unsigned char[secureDataPacket.content.signData.tbsData.unsecureData.size()];
+    std::memcpy(dataIndication.data, secureDataPacket.content.signData.tbsData.unsecureData.data(), secureDataPacket.content.signData.tbsData.unsecureData.size());
+    dataIndication.lenght = secureDataPacket.content.signData.tbsData.unsecureData.size();
 
     return SECURITY_OK;
 }

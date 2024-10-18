@@ -959,7 +959,7 @@ int main (int argc, char *argv[]) {
 
 		if(terminatorFlag==false) {
 			// Create the main SocketClient object for the reception of the V2X messages
-			SocketClient mainRecvClient(sockfd,&rx_opts, db_ptr, log_filename_rcv);
+			SocketClient mainRecvClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity);
 			
 			if(enable_DENM_decoding) {
 				mainRecvClient.enableDENMdecoding();
