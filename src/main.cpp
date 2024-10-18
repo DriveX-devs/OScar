@@ -247,7 +247,7 @@ void CAMtxThr(std::string gnss_device,
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             BTP.setGeoNet(&GN);
 
-
+            /*
             while (cnt_CAM < 10) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
@@ -260,7 +260,7 @@ void CAMtxThr(std::string gnss_device,
                 sleep(1);
                 cnt_CAM++;
             }
-
+            */
 
             std::cout << "[INFO] CAM Dissemination started!" << std::endl;
 
@@ -571,9 +571,11 @@ int main (int argc, char *argv[]) {
     // true if gpsd is used to gather positioning data, false if the internal NMEA+UBX parser is used
     bool use_gpsd = false;
 
+    int debug_age_info_rate_ms;
+
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "4.0");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "4.2");
 
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
@@ -647,6 +649,9 @@ int main (int argc, char *argv[]) {
 
         TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
         cmd.add(SerialDeviceValidityThr);
+
+        TCLAP::ValueArg ShowDebugAgeInfo("a","show-debug-age-of-information","[Considered only if -g is not specified] Debug option: shows the time between the previous serial parser CAM informations and the current ones a the specified time rate Deafult: 800 ms", false, 800, "integer");
+        cmd.add(ShowDebugAgeInfo);
 
         // Vehicle Visualizer options
 		TCLAP::ValueArg<long> VV_NodejsPortArg("1","vehviz-nodejs-port","Advanced option: set the port number for the UDP connection to the Vehicle Visualizer Node.js server",false,DEFAULT_VEHVIZ_NODEJS_UDP_PORT,"integer");
@@ -746,6 +751,7 @@ int main (int argc, char *argv[]) {
         serial_device = SerialDevice.getValue();
         serial_device_baudrate = SerialDeviceBaudrate.getValue();
         serial_device_validity_thr = SerialDeviceValidityThr.getValue();
+        debug_age_info_rate_ms = ShowDebugAgeInfo.getValue();
 
         wrong_input_threshold = WrongInputTsholdArg.getValue();
 
@@ -842,6 +848,9 @@ int main (int argc, char *argv[]) {
     if(!use_gpsd) {
         serialParser.setValidityThreshold(serial_device_validity_thr);
         serialParser.setWrongInputThreshold(wrong_input_threshold);
+        if (debug_age_info_rate_ms){
+            serialParser.setDebugAgeInfo(debug_age_info_rate_ms);
+        }
         serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag);
     }
 
@@ -935,7 +944,9 @@ int main (int argc, char *argv[]) {
                                use_gpsd);
     }
 
-	
+	// Enable debug age of information, if option has been specified
+    if (serialParser.getDebugAgeInfo()) serialParser.showDebugAgeInfo();
+
 	// Reception loop (using the main thread)
 	if(enable_reception==true) {
 		fprintf(stdout,"Configuring socket for reception. Descriptor: %d\n",sockfd);
