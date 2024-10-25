@@ -315,8 +315,9 @@ void CPMtxThr(std::string gnss_device,
               std::string log_filename_CPM,
               ldmmap::LDMMap *db_ptr,
               bool use_gpsd,
-              bool check_faulty_object_acceleration,
-              bool disable_cpm_speed_triggering) {
+              double check_faulty_object_acceleration,
+              bool disable_cpm_speed_triggering,
+              bool verbose) {
     bool m_retry_flag=false;
 
     VDPGPSClient vdpgpsc(gnss_device,gnss_port);
@@ -363,7 +364,9 @@ void CPMtxThr(std::string gnss_device,
             CPBS.setStationProperties(vehicleID, StationType_passengerCar);
             CPBS.setVDP(&vdpgpsc);
             CPBS.setLDM(db_ptr);
-            CPBS.setFaultyAccelerationCheck(check_faulty_object_acceleration);
+            CPBS.setVerbose(verbose);
+            if (check_faulty_object_acceleration != 0.0)
+                CPBS.setFaultyAccelerationCheck(check_faulty_object_acceleration);
             CPBS.setSpeedTriggering(!disable_cpm_speed_triggering);
             if (log_filename_CPM != "dis" && log_filename_CPM != "") {
                 CPBS.setLogfile(log_filename_CPM);
@@ -486,7 +489,14 @@ void VAMtxThr(std::string gnss_device,
 }
 
 // Main sensor reader thread
-void radarReaderThr(std::string gnss_device, long gnss_port, std::string can_device, ldmmap::LDMMap *db_ptr, uint64_t vehicleID, bool use_gpsd) {
+void radarReaderThr(std::string gnss_device,
+                    long gnss_port,
+                    std::string can_device,
+                    ldmmap::LDMMap *db_ptr,
+                    uint64_t vehicleID,
+                    bool use_gpsd,
+                    bool enable_sensor_classification,
+                    bool verbose) {
     bool m_retry_flag=false;
 
     do {
@@ -500,6 +510,8 @@ void radarReaderThr(std::string gnss_device, long gnss_port, std::string can_dev
 
             sensorgpsc.openConnection();
             BasicSensorReader sensorReader(can_device, db_ptr, &sensorgpsc, vehicleID);
+            sensorReader.setEnableClassification(enable_sensor_classification);
+            sensorReader.setVerbose(verbose);
             sensorReader.startReader();
         } catch(const std::exception& e) {
             std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
@@ -536,9 +548,12 @@ int main (int argc, char *argv[]) {
 	bool enable_DENM_decoding = false;
 	bool enable_reception = false;
 	bool disable_selfMAC_check = false;
+    bool enable_sensor_classification = false;
+    bool verbose = false;
+
 	int json_over_tcp_port = 49000;
 
-    bool check_faulty_object_acceleration = false;
+    double check_faulty_object_acceleration = 0.0;
     bool disable_cpm_speed_triggering = false;
 
 	std::string udp_sock_addr = "dis";
@@ -676,11 +691,17 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
         cmd.add(WrongInputTsholdArg);
 
-        TCLAP::SwitchArg CheckFaultyObjectAcceleration("6","check-faulty-object-acceleration","Advanced option: enable the check of faulty acceleration values of the objects in the CPMs.",false);
+        TCLAP::ValueArg<double> CheckFaultyObjectAcceleration("6","faulty-object-acceleration-threshold","Advanced option: enable the check of faulty acceleration values of the objects in the CPMs by setting a custom threshold.",false,0.0,"double");
         cmd.add(CheckFaultyObjectAcceleration);
 
         TCLAP::SwitchArg DisableCPMSpeedTriggering("7","disable-cpm-speed-triggering","Advanced option: disable the triggering of the CPMs based on speed variation.",false);
         cmd.add(DisableCPMSpeedTriggering);
+
+        TCLAP::SwitchArg EnableSensorClassification("8","classification","Advanced option: enable the usage of sensor output classification.",false);
+        cmd.add(EnableSensorClassification);
+
+        TCLAP::SwitchArg EnableVerbose("9","vv","Enable verbose output.",false);
+        cmd.add(EnableVerbose);
 
 		TCLAP::SwitchArg EnableHMIArg("m","enable-HMI","Enable the OScar HMI",false);
 		cmd.add(EnableHMIArg);
@@ -717,6 +738,9 @@ int main (int argc, char *argv[]) {
 
         check_faulty_object_acceleration=CheckFaultyObjectAcceleration.getValue();
         disable_cpm_speed_triggering=DisableCPMSpeedTriggering.getValue();
+
+        enable_sensor_classification=EnableSensorClassification.getValue();
+        verbose=EnableVerbose.getValue();
 
 		udp_sock_addr=UDPSockAddrArg.getValue();
 		udp_bind_ip=UDPBindIPArg.getValue();
@@ -932,7 +956,8 @@ int main (int argc, char *argv[]) {
                                         db_ptr,
                                         use_gpsd,
                                         check_faulty_object_acceleration,
-                                        disable_cpm_speed_triggering);
+                                        disable_cpm_speed_triggering,
+                                        verbose);
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
@@ -941,7 +966,9 @@ int main (int argc, char *argv[]) {
                                can_device,
                                db_ptr,
                                vehicleID,
-                               use_gpsd);
+                               use_gpsd,
+                               enable_sensor_classification,
+                               verbose);
     }
 
 	// Enable debug age of information, if option has been specified

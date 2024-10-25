@@ -55,11 +55,11 @@ var carIcon = L.icon({
 });
 
 var detectedTruckIcon = L.icon({
-    iconUrl: './img/blue_truck.png',
+	iconUrl: './img/detected_car7.png',
 
-    iconSize:     [icon_length/icon_scale_factor, icon_height/7], // size of the icon
-    iconAnchor:   [icon_length/(icon_scale_factor*2), icon_height/(7*2)], // point of the icon which will correspond to marker's location
-    popupAnchor:  [0, 0] // point from which the popup should open relative to the iconAnchor
+	iconSize:     [icon_length_car/icon_scale_factor*0.8, icon_height_car/icon_scale_factor*1.2], // size of the icon
+	iconAnchor:   [icon_length_car/(icon_scale_factor*2), icon_height_car/(icon_scale_factor*2)], // point of the icon which will correspond to marker's location
+	popupAnchor:  [0, 0] // point from which the popup should open relative to the iconAnchor
 });
 
 var detectedPedestrianIcon = L.icon({
@@ -225,7 +225,7 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
 			// Attempt to use an icon marker
 			newmarker = L.marker([lat,lon], {icon: initial_icon}).addTo(mapref);
 
-            if(stationtype === 1){
+            if(stationtype === 1 || stationtype === 101){
                newmarker.setRotationAngle(0);
             }else {
                newmarker.setRotationAngle(heading);
@@ -248,7 +248,7 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
 		} else {
 			let marker = markers[id];
 			marker.setLatLng([lat,lon]);
-            if(stationtype !== 1){
+            if(stationtype !== 1 && stationtype !== 101){
                marker.setRotationAngle(heading);
             }
 

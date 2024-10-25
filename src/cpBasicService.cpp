@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <arpa/inet.h>
 
-#define acceleration_threshold 17.0
 
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
@@ -70,6 +69,9 @@ CPBasicService::CPBasicService()
 
     m_check_faulty_acceleration = false;
     m_speed_triggering = true;
+
+    m_acceleration_threshold = 17.0;
+    m_verbose = false;
 }
 
 void
@@ -575,9 +577,14 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
         double time_diff_ms = computeTimestampUInt64()/(MICRO) - previousCPM.timestamp_us/MILLI;
         double acceleration = speed_diff / time_diff_ms;
         acceleration = acceleration * 1000; // Convert to m/s^2
-        //std::cout << "[CP service] Acceleration: " << acceleration << " m/s^2 | Speed diff: " << speed_diff << " m/s since last CPM | Time diff: " << time_diff_ms << " ms" << std::endl;
-        if (acceleration > acceleration_threshold)
+        if (acceleration > m_acceleration_threshold)
+        {
             speed_diff = 0;
+            if(m_verbose)
+                std::cout << "[CP service] Object " << PO_data->vehData.stationID
+                          << " Faulty acceleration detected: " << acceleration << " m/s^2 since last CPM - Threshold " << m_acceleration_threshold << " m/s^2 "<<  std::endl;
+        }
+
     }
 
     data_speed="  [SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)
@@ -602,7 +609,8 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
 
     if(!condition_verified && abs(previousCPM.heading - PO_data->vehData.heading) > 4)
     {
-        //std::cout << "[CP service] Heading check passed: " << abs(previousCPM.heading - PO_data->vehData.heading) << " degrees since last CPM"<< std::endl;
+        if(m_verbose)
+            std::cout << "[CP service] Object " << PO_data->vehData.stationID << " Heading check passed: " << abs(previousCPM.heading - PO_data->vehData.heading) << " degrees since last CPM"<< std::endl;
         condition_verified = true;
         if (motivation == "None"){
             motivation = "Heading";
