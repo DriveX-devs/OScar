@@ -37,6 +37,8 @@ class UBXNMEAParserSingleThread {
         double getCourseOverGroundUbx(long *age_us, bool print_timestamp_and_age);
         double getCourseOverGroundNmea(long *age_us, bool print_timestamp_and_age);
         double getAltitude(long *age_us, bool print_timestamp_and_age);
+        double getAltitudeUbx(long *age_us, bool print_timestamp_and_age);
+        double getAltitudeNmea(long *age_us, bool print_timestamp_and_age);
         double getYawRate(long *age_us, bool print_timestamp_and_age);
         double getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
@@ -45,9 +47,11 @@ class UBXNMEAParserSingleThread {
         std::string getUtcTimeUbx();
         std::string getUtcTimeNmea();
         double getValidityThreshold();
+        void showDebugAgeInfo();
 
         // Setters
         bool setValidityThreshold(double threshold);
+        void setDebugAgeInfo(int rate);
 
         // Validity methods
         bool validateNmeaSentence(const std::string& nmeaMessage);
@@ -61,6 +65,7 @@ class UBXNMEAParserSingleThread {
         bool getAltitudeValidity(bool print_error);
         bool getYawRateValidity(bool print_error);
         bool getSpeedAndCogValidity(bool print_error);
+        bool getDebugAgeInfo();
 
         int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
         void stopUBXNMEAParser();
@@ -105,6 +110,17 @@ class UBXNMEAParserSingleThread {
                  lu_sog_cog_nmea;						    // Last updates on relevant information
         } out_t;
 
+        typedef struct AgeInfo {
+            long age_pos, age_pos_ubx, age_pos_nmea,
+                 age_acc, age_att,
+                 age_alt, age_alt_ubx, age_alt_nmea,
+                 age_comp_acc,
+                 age_comp_ang_rate,
+                 age_sog_cog,
+                 age_sog_cog_ubx,
+                 age_sog_cog_nmea;						    // Last updates on relevant information
+        } age_t;
+
         std::atomic<out_t> m_outBuffer;
         std::atomic<bool> *m_terminatorFlagPtr = nullptr; // Used in endless loops in order to terminate the program
         std::atomic<bool> m_stopParserFlag = false;
@@ -122,6 +138,8 @@ class UBXNMEAParserSingleThread {
         std::atomic<bool> m_sog_cog_ubx_valid = false;
         std::atomic<bool> m_sog_cog_nmea_valid = false;
         double m_validity_threshold = 0;
+        int m_debug_age_info_rate = 0;
+        age_t m_debug_age_info;
 
         ceSerial m_serial;
 

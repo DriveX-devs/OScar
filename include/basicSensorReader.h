@@ -9,8 +9,21 @@
 class BasicSensorReader
 {
 public:
+    typedef enum classification{
+        UNKNOWN = 0,
+        CAR = 1,
+        SEMI = 2,
+        CYCLE = 3,
+        NOT_DEFINED = 4,
+    }classification_t;
+
     BasicSensorReader(std::string interface, ldmmap::LDMMap* ldm, VDPGPSClient* gpsc, int vehicleID){
-        m_interface = interface; m_LDM = ldm; m_gpsc_ptr = gpsc; m_stationID = vehicleID;}
+        m_interface = interface;
+        m_LDM = ldm;
+        m_gpsc_ptr = gpsc;
+        m_stationID = vehicleID;
+        m_enable_classification = false;
+        m_verbose = false;}
     bool startReader();
     bool stopReader();
     void setLDMmap(ldmmap::LDMMap* ldm){m_LDM = ldm;}
@@ -21,6 +34,8 @@ public:
     bool getThreadRunning(){return m_thread_running;}
     int getCanSocket(){return m_can_socket;}
     int getStationID(){return m_stationID;}
+    void setEnableClassification(bool enable){m_enable_classification = enable;}
+    void setVerbose(bool verbose){m_verbose = verbose;}
 
 private:
 
@@ -35,6 +50,9 @@ private:
     pthread_t m_tid = -1;
     std::atomic<bool> m_thread_running = false;
     std::thread m_thread;
+
+    bool m_enable_classification = false;
+    bool m_verbose = false;
 
     void reader_thread();
 };

@@ -247,7 +247,7 @@ void CAMtxThr(std::string gnss_device,
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             BTP.setGeoNet(&GN);
 
-
+            /*
             while (cnt_CAM < 10) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
@@ -260,7 +260,7 @@ void CAMtxThr(std::string gnss_device,
                 sleep(1);
                 cnt_CAM++;
             }
-
+            */
 
             std::cout << "[INFO] CAM Dissemination started!" << std::endl;
 
@@ -315,8 +315,9 @@ void CPMtxThr(std::string gnss_device,
               std::string log_filename_CPM,
               ldmmap::LDMMap *db_ptr,
               bool use_gpsd,
-              bool check_faulty_object_acceleration,
-              bool disable_cpm_speed_triggering) {
+              double check_faulty_object_acceleration,
+              bool disable_cpm_speed_triggering,
+              bool verbose) {
     bool m_retry_flag=false;
 
     VDPGPSClient vdpgpsc(gnss_device,gnss_port);
@@ -363,7 +364,9 @@ void CPMtxThr(std::string gnss_device,
             CPBS.setStationProperties(vehicleID, StationType_passengerCar);
             CPBS.setVDP(&vdpgpsc);
             CPBS.setLDM(db_ptr);
-            CPBS.setFaultyAccelerationCheck(check_faulty_object_acceleration);
+            CPBS.setVerbose(verbose);
+            if (check_faulty_object_acceleration != 0.0)
+                CPBS.setFaultyAccelerationCheck(check_faulty_object_acceleration);
             CPBS.setSpeedTriggering(!disable_cpm_speed_triggering);
             if (log_filename_CPM != "dis" && log_filename_CPM != "") {
                 CPBS.setLogfile(log_filename_CPM);
@@ -486,7 +489,14 @@ void VAMtxThr(std::string gnss_device,
 }
 
 // Main sensor reader thread
-void radarReaderThr(std::string gnss_device, long gnss_port, std::string can_device, ldmmap::LDMMap *db_ptr, uint64_t vehicleID, bool use_gpsd) {
+void radarReaderThr(std::string gnss_device,
+                    long gnss_port,
+                    std::string can_device,
+                    ldmmap::LDMMap *db_ptr,
+                    uint64_t vehicleID,
+                    bool use_gpsd,
+                    bool enable_sensor_classification,
+                    bool verbose) {
     bool m_retry_flag=false;
 
     do {
@@ -500,6 +510,8 @@ void radarReaderThr(std::string gnss_device, long gnss_port, std::string can_dev
 
             sensorgpsc.openConnection();
             BasicSensorReader sensorReader(can_device, db_ptr, &sensorgpsc, vehicleID);
+            sensorReader.setEnableClassification(enable_sensor_classification);
+            sensorReader.setVerbose(verbose);
             sensorReader.startReader();
         } catch(const std::exception& e) {
             std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
@@ -536,9 +548,12 @@ int main (int argc, char *argv[]) {
 	bool enable_DENM_decoding = false;
 	bool enable_reception = false;
 	bool disable_selfMAC_check = false;
+    bool enable_sensor_classification = false;
+    bool verbose = false;
+
 	int json_over_tcp_port = 49000;
 
-    bool check_faulty_object_acceleration = false;
+    double check_faulty_object_acceleration = 0.0;
     bool disable_cpm_speed_triggering = false;
 
 	std::string udp_sock_addr = "dis";
@@ -571,10 +586,12 @@ int main (int argc, char *argv[]) {
     // true if gpsd is used to gather positioning data, false if the internal NMEA+UBX parser is used
     bool use_gpsd = false;
 
+    int debug_age_info_rate_ms;
+
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "4.1");
-
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "4.2");
+    
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
 		cmd.add(vifName);
@@ -648,6 +665,9 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
         cmd.add(SerialDeviceValidityThr);
 
+        TCLAP::ValueArg ShowDebugAgeInfo("a","show-debug-age-of-information","[Considered only if -g is not specified] Debug option: shows the time between the previous serial parser CAM informations and the current ones a the specified time rate Deafult: 800 ms", false, 800, "integer");
+        cmd.add(ShowDebugAgeInfo);
+
         // Vehicle Visualizer options
 		TCLAP::ValueArg<long> VV_NodejsPortArg("1","vehviz-nodejs-port","Advanced option: set the port number for the UDP connection to the Vehicle Visualizer Node.js server",false,DEFAULT_VEHVIZ_NODEJS_UDP_PORT,"integer");
 		cmd.add(VV_NodejsPortArg);
@@ -671,11 +691,17 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
         cmd.add(WrongInputTsholdArg);
 
-        TCLAP::SwitchArg CheckFaultyObjectAcceleration("6","check-faulty-object-acceleration","Advanced option: enable the check of faulty acceleration values of the objects in the CPMs.",false);
+        TCLAP::ValueArg<double> CheckFaultyObjectAcceleration("6","faulty-object-acceleration-threshold","Advanced option: enable the check of faulty acceleration values of the objects in the CPMs by setting a custom threshold.",false,0.0,"double");
         cmd.add(CheckFaultyObjectAcceleration);
 
         TCLAP::SwitchArg DisableCPMSpeedTriggering("7","disable-cpm-speed-triggering","Advanced option: disable the triggering of the CPMs based on speed variation.",false);
         cmd.add(DisableCPMSpeedTriggering);
+
+        TCLAP::SwitchArg EnableSensorClassification("8","classification","Advanced option: enable the usage of sensor output classification.",false);
+        cmd.add(EnableSensorClassification);
+
+        TCLAP::SwitchArg EnableVerbose("9","vv","Enable verbose output.",false);
+        cmd.add(EnableVerbose);
 
 		TCLAP::SwitchArg EnableHMIArg("m","enable-HMI","Enable the OScar HMI",false);
 		cmd.add(EnableHMIArg);
@@ -713,6 +739,9 @@ int main (int argc, char *argv[]) {
         check_faulty_object_acceleration=CheckFaultyObjectAcceleration.getValue();
         disable_cpm_speed_triggering=DisableCPMSpeedTriggering.getValue();
 
+        enable_sensor_classification=EnableSensorClassification.getValue();
+        verbose=EnableVerbose.getValue();
+
 		udp_sock_addr=UDPSockAddrArg.getValue();
 		udp_bind_ip=UDPBindIPArg.getValue();
 		extra_position_udp=ExtraPosUDPArg.getValue();
@@ -746,6 +775,7 @@ int main (int argc, char *argv[]) {
         serial_device = SerialDevice.getValue();
         serial_device_baudrate = SerialDeviceBaudrate.getValue();
         serial_device_validity_thr = SerialDeviceValidityThr.getValue();
+        debug_age_info_rate_ms = ShowDebugAgeInfo.getValue();
 
         wrong_input_threshold = WrongInputTsholdArg.getValue();
 
@@ -842,6 +872,9 @@ int main (int argc, char *argv[]) {
     if(!use_gpsd) {
         serialParser.setValidityThreshold(serial_device_validity_thr);
         serialParser.setWrongInputThreshold(wrong_input_threshold);
+        if (debug_age_info_rate_ms){
+            serialParser.setDebugAgeInfo(debug_age_info_rate_ms);
+        }
         serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag);
     }
 
@@ -923,7 +956,8 @@ int main (int argc, char *argv[]) {
                                         db_ptr,
                                         use_gpsd,
                                         check_faulty_object_acceleration,
-                                        disable_cpm_speed_triggering);
+                                        disable_cpm_speed_triggering,
+                                        verbose);
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
@@ -932,10 +966,14 @@ int main (int argc, char *argv[]) {
                                can_device,
                                db_ptr,
                                vehicleID,
-                               use_gpsd);
+                               use_gpsd,
+                               enable_sensor_classification,
+                               verbose);
     }
 
-	
+	// Enable debug age of information, if option has been specified
+    if (serialParser.getDebugAgeInfo()) serialParser.showDebugAgeInfo();
+
 	// Reception loop (using the main thread)
 	if(enable_reception==true) {
 		fprintf(stdout,"Configuring socket for reception. Descriptor: %d\n",sockfd);

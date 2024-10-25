@@ -16,6 +16,7 @@
 #include <utility>
 #include <chrono>
 #include <algorithm>
+#include <unistd.h>
 
 using namespace std::chrono;
 
@@ -300,6 +301,8 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
     long local_age_us = end - tmp.lu_pos;
     long validity_thr = getValidityThreshold();
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_pos = local_age_us;
+
     if (print_timestamp_and_age == true) std::cout << "[Position] - " <<  tmp.ts_sog_cog_ubx
                                                    << "Age of information: " << local_age_us << " us"
                                                    << std::endl << std::endl;
@@ -327,6 +330,8 @@ UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and
     long local_age_us = end - tmp.lu_pos_ubx;
     long validity_thr = getValidityThreshold();
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_pos_ubx = local_age_us;
+
     if (print_timestamp_and_age == true) std::cout << "[Position(UBX)] - " <<  tmp.ts_pos_ubx
                                                    << "Age of information: " << local_age_us << " us"
                                                    << std::endl << std::endl;
@@ -353,6 +358,8 @@ UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_an
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_pos_nmea;
     long validity_thr = getValidityThreshold();
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_pos_nmea = local_age_us;
 
     if (print_timestamp_and_age == true) std::cout << "[Position(NMEA)] - " <<  tmp.ts_pos_nmea
                                                    << "Age of information: " << local_age_us << " us"
@@ -442,7 +449,13 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Converts time_point to microseconds
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_pos = update.time_since_epoch().count() - out_nmea.lu_pos;
+        m_debug_age_info.age_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
+        m_debug_age_info.age_alt = update.time_since_epoch().count() - out_nmea.lu_alt;
+        m_debug_age_info.age_alt_nmea = update.time_since_epoch().count() - out_nmea.lu_alt_nmea;
+    }
+    // Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
 	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
     out_nmea.lu_alt = update.time_since_epoch().count();
@@ -518,7 +531,13 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Converts time_point to microseconds
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_pos = update.time_since_epoch().count() - out_nmea.lu_pos;
+        m_debug_age_info.age_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
+        m_debug_age_info.age_alt = update.time_since_epoch().count() - out_nmea.lu_alt;
+        m_debug_age_info.age_alt_nmea = update.time_since_epoch().count() - out_nmea.lu_alt_nmea;
+    }
+    // Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
 	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
     out_nmea.lu_alt = update.time_since_epoch().count();
@@ -548,6 +567,8 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_alt;
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_alt = local_age_us;
+
     if (local_age_us >= getValidityThreshold()) {
         m_alt_valid.store(false);
     }
@@ -559,6 +580,62 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
     if (age_us != nullptr) *age_us = local_age_us;
 
 	return tmp.alt;
+}
+
+double
+UBXNMEAParserSingleThread::getAltitudeUbx(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_alt_ubx;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_alt_ubx = local_age_us;
+
+    if (local_age_us >= getValidityThreshold()) {
+        m_alt_valid.store(false);
+    }
+    else m_alt_valid.store(true);
+
+    if (print_timestamp_and_age == true) std::cout << "[Altitude(UBX) timestamp] - " <<  tmp.ts_alt
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.alt_ubx;
+}
+
+double
+UBXNMEAParserSingleThread::getAltitudeNmea(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_alt_nmea;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_alt_nmea = local_age_us;
+
+    if (local_age_us >= getValidityThreshold()) {
+        m_alt_valid.store(false);
+    }
+    else m_alt_valid.store(true);
+
+    if (print_timestamp_and_age == true) std::cout << "[Altitude(NMEA) timestamp] - " <<  tmp.ts_alt
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.alt_nmea;
 }
 
 /** getAccelerations(), getAngularRates(), getYawRate(), getRawAccelerations() and getAttitude()
@@ -578,6 +655,8 @@ UBXNMEAParserSingleThread::getAccelerations(long *age_us, bool print_timestamp_a
 	auto now = time_point_cast<microseconds>(system_clock::now());
 	auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_acc;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_comp_acc = local_age_us;
 
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid.store(false);
@@ -605,6 +684,8 @@ UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp_an
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_ang_rate;
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_comp_ang_rate = local_age_us;
+
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid.store(false);
     }
@@ -630,6 +711,8 @@ UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_ang_rate;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_comp_ang_rate = local_age_us;
 
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid.store(false);
@@ -658,6 +741,8 @@ UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_acc;
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_comp_acc = local_age_us;
+
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid.store(false);
     }
@@ -683,6 +768,8 @@ UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestam
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_acc;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_acc = local_age_us;
 
     if (local_age_us >= getValidityThreshold()) {
         m_acc_valid.store(false);
@@ -766,7 +853,12 @@ UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Retrieves the time since epoch in microseconds and updates the output struct
+    // Updates age of information
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_acc = update.time_since_epoch().count() - out_esf.lu_acc;
+    }
+
+    // Retrieves the time since epoch in microseconds and updates the output struct
 	out_esf.lu_acc = update.time_since_epoch().count();
 
     // Validates data
@@ -788,6 +880,8 @@ UBXNMEAParserSingleThread::getAttitude(long *age_us, bool print_timestamp_and_ag
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_att;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_att = local_age_us;
 
     if (local_age_us >= getValidityThreshold()) {
         m_att_valid.store(false);
@@ -852,7 +946,12 @@ UBXNMEAParserSingleThread::parseNavAtt(std::vector<uint8_t> response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Retrieves the time since epoch in microseconds and updates the output struct
+    // Updates age of information
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_att = update.time_since_epoch().count() - out_att.lu_att;
+    }
+
+    // Retrieves the time since epoch in microseconds and updates the output struct
 	out_att.lu_att = update.time_since_epoch().count();
 
     // Validates data
@@ -874,6 +973,12 @@ UBXNMEAParserSingleThread::getSpeedUbx(long *age_us, bool print_timestamp_and_ag
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_ubx;
+
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+        m_debug_age_info.age_sog_cog_ubx = local_age_us;
+    }
+
 
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_ubx_valid.store(false);
@@ -902,6 +1007,11 @@ UBXNMEAParserSingleThread::getSpeedNmea(long *age_us, bool print_timestamp_and_a
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_nmea;
 
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+        m_debug_age_info.age_sog_cog_nmea = local_age_us;
+    }
+
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_nmea_valid.store(false);
     }
@@ -928,9 +1038,10 @@ UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_times
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_ubx;
 
-    // std::cout << "lu_sog_cog_ubx: " << tmp.lu_sog_cog_ubx << std::endl;
-    // std::cout << "AGE UBX: " << local_age_us << std::endl;
-    // std::cout << "VALIDITY THRESHOLD: " << getValidityThreshold() << std::endl;
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+        m_debug_age_info.age_sog_cog_ubx = local_age_us;
+    }
 
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_ubx_valid.store(false);
@@ -958,7 +1069,10 @@ UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_time
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_nmea;
 
-    // printf("AGE NMEA: %ld\n",local_age_us);
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+        m_debug_age_info.age_sog_cog_nmea = local_age_us;
+    }
 
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_nmea_valid.store(false);
@@ -1117,6 +1231,55 @@ UBXNMEAParserSingleThread::setValidityThreshold(double threshold) {
     }
 }
 
+void
+UBXNMEAParserSingleThread::setDebugAgeInfo(int rate) {
+    if (m_debug_age_info_rate) std::cerr << "Error: debug option already enabled!" << '\n';
+    else m_debug_age_info_rate = rate;
+}
+
+bool
+UBXNMEAParserSingleThread::getDebugAgeInfo() {
+    return m_debug_age_info_rate;
+}
+
+void
+UBXNMEAParserSingleThread::showDebugAgeInfo() {
+    if (!m_debug_age_info_rate) {
+        std::cerr << "Error: age of information debug option disabled!" << '\n';
+        return;
+    } else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::cout << "\033[?25l";  // Hide the cursor
+        std::cout << "\nAge of information debug info (microseconds - us)\n";
+
+        while (!m_terminatorFlagPtr->load()) {
+            std::cout << "\rPosition:                " << m_debug_age_info.age_pos << "                    " << std::flush;
+            std::cout << "\nPosition(UBX):           " << m_debug_age_info.age_pos_ubx << "                    " << std::flush;
+            std::cout << "\nPosition(NMEA):          " << m_debug_age_info.age_pos_nmea << "                    " << std::flush;
+            std::cout << '\n';
+            std::cout << "\nSpeed and Heading:       " << m_debug_age_info.age_sog_cog << "                    " << std::flush;
+            std::cout << "\nSpeed and Heading(UBX):  " << m_debug_age_info.age_sog_cog_ubx << "                    " << std::flush;
+            std::cout << "\nSpeed and Heading(NMEA): " << m_debug_age_info.age_sog_cog_nmea << "                    " << std::flush;
+            std::cout << '\n';
+            std::cout << "\nAccelerations:           " << m_debug_age_info.age_comp_acc << "                    " << std::flush;
+            std::cout << "\nRaw Accelerations:       " << m_debug_age_info.age_acc << "                    " << std::flush;
+            std::cout << '\n';
+            std::cout << "\nRoll Pitch Yaw:          " << m_debug_age_info.age_att << "                    " << std::flush;
+            std::cout << "\nYaw rate:                " << m_debug_age_info.age_comp_ang_rate << "                    "<< std::flush;
+            std::cout << '\n';
+            std::cout << "\nAltitude:                " << m_debug_age_info.age_alt << "                    " << std::flush;
+            std::cout << "\nAltitude(UBX):           " << m_debug_age_info.age_alt_ubx << "                    " << std::flush;
+            std::cout << "\nAltitude(NMEA):          " << m_debug_age_info.age_alt_nmea << "                    " << std::flush;
+            std::cout << "\033[16F";
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_debug_age_info_rate));
+        }
+        std::cout << "\033[17B"; // After the loop, move the cursor to the end (17 lines down)
+        std::cout << "\033[?25h";  // Re-enable the cursor
+        std::cout << "\n\n";
+    }
+}
+
 double
 UBXNMEAParserSingleThread::getValidityThreshold() {
     if (m_validity_threshold != 0) return m_validity_threshold * 1e6; // Microseconds
@@ -1206,7 +1369,17 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Retrieves the time since epoch in microseconds and updates the output struct
+    // Updates age of information
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = update.time_since_epoch().count() - out_pvt.lu_sog_cog;
+        m_debug_age_info.age_sog_cog_ubx = update.time_since_epoch().count() - out_pvt.lu_sog_cog_ubx;
+        m_debug_age_info.age_pos = update.time_since_epoch().count() - out_pvt.lu_pos;
+        m_debug_age_info.age_pos_ubx = update.time_since_epoch().count() - out_pvt.lu_pos_ubx;
+        m_debug_age_info.age_alt = update.time_since_epoch().count() - out_pvt.lu_alt;
+        m_debug_age_info.age_alt_ubx = update.time_since_epoch().count() - out_pvt.lu_alt_ubx;
+    }
+
+    // Retrieves the time since epoch in microseconds and updates the output struct
 	out_pvt.lu_sog_cog = update.time_since_epoch().count();
 	out_pvt.lu_sog_cog_ubx = out_pvt.lu_sog_cog;
 	out_pvt.lu_pos = update.time_since_epoch().count();
@@ -1329,7 +1502,12 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Converts time_point to microseconds
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = update.time_since_epoch().count() - out_nmea.lu_sog_cog;
+        m_debug_age_info.age_sog_cog_nmea = update.time_since_epoch().count() - out_nmea.lu_sog_cog_nmea;
+    }
+
+    // Converts time_point to microseconds
 	out_nmea.lu_sog_cog = update.time_since_epoch().count();
 	out_nmea.lu_sog_cog_nmea = out_nmea.lu_sog_cog;
 
@@ -1437,9 +1615,15 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 	strcpy(out_ins.ts_comp_acc,std::ctime(&now));
     strcpy(out_ins.ts_comp_ang_rate,std::ctime(&now));
 
-    // Timestamps and last update (Same for accelerations and angular rate, but implemented as separate variables for scalability)
+    // Timestamps, age and last update (Same for accelerations and angular rate, but implemented as separate variables for scalability)
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
+
+    // Updates age of information
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_comp_acc = update.time_since_epoch().count() - out_ins.lu_comp_acc;
+        m_debug_age_info.age_comp_ang_rate = update.time_since_epoch().count() - out_ins.lu_comp_ang_rate;
+    }
 
 	// Retrieves the time since epoch in microseconds and updates the output struct
 	out_ins.lu_comp_acc = update.time_since_epoch().count();
