@@ -237,6 +237,8 @@ void CAMtxThr(std::string gnss_device,
     GeoNet GN;
     btp BTP;
 
+    double test_lat, test_lon;
+
     do {
         try {
             std::cout << "[INFO] CAM VDP GPS Client: opening connection..." << std::endl;
@@ -247,20 +249,28 @@ void CAMtxThr(std::string gnss_device,
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             BTP.setGeoNet(&GN);
 
-            /*
-            while (cnt_CAM < 10) {
+            
+            while (true) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
                 std::cout << "[INFO] VDP GPS Client test: getting GNSS data..." << std::endl;
 
                 CAMdata = vdpgpsc.getCAMMandatoryData();
+                test_lat = CAMdata.latitude/1e7;
+                test_lon = CAMdata.longitude/1e7;
 
-                std::cout << "[INFO] [" << cnt_CAM << "] VDP GPS Client test result: Lat: " << CAMdata.latitude
-                          << " deg - Lon: " << CAMdata.longitude << " deg" << std::endl;
+                if(test_lat>=-90.0 && test_lat<=90.0 && test_lon>=-180.0 && test_lon<=180.0) {
+                    std::cout << "[INFO] Position available after roughly " << cnt_CAM << " seconds: latitude: " << test_lat << " - longitude: " << test_lon << std::endl;
+                    break;
+                } else {
+                    std::cout << "[INFO] Position not yet available. Unavail. value: " << CAMdata.latitude << "," << CAMdata.longitude << ". Waiting 1 second and trying again..." << std::endl;
+                }
+
+                std::cout << "[INFO] Waiting for VDP to provide the position (a fix may not be yet available)..." << std::endl;
+                
                 sleep(1);
                 cnt_CAM++;
             }
-            */
 
             std::cout << "[INFO] CAM Dissemination started!" << std::endl;
 
@@ -586,11 +596,11 @@ int main (int argc, char *argv[]) {
     // true if gpsd is used to gather positioning data, false if the internal NMEA+UBX parser is used
     bool use_gpsd = false;
 
-    int debug_age_info_rate_ms;
+    int debug_age_info_rate_ms=0;
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "4.2");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "4.3");
     
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
@@ -665,7 +675,7 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
         cmd.add(SerialDeviceValidityThr);
 
-        TCLAP::ValueArg ShowDebugAgeInfo("a","show-debug-age-of-information","[Considered only if -g is not specified] Debug option: shows the time between the previous serial parser CAM informations and the current ones a the specified time rate Deafult: 800 ms", false, 800, "integer");
+        TCLAP::ValueArg<int> ShowDebugAgeInfo("a","show-debug-age-of-information","[Considered only if -g is not specified] Debug option: shows the time between the previous serial parser CAM informations and the current ones a the specified time rate. Default: 0 ms (disabled).", false, 0, "integer");
         cmd.add(ShowDebugAgeInfo);
 
         // Vehicle Visualizer options
