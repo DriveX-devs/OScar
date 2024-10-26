@@ -16,20 +16,17 @@
 #include <utility>
 #include <chrono>
 #include <algorithm>
+#include <unistd.h>
 
 using namespace std::chrono;
 
 /* Prints a UBX message in the format index[byte] (for debug purposes) */
 void
 UBXNMEAParserSingleThread::printUbxMessage(std::vector<uint8_t> msg) {
-	// Printing message (for debug purposes)
-	std::cout << "message size: " << msg.size() << std::endl;
-
-
-	for (long unsigned int i = 0; i < msg.size(); i++) {
-		printf("%ld[%02X] ", i, msg[i]);
-	}
-	std::cout << " |{END}" << std::endl << std::endl;
+    std::cout << "message size: " << msg.size() << std::endl;
+    for (long unsigned int i = 0; i < msg.size(); i++) {
+        printf("%ld[%02X] ", i, msg[i]);
+    }
 }
 
 /* Prints a NMEA sentence (printable chars only) */
@@ -126,6 +123,8 @@ void
 UBXNMEAParserSingleThread::clearBuffer() {
 	out_t tmp;
 	strcpy(tmp.ts_pos,"");
+    strcpy(tmp.ts_pos_ubx,"");
+    strcpy(tmp.ts_pos_nmea,"");
 	strcpy(tmp.ts_utc_time_ubx,"");
     strcpy(tmp.ts_utc_time_nmea,"");
 	strcpy(tmp.ts_acc,"");
@@ -147,23 +146,34 @@ UBXNMEAParserSingleThread::clearBuffer() {
     tmp.comp_ang_rate_y = 0;
     tmp.comp_ang_rate_z = 0;
 	tmp.lat = 0;
+    tmp.lat_ubx = 0;
+    tmp.lat_nmea = 0;
 	tmp.lon = 0;
+    tmp.lon_ubx = 0;
+    tmp.lon_nmea = 0;
 	tmp.alt = 0;
-	tmp.cp_lat = '\0';
-	tmp.cp_lon = '\0';
+    tmp.alt_ubx = 0;
+    tmp.alt_nmea = 0;
 	tmp.roll = 0;
 	tmp.pitch = 0;
 	tmp.heading = 0;
+    tmp.sog = 0;
 	tmp.sog_ubx = 0;
 	tmp.sog_nmea = 0;
+    tmp.cog = 0;
 	tmp.cog_ubx = 0;
 	tmp.cog_nmea = 0;
 	tmp.lu_pos = 0;
+    tmp.lu_pos_ubx = 0;
+    tmp.lu_pos_nmea = 0;
 	tmp.lu_acc = 0;
 	tmp.lu_att = 0;
 	tmp.lu_alt = 0;
+    tmp.lu_alt_ubx = 0;
+    tmp.lu_alt_nmea = 0;
     tmp.lu_comp_acc = 0;
     tmp.lu_comp_ang_rate = 0;
+    tmp.lu_sog_cog = 0;
 	tmp.lu_sog_cog_ubx = 0;
 	tmp.lu_sog_cog_nmea = 0;
 	m_outBuffer.store(tmp);
@@ -177,12 +187,68 @@ UBXNMEAParserSingleThread::printBuffer() {
     printf("[NMEA - UTC TIME]  - %s\n", tmp.ts_utc_time_nmea);
 	printf("[UBX]  - %s\n", tmp.fix_ubx);
 	printf("[NMEA] - %s\n\n", tmp.fix_nmea);
-	printf("[Position]\nLat: %.8f   deg   -   Lon: %.8f   deg  -   Altitude: %.2f   m\n\n",decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon),tmp.alt);
+	printf("[Position]\nLat: %.8f   deg   -   Lon: %.8f   deg  -   Altitude: %.2f   m\n\n",tmp.lat,tmp.lon,tmp.alt);
 	printf("[Speed over ground]\n(UBX): %.3f m/s   -   (NMEA): %.3f m/s\n\n",tmp.sog_ubx,tmp.sog_nmea);
 	printf("[Course over ground]\n(UBX): %.3f deg   -   (NMEA): %.3f deg\n\n",tmp.cog_ubx,tmp.cog_nmea);
 	printf("[Accelerations (gravity-free)]\nX: %.3f  m/s^2  Y: %.3f  m/s^2  Z: %.3f  m/s^2\n\n",tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
 	printf("[Raw accelerations]\nX: %.3f  m/s^2  Y: %.3f  m/s  Z: %.3f  m/s\n\n",tmp.raw_acc_x,tmp.raw_acc_y,tmp.raw_acc_z);
 	printf("[Attitude]\nRoll: %.3f  deg  Pitch: %.3f  deg  Heading: %.3f  deg\n\n",tmp.roll,tmp.pitch,tmp.heading);
+}
+
+bool UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
+    uint8_t CK_A = 0x00;
+    uint8_t CK_B = 0x00;
+
+    for (long unsigned int i = 0; i < msg.size(); i++) {
+        if (i >=2 && i <= msg.size() -3) { //checksum calculation range
+            CK_A = CK_A + msg[i];
+            CK_B = CK_B + CK_A;
+
+            CK_A &= 0xFF;
+            CK_B &= 0xFF;
+        }
+    }
+
+    if (msg[msg.size() -2] == CK_A && msg[msg.size()-1] == CK_B) {
+        return true;
+    }
+    else {
+        //printf("\n\nINVALID MESSAGE: CK_A: %02X  CK_B: %02X\n\n", CK_A,CK_B);
+        //printUbxMessage(msg);
+        return false;
+    }
+}
+
+bool
+UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) {
+    // Check that the message starts with '$' and contains '*'
+    if (nmeaMessage.front() != '$' || nmeaMessage.find('*') == std::string::npos) {
+        return false;  // Invalid format
+    }
+
+    // Find the position of the '*' character
+    size_t asteriskPos = nmeaMessage.find('*');
+
+    // Ensure there's enough space for the checksum after '*'
+    if (asteriskPos + 2 >= nmeaMessage.length()) {
+        return false;  // Invalid or missing checksum
+    }
+
+    // XOR all characters between '$' and '*' (exclusive)
+    unsigned char checksum = 0;
+    for (size_t i = 1; i < asteriskPos; ++i) {
+        checksum ^= static_cast<unsigned char>(nmeaMessage[i]);
+    }
+
+    // Convert checksum to hexadecimal string (two uppercase digits)
+    char hexChecksum[3];
+    snprintf(hexChecksum, sizeof(hexChecksum), "%02X", checksum);
+
+    // Extract the provided checksum from the message (characters after '*')
+    std::string providedChecksum = nmeaMessage.substr(asteriskPos + 1, 2);
+
+    // Compare the calculated checksum with the provided one
+    return providedChecksum == hexChecksum;
 }
 
 std::string
@@ -235,6 +301,8 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
     long local_age_us = end - tmp.lu_pos;
     long validity_thr = getValidityThreshold();
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_pos = local_age_us;
+
     if (print_timestamp_and_age == true) std::cout << "[Position] - " <<  tmp.ts_sog_cog_ubx
                                                    << "Age of information: " << local_age_us << " us"
                                                    << std::endl << std::endl;
@@ -245,8 +313,68 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
     }
     else m_pos_valid.store(true);
 
-	return std::pair<double,double>(decimal_deg(tmp.lat,tmp.cp_lat),decimal_deg(tmp.lon,tmp.cp_lon));
+	return std::pair<double,double>(tmp.lat,tmp.lon);
 }
+
+std::pair<double,double>
+UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return std::pair<double,double>(0,0);
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_pos_ubx;
+    long validity_thr = getValidityThreshold();
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_pos_ubx = local_age_us;
+
+    if (print_timestamp_and_age == true) std::cout << "[Position(UBX)] - " <<  tmp.ts_pos_ubx
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    if (local_age_us >= validity_thr) {
+        m_pos_valid.store(false);
+    }
+    else m_pos_valid.store(true);
+
+    return std::pair<double,double>(tmp.lat_ubx,tmp.lon_ubx);
+}
+
+std::pair<double,double>
+UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return std::pair<double,double>(0,0);
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_pos_nmea;
+    long validity_thr = getValidityThreshold();
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_pos_nmea = local_age_us;
+
+    if (print_timestamp_and_age == true) std::cout << "[Position(NMEA)] - " <<  tmp.ts_pos_nmea
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    if (local_age_us >= validity_thr) {
+        m_pos_valid.store(false);
+    }
+    else m_pos_valid.store(true);
+
+    return std::pair<double,double>(tmp.lat_nmea,tmp.lon_nmea);
+}
+
+
 
 /** Checks and parses a GNGNS NMEA sentence in order to get the latitude and longitude data
  *
@@ -258,73 +386,57 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
 void
 UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 
-	out_t out_nmea = m_outBuffer.load();
+    out_t out_nmea = m_outBuffer.load();
 
-	int commas = 0;
+    std::vector<std::string> fields;
+    std::stringstream ss(nmea_response);
+    std::string field;
+
+    while (std::getline(ss, field, ',')) {
+        fields.push_back(field);
+    }
 
 	// Latitude and Longitude substrings to be converted to double using std::stod() later
-	std::string utc_time = "UTC Time: ", slat, slon, salt;
-	char cp_lat = '\0', cp_lon = '\0'; // cardinal points (N, S, W, E)
+	std::string utc_time = "UTC Time: " + fields[1];
+    std::string slat = fields[2];
+    std::string slon = fields[4];
+    std::string salt = fields[9];
 
-	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
-		if (nmea_response[i] == ',') {
-			commas++;
-		}
-		// UTC time (hhmmss.ss)
-		if (commas == 1){
-			if (nmea_response[i+1] != ',') {
-				utc_time += nmea_response[i+1];
-			}
-		}
-		// Latitude string
-		if (commas == 2){
-			if (nmea_response[i+1] != ',') {
-				slat += nmea_response[i+1];
-			}
-		}
-		// Latitude cardinal point
-		if (commas == 3) {
-			if (cp_lat != '\0') continue;
-			cp_lat = nmea_response[i+1];
-		}
-		// Longitude string
-		if (commas == 4){
-			if (nmea_response[i+1] != ',') {
-				slon += nmea_response[i+1];
-			}
-		}
-		// Longitude cardinal point
-		if (commas == 5) {
-			if (cp_lon != '\0') continue;
-			cp_lon = nmea_response[i+1];
-		}
-		// Altitude above mean sea level
-		if (commas == 9) {
-			if(nmea_response[i+1] != ',') {
-				salt += nmea_response[i+1];
-			}
-		}
-	}
+    // cardinal points (N, S, W, E)
+	char cp_lat = fields[3].at(0);
+    char cp_lon = fields[5].at(0);
 
-	if (slat.empty() == false) out_nmea.lat = std::stod(slat);
-	else out_nmea.lat = 0;
+    /* debug
+    std::cout << nmea_response;
+    std::cout << utc_time << " Lat: " << slat << " Lon: " << slon
+              << " Alt: " << salt << " cp lat: " << cp_lat << " cp lon: " << cp_lon << std::endl;
+    */
 
-	if (slon.empty() == false) out_nmea.lon = std::stod(slon);
-	else out_nmea.lon = 0;
+    if (!slat.empty()) {
+        out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
+        out_nmea.lat_nmea = out_nmea.lat;
+    }
+	else out_nmea.lat = 900000001; // Latitude_unavailable
+
+	if (!slon.empty()) {
+        out_nmea.lon = decimal_deg(std::stod(slon),cp_lon);
+        out_nmea.lon_nmea = out_nmea.lon;
+    }
+	else out_nmea.lon = 1800000001; // Longitude_unavailable
 
 	// Check if the altitude is negative and parses accondingly using stod
-	if (salt.empty() == false) {
+	if (!salt.empty()) {
 		if (salt[0] == '-') {
 			salt = salt.erase(0,1);
 			out_nmea.alt = std::stod(salt) * -1;
+            out_nmea.alt_nmea = out_nmea.alt;
 		}
-		else
-		out_nmea.alt = std::stod(salt);
+		else {
+            out_nmea.alt = std::stod(salt);
+            out_nmea.alt_nmea = out_nmea.alt;
+        }
 	}
-	else out_nmea.alt = 0;
-
-	out_nmea.cp_lat = cp_lat;
-	out_nmea.cp_lon = cp_lon;
+	else out_nmea.alt = 800001; // AltitudeValue_unavailable
 
 	// Produces and processes the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -337,9 +449,17 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Converts time_point to microseconds
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_pos = update.time_since_epoch().count() - out_nmea.lu_pos;
+        m_debug_age_info.age_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
+        m_debug_age_info.age_alt = update.time_since_epoch().count() - out_nmea.lu_alt;
+        m_debug_age_info.age_alt_nmea = update.time_since_epoch().count() - out_nmea.lu_alt_nmea;
+    }
+    // Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
+	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
     out_nmea.lu_alt = update.time_since_epoch().count();
+    out_nmea.lu_alt_nmea = out_nmea.lu_alt;
 
     // Validates data
     m_pos_valid = true;
@@ -356,71 +476,49 @@ void
 UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	out_t out_nmea = m_outBuffer.load();
 
-	int commas = 0;
+    std::vector<std::string> fields;
+    std::stringstream ss(nmea_response);
+    std::string field;
+
+    while (std::getline(ss, field, ',')) {
+        fields.push_back(field);
+    }
 
 	// Latitude and Longitude substrings to be converted to double using std::stod() later
-	std::string utc_time = "UTC Time: ", slat, slon, salt;
-	char cp_lat = '\0', cp_lon = '\0'; // cardinal points (N, S, W, E)
+	std::string utc_time = "UTC Time: " + fields[1];
+    std::string slat = fields[2];
+    std::string slon = fields[4];
+    std::string salt = fields[9];
 
-	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
-		if (nmea_response[i] == ',') {
-			commas++;
-		}
-		// UTC time (hhmmss.ss)
-		if (commas == 1){
-			if (nmea_response[i+1] != ',') {
-				utc_time += nmea_response[i+1];
-			}
-		}
-		// Latitude string
-		if (commas == 2){
-			if (nmea_response[i+1] != ',') {
-				slat += nmea_response[i+1];
-			}
-		}
-		// Latitude cardinal point
-		if (commas == 3) {
-			if (cp_lat != '\0') continue;
-			cp_lat = nmea_response[i+1];
-		}
-		// Longitude string
-		if (commas == 4){
-			if (nmea_response[i+1] != ',') {
-				slon += nmea_response[i+1];
-			}
-		}
-		// Longitude cardinal point
-		if (commas == 5) {
-			if (cp_lon != '\0') continue;
-			cp_lon = nmea_response[i+1];
-		}
-		// Altitude above mean sea level
-		if (commas == 9) {
-			if (nmea_response[i+1] != ',') {
-				salt += nmea_response[i+1];
-			}
-		}
-	}
+    // cardinal points (N, S, W, E)
+	char cp_lat = fields[3].at(0);
+    char cp_lon = fields[5].at(0);
 
-	if (slat.empty() == false) out_nmea.lat = std::stod(slat);
-	else out_nmea.lat = 0;
+	if (!slat.empty()) {
+        out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
+        out_nmea.lat_nmea = out_nmea.lat;
+    }
+	else out_nmea.lat = 900000001; // Latitude_unavailable
 
-	if (slon.empty() == false) out_nmea.lon = std::stod(slon);
-	else out_nmea.lon = 0;
+	if (!slon.empty()) {
+        out_nmea.lon = decimal_deg(std::stod(slon),cp_lon);
+        out_nmea.lon_nmea = out_nmea.lon;
+    }
+	else out_nmea.lon = 1800000001; //Longitude_unavailable
 
 	// Check if the altitude is negative and parses accondingly using stod
-	if (salt.empty() == false) {
+	if (!salt.empty()) {
 		if (salt[0] == '-') {
             salt = salt.erase(0,1);
             out_nmea.alt = std::stod(salt) * -1;
+            out_nmea.alt_nmea = out_nmea.alt;
 		}
-		else
-		out_nmea.alt = std::stod(salt);
+		else {
+            out_nmea.alt = std::stod(salt);
+            out_nmea.alt_nmea = out_nmea.alt;
+        }
 	}
-	else out_nmea.alt = 0;
-
-	out_nmea.cp_lat = cp_lat;
-	out_nmea.cp_lon = cp_lon;
+	else out_nmea.alt = 800001; //AltitudeValue_unvailable
 
 	// Produces and processes the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -433,9 +531,17 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Converts time_point to microseconds
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_pos = update.time_since_epoch().count() - out_nmea.lu_pos;
+        m_debug_age_info.age_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
+        m_debug_age_info.age_alt = update.time_since_epoch().count() - out_nmea.lu_alt;
+        m_debug_age_info.age_alt_nmea = update.time_since_epoch().count() - out_nmea.lu_alt_nmea;
+    }
+    // Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
+	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
     out_nmea.lu_alt = update.time_since_epoch().count();
+    out_nmea.lu_alt_nmea = out_nmea.lu_alt;
 
     // Validates data
     m_pos_valid = true;
@@ -461,6 +567,8 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_alt;
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_alt = local_age_us;
+
     if (local_age_us >= getValidityThreshold()) {
         m_alt_valid.store(false);
     }
@@ -472,6 +580,62 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
     if (age_us != nullptr) *age_us = local_age_us;
 
 	return tmp.alt;
+}
+
+double
+UBXNMEAParserSingleThread::getAltitudeUbx(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_alt_ubx;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_alt_ubx = local_age_us;
+
+    if (local_age_us >= getValidityThreshold()) {
+        m_alt_valid.store(false);
+    }
+    else m_alt_valid.store(true);
+
+    if (print_timestamp_and_age == true) std::cout << "[Altitude(UBX) timestamp] - " <<  tmp.ts_alt
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.alt_ubx;
+}
+
+double
+UBXNMEAParserSingleThread::getAltitudeNmea(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_alt_nmea;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_alt_nmea = local_age_us;
+
+    if (local_age_us >= getValidityThreshold()) {
+        m_alt_valid.store(false);
+    }
+    else m_alt_valid.store(true);
+
+    if (print_timestamp_and_age == true) std::cout << "[Altitude(NMEA) timestamp] - " <<  tmp.ts_alt
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.alt_nmea;
 }
 
 /** getAccelerations(), getAngularRates(), getYawRate(), getRawAccelerations() and getAttitude()
@@ -491,6 +655,8 @@ UBXNMEAParserSingleThread::getAccelerations(long *age_us, bool print_timestamp_a
 	auto now = time_point_cast<microseconds>(system_clock::now());
 	auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_acc;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_comp_acc = local_age_us;
 
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid.store(false);
@@ -518,6 +684,8 @@ UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp_an
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_ang_rate;
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_comp_ang_rate = local_age_us;
+
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid.store(false);
     }
@@ -543,6 +711,8 @@ UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_ang_rate;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_comp_ang_rate = local_age_us;
 
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid.store(false);
@@ -571,6 +741,8 @@ UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_comp_acc;
 
+    if (m_debug_age_info_rate) m_debug_age_info.age_comp_acc = local_age_us;
+
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid.store(false);
     }
@@ -596,6 +768,8 @@ UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestam
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_acc;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_acc = local_age_us;
 
     if (local_age_us >= getValidityThreshold()) {
         m_acc_valid.store(false);
@@ -679,7 +853,12 @@ UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Retrieves the time since epoch in microseconds and updates the output struct
+    // Updates age of information
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_acc = update.time_since_epoch().count() - out_esf.lu_acc;
+    }
+
+    // Retrieves the time since epoch in microseconds and updates the output struct
 	out_esf.lu_acc = update.time_since_epoch().count();
 
     // Validates data
@@ -701,6 +880,8 @@ UBXNMEAParserSingleThread::getAttitude(long *age_us, bool print_timestamp_and_ag
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_att;
+
+    if (m_debug_age_info_rate) m_debug_age_info.age_att = local_age_us;
 
     if (local_age_us >= getValidityThreshold()) {
         m_att_valid.store(false);
@@ -765,7 +946,12 @@ UBXNMEAParserSingleThread::parseNavAtt(std::vector<uint8_t> response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Retrieves the time since epoch in microseconds and updates the output struct
+    // Updates age of information
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_att = update.time_since_epoch().count() - out_att.lu_att;
+    }
+
+    // Retrieves the time since epoch in microseconds and updates the output struct
 	out_att.lu_att = update.time_since_epoch().count();
 
     // Validates data
@@ -787,6 +973,12 @@ UBXNMEAParserSingleThread::getSpeedUbx(long *age_us, bool print_timestamp_and_ag
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_ubx;
+
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+        m_debug_age_info.age_sog_cog_ubx = local_age_us;
+    }
+
 
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_ubx_valid.store(false);
@@ -815,6 +1007,11 @@ UBXNMEAParserSingleThread::getSpeedNmea(long *age_us, bool print_timestamp_and_a
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_nmea;
 
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+        m_debug_age_info.age_sog_cog_nmea = local_age_us;
+    }
+
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_nmea_valid.store(false);
     }
@@ -841,6 +1038,11 @@ UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_times
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_ubx;
 
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+        m_debug_age_info.age_sog_cog_ubx = local_age_us;
+    }
+
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_ubx_valid.store(false);
     }
@@ -866,6 +1068,11 @@ UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_time
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_sog_cog_nmea;
+
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+        m_debug_age_info.age_sog_cog_nmea = local_age_us;
+    }
 
     if (local_age_us >= getValidityThreshold()) {
         m_sog_cog_nmea_valid.store(false);
@@ -904,9 +1111,37 @@ UBXNMEAParserSingleThread::getFixMode() {
 	// Checks if the fix mode has already been obtained from UBX
 	if (fix_ubx.empty() == true) {
         std::string fix_nmea(tmp.fix_nmea);
+        if (fix_nmea.empty()) fix_nmea = "Unavailable";
         return fix_nmea;
 	}
 	return fix_ubx;
+}
+
+std::string
+UBXNMEAParserSingleThread::getFixModeUbx() {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return "PARSER_NOT_STARTED";
+    }
+
+    out_t tmp = m_outBuffer.load();
+    std::string fix_ubx(tmp.fix_ubx);
+    if (fix_ubx.empty()) fix_ubx = "Unavailable";
+
+    return fix_ubx;
+}
+std::string
+UBXNMEAParserSingleThread::getFixModeNmea() {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return "PARSER_NOT_STARTED";
+    }
+
+    out_t tmp = m_outBuffer.load();
+    std::string fix_nmea(tmp.fix_nmea);
+    if (fix_nmea.empty()) fix_nmea = "Unavailable";
+
+    return fix_nmea;
 }
 
 bool
@@ -996,6 +1231,55 @@ UBXNMEAParserSingleThread::setValidityThreshold(double threshold) {
     }
 }
 
+void
+UBXNMEAParserSingleThread::setDebugAgeInfo(int rate) {
+    if (m_debug_age_info_rate) std::cerr << "Error: debug option already enabled!" << '\n';
+    else m_debug_age_info_rate = rate;
+}
+
+bool
+UBXNMEAParserSingleThread::getDebugAgeInfo() {
+    return m_debug_age_info_rate;
+}
+
+void
+UBXNMEAParserSingleThread::showDebugAgeInfo() {
+    if (!m_debug_age_info_rate) {
+        std::cerr << "Error: age of information debug option disabled!" << '\n';
+        return;
+    } else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::cout << "\033[?25l";  // Hide the cursor
+        std::cout << "\nAge of information debug info (microseconds - us)\n";
+
+        while (!m_terminatorFlagPtr->load()) {
+            std::cout << "\rPosition:                " << m_debug_age_info.age_pos << "                    " << std::flush;
+            std::cout << "\nPosition(UBX):           " << m_debug_age_info.age_pos_ubx << "                    " << std::flush;
+            std::cout << "\nPosition(NMEA):          " << m_debug_age_info.age_pos_nmea << "                    " << std::flush;
+            std::cout << '\n';
+            std::cout << "\nSpeed and Heading:       " << m_debug_age_info.age_sog_cog << "                    " << std::flush;
+            std::cout << "\nSpeed and Heading(UBX):  " << m_debug_age_info.age_sog_cog_ubx << "                    " << std::flush;
+            std::cout << "\nSpeed and Heading(NMEA): " << m_debug_age_info.age_sog_cog_nmea << "                    " << std::flush;
+            std::cout << '\n';
+            std::cout << "\nAccelerations:           " << m_debug_age_info.age_comp_acc << "                    " << std::flush;
+            std::cout << "\nRaw Accelerations:       " << m_debug_age_info.age_acc << "                    " << std::flush;
+            std::cout << '\n';
+            std::cout << "\nRoll Pitch Yaw:          " << m_debug_age_info.age_att << "                    " << std::flush;
+            std::cout << "\nYaw rate:                " << m_debug_age_info.age_comp_ang_rate << "                    "<< std::flush;
+            std::cout << '\n';
+            std::cout << "\nAltitude:                " << m_debug_age_info.age_alt << "                    " << std::flush;
+            std::cout << "\nAltitude(UBX):           " << m_debug_age_info.age_alt_ubx << "                    " << std::flush;
+            std::cout << "\nAltitude(NMEA):          " << m_debug_age_info.age_alt_nmea << "                    " << std::flush;
+            std::cout << "\033[16F";
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_debug_age_info_rate));
+        }
+        std::cout << "\033[17B"; // After the loop, move the cursor to the end (17 lines down)
+        std::cout << "\033[?25h";  // Re-enable the cursor
+        std::cout << "\n\n";
+    }
+}
+
 double
 UBXNMEAParserSingleThread::getValidityThreshold() {
     if (m_validity_threshold != 0) return m_validity_threshold * 1e6; // Microseconds
@@ -1018,18 +1302,32 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 	 * Converts the arrays in little endian and retrieves the single signed value after scaling accordingly */
 	std::vector<uint8_t> sog(response.begin() + m_UBX_PAYLOAD_OFFSET + 60, response.begin() + m_UBX_PAYLOAD_OFFSET + 64);
 	std::reverse(sog.begin(),sog.end());
-	out_pvt.sog_ubx = static_cast<double>(hexToSigned(sog)) * 0.001; // Converts from mm/s to m/s
+	out_pvt.sog = static_cast<double>(hexToSigned(sog)) * 0.001; // Converts from mm/s to m/s
+    out_pvt.sog_ubx = out_pvt.sog;
 
 	std::vector<uint8_t> head_motion(response.begin() + m_UBX_PAYLOAD_OFFSET + 64, response.begin() + m_UBX_PAYLOAD_OFFSET + 68);
 	std::reverse(head_motion.begin(),head_motion.end());
-	out_pvt.cog_ubx = static_cast<double>(hexToSigned(head_motion)) * 0.00001;
+	out_pvt.cog = static_cast<double>(hexToSigned(head_motion)) * 0.00001;
+    out_pvt.cog_ubx = out_pvt.cog;
 
-    // Updates the buffer
-    m_outBuffer.store(out_pvt);
+    std::vector<uint8_t> lat(response.begin() + m_UBX_PAYLOAD_OFFSET + 28, response.begin() + m_UBX_PAYLOAD_OFFSET + 32);
+    std::reverse(lat.begin(),lat.end());
+    out_pvt.lat = static_cast<double>(hexToSigned(lat)) * 0.0000001;
+    out_pvt.lat_ubx = out_pvt.lat;
+
+    std::vector<uint8_t> lon(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 28);
+    std::reverse(lon.begin(),lon.end());
+    out_pvt.lon = static_cast<double>(hexToSigned(lon)) * 0.0000001;
+    out_pvt.lon_ubx = out_pvt.lon;
+
+    std::vector<uint8_t> alt(response.begin() + m_UBX_PAYLOAD_OFFSET + 36, response.begin() + m_UBX_PAYLOAD_OFFSET + 40);
+    std::reverse(alt.begin(),alt.end());
+    out_pvt.alt = static_cast<double>(hexToSigned(alt)) * 0.001; // Convert from mm to m
+    out_pvt.alt_ubx = out_pvt.alt;
 
     /*
      * todo: revisit later this part (caused a bug on cog_ubx and sog_ubx)
-     * consider rewriting "hexToSignedValue()"
+     *
      *
     std::vector<uint8_t> utc_time(response.begin() + m_UBX_PAYLOAD_OFFSET + 4, response.begin() + m_UBX_PAYLOAD_OFFSET + 12);
     std::ostringstream out;
@@ -1064,13 +1362,33 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     // Produces and prints to struct the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_pvt.ts_sog_cog_ubx,std::ctime(&now));
+	strcpy(out_pvt.ts_pos_ubx,std::ctime(&now));
+	strcpy(out_pvt.ts_nmea_ubx,std::ctime(&now));
+    */
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Retrieves the time since epoch in microseconds and updates the output struct
-	out_pvt.lu_sog_cog_ubx = update.time_since_epoch().count();
-    */
+    // Updates age of information
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = update.time_since_epoch().count() - out_pvt.lu_sog_cog;
+        m_debug_age_info.age_sog_cog_ubx = update.time_since_epoch().count() - out_pvt.lu_sog_cog_ubx;
+        m_debug_age_info.age_pos = update.time_since_epoch().count() - out_pvt.lu_pos;
+        m_debug_age_info.age_pos_ubx = update.time_since_epoch().count() - out_pvt.lu_pos_ubx;
+        m_debug_age_info.age_alt = update.time_since_epoch().count() - out_pvt.lu_alt;
+        m_debug_age_info.age_alt_ubx = update.time_since_epoch().count() - out_pvt.lu_alt_ubx;
+    }
+
+    // Retrieves the time since epoch in microseconds and updates the output struct
+	out_pvt.lu_sog_cog = update.time_since_epoch().count();
+	out_pvt.lu_sog_cog_ubx = out_pvt.lu_sog_cog;
+	out_pvt.lu_pos = update.time_since_epoch().count();
+	out_pvt.lu_pos_ubx = out_pvt.lu_pos;
+    out_pvt.lu_alt = update.time_since_epoch().count();
+    out_pvt.lu_alt_ubx = out_pvt.lu_alt;
+
+    // Updates the buffer
+    m_outBuffer.store(out_pvt);
 
     // Validates data
     m_sog_cog_ubx_valid = true;
@@ -1083,60 +1401,48 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 void
 UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	/* Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
-	                                                         sog^   cog^     fix mode^  ^fix validity       */
-	out_t out_nmea = m_outBuffer.load();
+	                            ^fix validity                sog^   cog^     fix mode^         */
+    std::vector<std::string> fields;
+    std::stringstream ss(nmea_response);
+    std::string field;
 
-	int commas = 0;
+    out_t out_nmea = m_outBuffer.load();
 
-	// Speed over ground, Course over ground, Fix mode
-	std::string sog, cog;
-	char fix = '\0', fix_validity = '\0';
-
-	for (long unsigned int i = 0; i < nmea_response.size(); i++) {
-		if (nmea_response[i] == ',') {
-			commas++;
-		}
-		if (commas == 7) {
-			if (nmea_response[i+1] != ',') {
-				sog += nmea_response[i+1];
-			}
-		}
-		if (commas == 8) {
-			if (nmea_response[i+1] != ',') {
-				cog += nmea_response[i+1];
-			}
-		}
-		if (commas == 12) {
-			if (nmea_response[i+1] != ',') {
-				fix = nmea_response[i+1];
-			}
-		}
-
-        if (commas == 13) {
-            if (nmea_response[i+1] != ',') {
-                fix_validity = nmea_response[i+1];
-            }
-        }
+    while (std::getline(ss, field, ',')) {
+        fields.push_back(field);
     }
+
+    char fix = fields[12].at(0);
+    char fix_validity = fields[2].at(0);
+    std::string sog = fields[7];
+    std::string cog = fields[8];
 
     // Check if speed and heading are negative and parses accondingly using stod
     if (cog.empty() == false) {
         if (cog[0] == '-') {
             cog = cog.erase(0,1);
-            out_nmea.cog_nmea = std::stod(cog) * -1;
+            out_nmea.cog = std::stod(cog) * -1;
+            out_nmea.cog_nmea = out_nmea.cog;
         }
-        else out_nmea.cog_nmea = std::stod(cog);
+        else {
+            out_nmea.cog_nmea = std::stod(cog);
+            out_nmea.cog_nmea = out_nmea.cog;
+        }
     }
-    else out_nmea.cog_nmea = 0;
+    else out_nmea.cog_nmea = 3601; // HeadingValue_unavailable
 
     if (sog.empty() == false) {
         if (sog[0] == '-') {
             sog = sog.erase(0,1);
-            out_nmea.sog_nmea = std::stod(sog) * -0.5144; // Conversion from knots to m/s
+            out_nmea.sog = std::stod(sog) * -0.5144; // Conversion from knots to m/s
+            out_nmea.sog_nmea = out_nmea.sog;
         }
-        else out_nmea.sog_nmea = std::stod(sog) * 0.5144;
+        else {
+            out_nmea.sog = std::stod(sog) * 0.5144;
+            out_nmea.sog_nmea = out_nmea.sog;
+        }
     }
-    else out_nmea.sog_nmea = 0;
+    else out_nmea.sog_nmea = 16383; // SpeedValue_unavailable
 
     /*
     //remove this for field testing
@@ -1145,49 +1451,49 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     */
 
     // Fix Validity Check
-    if (fix_validity != 'A') {
-        strcpy(out_nmea.fix_nmea,"Unknown/Invalid Fix Mode");
+    // Possible status values: V = data invalid, A = data valid
+    if (fix == 'N') {
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "NoFix (V)");
+        else strcpy(out_nmea.fix_nmea, "NoFix");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
-
-    switch (fix) {
-		case 'N':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: No Fix");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-		case 'E':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: Estimated/Dead Reckoning");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-			break;
-		case 'A':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: Autonomous GNSS Fix (A) [NMEA]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-			break;
-		case 'D':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: DGNSS (D) [NMEA]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-			break;
-		case 'F':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Float (F) [NMEA]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-			break;
-		case 'R':
-			strcpy(out_nmea.fix_nmea,"Fix Mode: RTK Fixed (R) [NMEA]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-			break;
-		default:
-            strcpy(out_nmea.fix_nmea,"Unknown/Invalid Fix Mode");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-	}
+    else if (fix == 'E') {
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning (V)");
+        else strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix == 'A') {
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix (V)");
+        else strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix == 'D') {
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea,"DGNSS (V)");
+        else strcpy(out_nmea.fix_nmea,"DGNSS");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+        }
+    else if (fix == 'F') {
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFloat (V)");
+        else strcpy(out_nmea.fix_nmea, "RTKFloat");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix == 'R') {
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFixed (V)");
+        else strcpy(out_nmea.fix_nmea, "RTKFixed");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else {
+        if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "Unknown/Invalid (V)");
+        else strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
 
 	// Produces and prints the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -1196,8 +1502,14 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-	// Converts time_point to microseconds
-	out_nmea.lu_sog_cog_nmea = update.time_since_epoch().count();
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = update.time_since_epoch().count() - out_nmea.lu_sog_cog;
+        m_debug_age_info.age_sog_cog_nmea = update.time_since_epoch().count() - out_nmea.lu_sog_cog_nmea;
+    }
+
+    // Converts time_point to microseconds
+	out_nmea.lu_sog_cog = update.time_since_epoch().count();
+	out_nmea.lu_sog_cog_nmea = out_nmea.lu_sog_cog;
 
     // Validates data
     m_sog_cog_nmea_valid = true;
@@ -1219,50 +1531,48 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	out_t out_sts = m_outBuffer.load();
 
 	if (fix_flags < 0xD0){
-        strcpy(out_sts.fix_ubx, "Unknown/Invalid Fix Mode");
+        strcpy(out_sts.fix_ubx, "Invalid");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
         m_outBuffer.store(out_sts);
 		return;
     }
 
-	switch (fix_mode) {
-		case 0:
-			strcpy(out_sts.fix_ubx,"Fix Mode: No Fix");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-			break;
-		case 1:
-			strcpy(out_sts.fix_ubx,"Fix Mode: Estimated/Dead Reckoning");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-		case 2:
-			strcpy(out_sts.fix_ubx,"Fix mode: 2D-Fix [UBX]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = false;
-            break;
-		case 3:
-			strcpy(out_sts.fix_ubx,"Fix mode: 3D-Fix [UBX]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-            break;
-		case 4:
-			strcpy(out_sts.fix_ubx,"Fix mode: GPS + Dead Reckoning [UBX]");
-            m_2d_valid_fix = true;
-            m_3d_valid_fix = true;
-            break;
-		case 5:
-			strcpy(out_sts.fix_ubx,"Fix mode: Time-only Fix [UBX]");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-		default:
-			strcpy(out_sts.fix_ubx,"Unknown/Invalid Fix Mode");
-            m_2d_valid_fix = false;
-            m_3d_valid_fix = false;
-            break;
-	}
+    if (fix_mode == 0x00) {
+        strcpy(out_sts.fix_ubx, "NoFix");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix_mode == 0x01) {
+        strcpy(out_sts.fix_ubx, "Estimated/DeadReckoning");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix_mode == 0x02) {
+        strcpy(out_sts.fix_ubx, "2D-Fix");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = false;
+    }
+    else if (fix_mode == 0x03) {
+        strcpy(out_sts.fix_ubx, "3D-Fix");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix_mode == 0x04) {
+        strcpy(out_sts.fix_ubx, "GPS+DeadReckoning");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix_mode == 0x05) {
+        strcpy(out_sts.fix_ubx, "TimeOnly");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else {
+        strcpy(out_sts.fix_ubx, "Unknown/Invalid");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
 	
 	// Updates the output buffer with new data
 	m_outBuffer.store(out_sts);
@@ -1305,9 +1615,15 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 	strcpy(out_ins.ts_comp_acc,std::ctime(&now));
     strcpy(out_ins.ts_comp_ang_rate,std::ctime(&now));
 
-    // Timestamps and last update (Same for accelerations and angular rate, but implemented as separate variables for scalability)
+    // Timestamps, age and last update (Same for accelerations and angular rate, but implemented as separate variables for scalability)
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
+
+    // Updates age of information
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_comp_acc = update.time_since_epoch().count() - out_ins.lu_comp_acc;
+        m_debug_age_info.age_comp_ang_rate = update.time_since_epoch().count() - out_ins.lu_comp_ang_rate;
+    }
 
 	// Retrieves the time since epoch in microseconds and updates the output struct
 	out_ins.lu_comp_acc = update.time_since_epoch().count();
@@ -1325,21 +1641,25 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 void
 UBXNMEAParserSingleThread::readFromSerial() {
 
-    std::vector<uint8_t> ubx_message, wrong_input;
-	std::string nmea_sentence;
+    std::vector<uint8_t> ubx_message, ubx_message_overlapped, wrong_input;
+    std::string nmea_sentence;
 
-	uint8_t byte = 0x00;
+    uint8_t byte = 0x00;
     uint8_t byte_previous = 0x00;
-	bool success = false;
-	bool started_ubx = false;
-	bool started_nmea = false;
-	long unsigned int expectedLength = 0;
-	std::string expectedLengthStr;
+    bool started_ubx = false;
+    bool started_ubx_overlapped = false;
+    bool started_nmea = false;
+    bool success = false;
+    long unsigned int expectedLength = 0;
+    long unsigned int expectedLengthOverlapped = 0;
+    std::string expectedLengthStr;
+    std::string expectedLengthStrOverlapped;
 
     while (true) {
 
-		byte = m_serial.ReadChar(success);
-        if(!success) {
+        byte = m_serial.ReadChar(success);
+
+        if (!success) {
             continue;
         }
 
@@ -1347,117 +1667,384 @@ UBXNMEAParserSingleThread::readFromSerial() {
 
         // This array is cleared every time a correct UBX/NMEA message is received
         wrong_input.push_back(byte);
-        if (wrong_input.size() >= m_WRONG_INPUT_TRESHOLD) {
+        if (wrong_input.size() >= m_WRONG_INPUT_THRESHOLD) {
             std::cerr << "Error. Wrong input detected. Size: " << wrong_input.size() << " . Terminating. Content: ";
-            for(int i=0;i<wrong_input.size();i++) {
-                printf("%02X-",wrong_input[i]);
+            for (int i = 0; i < wrong_input.size(); i++) {
+                printf("%02X-", wrong_input[i]);
             }
             printf("\n");
-            printf("byte = %02X\n",byte);
-            printf("byte_previous = %02X\n",byte_previous);
-            printf("expectedLength = %lu\n",expectedLength);
+
+            printf("byte = %02X\n", byte);
+            printf("byte_previous = %02X\n", byte_previous);
+            printf("expectedLength = %lu\n", expectedLength);
+
             wrong_input.clear();
             m_terminatorFlagPtr->store(true);
         }
 
-       // NMEA sentences reading and parsing
-       if (started_nmea == false) {
-           if (byte == '$') {
-               nmea_sentence.push_back(byte);
-               wrong_input.clear();
-               started_nmea = true;
-           }
-       }
-       else {
-           if (byte != '$') nmea_sentence.push_back(byte);
-           if (byte == '\n') {
+        // NMEA sentences reading and parsing
+        if (started_ubx == false) {
+            if (started_nmea == false) {
+                if (byte == '$') {
+                    nmea_sentence.push_back(byte);
+                    wrong_input.clear();
+                    started_nmea = true;
 
-               if(strstr(nmea_sentence.data(),"GNGNS") != nullptr || strstr(nmea_sentence.data(),"GPGNS") != nullptr) {
-                   started_nmea = false;
-                   parseNmeaGns(nmea_sentence);
-               }
+                    byte_previous = byte;
+                    continue;
+                }
+            } else {
+                if (byte != '$') {
+                    nmea_sentence.push_back(byte);
+                    wrong_input.clear();
+                }
+                // If another $ is found, start over
+                else {
+                    nmea_sentence.clear();
+                    nmea_sentence.push_back(byte);
+                    wrong_input.clear();
 
-               if(strstr(nmea_sentence.data(),"GNRMC") != nullptr || strstr(nmea_sentence.data(),"GPRMC") != nullptr) {
-                   started_nmea = false;
-                   parseNmeaRmc(nmea_sentence);
-               }
-               if(strstr(nmea_sentence.data(),"GNGGA") != nullptr || strstr(nmea_sentence.data(),"GPGGA") != nullptr) {
-                   started_nmea = false;
-                   parseNmeaGga(nmea_sentence);
-               }
-               nmea_sentence.clear();
-               break;
-           }
-       }
+                    byte_previous = byte;
+                    continue;
+                }
+                if (byte == '\n' && nmea_sentence.size() >= 9) { // 9 = min. valid sentence lenght e.g. $--XXX*hh
+                    if (validateNmeaSentence(nmea_sentence)) {
+                        if (nmea_sentence.compare(0, 6, "$GNGNS") == 0 ||
+                            nmea_sentence.compare(0, 6, "$GPGNS") == 0) {
+                            started_nmea = false;
+                            byte_previous = byte;
 
-		// UBX Messages reading and parsing
-       if (started_ubx == false) {
-           if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
-               ubx_message.push_back(byte_previous);
-               ubx_message.push_back(byte);
-               wrong_input.clear();
-               started_ubx = true;
-           }
-       } else { // started_ubx is true
-           ubx_message.push_back(byte);
-           if (ubx_message.size() == 6) {
-               sprintf(expectedLengthStr.data(),"%02X%02X",ubx_message[5],ubx_message[4]);
-               expectedLength = std::stol(expectedLengthStr,nullptr,16) + 8; // 8 bytes for header and checksum
-               expectedLengthStr.clear();
-           }
-           // printf("expectedLength = %lu\n",expectedLength);
-           if (expectedLength > 0 && ubx_message.size() == expectedLength) {
+                            parseNmeaGns(nmea_sentence);
 
-               // Configuration messages
-               if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
-                   std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
-                   *m_terminatorFlagPtr=true;
-               }
+                            nmea_sentence.clear();
+                            continue;
+                        }
 
-               // Data messages
-               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
-                   started_ubx = false;
-                   parseNavStatus(ubx_message);
-               }
-               if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
-                   started_ubx = false;
-                   parseEsfRaw(ubx_message);
+                        if (nmea_sentence.compare(0, 6, "$GNRMC") == 0 ||
+                            nmea_sentence.compare(0, 6, "$GPRMC") == 0) {
+                            started_nmea = false;
+                            byte_previous = byte;
 
-               }
-               if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
-                   started_ubx = false;
-                   //todo: review this
-                   // Calibration checks
-                   // If there are uncalibrated measures, ignore them
-                   /*
-                   if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
-                       std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
-                       break;
-                   }
-                   if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
-                       std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
-                       break;
-                   }
-                   */
-                   parseEsfIns(ubx_message);
-               }
-               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
-                   started_ubx = false;
-                   parseNavAtt(ubx_message);
-               }
-               if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
-                   started_ubx = false;
-                   parseNavPvt(ubx_message);
-               }
-               ubx_message.clear();
-               break;
-           }
-       }
-       byte_previous = byte;
+                            parseNmeaRmc(nmea_sentence);
 
+                            nmea_sentence.clear();
+                            continue;
+                        }
+                        if (nmea_sentence.compare(0, 6, "$GNGGA") == 0 ||
+                            nmea_sentence.compare(0, 6, "$GPGGA") == 0) {
+                            started_nmea = false;
+                            byte_previous = byte;
+
+                            parseNmeaGga(nmea_sentence);
+
+                            nmea_sentence.clear();
+                            continue;
+                        }
+
+                        // Valid but unhandled NMEA sentence, ignore it and start over
+                        started_nmea = false;
+                        nmea_sentence.clear();
+
+                        byte_previous = byte;
+                        continue;
+
+                    } else { // Invalid sentence
+                        started_nmea = false;
+                        nmea_sentence.clear();
+
+                        byte_previous = byte;
+                        continue;
+                    }
+                }
+            }
+        }
+
+        // UBX reading logic
+        if (started_nmea == false) {
+            if (started_ubx == false) {
+                if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
+                    expectedLength = 0;
+                    ubx_message.push_back(byte_previous);
+                    ubx_message.push_back(byte);
+                    wrong_input.clear();
+                    started_ubx = true;
+
+                    byte_previous = byte;
+                    continue;
+                }
+            } else { // started_ubx is true
+
+                // check if B5 62 is part of the current message or if it's a new message
+                if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
+                    // if length is nt reached -> surely it's an overlapping message
+                    if (ubx_message.size() <= 4) {
+                        std::cout << "length not reached!" << std::endl; //debug
+                        //printf("byte: %02X byte_previous: %02X\n", byte, byte_previous);
+                        //printUbxMessage(ubx_message);
+                        ubx_message.clear();
+                        ubx_message.push_back(byte_previous);
+                        ubx_message.push_back(byte);
+                        wrong_input.clear();
+
+                        byte_previous = byte;
+                        continue;
+                    }
+                    //if a B5 62 sequence is read in the middle of the message, start storing bytes also into the overlapped msg
+                    expectedLengthOverlapped = 0;
+                    ubx_message_overlapped.clear();
+                    ubx_message_overlapped.push_back(byte_previous);
+                    ubx_message_overlapped.push_back(byte);
+                    ubx_message.push_back(byte);
+                    wrong_input.clear();
+                    started_ubx_overlapped = true;
+
+                    byte_previous = byte;
+                    continue;
+                }
+
+                ubx_message.push_back(byte);
+                wrong_input.clear();
+
+                // now use the length and checksum to see which message is valid and which is not
+                if (ubx_message.size() == 6) {
+                    sprintf(expectedLengthStr.data(), "%02X%02X", ubx_message[5], ubx_message[4]);
+                    //since length is referred to payload only, add 8 bytes (6 bytes for header, class and length fields + 2 bytes for checksum field)
+                    expectedLength = std::stol(expectedLengthStr, nullptr, 16) + 8;
+                    expectedLengthStr.clear();
+                }
+                if (expectedLength > 0 && ubx_message.size() == expectedLength) {
+                    //std::cout << "normal msg" << std::endl;
+                    //printUbxMessage(ubx_message); //debug
+
+                    if (started_ubx_overlapped == false) {
+                        if (validateUbxMessage(ubx_message) == true) {
+
+                            // Configuration messages
+                            if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
+                                std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
+                                // *m_terminatorFlagPtr=true;
+                            }
+
+                            // Parse data messages
+                            if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
+                                // Parse, clear everything and start a new read
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                parseNavStatus(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
+                                // Parse, clear everything and start a new read
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                parseEsfRaw(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                //todo: review this
+                                // Calibration checks
+                                // If there are uncalibrated measures, ignore them
+                                /*
+                                if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
+                                    std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
+                                    break;
+                                }
+                                if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
+                                    std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
+                                    break;
+                                }
+                                */
+
+                                parseEsfIns(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                parseNavAtt(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                parseNavPvt(ubx_message);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            // Valid but unhandled message
+                            ubx_message_overlapped.clear();
+                            started_ubx_overlapped = false;
+
+                            //printUbxMessage(ubx_message);
+                            ubx_message.clear();
+                            started_ubx = false;
+
+                            byte_previous = byte;
+                            continue;
+
+                        } else { // Invalid message
+                            ubx_message_overlapped.clear();
+                            started_ubx_overlapped = false;
+
+                            //printUbxMessage(ubx_message);
+                            ubx_message.clear();
+                            started_ubx = false;
+
+                            byte_previous = byte;
+                            continue;
+                        }
+                    }
+                }
+
+                // Overlapped message checks section
+                if (started_ubx_overlapped == true) {
+                    ubx_message_overlapped.push_back(byte);
+                    wrong_input.clear();
+
+                    if (ubx_message_overlapped.size() == 6) {
+                        sprintf(expectedLengthStrOverlapped.data(), "%02X%02X", ubx_message_overlapped[5],ubx_message_overlapped[4]);
+                        expectedLengthOverlapped = std::stol(expectedLengthStrOverlapped, nullptr, 16) + 8; // 8 bytes for header and checksum
+                        expectedLengthStrOverlapped.clear();
+                    }
+
+                    if (expectedLengthOverlapped > 0 && ubx_message_overlapped.size() == expectedLengthOverlapped) {
+                        //std::cout << "overlapped msg" << std::endl;
+                        //printUbxMessage(ubx_message_overlapped); //debug
+                        if (validateUbxMessage(ubx_message_overlapped) == true) {
+                            // Configuration messages
+                            if (ubx_message_overlapped[2] == 0x05 && ubx_message_overlapped[3] == 0x00) {
+                                std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
+                                // *m_terminatorFlagPtr=true;
+                            }
+
+                            // Parse overlapped message
+                            if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x03) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                parseNavStatus(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x03) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                parseEsfRaw(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message_overlapped[2] == 0x10 && ubx_message_overlapped[3] == 0x15) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+                                //todo: review this
+                                // Calibration checks
+                                // If there are uncalibrated measures, ignore them
+                                /*
+                                if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
+                                    std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
+                                    break;
+                                }
+                                if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
+                                    std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
+                                    break;
+                                }
+                                */
+
+                                parseEsfIns(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+
+                            }
+                            if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x05) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                parseNavAtt(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+                            if (ubx_message_overlapped[2] == 0x01 && ubx_message_overlapped[3] == 0x07) {
+                                started_ubx_overlapped = false;
+                                started_ubx = false;
+                                byte_previous = byte;
+
+                                parseNavPvt(ubx_message_overlapped);
+
+                                ubx_message.clear();
+                                ubx_message_overlapped.clear();
+                                continue;
+                            }
+
+                            // Unhandled overlapped message, discard it and start a new read
+                            ubx_message.clear();
+                            started_ubx = false;
+
+                            ubx_message_overlapped.clear();
+                            //printUbxMessage(ubx_message_overlapped);
+                            started_ubx_overlapped = false;
+
+                            byte_previous = byte;
+                            continue;
+                        } else {
+                            //invalid overlapped message, discard it and move on with the ubx_message
+                            //std::cerr << "UBX Overlapped message: Invalid checksum" << std::endl;
+                            ubx_message.clear();
+                            started_ubx = false;
+
+                            ubx_message_overlapped.clear();
+                            //printUbxMessage(ubx_message_overlapped);
+                            started_ubx_overlapped = false;
+
+                            byte_previous = byte;
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        byte_previous = byte;
         //printf("byte = %02X\n",byte);
-        //printf("byte_previous = %02X\n",byte_previous);
-   }
+        // printf("byte_previous = %02X\n",byte_previous);
+    }
 }
 
 /** Enables the necessary messages for data retrieving by sending a UBX-CFG-VALSET poll request.
