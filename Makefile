@@ -1,4 +1,4 @@
-EXECNAME=OScar-mauro
+EXECNAME=OScar
 
 OPENWRT_CROSSCOMPILER_C=x86_64-openwrt-linux-musl-gcc
 OPENWRT_CROSSCOMPILER_CXX=x86_64-openwrt-linux-musl-g++
