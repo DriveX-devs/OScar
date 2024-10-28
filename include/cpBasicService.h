@@ -51,8 +51,9 @@ public:
     void setOwnPublicIP(std::string own_public_IP) {m_own_public_IP=own_public_IP;}
     void disableOwnPrivateIP() {m_own_private_IP="0.0.0.0";}
     void disableOwnPublicIP() {m_own_private_IP="0.0.0.0";}
-    void setFaultyAccelerationCheck(bool value) {m_check_faulty_acceleration = value;}
+    void setFaultyAccelerationCheck(double value) {m_acceleration_threshold = value; m_check_faulty_acceleration = true;}
     void setSpeedTriggering(bool value) {m_speed_triggering = value;}
+    void setVerbose(bool value) {m_verbose = value;}
 
     void initDissemination();
 
@@ -112,6 +113,10 @@ public:
     // Extra information which can be optionally disseminated through Enhanced CAMs
     std::string m_own_private_IP;
     std::string m_own_public_IP;
+
+    // OScar custom variables
+    double m_acceleration_threshold;
+    bool m_verbose;
 };
 
 

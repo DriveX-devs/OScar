@@ -317,6 +317,22 @@ CABasicService::checkCamConditions()
       std::string data_speed = "";
       std::string data_time = "";
 
+      // Parser logging
+      std::string parser_log_data = "[PARSER]";
+      std::string data_fix = "";
+      std::string data_accs = "";
+      std::string data_att = "";
+      std::string data_longit_acc = "";
+      std::string data_yaw_rate = "";
+      std::string data_cog_ubx = "";
+      std::string data_cog_nmea = "";
+      std::string data_lat_ubx = "";
+      std::string data_lat_nmea = "";
+      std::string data_lon_ubx = "";
+      std::string data_lon_nmea = "";
+      std::string data_sog_ubx = "";
+      std::string data_sog_nmea = "";
+
       // If no initial CAM has been triggered before checkCamConditions() has been called, throw an error
       if(m_prev_heading == -1 || m_prev_speed == -1 || m_prev_pos.first == -DBL_MAX || m_prev_pos.second == -DBL_MAX)
       {
@@ -333,10 +349,35 @@ CABasicService::checkCamConditions()
       currPos = m_vdp->getCurrentPositionDbl();
       long int speedCheck=m_vdp->getSpeedValue().getValue();
 
-      /*
-       * ETSI EN 302 637-2 V1.3.1 chap. 6.1.3 condition 1) (no DCC)
-       * One of the following ITS-S dynamics related conditions is given:
-      */
+      // Retrieve parser logging data
+        if (m_vdp->getSerialParser() == true) {
+            std::string fix_ubx = m_vdp->getParserFixModeUbx();
+            std::string fix_nmea = m_vdp->getParserFixModeNmea();
+            data_fix = " Fix[UBX]=" + fix_ubx + " " + "Fix[NMEA]=" + fix_nmea;
+
+            std::tuple<double,double,double> accs = m_vdp->getParserAccelerations();
+            data_accs =
+                    " Acc_x=" + std::to_string(std::get<0>(accs)) +
+                    " Acc_y=" + std::to_string(std::get<1>(accs)) +
+                    " Acc_z=" + std::to_string(std::get<2>(accs));
+
+            std::tuple<double,double,double> att = m_vdp->getParserAttitude();
+            data_att =
+                    " Roll="  + std::to_string(std::get<0>(att)) +
+                    " Pitch=" + std::to_string(std::get<1>(att)) +
+                    " Yaw="   + std::to_string(std::get<2>(att));
+
+            double longit_acc = m_vdp->getParserLongitudinalAcceleration();
+            data_longit_acc = " LongitudinalAcceleration=" + std::to_string(longit_acc);
+
+            double yaw_rate = m_vdp->getParserYawRate();
+            data_yaw_rate = " YawRate=" + std::to_string(yaw_rate);
+        }
+
+        /*
+         * ETSI EN 302 637-2 V1.3.1 chap. 6.1.3 condition 1) (no DCC)
+         * One of the following ITS-S dynamics related conditions is given:
+        */
 
       /* 1a)
        * The absolute difference between the current heading of the originating
@@ -351,8 +392,15 @@ CABasicService::checkCamConditions()
 
         // Create the data for the log print
         data_head="[HEADING] HeadingUnavailable="+std::to_string((float)HeadingValue_unavailable/10)+" PrevHead="+std::to_string(m_prev_heading/10)+" CurrHead="+std::to_string(currHead)+" HeadDiff="+std::to_string(head_diff)+"\n";
+        if (m_vdp->getSerialParser() == true) {
+            double cog_ubx = m_vdp->getParserCourseOverGroundUbx();
+            data_cog_ubx = " Cog(UBX)=" + std::to_string(cog_ubx);
 
-        // If the heading difference with the previous CAM sent is more than 4°, then generate the CAM
+            double cog_nmea = m_vdp->getParserCourseOverGroundNmea();
+            data_cog_nmea = " Cog(NMEA)=" + std::to_string(cog_nmea);
+        }
+
+          // If the heading difference with the previous CAM sent is more than 4°, then generate the CAM
         if (head_diff > 4.0 || head_diff < -4.0)
         {
           cam_error=generateAndEncodeCam();
@@ -375,6 +423,10 @@ CABasicService::checkCamConditions()
 
         // Create the data for the log print
         data_head="[HEADING] HeadingUnavailable="+std::to_string((float)HeadingValue_unavailable/10)+" PrevHead="+std::to_string(m_prev_heading/10)+" CurrHead="+std::to_string(currHead)+" HeadDiff="+std::to_string(head_diff)+"\n";
+        if (m_vdp->getSerialParser() == true) {
+            data_cog_ubx = " Cog(UBX)=Unavailable";
+            data_cog_nmea = " Cog(NMEA)=Unavailable";
+        }
       }
 
 
@@ -387,6 +439,14 @@ CABasicService::checkCamConditions()
 
       // Create the data for the log print
       data_pos="[DISTANCE] PrevLat="+std::to_string(m_prev_pos.first)+" PrevLon="+std::to_string(m_prev_pos.second)+" CurrLat="+std::to_string(currPos.first)+" CurrLon="+std::to_string(currPos.second)+" PosDiff="+std::to_string(pos_diff)+"\n";
+      if (m_vdp->getSerialParser() == true) {
+          std::pair<double,double> pos_ubx = m_vdp->getParserPositionUbx();
+          std::pair<double,double> pos_nmea = m_vdp->getParserPositionNmea();
+          data_lat_ubx = " Lat(UBX)=" + std::to_string(pos_ubx.first);
+          data_lon_ubx = " Lon(UBX)=" + std::to_string(pos_ubx.second);
+          data_lat_nmea = " Lat(NMEA)=" + std::to_string(pos_nmea.first);
+          data_lon_nmea = " Lon(NMEA)=" + std::to_string(pos_nmea.second);
+      }
 
       // If the position difference with the previous CAM sent is more than 4m, then generate the CAM
       if (!condition_verified && (pos_diff > 4.0 || pos_diff < -4.0))
@@ -416,6 +476,14 @@ CABasicService::checkCamConditions()
 
         // Create the data for the log print
         data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
+        if (m_vdp->getSerialParser() == true) {
+            double speed_ubx = m_vdp->getParserSpeedUbx();
+            double speed_nmea = m_vdp->getParserSpeedNmea();
+            data_sog_ubx = " Speed(UBX)=" + std::to_string(speed_ubx);
+            data_sog_nmea = " Speed(NMEA)=" + std::to_string(speed_nmea);
+        }
+
+
         // If the speed difference with the previous CAM sent is more than 0.5 m/s, then generate the CAM
         if (!condition_verified && (speed_diff > 0.5 || speed_diff < -0.5))
         {
@@ -439,6 +507,10 @@ CABasicService::checkCamConditions()
 
         // Create the data for the log print
         data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
+        if (m_vdp->getSerialParser() == true) {
+            data_sog_ubx = " Speed(UBX)=Unavailable";
+            data_sog_nmea = " Speed(NMEA)=Unavailable";
+        }
       }
 
 
@@ -490,8 +562,6 @@ CABasicService::checkCamConditions()
 
         std::string data="";
         std::string sent="false";
-
-
         std::string motivation;
         std::string joint="";
         int numConditions=0;
@@ -551,44 +621,11 @@ CABasicService::checkCamConditions()
         data+="[LOG] Timestamp="+std::to_string(time)+" CAMSend="+sent+" Motivation="+motivation+" HeadDiff="+std::to_string(head_diff)+" PosDiff="+std::to_string(pos_diff)+" SpeedDiff="+std::to_string(speed_diff)+" TimeDiff="+std::to_string(time_difference)+"\n";
         data=data+data_head+data_pos+data_speed+data_time;
         if (m_vdp->getSerialParser() == false) data = data + "\n";
-
-        /**
-         * Generate the serial parser data to be included in log
-         * NOTE: the follwing data has been exluded in order not to overcomplicate the log
-         * but it can be included if needed: angular rate, raw accelerations, altitude,
-         * validity threshold, UBX UTX Time, NMEA UTC Time
-         */
-
-        if (m_vdp->getSerialParser() == true) {
-            std::string parser_log_data = "[PARSER]";
-
-            std::string fix = m_vdp->getParserFixMode();
-            std::string data_fix = " Fix=" + fix;
-            std::tuple<double,double,double> accs = m_vdp->getParserAccelerations();
-            std::string data_accs =
-                    " Acc_x=" + std::to_string(std::get<0>(accs)) +
-                    " Acc_y=" + std::to_string(std::get<1>(accs)) +
-                    " Acc_y=" + std::to_string(std::get<2>(accs));
-            std::tuple<double,double,double> att = m_vdp->getParserAttitude();
-            std::string data_att =
-                    " Roll="  + std::to_string(std::get<0>(att)) +
-                    " Pitch=" + std::to_string(std::get<1>(att)) +
-                    " Yaw="   + std::to_string(std::get<2>(att));
-            double speed_ubx = m_vdp->getParserSpeedUbx();
-            std::string data_speed_ubx = " Speed(UBX)=" + std::to_string(speed_ubx);
-            double speed_nmea = m_vdp->getParserSpeedNmea();
-            std::string data_speed_nmea = " Speed(NMEA)=" + std::to_string(speed_nmea);
-            double cog_ubx = m_vdp->getParserCourseOverGroundUbx();
-            std::string data_cog_ubx = " Cog(UBX)=" + std::to_string(cog_ubx);
-            double cog_nmea = m_vdp->getParserCourseOverGroundNmea();
-            std::string data_cog_nmea = " Cog(NMEA)=" + std::to_string(cog_nmea);
-            double longit_acc = m_vdp->getParserLongitudinalAcceleration();
-            std::string data_longit_acc = " LongitudinalAcceleration=" + std::to_string(longit_acc);
-            double yaw_rate = m_vdp->getParserYawRate();
-            std::string data_yaw_rate = " YawRate=" + std::to_string(yaw_rate);
-
-            parser_log_data = parser_log_data + data_fix + data_accs + data_att + data_speed_ubx +
-                              data_speed_nmea + data_cog_ubx + data_cog_nmea + data_longit_acc + data_yaw_rate;
+        else {
+            parser_log_data = parser_log_data + data_fix + data_cog_ubx + data_cog_nmea
+                    + data_lat_ubx + data_lon_ubx + data_lat_nmea + data_lon_nmea
+                    + data_sog_ubx + data_sog_nmea + data_accs + data_att + data_longit_acc
+                    + data_yaw_rate;
             data = data + parser_log_data + "\n\n";
         }
 
