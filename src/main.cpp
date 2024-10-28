@@ -618,7 +618,7 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<std::string> LogfileCAM("L","log-file-CAM","Print on file the log for the CAM condition checks. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileCAM);
 
-        TCLAP::ValueArg<std::string> LogfileGNsecurity("a","log-file-GNsecurity","Print on file the log for the GN security checks. Default: (disabled).",false,"dis","string");
+        TCLAP::ValueArg<std::string> LogfileGNsecurity("f","log-file-GNsecurity","Print on file the log for the GN security checks. Default: (disabled).",false,"dis","string");
         cmd.add(LogfileGNsecurity);
 
 		TCLAP::ValueArg<std::string> LogfileVAM("F","log-file-VAM","Print on file the log for the VAM condition checks. Default: (disabled).",false,"dis","string");
@@ -697,7 +697,7 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<long> VV_WebInterfacePortArg("2","vehviz-web-interface-port","set the port at which the web interface of the Vehicle Visualizer will be available",false,DEFAULT_VEHVIZ_WEB_PORT,"integer");
 		cmd.add(VV_WebInterfacePortArg);
 
-        TCLAP::SwitchArg SecurityArg("9","enable-CAMs-security","Enable the security features of standard CAMs",false);
+        TCLAP::SwitchArg SecurityArg("10","enable-CAMs-security","Enable the security features of standard CAMs",false);
         cmd.add(SecurityArg);
 
 		TCLAP::ValueArg<double> VV_UpdateIntervalArg("3","vehviz-update-interval-sec",
