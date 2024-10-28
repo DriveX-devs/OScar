@@ -10,3 +10,16 @@ nohup.out
 
 # "testing" test log file
 log_3000
+
+# Key files and certificates
+pskAT.bin
+pskEC.bin
+requestAA.bin
+requestEC.bin
+pkiReqRes/responseAT.bin
+pkiReqRes/responseEC.bin
+pkiReqRes/ephPKEY.pem
+pkiReqRes/ephPKEY2.pem
+pkiReqRes/ephSKEY.pem
+pkiReqRes/ephSKEY2.pem
+

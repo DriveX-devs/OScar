@@ -16,6 +16,7 @@
 #include "commonHeader.h"
 #include "shbHeader.h"
 #include "gbcHeader.h"
+#include "ATManager.h"
 
 
 
@@ -42,6 +43,9 @@ class GeoNet {
 		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp=false);
 		void closeUDPsocket();
         void setSecurity(bool security){enableSecurity = security;  m_security = Security();}
+        void setMessageType(int type){m_messageType = type;}
+        void setATmanager(ATManager *atm){m_atmanager = atm;};
+
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;
@@ -65,8 +69,10 @@ class GeoNet {
 		int m_socket_tx=-1;
 
         Security m_security;
+        ATManager *m_atmanager;
         bool enableSecurity;
 		bool isCertificate;
+        int m_messageType;
 
         FILE* f_out = nullptr; // Log file pointer
         std::string m_log_filename2 = "dis";

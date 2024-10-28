@@ -2,7 +2,7 @@
 
 <img height="179.7" src="logo/OScar_logo_v1_subtitle.png" width="511.5"/>
 
-Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Carlos Mateo RISMA CARLETTI [carlosrisma@gmail.com], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it]
+Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Carlos Mateo RISMA CARLETTI [carlosrisma@gmail.com], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it], Alessandro GIACCAGLINI [alessandro.giaccaglini@gmail.com]
 
 This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
@@ -191,3 +191,7 @@ logread
 This project uses internally the _TCLAP - Templatized Command Line Argument Parser_ library (v1.2), available [here](https://tclap.sourceforge.net/), and included in the `tclap` directory.
 
 It also includes a porting and C adaptation of a part of [_GeographicLib_](https://geographiclib.sourceforge.io/) for the computation of Transverse Mercator projections, included in the `geographiclib-port` directory.
+
+It uses the library available [here](https://github.com/benhoyt/inih), included in the `iniLibraryC` and `iniReader` directories, for reading INI configuration files.
+
+Then it uses the library available [here](https://github.com/elnormous/HTTPRequest), included in the `httpRest` directory, for sending HTTP requests.
