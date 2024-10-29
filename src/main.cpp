@@ -697,7 +697,7 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<long> VV_WebInterfacePortArg("2","vehviz-web-interface-port","set the port at which the web interface of the Vehicle Visualizer will be available",false,DEFAULT_VEHVIZ_WEB_PORT,"integer");
 		cmd.add(VV_WebInterfacePortArg);
 
-        TCLAP::SwitchArg SecurityArg("10","enable-CAMs-security","Enable the security features of standard CAMs",false);
+        TCLAP::SwitchArg SecurityArg("w","enable-CAMs-security","Enable the security features of standard CAMs",false);
         cmd.add(SecurityArg);
 
 		TCLAP::ValueArg<double> VV_UpdateIntervalArg("3","vehviz-update-interval-sec",
