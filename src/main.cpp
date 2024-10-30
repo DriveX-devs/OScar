@@ -212,12 +212,14 @@ void CAMtxThr(std::string gnss_device,
            std::string udp_bind_ip,
            bool extra_position_udp,
            std::string log_filename_CAM,
+           std::string log_filename_GNsecurity,
            ldmmap::LDMMap *db_ptr,
            double pos_th,
            double speed_th,
            double head_th,
            bool rx_enabled,
-           bool use_gpsd) {
+           bool use_gpsd,
+           bool enable_security) {
     bool m_retry_flag=false;
 
     // VDP (Vehicle Data Provider) GPS Client object test
@@ -247,6 +249,10 @@ void CAMtxThr(std::string gnss_device,
             GN.setVDP(&vdpgpsc);
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
+            GN.setSecurity(enable_security);
+            if(log_filename_GNsecurity != "dis" && log_filename_GNsecurity != ""){
+                GN.setLogFile2(log_filename_GNsecurity);
+            }
             BTP.setGeoNet(&GN);
 
             
@@ -536,7 +542,9 @@ void radarReaderThr(std::string gnss_device,
 
 int main (int argc, char *argv[]) {
 	std::string dissem_vif = "wlan0";
+
 	std::string log_filename_CAM = "dis";
+    std::string log_filename_GNsecurity = "dis";
 	std::string log_filename_VAM = "dis";
 	std::string log_filename_rcv = "dis";
     std::string log_filename_CPM = "cps_dis";
@@ -562,6 +570,7 @@ int main (int argc, char *argv[]) {
     bool verbose = false;
 
 	int json_over_tcp_port = 49000;
+    bool enable_security = false;
 
     double check_faulty_object_acceleration = 0.0;
     bool disable_cpm_speed_triggering = false;
@@ -608,7 +617,10 @@ int main (int argc, char *argv[]) {
 		
 		TCLAP::ValueArg<std::string> LogfileCAM("L","log-file-CAM","Print on file the log for the CAM condition checks. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileCAM);
-		
+
+        TCLAP::ValueArg<std::string> LogfileGNsecurity("f","log-file-GNsecurity","Print on file the log for the GN security checks. Default: (disabled).",false,"dis","string");
+        cmd.add(LogfileGNsecurity);
+
 		TCLAP::ValueArg<std::string> LogfileVAM("F","log-file-VAM","Print on file the log for the VAM condition checks. Default: (disabled).",false,"dis","string");
 		cmd.add(LogfileVAM);
 		
@@ -685,6 +697,9 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<long> VV_WebInterfacePortArg("2","vehviz-web-interface-port","set the port at which the web interface of the Vehicle Visualizer will be available",false,DEFAULT_VEHVIZ_WEB_PORT,"integer");
 		cmd.add(VV_WebInterfacePortArg);
 
+        TCLAP::SwitchArg SecurityArg("w","enable-CAMs-security","Enable the security features of standard CAMs",false);
+        cmd.add(SecurityArg);
+
 		TCLAP::ValueArg<double> VV_UpdateIntervalArg("3","vehviz-update-interval-sec",
 			"Advanced option: this option can be used to modify the update rate of the web-based GUI. "
 			"Warning: decreasing too much this value will affect the LDM database performance!"
@@ -731,6 +746,7 @@ int main (int argc, char *argv[]) {
 		dissem_vif=vifName.getValue();
 		
 		log_filename_CAM=LogfileCAM.getValue();
+        log_filename_GNsecurity=LogfileGNsecurity.getValue();
 		log_filename_VAM=LogfileVAM.getValue();
 		log_filename_rcv=LogfileReception.getValue();
         log_filename_CPM=LogfileCPM.getValue();
@@ -745,6 +761,7 @@ int main (int argc, char *argv[]) {
 		enable_VAM_dissemination=VAMsDissArg.getValue();
         enable_CPM_dissemination=CPMsDissArg.getValue();
 		enable_DENM_decoding=DENMsDecArg.getValue();
+        enable_security=SecurityArg.getValue();
 
         check_faulty_object_acceleration=CheckFaultyObjectAcceleration.getValue();
         disable_cpm_speed_triggering=DisableCPMSpeedTriggering.getValue();
@@ -926,12 +943,14 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_CAM,
+                                        log_filename_GNsecurity,
                                         db_ptr,
                                         pos_th,
                                         speed_th,
                                         head_th,
                                         enable_reception,
-                                        use_gpsd);
+                                        use_gpsd,
+                                        enable_security);
     }
     if(enable_VAM_dissemination) {
         txThreads.emplace_back(VAMtxThr,
@@ -990,7 +1009,7 @@ int main (int argc, char *argv[]) {
 
 		if(terminatorFlag==false) {
 			// Create the main SocketClient object for the reception of the V2X messages
-			SocketClient mainRecvClient(sockfd,&rx_opts, db_ptr, log_filename_rcv);
+			SocketClient mainRecvClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity);
 			
 			if(enable_DENM_decoding) {
 				mainRecvClient.enableDENMdecoding();

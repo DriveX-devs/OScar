@@ -39,6 +39,9 @@ class SocketClient {
 		options_t* m_opts_ptr;
 		ldmmap::LDMMap *m_db_ptr;
 
+		bool m_enable_security;
+		std::string m_logfile_security;
+
 		std::string m_logfile_name;
 		FILE *m_logfile_file;
 
@@ -74,8 +77,8 @@ class SocketClient {
 
 		VDPGPSClient *m_gpsc_ptr;
 	public:
-		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name):
-			m_raw_rx_sock(raw_rx_sock), m_opts_ptr(opts_ptr), m_db_ptr(db_ptr), m_logfile_name(logfile_name) {
+		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security):
+			m_raw_rx_sock(raw_rx_sock), m_opts_ptr(opts_ptr), m_db_ptr(db_ptr), m_logfile_name(logfile_name),m_decodeFrontend(enable_security, logfile_security),m_enable_security(enable_security), m_logfile_security(logfile_security) {
 				m_client_id="unset";
 				m_logfile_file=nullptr;
 				m_printMsg=false;

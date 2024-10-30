@@ -5,6 +5,7 @@
 #include <cstddef>
 #include "named_enums.h"
 #include "Seq.hpp"
+#include "geonet.h"
 
 extern "C" {
     #include "CAM.h"
@@ -73,12 +74,15 @@ namespace etsiDecoder {
 				MSGTYPE_AUTO = 2
 			} msgType_e;
 
-			decoderFrontend();
+			decoderFrontend(bool enable_security = false, std::string logfile_security = "dis");
 			int decodeEtsi(uint8_t *buffer,size_t buflen,etsiDecodedData_t &decoded_data, msgType_e msgtype = MSGTYPE_ITS);
 			void setPrintPacket(bool print_pkt) {m_print_pkt=print_pkt;}
 
 		private:
 			bool m_print_pkt;
+            GeoNet m_gn;
+            bool m_enable_security;  // Store security option
+            std::string m_logfile_security;  // Store security logfile name
 	};
 }
 

@@ -11,6 +11,7 @@
 #include <set>
 #include <mutex>
 #include "gpsc.h"
+#include "security.h"
 #include "basicHeader.h"
 #include "commonHeader.h"
 #include "shbHeader.h"
@@ -35,11 +36,12 @@ class GeoNet {
 		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest);
 		
 		gnError_e decodeGN(unsigned char * packet, GNDataIndication_t* dataIndication);
-		
-		void setLogFile(std::string msgfile) {m_log_filename=msgfile;}
 
+		void setLogFile(std::string msgfile) {m_log_filename=msgfile;}
+		void setLogFile2(const std::string &filename);
 		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp=false);
 		void closeUDPsocket();
+        void setSecurity(bool security){enableSecurity = security;  m_security = Security();}
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;
@@ -61,6 +63,13 @@ class GeoNet {
 		uint8_t m_GNAddress[8];
 
 		int m_socket_tx=-1;
+
+        Security m_security;
+        bool enableSecurity;
+		bool isCertificate;
+
+        FILE* f_out = nullptr; // Log file pointer
+        std::string m_log_filename2 = "dis";
 
 		VDPGPSClient* m_vdp;
         VDPGPSClient* m_vrudp;

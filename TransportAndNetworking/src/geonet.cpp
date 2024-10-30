@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <iomanip>
 #include "functional"
 #include "geonet.h"
 
@@ -35,6 +36,9 @@ GeoNet::GeoNet() {
 }
 
 GeoNet::~GeoNet() {
+    if (f_out != nullptr) {
+        fclose(f_out);
+    }
 	closeUDPsocket();
 }
 
@@ -50,6 +54,20 @@ GeoNet::setStationProperties(unsigned long fixed_stationid,long fixed_stationtyp
 	// ETSI EN 302 636-4-1 [10.2.2] : the egoPV shall be updated with a minimum freq of th GN constant itsGNminUpdateFrequencyEPV
 	MakeManagedconfiguredAddress (m_GnLocalGnAddr,m_stationtype,m_GNAddress); //! Initial address config on MANAGED(1) mode ETSI EN 302 636-4-1 [10.2.1.3]
 }
+
+void GeoNet::setLogFile2(const std::string &filename) {
+    m_log_filename2 = filename;
+    if (m_log_filename2 != "dis" && m_log_filename2 != "") {
+        char file[filename.size() + 1];
+        snprintf(file, sizeof(file), "%s", filename.c_str());
+
+        f_out = fopen(file, "w");
+        if (f_out == nullptr) {
+            std::cerr << "Cannot open log file for writing." << std::endl;
+        }
+    }
+}
+
 
 void
 GeoNet::setStationID(unsigned long fixed_stationid)
@@ -172,12 +190,14 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 		return REP_INTERVAL_LOW;
 	}
 
-	//Basic Header field setting according to ETSI EN 302 636-4-1 [10.3.2]
-	basicHeader.SetVersion (m_GnPtotocolVersion);
+    //Basic Header field setting according to ETSI EN 302 636-4-1 [10.3.2]
+    basicHeader.SetVersion (m_GnPtotocolVersion);
 
-	//Security option not implemented
-	basicHeader.SetNextHeader (1);//! Next Header: Common Header (1)
-	if(dataRequest.GNMaxLife != 0) {
+    if (enableSecurity && dataRequest.GNType == TSB) {
+        basicHeader.SetNextHeader (2);
+    } else basicHeader.SetNextHeader (1);
+
+    if(dataRequest.GNMaxLife != 0) {
 		basicHeader.SetLifeTime(encodeLT(dataRequest.GNMaxLife));
 	} else {
 		basicHeader.SetLifeTime(encodeLT(m_GnDefaultPacketLifetime));
@@ -278,13 +298,39 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
         // else if(basicH.GetVersion() == 0) {
             // std::cerr<< "[WARN] [Decoder] Unexpected GeoNetworking version \"0\"" << std::endl;
         // }
-        //2)Check NH field
-        if(basicH.GetNextHeader()==2) //a) if NH=0 or NH=1 proceed with common header procesing
+        // 2) Check NH field
+        if(enableSecurity && basicH.GetNextHeader()==2)
         {
-            //Secured packet
-            std::cerr << "[ERROR] [Decoder] Secured packet not supported" << std::endl;
-            return GN_SECURED_ERROR;
+
+            long int start_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+            if (f_out != nullptr) {
+                fprintf(f_out, "[DECODE] Start time: %ld us, ", start_us);
+            }
+
+            if(m_security.extractSecurePacket (*dataIndication, isCertificate) == Security::SECURITY_VERIFICATION_FAILED) {
+                std::cout << "[INFO] [Decoder] Security verification failed" << std::endl;
+                if (f_out != nullptr) {
+                    fprintf(f_out, "[INFO] Security verification failed\n");
+                }
+                return GN_SECURED_ERROR;
+            } else {
+                std::cout << "[INFO] [Decoder] Security verification successful" << std::endl;
+            }
+
+            long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+            long int diff_us = end_us - start_us;
+
+            if (f_out != nullptr) {
+                fprintf(f_out, "End time: %ld us, Difference: %ld us. ", end_us, diff_us);
+                if (isCertificate) {
+                    fprintf(f_out, "[CERTIFICATE]\n");
+                } else {
+                    fprintf(f_out, "[DIGEST]\n");
+                }
+            }
+
         }
+
         if(!decodeLT(basicH.GetLifeTime(),&dataIndication->GNRemainingLife))
         {
             std::cerr << "[ERROR] [Decoder] Unable to decode lifetime field" << std::endl;
@@ -352,10 +398,32 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	// Add them to the final packet (the innermost header goes first)
 	dataRequest.data.addHeader(shbHeaderSerialized);
 
-	dataRequest.data.addHeader(commonHeaderSerialized);
-	dataRequest.data.addHeader(basicHeaderSerialized);
+    dataRequest.data.addHeader(commonHeaderSerialized);
+    if(enableSecurity){
 
-	//2)Security setting -not implemeted yet-
+        long int start_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+        if (f_out != nullptr) {
+            fprintf(f_out, "[ENCODE] Start time: %ld us, ", start_us);
+        }
+
+        dataRequest = m_security.createSecurePacket (dataRequest, isCertificate);
+
+        long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+        long int diff_us = end_us - start_us;
+
+        if (f_out != nullptr) {
+            fprintf(f_out, "End time: %ld us, Difference: %ld us. ", end_us, diff_us);
+            if (isCertificate) {
+                fprintf(f_out, "[CERTIFICATE]\n");
+            } else {
+                fprintf(f_out, "[DIGEST]\n");
+            }
+        }
+
+    }
+
+    dataRequest.data.addHeader(basicHeaderSerialized);
+
 	//3)If not suitable neighbour exist in the LocT and the SCF for the traffic class is set:
 	// This part is not yet implemented in OCABS
 	// if((dataRequest.GNTraClass > 128) && (!hasNeighbour ())) {
@@ -557,7 +625,7 @@ GeoNet::processSHB (GNDataIndication_t* dataIndication)
         dataIndication->data += 28;
         dataIndication->SourcePV = shbH.GetLongPositionV ();
         dataIndication->GNType = TSB;
-        
+
 
         //7) Pass the payload to the upper protocol entity
         return dataIndication;
