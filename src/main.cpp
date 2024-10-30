@@ -333,7 +333,8 @@ void CPMtxThr(std::string gnss_device,
               bool use_gpsd,
               double check_faulty_object_acceleration,
               bool disable_cpm_speed_triggering,
-              bool verbose) {
+              bool verbose,
+              bool enable_security) {
     bool m_retry_flag=false;
 
     VDPGPSClient vdpgpsc(gnss_device,gnss_port);
@@ -357,6 +358,7 @@ void CPMtxThr(std::string gnss_device,
             GN.setVDP(&vdpgpsc);
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
+            GN.setSecurity(enable_security);
             BTP.setGeoNet(&GN);
 
 
@@ -697,7 +699,7 @@ int main (int argc, char *argv[]) {
 		TCLAP::ValueArg<long> VV_WebInterfacePortArg("2","vehviz-web-interface-port","set the port at which the web interface of the Vehicle Visualizer will be available",false,DEFAULT_VEHVIZ_WEB_PORT,"integer");
 		cmd.add(VV_WebInterfacePortArg);
 
-        TCLAP::SwitchArg SecurityArg("w","enable-CAMs-security","Enable the security features of standard CAMs",false);
+        TCLAP::SwitchArg SecurityArg("w","enable-security","Enable the security features of standard CAMs and CPMs",false);
         cmd.add(SecurityArg);
 
 		TCLAP::ValueArg<double> VV_UpdateIntervalArg("3","vehviz-update-interval-sec",
@@ -986,7 +988,8 @@ int main (int argc, char *argv[]) {
                                         use_gpsd,
                                         check_faulty_object_acceleration,
                                         disable_cpm_speed_triggering,
-                                        verbose);
+                                        verbose,
+                                        enable_security);
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
