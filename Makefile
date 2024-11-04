@@ -1,4 +1,4 @@
-EXECNAME=OScar-mauro
+EXECNAME=OScar
 
 OPENWRT_CROSSCOMPILER_C=x86_64-openwrt-linux-musl-gcc
 OPENWRT_CROSSCOMPILER_CXX=x86_64-openwrt-linux-musl-g++
@@ -8,6 +8,7 @@ OPENWRT_TOOLCHAIN=toolchain-x86_64_gcc-8.4.0_musl
 OPENWRT_LIBGPS_VER=3.23
 
 OPENWRT_INCLUDE_DIR=/mnt/xtra/OpenWrt-V2X/staging_dir/target-x86_64_musl/usr/include
+OPENWRT_MAIN_DIR=/mnt/xtra/OpenWrt-V2X
 
 SRC_DIR=src
 OBJ_DIR=obj
@@ -65,9 +66,9 @@ OBJ_CC+=$(OBJ_JSON11)
 OBJ_CC+=$(OBJ_ASN1CPP)
 OBJ_CC+=$(OBJ_CESERIAL)
 
-CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial
-CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include -Igeographiclib-port
-LDLIBS += -lpthread -lm -lgps -latomic
+CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial -I/usr/include/openssl
+CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include -Igeographiclib-port -I/usr/include/openssl
+LDLIBS += -lpthread -lm -lgps -latomic -lssl -lcrypto
 
 .PHONY: all clean
 
@@ -80,8 +81,8 @@ compileAPU: CXX = $(OPENWRT_CROSSCOMPILER_CXX)
 compileAPU: CC = $(OPENWRT_CROSSCOMPILER_C)
 compileAPU: LD = $(OPENWRT_CROSSCOMPILER_LD)
 compileAPU: CXXFLAGS += -I$(OPENWRT_INCLUDE_DIR)
-compileAPU: LDLIBS += -lgps
-	
+compileAPU: LDLIBS += -L$(OPENWRT_MAIN_DIR)/staging_dir/$(OPENWRT_TARGET)/usr/lib -lgps -lssl -lcrypto
+
 compilePCdebug: CXXFLAGS += -g
 compilePCdebug: CFLAGS += -g
 compilePCdebug: compilePC
@@ -116,7 +117,7 @@ $(OBJ_VEHVIS_DIR)/%.o: $(SRC_VEHVIS_DIR)/%.cc
 
 $(OBJ_ASN1_DIR)/%.o: $(SRC_ASN1_DIR)/%.c
 	@ mkdir -p $(OBJ_ASN1_DIR)
-	$(CC) $(CFLAGS) -Wno-incompatible-pointer-types -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ_ETSI_DIR)/%.o: $(SRC_ETSI_DIR)/%.c
 	@ mkdir -p $(OBJ_ETSI_DIR)
