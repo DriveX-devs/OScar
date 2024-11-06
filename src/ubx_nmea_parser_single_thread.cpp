@@ -16,6 +16,7 @@
 #include <utility>
 #include <chrono>
 #include <algorithm>
+#include <iomanip>
 #include <unistd.h>
 
 using namespace std::chrono;
@@ -1257,6 +1258,7 @@ void UBXNMEAParserSingleThread::showDebugAgeInfo() {
 
     while (!m_terminatorFlagPtr->load()) { // Replace with a suitable termination condition
         out_t buf = m_outBuffer.load();
+
         // Clear previous output by moving up by the current line count
         for (int i = 0; i < line_counter; ++i) {
             std::cout << "\033[F\033[2K"; // Move up and clear line
@@ -1265,21 +1267,23 @@ void UBXNMEAParserSingleThread::showDebugAgeInfo() {
         std::cout << "\nDebug Informations\n\n";
         line_counter = 3;
 
-        std::cout << "Lat-Lon:                " << buf.lat << " - " << buf.lon << "\tAge[us]: " << m_debug_age_info.age_pos << '\n';
-        std::cout << "Lat-Lon(UBX):           " << buf.lat_ubx << " - " << buf.lon_ubx << "\tAge[us]: " << m_debug_age_info.age_pos << '\n';
-        std::cout << "Lat-Lon(NMEA):          " << buf.lat_nmea << " - " << buf.lon_nmea << "\tAge[us]: " << m_debug_age_info.age_pos << '\n' << '\n';
+        std::cout << std::fixed << std::setprecision(12);
+        std::cout << "Lat-Lon:                " << buf.lat << " | " << buf.lon << "\tAge[us]: " << m_debug_age_info.age_pos << '\n';
+        std::cout << "Lat-Lon(UBX):           " << buf.lat_ubx << " | " << buf.lon_ubx << "\tAge[us]: " << m_debug_age_info.age_pos << '\n';
+        std::cout << "Lat-Lon(NMEA):          " << buf.lat_nmea << " | " << buf.lon_nmea << "\tAge[us]: " << m_debug_age_info.age_pos << '\n' << '\n';
         line_counter += 4;
 
-        std::cout << "Speed and Heading:       " << buf.sog << "[m/s]" << " - " << buf.cog <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n';
-        std::cout << "Speed and Heading(UBX):  " << buf.sog_ubx << "[m/s]" << " - " << buf.cog_ubx <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n';
-        std::cout << "Speed and Heading(NMEA): " << buf.sog_nmea << "[m/s]" << " - " << buf.cog_nmea <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n' << '\n';
+        std::cout << std::fixed << std::setprecision(3);
+        std::cout << "Speed and Heading:       " << buf.sog << "[m/s]" << " | " << buf.cog <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n';
+        std::cout << "Speed and Heading(UBX):  " << buf.sog_ubx << "[m/s]" << " | " << buf.cog_ubx <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n';
+        std::cout << "Speed and Heading(NMEA): " << buf.sog_nmea << "[m/s]" << " | " << buf.cog_nmea <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n' << '\n';
         line_counter += 4;
 
-        std::cout << "Accelerations:           " << "X: " << buf.comp_acc_x << " - " << "Y: " << buf.comp_acc_y << " - " << "Z: " << buf.comp_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_comp_acc << '\n';
-        std::cout << "Raw Accelerations:       " << "X: " << buf.raw_acc_x << " - " << "Y: " << buf.raw_acc_y << " - " << "Z: " << buf.raw_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_comp_acc << '\n' << '\n';
+        std::cout << "Accelerations:           " << "X: " << buf.comp_acc_x << " | " << "Y: " << buf.comp_acc_y << " | " << "Z: " << buf.comp_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_comp_acc << '\n';
+        std::cout << "Raw Accelerations:       " << "X: " << buf.raw_acc_x << " | " << "Y: " << buf.raw_acc_y << " | " << "Z: " << buf.raw_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_acc << '\n' << '\n';
         line_counter += 3;
 
-        std::cout << "Roll Pitch Yaw:          " << buf.roll << " - " << buf.pitch << " - " << buf.heading << " [deg]" << "\tAge[us]: " << m_debug_age_info.age_att << '\n';
+        std::cout << "Roll Pitch Yaw:          " << buf.roll << " | " << buf.pitch << " | " << buf.heading << " [deg]" << "\tAge[us]: " << m_debug_age_info.age_att << '\n';
         std::cout << "Yaw rate:                " << buf.comp_ang_rate_z << " [deg/s]" "\tAge[us]: " << m_debug_age_info.age_comp_ang_rate << '\n' << '\n';
         line_counter += 3;
 
