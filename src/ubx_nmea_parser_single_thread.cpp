@@ -1264,7 +1264,7 @@ void UBXNMEAParserSingleThread::showDebugAgeInfo() {
             std::cout << "\033[F\033[2K"; // Move up and clear line
         }
 
-        std::cout << "\nDebug Informations\n\n";
+        std::cout << "\nDebug Information\n\n";
         line_counter = 3;
 
         std::cout << std::fixed << std::setprecision(12);
@@ -1279,9 +1279,10 @@ void UBXNMEAParserSingleThread::showDebugAgeInfo() {
         std::cout << "Speed and Heading(NMEA): " << buf.sog_nmea << "[m/s]" << " | " << buf.cog_nmea <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n' << '\n';
         line_counter += 4;
 
-        std::cout << "Accelerations:           " << "X: " << buf.comp_acc_x << " | " << "Y: " << buf.comp_acc_y << " | " << "Z: " << buf.comp_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_comp_acc << '\n';
+        std::cout << "Longitudinal acc:        " << buf.comp_acc_x << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_comp_acc << '\n';
+        std::cout << "Other accelerations:     " << "Y: " << buf.comp_acc_y << " | " << "Z: " << buf.comp_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_comp_acc << '\n';
         std::cout << "Raw Accelerations:       " << "X: " << buf.raw_acc_x << " | " << "Y: " << buf.raw_acc_y << " | " << "Z: " << buf.raw_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_acc << '\n' << '\n';
-        line_counter += 3;
+        line_counter += 4;
 
         std::cout << "Roll Pitch Yaw:          " << buf.roll << " | " << buf.pitch << " | " << buf.heading << " [deg]" << "\tAge[us]: " << m_debug_age_info.age_att << '\n';
         std::cout << "Yaw rate:                " << buf.comp_ang_rate_z << " [deg/s]" "\tAge[us]: " << m_debug_age_info.age_comp_ang_rate << '\n' << '\n';
