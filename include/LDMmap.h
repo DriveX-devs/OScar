@@ -109,6 +109,7 @@ namespace ldmmap {
 			double m_central_lat;
 			double m_central_lon;
             double m_ego_lon;
+            double m_ego_lat;
             StationId_t m_station_id;
             VDPGPSClient *m_gpsc_ptr;
 
