@@ -24,6 +24,7 @@ namespace ldmmap
 		m_central_lat = 0.0;
 		m_central_lon = 0.0;
         m_ego_lon = 0.0;
+        m_ego_lat = 0.0;
 	}
 
 	LDMMap::~LDMMap() {
@@ -82,7 +83,14 @@ namespace ldmmap
         if(newVehicleData.detected)
         {
             //std::cout << "[LDM] KF step for object " << newVehicleData.stationID << std::endl;
+            auto ego_data=m_gpsc_ptr->getCAMMandatoryData();
+            if (ego_data.latitude!= Latitude_unavailable && ego_data.longitude!= Longitude_unavailable) {
+                m_ldmmap[key_upper].second[key_lower].kf->set_ego_position((double) ego_data.longitude / DOT_ONE_MICRO
+                                                                           ,(double) ego_data.latitude / DOT_ONE_MICRO);
+            }
             m_ldmmap[key_upper].second[key_lower].kf->update(((double) newVehicleData.xDistance)/CENTI, ((double) newVehicleData.yDistance)/CENTI, m_ego_lon);
+            m_ldmmap[key_upper].second[key_lower].vehData.lat = m_ldmmap[key_upper].second[key_lower].kf->get_state().lat;
+            m_ldmmap[key_upper].second[key_lower].vehData.lon = m_ldmmap[key_upper].second[key_lower].kf->get_state().lon;
         }
 
 		return retval;
@@ -343,6 +351,7 @@ namespace ldmmap
             vehdata.lat = (double) ego_data.latitude / DOT_ONE_MICRO;
             vehdata.lon = (double) ego_data.longitude / DOT_ONE_MICRO;
             m_ego_lon = vehdata.lon;
+            m_ego_lat = vehdata.lat;
             vehdata.elevation = (double) ego_data.altitude.getValue() / CENTI;
             vehdata.timestamp_us = get_timestamp_us();
         	vehdata.stationType = StationType_LDM_passengerCar;

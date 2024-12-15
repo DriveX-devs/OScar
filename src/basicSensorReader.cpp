@@ -16,6 +16,7 @@
 #include <math.h>
 #include <time.h>
 #include <iostream>
+#include <iomanip>
 #include "LDMmap.h"
 #include "utmuts.h"
 
@@ -158,7 +159,10 @@ BasicSensorReader::readerLoop() {
                     }
                     std::cout << "[SENSOR READER]" << std::endl;
                     std::cout << "    Object "<< vehicleData.stationID <<  " - xDistance: " << xDistance << "m - yDistance: " << yDistance << "m - class: " << class_str << std::endl;
-                    std::cout << "    Ego Vehicle - lat: " << ego_lat << " - lon: " << ego_lon << " - heading: " << ego_heading << std::endl;
+                    std::cout << "    Ego Vehicle - lat: " << std::fixed << std::setprecision(6) << ego_lat
+                              << " - lon: " << ego_lon
+                              << " - heading: " << ego_heading
+                              << std::endl;
                 }
 
                 transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();

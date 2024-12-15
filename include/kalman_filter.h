@@ -39,6 +39,7 @@ public:
     KFState get_state();
 
     KFState update(double x_meas, double y_meas, double lon0);
+    void set_ego_position(double lon, double lat);
 
 private:
 
@@ -61,6 +62,8 @@ private:
 
     KFState m_state{};
     double m_lon0;
+    double m_ego_lon;
+    double m_ego_lat;
 };
 
 

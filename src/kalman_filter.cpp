@@ -2,12 +2,15 @@
 #include "utils.h"
 #include "asn_utils.h"
 #include "utmuts.h"
+#include <iomanip>
 
 KalmanFilter::KalmanFilter() {
     m_dt = 0.04; // 40 ms
     m_last_update = 0;
     m_last_predict = 0;
     m_lon0 = 0;
+    m_ego_lon = 0;
+    m_ego_lat = 0;
     m_state = {0, 0, 0, 0, 0, 0, 0,0};
     initializeMatrices();
 }
@@ -16,6 +19,13 @@ KalmanFilter::KalmanFilter(double m_dt) : m_dt(m_dt), m_last_predict(0), m_last_
     m_state = {0, 0, 0, 0, 0, 0,0,0};
     m_lon0 = 0;
     initializeMatrices();
+}
+
+void
+KalmanFilter::set_ego_position(double lon, double lat)
+{
+    m_ego_lon = lon;
+    m_ego_lat = lat;
 }
 
 void KalmanFilter::set_dt(double new_dt) {
@@ -27,6 +37,7 @@ void KalmanFilter::set_dt(double new_dt) {
 void KalmanFilter::init_step(ldmmap::vehicleData_t vehicleData) {
     x = {((double) vehicleData.xDistance)/CENTI, ((double) vehicleData.yDistance)/CENTI, 0, 0,0, 0};
     m_state = {x[0], x[1], x[2], x[3], x[4], x[5],vehicleData.lat,vehicleData.lon};
+    m_last_update = get_timestamp_ms_gn();
     this->predict();
 }
 
@@ -62,10 +73,10 @@ void KalmanFilter::predict() {
 
     transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();
     double lat1, lon1, abs_x, abs_y, gammar=0,kr=0;
-    TransverseMercator_Forward(&tmerc, m_lon0, m_state.lat, m_state.lon, &abs_x, &abs_y, &gammar, &kr);
-    abs_x += prev_x - x[0];
-    abs_y += prev_y - x[1];
-    TransverseMercator_Reverse(&tmerc, m_lon0, abs_x, abs_y, &lat1, &lon1, &gammar, &kr);
+    TransverseMercator_Forward(&tmerc, m_ego_lon, m_ego_lat, m_ego_lon, &abs_x, &abs_y, &gammar, &kr);
+    abs_x +=  x[0];
+    abs_y +=  x[1];
+    TransverseMercator_Reverse(&tmerc, m_ego_lon, abs_x, abs_y, &lat1, &lon1, &gammar, &kr);
 
     m_state = {x[0], x[1], x[2], x[3], x[4], x[5], lat1, lon1};
 
@@ -77,6 +88,7 @@ KalmanFilter::KFState KalmanFilter::update(double x_meas, double y_meas, double 
     m_lon0 = lon0;
     if (now - m_last_update >= (uint64_t) ((m_dt*MILLI)-1)) {
         this->predict();
+        //std::cout << "[" << get_timestamp_ms_gn() << "] Time since last update " << now - m_last_update << "(Number of dt periods: " << (now - m_last_update)/(m_dt*MILLI) << ")" << std::endl;
         double prev_x = x[0];
         double prev_y = x[1];
         std::vector<double> z = {x_meas, y_meas};
@@ -105,14 +117,16 @@ KalmanFilter::KFState KalmanFilter::update(double x_meas, double y_meas, double 
 
         transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();
         double lat1, lon1, abs_x, abs_y, gammar=0,kr=0;
-        TransverseMercator_Forward(&tmerc, m_lon0, m_state.lat, m_state.lon, &abs_x, &abs_y, &gammar, &kr);
-        abs_x += prev_x - x[0];
-        abs_y += prev_y - x[1];
-        TransverseMercator_Reverse(&tmerc, m_lon0, abs_x, abs_y, &lat1, &lon1, &gammar, &kr);
+        TransverseMercator_Forward(&tmerc, m_ego_lon, m_ego_lat, m_ego_lon, &abs_x, &abs_y, &gammar, &kr);
+        abs_x +=  x[0];
+        abs_y +=  x[1];
+        TransverseMercator_Reverse(&tmerc, m_ego_lon, abs_x, abs_y, &lat1, &lon1, &gammar, &kr);
 
-        //std::cout << "[" << get_timestamp_ms_gn() << "] New measurement: " << x_meas << " " << y_meas << std::endl;
+        //std::cout << "[KF UPDATE]" << std::endl;
+        //std::cout << "    [" << get_timestamp_ms_gn() << "] New measurement: " << x_meas << " " << y_meas << std::endl;
+        //std::cout << "    [" << get_timestamp_ms_gn() << "] Ego position: " << std::fixed << std::setprecision(6) << m_ego_lat << " " << m_ego_lon << std::endl;
         m_state = {x[0], x[1], x[2], x[3], x[4], x[5], lat1, lon1};
-        //std::cout << "[" << get_timestamp_ms_gn() << "] Updated state: " << m_state.x << " " << m_state.y << " " << m_state.vx << " " << m_state.vy << " " << m_state.ax << " " << m_state.ay << " " << m_state.lat << " " << m_state.lon << std::endl;
+        //std::cout << "    [" << get_timestamp_ms_gn() << "] Updated state: " << m_state.x << " " << m_state.y << " " << m_state.vx << " " << m_state.vy << " " << m_state.ax << " " << m_state.ay << " " << std::fixed << std::setprecision(6) << m_state.lat << " " << m_state.lon << std::endl;
     }
 //    else
 //    {
