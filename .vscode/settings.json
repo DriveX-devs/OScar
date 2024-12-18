@@ -1,0 +1,9 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/diego/OScar",
+            "binaryPath": "/home/diego/OScar/OScar",
+            "binaryArgs": []
+        }
+    ]
+}

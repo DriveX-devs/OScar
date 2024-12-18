@@ -2,7 +2,7 @@
 
 <img height="179.7" src="logo/OScar_logo_v1_subtitle.png" width="511.5"/>
 
-Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Carlos Mateo RISMA CARLETTI [carlosrisma@gmail.com], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it]
+Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Carlos Mateo RISMA CARLETTI [carlosrisma@gmail.com], Diego GASCO [diego.gasco99@gmail.com] [diego.gasco@polito.it], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it]
 
 This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
@@ -53,7 +53,7 @@ As the only pre-requisite, `libgps-dev` must be installed and available.
 
 To download and build the latest version of OScar, first, clone this repository:
 ```
-git clone https://github.com/francescoraves483/OScar
+git clone https://github.com/DriveX-devs/OScar
 ```
 Then, `cd` into the newly created directory:
 ```
