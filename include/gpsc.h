@@ -65,6 +65,14 @@ class VDPGPSClient {
 	        VDPValueConfidence<> yawRate;
       	} CAM_mandatory_data_t;
 
+    typedef struct CAM_conditions_data {
+        bool avail;
+        long int headCheck;
+        double headCheckDbl;
+        std::pair<double,double> currPos;
+        long int speedCheck;
+    } CAM_conditions_data_t;
+
         typedef struct CPM_mandatory_data {
             bool avail;
             VDPValueConfidence<> speed;
@@ -119,6 +127,8 @@ class VDPGPSClient {
 		// For the time being, it fills only the main data needed to enable basic V2X applications
 		// It will be updated in the future to fill in more fields of CAM_mandatory_data_t with available information from the GNSS device
 		CAM_mandatory_data_t getCAMMandatoryData();
+
+        CAM_conditions_data getCAMConditionsData();
 
         // Function to retrieve the mandatory data for CPM messages
         CPM_mandatory_data_t getCPMMandatoryData();

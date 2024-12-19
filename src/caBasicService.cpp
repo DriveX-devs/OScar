@@ -344,10 +344,15 @@ CABasicService::checkCamConditions()
       }
 
       // Retrieve the motion parameters from GNSS
-      long int headCheck=m_vdp->getHeadingValue().getValue();
+/*      long int headCheck=m_vdp->getHeadingValue().getValue();
       double headCheckDbl=(float)m_vdp->getHeadingValueDbl();
       currPos = m_vdp->getCurrentPositionDbl();
-      long int speedCheck=m_vdp->getSpeedValue().getValue();
+      long int speedCheck=m_vdp->getSpeedValue().getValue();*/
+        auto cam_conditions = m_vdp->getCAMConditionsData();
+        long int headCheck = cam_conditions.headCheck;
+        double headCheckDbl = cam_conditions.headCheckDbl;
+        currPos = cam_conditions.currPos;
+        long int speedCheck = cam_conditions.speedCheck;
 
       // Retrieve parser logging data
         if (m_vdp->getSerialParser() == true) {
