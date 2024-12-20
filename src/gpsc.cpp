@@ -11,6 +11,8 @@
 #include <cfloat>
 #include <utility>
 #include <tuple>
+#include <chrono>
+#include "utmuts.h"
 
 extern "C" {
     #include "VAM.h"
@@ -21,7 +23,13 @@ extern "C" {
 static const double PI_CONST = 3.1415926535897932384626433832795028841971693993751058209;
 #define VRUDP_HEADING_UNAVAILABLE -DBL_MAX
 
+#define DEG_2_RAD_BSR_2(degs) (degs*(M_PI/180.0))
+
 #define GPSSTATUS(gpsdata) gpsdata.fix.status
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::seconds;
+using std::chrono::system_clock;
 
 void
 VDPGPSClient::openConnection() {
@@ -854,6 +862,7 @@ getCAMMandatoryData() {
             fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
 
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
+
                 double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
                 // If no speed is available from UBX, use NMEA
                 if (speed == 0) {
@@ -865,15 +874,24 @@ getCAMMandatoryData() {
 
             } else CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
 
+            long pos_age = -1;
+            double longitude = -1.0;
+            double latitude = -1.0;
             if (m_serialParserPtr->getPositionValidity(false) == true) {
-                std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+                std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
                 CAMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
+                latitude = position.first;
             } else CAMdata.latitude = (Latitude_t) Latitude_unavailable;
 
             if (m_serialParserPtr->getPositionValidity(false) == true) {
-                std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+                std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
                 CAMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
+                longitude = position.second;
             } else CAMdata.longitude = (Longitude_t) Longitude_unavailable;
+
+//            long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+//            std::cout << "[getCAMMandatoryData] @ " << time << std::endl;
+//            std::cout << "Position age: " << pos_age << "[us]" << std::endl;
 
             if (m_serialParserPtr->getAltitudeValidity(false) == true) {
                 double altitude = m_serialParserPtr->getAltitude(nullptr, false);
@@ -929,6 +947,46 @@ getCAMMandatoryData() {
 
             CAMdata.avail = true;
 
+            // compute the delta position considering the speed, heading and the pos age
+            if (CAMdata.avail == true) {
+                double delta_x = 0.0;
+                double delta_y = 0.0;
+                double gammar=0,kr=0;
+//                std::cout << "Read latitude: " << CAMdata.latitude << std::endl;
+//                std::cout << "Read longitude: " << CAMdata.longitude << std::endl;
+
+                if (CAMdata.speed.getValue() != SpeedValue_unavailable && CAMdata.heading.getValue() != HeadingValue_unavailable) {
+                    double speed = CAMdata.speed.getValue() / CENTI; // [m/s]
+                    double heading = CAMdata.heading.getValue() / DECI; // [degrees]
+                    heading = DEG_2_RAD_BSR_2((90-heading));
+
+                    // Compute the delta position
+                    double delta_t = pos_age / 1000000.0; // [s]
+                    delta_x = speed * delta_t * sin(heading);
+                    delta_y = speed * delta_t * cos(heading);
+                }
+
+                // Update the position
+                transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();
+                double lat1, lon1, ego_x, ego_y;
+                TransverseMercator_Forward(&tmerc, longitude, latitude, longitude, &ego_x, &ego_y, &gammar, &kr);
+                ego_x += delta_x;
+                ego_y += delta_y;
+                TransverseMercator_Reverse(&tmerc, longitude, ego_x, ego_y, &lat1, &lon1, &gammar, &kr);
+
+                CAMdata.latitude = (Latitude_t) (lat1 * DOT_ONE_MICRO);
+                CAMdata.longitude = (Longitude_t) (lon1 * DOT_ONE_MICRO);
+
+                //print all the data
+//                std::cout << "Speed: " << CAMdata.speed.getValue()/CENTI << "[m/s]"<< std::endl;
+//                std::cout << "Heading: " << CAMdata.heading.getValue()/DECI  << "[degrees]"<< std::endl;
+//                std::cout << "Delta x: " << delta_x << "[m]" << std::endl;
+//                std::cout << "Delta y: " << delta_y << "[m]" << std::endl;
+//                std::cout << "PositionDelta: " << sqrt(delta_x*delta_x + delta_y*delta_y) << "[m]" <<  std::endl;
+//                std::cout << "New Latitude: " << CAMdata.latitude << std::endl;
+//                std::cout << "New longitude: " << CAMdata.longitude << std::endl;
+            }
+
         }
         else {
             // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
@@ -948,6 +1006,176 @@ getCAMMandatoryData() {
             CAMdata.VehicleLength = m_vehicle_length;
             CAMdata.VehicleWidth = m_vehicle_width;
             CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+            CAMdata.avail = false;
+        }
+    }
+    return CAMdata;
+}
+
+VDPGPSClient::CAM_conditions_data
+VDPGPSClient::getCAMConditionsData()
+{
+    CAM_conditions_data_t CAMdata={.avail=false};
+
+    if(m_use_gpsd==true) {
+        int rval;
+
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read data from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    /* Speed [0.01 m/s] */
+                    CAMdata.speedCheck = m_gps_data.fix.speed * CENTI;
+                    /* Latitude WGS84 [0,1 microdegree] */
+                    CAMdata.currPos.first = m_gps_data.fix.latitude;
+                    /* Longitude WGS84 [0,1 microdegree] */
+                    CAMdata.currPos.second = m_gps_data.fix.longitude;
+
+                    /* Heading WGS84 north [0.1 degree] - m_gps_data.fix.track should already provide a CW heading relative to North */
+                    if (static_cast<int>(m_gps_data.fix.track * DECI) < 0 ||
+                        static_cast<int>(m_gps_data.fix.track * DECI) > 3601) {
+                        CAMdata.headCheck = HeadingValue_unavailable;
+                        CAMdata.headCheckDbl = -DBL_MAX;
+                    } else {
+                        CAMdata.headCheck = static_cast<int>(m_gps_data.fix.track * DECI);
+                        CAMdata.headCheckDbl = m_gps_data.fix.track;
+                    }
+
+                    /* This flag represents an easy way to understand if it was possible to read any valid data from the GNSS device */
+                    CAMdata.avail = true;
+                }
+            } else {
+                // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
+                /* Speed [0.01 m/s] */
+                CAMdata.speedCheck = SpeedValue_unavailable;
+                /* Latitude WGS84 [0,1 microdegree] */
+                CAMdata.currPos.first = -DBL_MAX;
+                /* Longitude WGS84 [0,1 microdegree] */
+                CAMdata.currPos.second = -DBL_MAX;
+                /* Heading WGS84 north [0.1 degree] */
+                CAMdata.headCheck = HeadingValue_unavailable;
+                CAMdata.headCheckDbl = -DBL_MAX;
+                CAMdata.avail = false;
+            }
+        }
+    } else {
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
+
+                double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
+                // If no speed is available from UBX, use NMEA
+                if (speed == 0) {
+                    //speed = m_serialParserPtr->getSpeedNmea(nullptr,false);
+                }
+                if (speed >= 0 && speed <= 163.82) {
+                    CAMdata.speedCheck = speed * CENTI;
+                } else CAMdata.speedCheck = SpeedValue_unavailable;
+            } else CAMdata.speedCheck = SpeedValue_unavailable;
+
+            long pos_age = -1;
+            double longitude = -1.0;
+            double latitude = -1.0;
+            if (m_serialParserPtr->getPositionValidity(false) == true) {
+                CAMdata.currPos = m_serialParserPtr->getPosition(&pos_age, false);
+                latitude = CAMdata.currPos.first;
+                longitude = CAMdata.currPos.second;
+            }
+            else
+            {
+                CAMdata.currPos.first = -DBL_MAX;
+                CAMdata.currPos.second = -DBL_MAX;
+            }
+
+
+/*            long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+            std::cout << "[getCAMConditionsData] @ " << time << std::endl;
+            std::cout << "Position age: " << pos_age << "[us]" << std::endl;*/
+
+            // printf("BEFORE: %.2lf\n",hdd);
+            // printf("VALID? %d\n",m_serialParserPtr->getSpeedAndCogValidity(true));
+            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
+                double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
+
+                // If no heading is available from UBX, use NMEA
+                if (heading == 0) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
+
+                if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
+                    CAMdata.headCheck = HeadingValue_unavailable;
+                    CAMdata.headCheckDbl = -DBL_MAX;
+                } else
+                {
+                    CAMdata.headCheck = heading * DECI;
+                    CAMdata.headCheckDbl = heading;
+                }
+
+            } else
+            {
+                CAMdata.headCheck = HeadingValue_unavailable;
+                CAMdata.headCheckDbl = -DBL_MAX;
+            }
+
+            CAMdata.avail = true;
+
+            // compute the delta position considering the speed, heading and the pos age
+            if (CAMdata.avail == true) {
+                double delta_x = 0.0;
+                double delta_y = 0.0;
+                double gammar=0,kr=0;
+                long speed_threshold = 1500; // [cm/s]
+                long time_threshold = 20000; // [us]
+/*                std::cout << "Read latitude: " << CAMdata.currPos.first << std::endl;
+                std::cout << "Read longitude: " << CAMdata.currPos.second << std::endl;*/
+
+                if (CAMdata.speedCheck != SpeedValue_unavailable && CAMdata.headCheck != HeadingValue_unavailable
+                     && CAMdata.speedCheck >= speed_threshold && pos_age >= time_threshold) {
+                    double speed = (double) CAMdata.speedCheck / CENTI; // [m/s]
+                    double heading = CAMdata.headCheckDbl; // [degrees]
+                    heading = DEG_2_RAD_BSR_2((90-heading));
+
+                    // Compute the delta position
+                    double delta_t = pos_age / 1000000.0; // [s]
+                    delta_x = speed * delta_t * sin(heading);
+                    delta_y = speed * delta_t * cos(heading);
+                }
+
+                // Update the position
+                transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();
+                double lat1, lon1, ego_x, ego_y;
+                TransverseMercator_Forward(&tmerc, longitude, latitude, longitude, &ego_x, &ego_y, &gammar, &kr);
+                ego_x += delta_x;
+                ego_y += delta_y;
+                TransverseMercator_Reverse(&tmerc, longitude, ego_x, ego_y, &lat1, &lon1, &gammar, &kr);
+
+                CAMdata.currPos.first = lat1;
+                CAMdata.currPos.second = lon1;
+
+/*                //print all the data
+                std::cout << "Speed: " << CAMdata.speedCheck/CENTI << "[m/s]"<< std::endl;
+                std::cout << "Heading: " << CAMdata.headCheckDbl  << "[degrees]"<< std::endl;
+                std::cout << "Delta x: " << delta_x << "[m]" << std::endl;
+                std::cout << "Delta y: " << delta_y << "[m]" << std::endl;
+                std::cout << "PositionDelta: " << sqrt(delta_x*delta_x + delta_y*delta_y) << "[m]" <<  std::endl;
+                std::cout << "New Latitude: " << CAMdata.currPos.first << std::endl;
+                std::cout << "New longitude: " << CAMdata.currPos.second  << std::endl;*/
+            }
+
+        }
+        else {
+            // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
+            CAMdata.speedCheck = SpeedValue_unavailable;
+            CAMdata.currPos.first = -DBL_MAX;
+            CAMdata.currPos.second = -DBL_MAX;
+            CAMdata.headCheck = HeadingValue_unavailable;
+            CAMdata.headCheckDbl = -DBL_MAX;
             CAMdata.avail = false;
         }
     }

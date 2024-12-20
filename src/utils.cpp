@@ -18,7 +18,7 @@ uint64_t get_timestamp_us(void) {
 	uint64_t microseconds;
 	struct timespec now;
 
-	if(clock_gettime(CLOCK_REALTIME, &now) == -1) {
+	if(clock_gettime(CLOCK_MONOTONIC, &now) == -1) {
 		perror("Cannot get the current microseconds UTC timestamp");
 		return -1;
 	}
@@ -38,7 +38,7 @@ uint64_t get_timestamp_us(void) {
 uint64_t get_timestamp_ns(void) {
 	struct timespec now;
 
-	if(clock_gettime(CLOCK_REALTIME, &now) == -1) {
+	if(clock_gettime(CLOCK_MONOTONIC, &now) == -1) {
 		perror("Cannot get the current nanosecond UTC timestamp");
 		return -1;
 	}

@@ -304,7 +304,9 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
     if (m_debug_age_info_rate) m_debug_age_info.age_pos = local_age_us;
 
     if (print_timestamp_and_age == true) std::cout << "[Position] - " <<  tmp.ts_sog_cog_ubx
-                                                   << "Age of information: " << local_age_us << " us"
+                                                   << " Now: " << end
+                                                   << " TS position UBX: " << tmp.lu_pos_ubx
+                                                   << " Age of information: " << local_age_us << " us"
                                                    << std::endl << std::endl;
     if (age_us != nullptr) *age_us = local_age_us;
 

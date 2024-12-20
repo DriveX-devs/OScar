@@ -134,9 +134,10 @@ void *VehVizUpdater_callback(void *arg) {
                 break;
             }
             // Dirty workaround to 'flush' gps data TODO: remove this
-            for (int i = 0; i < 20; i++) {
-                db_ptr->updateEgoPosition();
-            }
+//            for (int i = 0; i < 20; i++) {
+//                db_ptr->updateEgoPosition();
+//            }
+            db_ptr->updateEgoPosition();
             ////////////////////////////////////////
 
 			db_ptr->executeOnAllContents(&updateVisualizer, static_cast<void *>(&vehicleVisObj));
