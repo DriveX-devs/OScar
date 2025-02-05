@@ -220,7 +220,8 @@ void CAMtxThr(std::string gnss_device,
            double head_th,
            bool rx_enabled,
            bool use_gpsd,
-           bool enable_security) {
+           bool enable_security,
+           bool force_20Hz_freq) {
     bool m_retry_flag=false;
 
     // VDP (Vehicle Data Provider) GPS Client object test
@@ -299,6 +300,11 @@ void CAMtxThr(std::string gnss_device,
             CABS.setStationProperties(vehicleID, StationType_passengerCar);
             CABS.setVDP(&vdpgpsc);
             CABS.setLDM(db_ptr);
+
+            if(force_20Hz_freq) {
+                CABS.force20HzFreq();
+            }
+
             if (log_filename_CAM != "dis" && log_filename_CAM != "") {
                 CABS.setLogfile(log_filename_CAM);
             }
@@ -610,9 +616,11 @@ int main (int argc, char *argv[]) {
 
     int debug_age_info_rate_ms=0;
 
+    bool force_20Hz_freq = false;
+
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "5.3");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "5.4");
     
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
@@ -744,6 +752,9 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<std::string> CANDeviceArg("c","can-device","Optional CAN interface: CAN device to be used (i.e., where can-utils is currently running). Default: none (CAN bus interface disabled).",false,"none","string");
         cmd.add(CANDeviceArg);
 
+        TCLAP::SwitchArg Force20HzFreq("Y","force-CAM-20Hz","Advanced options: use for testing only! Force the CAM transmission frequency to 20 Hz",false);
+        cmd.add(Force20HzFreq);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -808,6 +819,8 @@ int main (int argc, char *argv[]) {
         debug_age_info_rate_ms = ShowDebugAgeInfo.getValue();
 
         wrong_input_threshold = WrongInputTsholdArg.getValue();
+
+        force_20Hz_freq = Force20HzFreq.getValue();
 
 		if(enable_reception==false && enable_hmi==true) {
 			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
@@ -953,7 +966,8 @@ int main (int argc, char *argv[]) {
                                         head_th,
                                         enable_reception,
                                         use_gpsd,
-                                        enable_security);
+                                        enable_security,
+                                        force_20Hz_freq);
     }
     if(enable_VAM_dissemination) {
         txThreads.emplace_back(VAMtxThr,
