@@ -77,7 +77,10 @@ typedef struct vizOptions {
 void clearVisualizerObject(uint64_t id,void *vizObjVoidPtr) {
 	vehicleVisualizer *vizObjPtr = static_cast<vehicleVisualizer *>(vizObjVoidPtr);
 
-	vizObjPtr->sendObjectClean(std::to_string(id));
+    // As we are dereferencing vizObjPtr, sendObjectClean() must be executed only when the HMI is active and vizObjPtr is not a nullptr
+    if(vizObjVoidPtr!=nullptr) {
+        vizObjPtr->sendObjectClean(std::to_string(id));
+    }
 }
 
 void updateVisualizer(ldmmap::vehicleData_t vehdata,void *vizObjVoidPtr) {
@@ -187,6 +190,7 @@ void *DBcleaner_callback(void *arg) {
 
 			// ---- These operations will be performed periodically ----
 
+            // Beware! This function may be called with a nullptr as globVehVizPtr if the reception is enabled but the HMI is disabled; clearVisualizerObject() must handle this case!
 			db_ptr->deleteOlderThanAndExecute(DB_DELETE_OLDER_THAN_SECONDS*1e3,clearVisualizerObject,static_cast<void *>(globVehVizPtr));
 
 			// --------
@@ -826,6 +830,10 @@ int main (int argc, char *argv[]) {
 			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
 			return 1;
 		}
+
+        if(enable_reception==true && enable_hmi==false) {
+            std::cerr << "[WARN] Enabling reception without HMI is not recommended! However, it is possible and everything should just work." << std::endl;
+        }
 
 		std::cout << "[INFO] CAM/VAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
