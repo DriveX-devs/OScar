@@ -350,11 +350,17 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		if(m_logfile_name!="") {
 			main_af=get_timestamp_ns();
 
+            // If a pointer to a VDPGPSClient has been specified, log also the current position of the receiver
+            std::pair<double,double> latlon;
+            if(m_gpsc_ptr!=nullptr) {
+                latlon = m_gpsc_ptr->getCurrentPositionDbl();
+            }
+
 			logfprintf(m_logfile_file,std::string("FULL CAM PROCESSING (Client ") + m_client_id + std::string(")"),"StationID=%u Coordinates=%.7lf:%.7lf Heading=%.1lf InstUpdatePeriod=%.3lf"
 				" CAMTimestamp=%ld GNTimestamp=%lu CAMTimestampDiff=%ld GNTimestampDiff=%ld"
 				" ProcTimeMilliseconds=%.6lf MAC_Addr=%02X:%02X:%02X:%02X:%02X:%02X"
 				" RSSI=%.2lf "
-				" IPAddress=%s PublicIPAddress=%s\n",
+				" IPAddress=%s PublicIPAddress=%s",
 				stationID,lat,lon,
 				vehdata.heading,
 				l_inst_period,
@@ -364,6 +370,12 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 				vehdata.rssi_dBm,
 				vehdata.ipaddr.c_str(),
 				vehdata.publicipaddr.c_str());
+
+            if(m_gpsc_ptr!=nullptr) {
+                fprintf(m_logfile_file," ReceiverCoordinates=%.7lf:%.7lf\n",latlon.first,latlon.second);
+            } else {
+                fprintf(m_logfile_file,"\n");
+            }
 			
 			// fprintf(m_logfile_file,"[LOG - FULL CAM PROCESSING] StationID=%u Coordinates=%.7lf:%.7lf InstUpdatePeriod=%.3lf"
 			// 	" CAMTimestamp=%ld GNTimestamp=%lu CAMTimestampDiff=%ld GNTimestampDiff=%ld"
