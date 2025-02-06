@@ -194,6 +194,7 @@ nl_sock_info_t open_nl_socket(std::string interface_name) {
 void free_nl_socket(nl_sock_info_t nl_sock_info) {
     if(nl_sock_info.sock_valid) {
         nl_socket_free(nl_sock_info.nl_sock);
+        nl_sock_info.sock_valid=false;
     }
 }
 
