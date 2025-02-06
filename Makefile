@@ -66,9 +66,9 @@ OBJ_CC+=$(OBJ_JSON11)
 OBJ_CC+=$(OBJ_ASN1CPP)
 OBJ_CC+=$(OBJ_CESERIAL)
 
-CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial -I/usr/include/openssl
+CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial -I/usr/include/openssl -I/usr/include/libnl3
 CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include -Igeographiclib-port -I/usr/include/openssl
-LDLIBS += -lpthread -lm -lgps -latomic -lssl -lcrypto
+LDLIBS += -lpthread -lm -lgps -latomic -lssl -lcrypto -lnl-3 -lnl-genl-3
 
 .PHONY: all clean
 

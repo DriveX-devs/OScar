@@ -356,16 +356,36 @@ VDPGPSClient::getPedPosition() {
         }
         return ped_pos;
     } else {
-        // Check if at least a 2D fix is present
-        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-            if (m_serialParserPtr->getPositionValidity(false) == true && m_serialParserPtr->getAltitudeValidity(false) == true) {
-                std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
-                double altitude = m_serialParserPtr->getAltitude(nullptr, false);
-                ped_pos.lat = position.first;
-                ped_pos.lon = position.second;
-                ped_pos.alt = altitude;
-            }
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            long pos_age = -1;
+            double longitude = -1.0;
+            double latitude = -1.0;
+            double altitude = -8001.0;
+            if (m_serialParserPtr->getPositionValidity(false) == true) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
+                latitude = position.first;
+            } else latitude = (Latitude_t) Latitude_unavailable;
+
+            if (m_serialParserPtr->getPositionValidity(false) == true) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
+                longitude = position.second;
+            } else longitude = (Longitude_t) Longitude_unavailable;
+
+            if (m_serialParserPtr->getAltitudeValidity(false) == true) {
+                altitude = m_serialParserPtr->getAltitude(nullptr, false);
+            } else altitude = AltitudeValue_unavailable/100.0;
+
+            std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+            ped_pos.lat = latitude;
+            ped_pos.lon = longitude;
+            ped_pos.alt = altitude;
         }
+
         return ped_pos;
     }
 }

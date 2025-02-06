@@ -435,8 +435,10 @@ void VAMtxThr(std::string gnss_device,
     bool m_retry_flag=false;
 
     VDPGPSClient vrudp(gnss_device,gnss_port);
-    GeoNet GN;
-    btp BTP;
+
+    if(!use_gpsd) {
+        vrudp.setSerialParser(&serialParser);
+    }
 
     do {
         try {
@@ -624,7 +626,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "5.4");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "5.5");
     
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");

@@ -5,6 +5,12 @@
 #include <cfloat>
 #include <vehicleDataDef.h>
 #include <cstring>
+#include <netlink/netlink.h>
+#include <netlink/genl/genl.h>
+#include <netlink/genl/ctrl.h>
+#include <linux/nl80211.h>
+#include <iostream>
+#include <net/if.h>
 
 // Epoch time at 2004-01-01 (in ms)
 #define TIME_SHIFT_MILLI 1072915200000
@@ -146,10 +152,132 @@ int logfprintf(FILE *stream,std::string modulename,const char *format,...) {
 	return retval;
 }
 
+nl_sock_info_t open_nl_socket(std::string interface_name) {
+    nl_sock_info_t nl_sock_info;
+    nl_sock_info.nl_sock = nl_socket_alloc();
+
+    if (!nl_sock_info.nl_sock) {
+        std::cerr << "[WARN] Failed to allocate netlink socket for RSSI retrieval!" << std::endl;
+        nl_sock_info.sock_valid=false;
+        return nl_sock_info;
+    }
+
+    if (genl_connect(nl_sock_info.nl_sock)) {
+        std::cerr << "[WARN] Failed to connect to generic netlink for RSSI retrieval!" << std::endl;
+        nl_socket_free(nl_sock_info.nl_sock);
+        nl_sock_info.sock_valid=false;
+        return nl_sock_info;
+    }
+
+    nl_sock_info.nl80211_id = genl_ctrl_resolve(nl_sock_info.nl_sock,"nl80211");
+    if (nl_sock_info.nl80211_id < 0) {
+        std::cerr << "[WARN] No nl80211 interface found!" << std::endl;
+        nl_socket_free(nl_sock_info.nl_sock);
+        nl_sock_info.sock_valid=false;
+        return nl_sock_info;
+    }
+
+    nl_sock_info.ifindex=if_nametoindex(interface_name.c_str());
+    if (nl_sock_info.ifindex == 0) {
+        std::cerr << "[WARN] Cannot get ifindex for interface " << interface_name << ". No RSSI retrieval will occur." << std::endl;
+        nl_socket_free(nl_sock_info.nl_sock);
+        nl_sock_info.sock_valid=false;
+
+        return nl_sock_info;
+    }
+
+    nl_sock_info.sock_valid=true;
+
+    return nl_sock_info;
+}
+
+void free_nl_socket(nl_sock_info_t nl_sock_info) {
+    if(nl_sock_info.sock_valid) {
+        nl_socket_free(nl_sock_info.nl_sock);
+    }
+}
+
+double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info) {
+    struct nl_cb_args {
+        int signal_lv;
+        uint8_t macaddr[6];
+    } nl_cb_args;
+
+    nl_cb_args.signal_lv=RSSI_UNAVAILABLE;
+    std::copy(macaddr,macaddr+6,nl_cb_args.macaddr);
+
+    if(!nl_sock_info.sock_valid || nl_sock_info.ifindex==0) {
+        return nl_cb_args.signal_lv;
+    }
+
+    struct nl_msg *nl_msg=nlmsg_alloc();
+    if(nl_msg) {
+        genlmsg_put(nl_msg,0,0,nl_sock_info.nl80211_id,0,NLM_F_DUMP,NL80211_CMD_GET_STATION,0);
+        nla_put_u32(nl_msg,NL80211_ATTR_IFINDEX,nl_sock_info.ifindex);
+
+        nl_socket_modify_cb(nl_sock_info.nl_sock,NL_CB_VALID,NL_CB_CUSTOM,
+            [] (struct nl_msg *msg, void *arg) -> int {
+                struct nl_cb_args *nl_cb_args_ptr = static_cast<struct nl_cb_args *>(arg);
+                struct nlattr *attrs[NL80211_ATTR_MAX + 1];
+                struct genlmsghdr *gnlh = (struct genlmsghdr *) nlmsg_data(nlmsg_hdr(msg));
+
+                nla_parse(attrs,NL80211_ATTR_MAX,genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), nullptr);
+
+                if(attrs[NL80211_ATTR_MAC]) {
+                    // Skip the RSSI retrieval if the RSSI is not the one of interest, passed as "macaddr"
+                    uint8_t *rssi_mac = static_cast<uint8_t *>(nla_data(attrs[NL80211_ATTR_MAC]));
+
+                    char mac_str[18];
+                    char rssi_mac_str[18];
+                    std::snprintf(mac_str,18,"%02X:%02X:%02X:%02X:%02X:%02X",
+                                  nl_cb_args_ptr->macaddr[0],
+                                  nl_cb_args_ptr->macaddr[1],
+                                  nl_cb_args_ptr->macaddr[2],
+                                  nl_cb_args_ptr->macaddr[3],
+                                  nl_cb_args_ptr->macaddr[4],
+                                  nl_cb_args_ptr->macaddr[5]);
+
+                    std::snprintf(rssi_mac_str,18,"%02X:%02X:%02X:%02X:%02X:%02X",
+                                    rssi_mac[0],
+                                    rssi_mac[1],
+                                    rssi_mac[2],
+                                    rssi_mac[3],
+                                    rssi_mac[4],
+                                    rssi_mac[5]);
+
+                    if(std::string(rssi_mac_str)!=std::string(mac_str)) {
+                        return NL_SKIP;
+                    }
+                } else {
+                    // Skip the RSSI retrieval if the MAC address of the remote device cannot be retrieved with nl80211
+                    return NL_SKIP;
+                }
+
+                // Retrieve the signal level (RSSI)
+                if(attrs[NL80211_ATTR_STA_INFO]) {
+                    struct nlattr *sinfo[NL80211_STA_INFO_MAX + 1];
+
+                    nla_parse(sinfo,NL80211_STA_INFO_MAX,(struct nlattr *) nla_data(attrs[NL80211_ATTR_STA_INFO]),nla_len(attrs[NL80211_ATTR_STA_INFO]),nullptr);
+
+                    if(sinfo[NL80211_STA_INFO_SIGNAL]) {
+                        nl_cb_args_ptr->signal_lv = static_cast<int>(static_cast<int8_t>(nla_get_u8(sinfo[NL80211_STA_INFO_SIGNAL])));
+                    }
+                }
+                return NL_SKIP;
+            },
+            static_cast<void *>(&nl_cb_args));
+
+        nl_send_auto_complete(nl_sock_info.nl_sock, nl_msg);
+        nl_recvmsgs_default(nl_sock_info.nl_sock);
+    }
+
+    return static_cast<double>(nl_cb_args.signal_lv);
+}
+
 double get_rssi_from_iw(uint8_t macaddr[6],std::string interface_name) {
 	// ioctl() does not seem to work for some drivers, which are instead using nl80211
 	// The following code is a "quick and dirty" way of getting the RSSI, leveraging popen and calling the iw tool
-	// This part should hopefully be converted to the usage of nl80211 in the near future
+	// If you want to use nl80211, use instead the get_rssi_from_netlink() function
 	// struct iw_statistics wifistats;
 	// struct iwreq wifireq;
 	// strncpy(wifireq.ifr_name,options_string_pop(m_opts_ptr->udp_interface),IFNAMSIZ);
