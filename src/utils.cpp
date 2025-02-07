@@ -330,7 +330,7 @@ double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info) {
 
         // Receive the response from the ntlink socket using the callback handler in nl_sock, as previously set
         // As per official documentation, nl_recvmsgs_default() will call nl_recvmsgs()
-        // nl_recvmsgs()repeatedly calls nl_recv() and parses the received data as netlink messages;
+        // nl_recvmsgs() repeatedly calls nl_recv() and parses the received data as netlink messages;
         // it stops reading if one of the callbacks returns NL_STOP or nl_recv() returns either 0 or a negative error code.
         nl_recvmsgs_default(nl_sock_info.nl_sock);
     }
