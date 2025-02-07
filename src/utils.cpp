@@ -5,6 +5,12 @@
 #include <cfloat>
 #include <vehicleDataDef.h>
 #include <cstring>
+#include <netlink/netlink.h>
+#include <netlink/genl/genl.h>
+#include <netlink/genl/ctrl.h>
+#include <linux/nl80211.h>
+#include <iostream>
+#include <net/if.h>
 
 // Epoch time at 2004-01-01 (in ms)
 #define TIME_SHIFT_MILLI 1072915200000
@@ -18,7 +24,7 @@ uint64_t get_timestamp_us(void) {
 	uint64_t microseconds;
 	struct timespec now;
 
-	if(clock_gettime(CLOCK_REALTIME, &now) == -1) {
+	if(clock_gettime(CLOCK_MONOTONIC, &now) == -1) {
 		perror("Cannot get the current microseconds UTC timestamp");
 		return -1;
 	}
@@ -38,7 +44,7 @@ uint64_t get_timestamp_us(void) {
 uint64_t get_timestamp_ns(void) {
 	struct timespec now;
 
-	if(clock_gettime(CLOCK_REALTIME, &now) == -1) {
+	if(clock_gettime(CLOCK_MONOTONIC, &now) == -1) {
 		perror("Cannot get the current nanosecond UTC timestamp");
 		return -1;
 	}
@@ -146,10 +152,197 @@ int logfprintf(FILE *stream,std::string modulename,const char *format,...) {
 	return retval;
 }
 
+nl_sock_info_t open_nl_socket(std::string interface_name) {
+    nl_sock_info_t nl_sock_info;
+
+    // Allocate a new netlink socket (that should be freed up later)
+    nl_sock_info.nl_sock = nl_socket_alloc();
+
+    // If the socket allocation failed, do not perform any further step,
+    // and return a structure with a flag indicating the socket is invalid and shall not be used
+    if (!nl_sock_info.nl_sock) {
+        std::cerr << "[WARN] Failed to allocate netlink socket for RSSI retrieval!" << std::endl;
+        nl_sock_info.sock_valid=false;
+        return nl_sock_info;
+    }
+
+    // Connect to the generic netlink socket
+    // Optionally, the socket buffer size can be set with:
+    // nl_socket_set_buffer_size(nl_sock_info.nl_sock,<rx buf size>,<tx buf size>);
+    // Here, however, it is not necessary
+    if (genl_connect(nl_sock_info.nl_sock)) {
+        std::cerr << "[WARN] Failed to connect to generic netlink for RSSI retrieval!" << std::endl;
+        nl_socket_free(nl_sock_info.nl_sock);
+        nl_sock_info.sock_valid=false;
+        return nl_sock_info;
+    }
+
+    // Resolve the family name "nl80211" to the corresponding kernel ID
+    nl_sock_info.nl80211_id = genl_ctrl_resolve(nl_sock_info.nl_sock,"nl80211");
+    if (nl_sock_info.nl80211_id < 0) {
+        std::cerr << "[WARN] No nl80211 interface found!" << std::endl;
+        nl_socket_free(nl_sock_info.nl_sock);
+        nl_sock_info.sock_valid=false;
+        return nl_sock_info;
+    }
+
+    // Retrieve the interface index for the given network interface name
+    nl_sock_info.ifindex=if_nametoindex(interface_name.c_str());
+    if (nl_sock_info.ifindex == 0) {
+        std::cerr << "[WARN] Cannot get ifindex for interface " << interface_name << ". No RSSI retrieval will occur." << std::endl;
+        nl_socket_free(nl_sock_info.nl_sock);
+        nl_sock_info.sock_valid=false;
+
+        return nl_sock_info;
+    }
+
+    // If we reach this point, everything went well with the creation of the Netlink socket
+    nl_sock_info.sock_valid=true;
+
+    return nl_sock_info;
+}
+
+void free_nl_socket(nl_sock_info_t nl_sock_info) {
+    // Free the Netlink socket, if a nl_sock_info_t structure pointing to a valid socket is passed
+    if(nl_sock_info.sock_valid) {
+        nl_socket_free(nl_sock_info.nl_sock);
+        // Now the socket is no more valid and shall no more be used
+        nl_sock_info.sock_valid=false;
+    }
+}
+
+double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info) {
+    // Structure to store the Netlink callback arguments
+    struct nl_cb_args {
+        int signal_lv; // Retrieved RSSI
+        uint8_t macaddr[6]; // Target MAC address (only the RSSI of the device with this MAC will be retrieved)
+    } nl_cb_args;
+
+    // Set the default RSSI value to "RSSI_UNAVAILABLE" and the macaddr field to the one of interest, passed as first argument
+    nl_cb_args.signal_lv=RSSI_UNAVAILABLE;
+    std::copy(macaddr,macaddr+6,nl_cb_args.macaddr);
+
+    // Avoid doing any operation and leave the RSSI as "RSSI_UNAVAILABLE" if the Netlink socket passed as second argument
+    // is not valid or could not be opened
+    if(!nl_sock_info.sock_valid || nl_sock_info.ifindex==0) {
+        return nl_cb_args.signal_lv;
+    }
+
+    // Allocate a new netlink message
+    struct nl_msg *nl_msg=nlmsg_alloc();
+
+    // If allocation is not successful, leave the RSSI as "RSSI_UNAVAILABLE" and do not perform any further operation
+    // If it is successful, prepare a netlink message to request station information with genlmsg_put() and nla_put_u32()
+    if(nl_msg) {
+        // We set here:
+        // 1. Pointer to the Netlink message buffer
+        // 2.3. A port ID and sequence number that are managed automatically
+        // 4. The Netlink family ID (nl80211), as we want to retrieve information about a wireless 802.11 device
+        // 5. Length of user headers (there are no additional user headers here)
+        // 6. Additional Netlink message flags (NLM_F_DUMP is used to request a list of all devices)
+        // 7. The Netlink command: NL80211_CMD_GET_STATION gets station attributes for stations identified by
+        //    NL80211_ATTR_MAC on the interface identified by NL80211_ATTR_IFINDEX; as we use here NLM_F_DUMP,
+        //    in theory we do not need to specify a MAC and add the attribute NL80211_ATTR_MAC
+        // 8. The interface version, set here to the default value of 0
+        genlmsg_put(nl_msg,NL_AUTO_PORT,NL_AUTO_SEQ,nl_sock_info.nl80211_id,0,NLM_F_DUMP,NL80211_CMD_GET_STATION,0);
+        // Add a 32-bit integer attribute to netlink message, i.e., the ifindex of the target interface, as required by NL80211_CMD_GET_STATION
+        nla_put_u32(nl_msg,NL80211_ATTR_IFINDEX,nl_sock_info.ifindex);
+
+        // Set a custom callback handler (NL_CB_CUSTOM) to process the response from the kernel, when a valid message is received (NL_CB_VALID)
+        // Instead of defining a callback and passing the pointer to the callback as fourth argument, we define it as a lambda without any capture
+        // Pass as arguments a pointer to the nl_cb_args structure (casted to void * as required by nl_socket_modify_cb())
+        nl_socket_modify_cb(nl_sock_info.nl_sock,NL_CB_VALID,NL_CB_CUSTOM,
+            [] (struct nl_msg *msg, void *arg) -> int {
+                // Get the arguments casting again to struct nl_cb_args * from void *
+                struct nl_cb_args *nl_cb_args_ptr = static_cast<struct nl_cb_args *>(arg);
+
+                // Extract the header and attributes from the netlink message
+                struct nlattr *attrs[NL80211_ATTR_MAX + 1];
+                // nlmsg_hdr() returns the actual netlink message casted to the type of the netlink message header
+                // nlmsg_data() returns a pointer to the payload of the netlink message given the message header
+                struct genlmsghdr *gnlh = (struct genlmsghdr *) nlmsg_data(nlmsg_hdr(msg));
+                // NL80211_ATTR_MAX: highest attribute number currently defined
+                // This function Iterates over the stream of attributes received via Netlink and stores a pointer to each
+                // attribute in the index array specified as first argument (attrs) using the attribute type as index to the array
+                // genlmsg_attrdata() returns a pointer to the message attributes, while genlmsg_attrlen() returns the length of message attributes
+                // The second argument of both functions is the length of user headers, that are not present here
+                // With genlmsg_attrdata(gnlh, 0) we get therefore the head of the head of the attribute stream, and with
+                // genlmsg_attrlen(gnlh, 0) the length of the attribute stream
+                // The last argument is a possible policy for validating the attributes, that is not set here
+                // Tip about nla_parse: attributes with a type greater than the maximum type specified will be silently
+                // ignored in order to maintain backwards compatibility
+                nla_parse(attrs,NL80211_ATTR_MAX,genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), nullptr);
+
+                // Check if the MAC attribute is available; if not, no RSSI will be retrieved
+                if(attrs[NL80211_ATTR_MAC]) {
+                    // Skip the RSSI retrieval if the RSSI is not the one of interest, passed as "macaddr"
+                    uint8_t *rssi_mac = static_cast<uint8_t *>(nla_data(attrs[NL80211_ATTR_MAC]));
+
+                    char mac_str[18];
+                    char rssi_mac_str[18];
+                    // Convert the target MAC and the received MAC to strings, both with uppercase hex digits
+                    // (using uppercase hex in both MAC address is needed for the comparison)
+                    std::snprintf(mac_str,18,"%02X:%02X:%02X:%02X:%02X:%02X",
+                                  nl_cb_args_ptr->macaddr[0],
+                                  nl_cb_args_ptr->macaddr[1],
+                                  nl_cb_args_ptr->macaddr[2],
+                                  nl_cb_args_ptr->macaddr[3],
+                                  nl_cb_args_ptr->macaddr[4],
+                                  nl_cb_args_ptr->macaddr[5]);
+
+                    std::snprintf(rssi_mac_str,18,"%02X:%02X:%02X:%02X:%02X:%02X",
+                                    rssi_mac[0],
+                                    rssi_mac[1],
+                                    rssi_mac[2],
+                                    rssi_mac[3],
+                                    rssi_mac[4],
+                                    rssi_mac[5]);
+
+                    if(std::string(rssi_mac_str)!=std::string(mac_str)) {
+                        return NL_SKIP;
+                    }
+                } else {
+                    // Skip the RSSI retrieval if the MAC address of the remote device cannot be retrieved with nl80211
+                    return NL_SKIP;
+                }
+
+                // Retrieve the signal level (RSSI), checking if the station information attribute is present
+                if(attrs[NL80211_ATTR_STA_INFO]) {
+                    // Get the nested attributes using again nla_parse()
+                    // NL80211_STA_INFO_MAX: highest possible station information attribute
+                    struct nlattr *sinfo[NL80211_STA_INFO_MAX + 1];
+
+                    // Here we use nla_data to get a pointer to the actual data of the (nested) attribute stream
+                    // Since the data inside struct nlattr is stored after the attribute header, we use nla_data() to get a pointer to the actual data
+                    nla_parse(sinfo,NL80211_STA_INFO_MAX,(struct nlattr *) nla_data(attrs[NL80211_ATTR_STA_INFO]),nla_len(attrs[NL80211_ATTR_STA_INFO]),nullptr);
+
+                    if(sinfo[NL80211_STA_INFO_SIGNAL]) {
+                        // We get here some bytes that represent an 8-bit signed integer: we therefore need to convert the result of nla_get_u8() to int8_t
+                        nl_cb_args_ptr->signal_lv = static_cast<int>(static_cast<int8_t>(nla_get_u8(sinfo[NL80211_STA_INFO_SIGNAL])));
+                    }
+                }
+                return NL_SKIP;
+            },
+            static_cast<void *>(&nl_cb_args));
+
+        // Finalize and send the netlink message to the kernel
+        nl_send_auto_complete(nl_sock_info.nl_sock, nl_msg);
+
+        // Receive the response from the ntlink socket using the callback handler in nl_sock, as previously set
+        // As per official documentation, nl_recvmsgs_default() will call nl_recvmsgs()
+        // nl_recvmsgs() repeatedly calls nl_recv() and parses the received data as netlink messages;
+        // it stops reading if one of the callbacks returns NL_STOP or nl_recv() returns either 0 or a negative error code.
+        nl_recvmsgs_default(nl_sock_info.nl_sock);
+    }
+
+    // Return the RSSI value
+    return static_cast<double>(nl_cb_args.signal_lv);
+}
+
 double get_rssi_from_iw(uint8_t macaddr[6],std::string interface_name) {
 	// ioctl() does not seem to work for some drivers, which are instead using nl80211
 	// The following code is a "quick and dirty" way of getting the RSSI, leveraging popen and calling the iw tool
-	// This part should hopefully be converted to the usage of nl80211 in the near future
+	// If you want to use nl80211, use instead the get_rssi_from_netlink() function
 	// struct iw_statistics wifistats;
 	// struct iwreq wifireq;
 	// strncpy(wifireq.ifr_name,options_string_pop(m_opts_ptr->udp_interface),IFNAMSIZ);
@@ -164,6 +357,7 @@ double get_rssi_from_iw(uint8_t macaddr[6],std::string interface_name) {
 	double signal_lv;
 	char popen_iw_buff[POPEN_IW_BUFF_SIZE];
 
+    // This code requires stdbuf to be installed
 	std::string ssh_command = "stdbuf -o L iw dev " + interface_name + " station dump | stdbuf -o L grep -E \"signal:|Station\" | tr -d '\t' | tr -s ' '";
 		FILE *ssh = popen(ssh_command.c_str(),"r");
 

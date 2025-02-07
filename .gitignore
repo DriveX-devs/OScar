@@ -10,3 +10,6 @@ nohup.out
 
 # "testing" test log file
 log_3000
+
+# Python venv
+venv

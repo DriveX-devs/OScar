@@ -42,6 +42,9 @@ public:
   void setVDP(VDPGPSClient* vdp) {m_vdp=vdp;}
   void setLDM(ldmmap::LDMMap* LDM) {m_LDM=LDM;}
 
+  void force20HzFreq() {m_force_20Hz_freq=true;}
+  void disable20HzFreq() {m_force_20Hz_freq=false;}
+
   // A BTP object must always be associated with the CA Basic service
   void setBTP(btp *btp){m_btp = btp;}
 
@@ -130,6 +133,8 @@ private:
   // Extra information which can be optionally disseminated through Enhanced CAMs
   std::string m_own_private_IP;
   std::string m_own_public_IP;
+
+  bool m_force_20Hz_freq=false;
 };
 
 #endif // CABASICSERVICE_H

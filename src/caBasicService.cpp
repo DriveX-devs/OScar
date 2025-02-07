@@ -76,6 +76,8 @@ CABasicService::CABasicService()
 
   m_own_private_IP="0.0.0.0";
   m_own_public_IP="0.0.0.0";
+
+  m_force_20Hz_freq=false;
 }
 
 // This function contains the code for generating a new CAM with all the standard containers
@@ -288,11 +290,20 @@ CABasicService::checkCamConditions()
   struct pollfd pollfddata;
   int clockFd;
 
-  // The last argument of timer_fd_create should be in microseconds
-  if(timer_fd_create(pollfddata, clockFd, m_T_CheckCamGen_ms*1e3)<0) {
-    std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
-    terminateDissemination();
-    return;
+  if(!m_force_20Hz_freq) {
+      // The last argument of timer_fd_create should be in microseconds
+      if (timer_fd_create(pollfddata, clockFd, m_T_CheckCamGen_ms * 1e3) < 0) {
+          std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
+          terminateDissemination();
+          return;
+      }
+  } else {
+      // Force 20 Hz CAM transmission
+      if (timer_fd_create(pollfddata, clockFd, 50 * 1e3) < 0) {
+          std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
+          terminateDissemination();
+          return;
+      }
   }
 
   POLL_DEFINE_JUNK_VARIABLE();
@@ -344,10 +355,15 @@ CABasicService::checkCamConditions()
       }
 
       // Retrieve the motion parameters from GNSS
-      long int headCheck=m_vdp->getHeadingValue().getValue();
+/*      long int headCheck=m_vdp->getHeadingValue().getValue();
       double headCheckDbl=(float)m_vdp->getHeadingValueDbl();
       currPos = m_vdp->getCurrentPositionDbl();
-      long int speedCheck=m_vdp->getSpeedValue().getValue();
+      long int speedCheck=m_vdp->getSpeedValue().getValue();*/
+        auto cam_conditions = m_vdp->getCAMConditionsData();
+        long int headCheck = cam_conditions.headCheck;
+        double headCheckDbl = cam_conditions.headCheckDbl;
+        currPos = cam_conditions.currPos;
+        long int speedCheck = cam_conditions.speedCheck;
 
       // Retrieve parser logging data
         if (m_vdp->getSerialParser() == true) {
@@ -379,6 +395,20 @@ CABasicService::checkCamConditions()
          * One of the following ITS-S dynamics related conditions is given:
         */
 
+      if(m_force_20Hz_freq) {
+          cam_error=generateAndEncodeCam();
+          if(cam_error==CAM_NO_ERROR)
+          {
+              m_N_GenCam=0;
+              condition_verified=true;
+              dyn_cond_verified=true;
+
+          } else {
+              std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+          }
+
+          goto goto_print;
+      }
       /* 1a)
        * The absolute difference between the current heading of the originating
        * ITS-S and the heading included in the CAM previously transmitted by the
@@ -546,6 +576,8 @@ CABasicService::checkCamConditions()
         }
       }
 
+      goto_print:
+
       // If the print on log file is enabled
       if(m_log_filename!="dis" && m_log_filename!="") {
         // If the log file has not been set to append mode, then set it to append mode
@@ -568,53 +600,61 @@ CABasicService::checkCamConditions()
         motivation="";
 
         // Check the motivation of the CAM sent
-        if (!condition_verified) {
-          motivation="none";
+        if(!m_force_20Hz_freq) {
+            if (!condition_verified) {
+                motivation = "none";
+            } else {
+                data = "[CAM] CAM sent\n";
+                sent = "true";
+
+                if (head_diff > 4.0 || head_diff < -4.0) {
+                    motivation = "heading";
+                    joint = joint + "H";
+                    numConditions++;
+                }
+
+                if ((pos_diff > 4.0 || pos_diff < -4.0)) {
+                    motivation = "position";
+                    joint = joint + "P";
+                    numConditions++;
+                }
+
+                if (speed_diff > 0.5 || speed_diff < -0.5) {
+                    motivation = "speed";
+                    joint = joint + "S";
+                    numConditions++;
+                }
+
+                if (abs(time_difference - m_T_GenCam_ms) <= 10 || (m_T_GenCam_ms - time_difference) <= 0) {
+                    motivation = "time";
+                    joint = joint + "T";
+                    numConditions++;
+                }
+
+                // When joint with a single other motivation, the joint motivation should not be considered
+                if (numConditions > 1) {
+                    motivation = "joint(" + joint + ")";
+                    if (joint == "HT") {
+                        motivation = "heading";
+                    }
+                    if (joint == "PT") {
+                        motivation = "position";
+                    }
+                    if (joint == "ST") {
+                        motivation = "speed";
+                    }
+                }
+
+                if (condition_verified && motivation.empty()) {
+                    motivation = "numPkt";
+                }
+            }
         } else {
-          data="[CAM] CAM sent\n";
-          sent="true";
+            data = "[CAM] CAM sent\n";
+            sent = "true";
 
-          if(head_diff > 4.0 || head_diff < -4.0) {
-            motivation="heading";
-            joint=joint+"H";
+            motivation = "20Hz_forced";
             numConditions++;
-          }
-
-          if((pos_diff > 4.0 || pos_diff < -4.0)) {
-            motivation="position";
-            joint=joint+"P";
-            numConditions++;
-          }
-
-          if(speed_diff > 0.5 || speed_diff < -0.5) {
-            motivation="speed";
-            joint=joint+"S";
-            numConditions++;
-          }
-
-          if(abs(time_difference - m_T_GenCam_ms) <= 10 || (m_T_GenCam_ms - time_difference) <= 0 ) {
-            motivation="time";
-            joint=joint+"T";
-            numConditions++;
-          }
-
-          // When joint with a single other motivation, the joint motivation should not be considered
-          if(numConditions>1) {
-            motivation="joint("+joint+")";
-            if(joint=="HT") {
-              motivation="heading";
-            }
-            if(joint=="PT") {
-              motivation="position";
-            }
-            if(joint=="ST") {
-              motivation="speed";
-            }
-          }
-
-          if(condition_verified && motivation.empty()) {
-            motivation="numPkt";
-          }
         }
 
         // Create the data for the log print

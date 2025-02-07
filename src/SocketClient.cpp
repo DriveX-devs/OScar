@@ -141,6 +141,9 @@ SocketClient::startReception(void) {
 			m_unlock_pd_rd=m_unlock_pd[0];
 			m_unlock_pd_wr=m_unlock_pd[1];
 		}
+
+        // Create nl80211 socket for RSSI retrieval
+        m_nl_sock_info = open_nl_socket(m_opts_ptr->dissemination_device);
 		
 		std::thread runningRxThr(&SocketClient::rxThr,this);
 		// if(m_opts_ptr->rssi_aux_update_interval_msec>0) {
@@ -149,6 +152,8 @@ SocketClient::startReception(void) {
 		// }
 
 		runningRxThr.join();
+
+        free_nl_socket(m_nl_sock_info);
 	}
 }
 
@@ -304,7 +309,13 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 		// Retrieve, if available, the information on the RSSI for the vehicle corresponding to the MAC address of the sender
 		// This is the RSSI on the CAM dissemination interface
-		vehdata.rssi_dBm=get_rssi_from_iw(vehdata.macaddr,std::string(m_opts_ptr->dissemination_device));
+        // Uncomment this to retrieve the RSSI via iw, instead of using nl80211 (requires iw to be available in the system)
+		// vehdata.rssi_dBm=get_rssi_from_iw(vehdata.macaddr,std::string(m_opts_ptr->dissemination_device));
+        if(m_nl_sock_info.sock_valid==true) {
+            vehdata.rssi_dBm = get_rssi_from_netlink(vehdata.macaddr, m_nl_sock_info);
+        } else {
+            vehdata.rssi_dBm = RSSI_UNAVAILABLE;
+        }
 
 		if(decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleWidth != VehicleWidth_unavailable) {
 			vehdata.vehicleWidth = ldmmap::OptionalDataItem<long>(decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.vehicleWidth*100);
@@ -350,11 +361,17 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		if(m_logfile_name!="") {
 			main_af=get_timestamp_ns();
 
+            // If a pointer to a VDPGPSClient has been specified, log also the current position of the receiver
+            std::pair<double,double> latlon;
+            if(m_gpsc_ptr!=nullptr) {
+                latlon = m_gpsc_ptr->getCurrentPositionDbl();
+            }
+
 			logfprintf(m_logfile_file,std::string("FULL CAM PROCESSING (Client ") + m_client_id + std::string(")"),"StationID=%u Coordinates=%.7lf:%.7lf Heading=%.1lf InstUpdatePeriod=%.3lf"
 				" CAMTimestamp=%ld GNTimestamp=%lu CAMTimestampDiff=%ld GNTimestampDiff=%ld"
 				" ProcTimeMilliseconds=%.6lf MAC_Addr=%02X:%02X:%02X:%02X:%02X:%02X"
 				" RSSI=%.2lf "
-				" IPAddress=%s PublicIPAddress=%s\n",
+				" IPAddress=%s PublicIPAddress=%s",
 				stationID,lat,lon,
 				vehdata.heading,
 				l_inst_period,
@@ -364,6 +381,12 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 				vehdata.rssi_dBm,
 				vehdata.ipaddr.c_str(),
 				vehdata.publicipaddr.c_str());
+
+            if(m_gpsc_ptr!=nullptr) {
+                fprintf(m_logfile_file," ReceiverCoordinates=%.7lf:%.7lf\n",latlon.first,latlon.second);
+            } else {
+                fprintf(m_logfile_file,"\n");
+            }
 			
 			// fprintf(m_logfile_file,"[LOG - FULL CAM PROCESSING] StationID=%u Coordinates=%.7lf:%.7lf InstUpdatePeriod=%.3lf"
 			// 	" CAMTimestamp=%ld GNTimestamp=%lu CAMTimestampDiff=%ld GNTimestampDiff=%ld"
@@ -398,7 +421,12 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 			// // Use the MAC address to get the signal level through iw
 			// // A return value of RSSI_UNAVAILABLE (-80000) means that no RSSI value could be retrieved at present time
-			double rssi = get_rssi_from_iw(sender_mac,std::string(m_opts_ptr->dissemination_device));
+            // Uncomment this to retrieve the RSSI via iw, instead of using nl80211 (requires iw to be available in the system)
+            // double rssi = get_rssi_from_iw(sender_mac,std::string(m_opts_ptr->dissemination_device));
+            double rssi = RSSI_UNAVAILABLE;
+            if(m_nl_sock_info.sock_valid==true) {
+                rssi = get_rssi_from_netlink(sender_mac, m_nl_sock_info);
+            }
 
 			if(m_logfile_name!="") {
 				fprintf(m_logfile_file,"[DENM] Current_timestamp=%" PRIu64 " StationID=%ld RSSI_dbm=%.1lf GN_ts=%" PRIu32 " Ref_lat=%.7lf Ref_lon=%-7lf Sender_MAC=%02X:%02X:%02X:%02X:%02X:%02X",
@@ -501,8 +529,14 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		memcpy(vehdata.macaddr,&(decodedData.GNaddress[0])+2,6); // Save the vehicle MAC address into the database (the MAC address is stored in the last 6 Bytes of the GN Address)
 		
 		// Retrieve, if available, the information on the RSSI for the vehicle corresponding to the MAC address of the sender
-		// This is the RSSI on the CAM dissemination interface
-		vehdata.rssi_dBm=get_rssi_from_iw(vehdata.macaddr,std::string(m_opts_ptr->dissemination_device.c_str()));
+		// This is the RSSI on the VAM dissemination interface
+        // Uncomment this to retrieve the RSSI via iw, instead of using nl80211 (requires iw to be available in the system)
+        // vehdata.rssi_dBm=get_rssi_from_iw(vehdata.macaddr,std::string(m_opts_ptr->dissemination_device.c_str()));
+        if(m_nl_sock_info.sock_valid==true) {
+            vehdata.rssi_dBm = get_rssi_from_netlink(vehdata.macaddr, m_nl_sock_info);
+        } else {
+            vehdata.rssi_dBm = RSSI_UNAVAILABLE;
+        }
 		
 		vehdata.vehicleWidth = ldmmap::OptionalDataItem<long>(false);
 		vehdata.vehicleLength = ldmmap::OptionalDataItem<long>(false);
@@ -693,8 +727,14 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
                     memcpy(PO_data.macaddr,&(decodedData.GNaddress[0])+2,6); // Save the vehicle MAC address into the database (the MAC address is stored in the last 6 Bytes of the GN Address)
 
                     // Retrieve, if available, the information on the RSSI for the vehicle corresponding to the MAC address of the sender
-                    // This is the RSSI on the CAM dissemination interface
-                    PO_data.rssi_dBm=get_rssi_from_iw(PO_data.macaddr,std::string(m_opts_ptr->dissemination_device.c_str()));
+                    // This is the RSSI on the CPM dissemination interface
+                    // Uncomment this to retrieve the RSSI via iw, instead of using nl80211 (requires iw to be available in the system)
+                    // PO_data.rssi_dBm=get_rssi_from_iw(PO_data.macaddr,std::string(m_opts_ptr->dissemination_device.c_str()));
+                    if(m_nl_sock_info.sock_valid==true) {
+                        PO_data.rssi_dBm = get_rssi_from_netlink(PO_data.macaddr, m_nl_sock_info);
+                    } else {
+                        PO_data.rssi_dBm = RSSI_UNAVAILABLE;
+                    }
 
                     if(m_logfile_name!="") {
                         ldmmap::LDMMap::returnedVehicleData_t retveh;
