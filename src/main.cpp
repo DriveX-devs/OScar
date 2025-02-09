@@ -980,7 +980,7 @@ int main (int argc, char *argv[]) {
                                         force_20Hz_freq);
     }
     if(enable_VAM_dissemination) {
-        /*txThreads.emplace_back(VAMtxThr,
+        txThreads.emplace_back(VAMtxThr,
                                         gnss_device,
                                         gnss_port,
                                         sockfd,
@@ -995,7 +995,7 @@ int main (int argc, char *argv[]) {
                                         pos_th,
                                         speed_th,
                                         head_th,
-                                        use_gpsd);*/
+                                        use_gpsd);
     }
     if(enable_CPM_dissemination) {
         txThreads.emplace_back(CPMtxThr,

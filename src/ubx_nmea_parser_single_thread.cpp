@@ -1222,7 +1222,8 @@ UBXNMEAParserSingleThread::getSpeedAndCogValidity(bool print_error) {
         std::cerr << "Error: Outdated NMEA speed/course over ground value (age > threshold)!" << std::endl;
         return false;
     }
-    return m_sog_cog_nmea_valid;
+    if (m_sog_cog_ubx_valid == false) return m_sog_cog_nmea_valid;
+    else return m_sog_cog_ubx_valid;
 }
 
 bool
@@ -1346,47 +1347,6 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     out_pvt.alt = static_cast<double>(hexToSigned(alt)) * 0.001; // Convert from mm to m
     out_pvt.alt_ubx = out_pvt.alt;
 
-    /*
-     * todo: revisit later this part (caused a bug on cog_ubx and sog_ubx)
-     *
-     *
-    std::vector<uint8_t> utc_time(response.begin() + m_UBX_PAYLOAD_OFFSET + 4, response.begin() + m_UBX_PAYLOAD_OFFSET + 12);
-    std::ostringstream out;
-
-    // Check date and time validity
-    if (utc_time[7] != 0x3F)  {
-        strcpy(out_pvt.ts_utc_time_ubx,"Invalid UTC Date/Time [UBX-NAV-PVT]");
-        return;
-    }
-    utc_time.pop_back();
-
-    // Year parsing
-    std::vector<uint8_t> year(utc_time.begin(),utc_time.begin() + 2);
-    std::reverse(year.begin(),year.end());
-
-    // Month, Day, Hour, Minutes, Seconds parsing
-    uint8_t month = utc_time[2];
-    uint8_t day = utc_time[3];
-    uint8_t hour = utc_time[4];
-    uint8_t min = utc_time[5];
-    uint8_t sec = utc_time[6];
-
-    out << hexToSignedValue(day)   << "/"
-        << hexToSignedValue(month) << "/"
-        << hexToSigned(year) 	     << "  "
-        << hexToSignedValue(hour)  << ":"
-        << hexToSignedValue(min)   << ":"
-        << hexToSignedValue(sec)   << "\n";
-
-    strcpy(out_pvt.ts_utc_time_ubx,out.str().data());
-
-    // Produces and prints to struct the current date-time timestamp
-	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-	strcpy(out_pvt.ts_sog_cog_ubx,std::ctime(&now));
-	strcpy(out_pvt.ts_pos_ubx,std::ctime(&now));
-	strcpy(out_pvt.ts_nmea_ubx,std::ctime(&now));
-    */
-
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
@@ -1408,12 +1368,11 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     out_pvt.lu_alt = update.time_since_epoch().count();
     out_pvt.lu_alt_ubx = out_pvt.lu_alt;
 
-    // Updates the buffer
-    m_outBuffer.store(out_pvt);
-
     // Validates data
     m_sog_cog_ubx_valid = true;
 
+    // Updates the buffer
+    m_outBuffer.store(out_pvt);
 }
 
 /** Follows the same approach adopted in parseNmeaGns() by scanning the sentence counting
@@ -1440,7 +1399,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     std::string sog = fields[7];
     std::string cog = fields[8];
 
-    // Check if speed and heading are negative and parses accondingly using stod
+    // Check if speed and heading are negative and parses accordingly using stod
     if (cog.empty() == false) {
         if (cog[0] == '-') {
             cog = cog.erase(0,1);
