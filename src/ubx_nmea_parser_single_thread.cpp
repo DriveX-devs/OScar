@@ -1418,16 +1418,18 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 
 /** Follows the same approach adopted in parseNmeaGns() by scanning the sentence counting
  *  the commas encountered in order to retrieve the speed and the course over ground values
- *  along with the fix mode. */
+ *  Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
+	                            ^fix validity                sog^   cog^     fix mode^
+
+*  along with the fix mode. */
 void
 UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
-	/* Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
-	                            ^fix validity                sog^   cog^     fix mode^         */
+
+    out_t out_nmea = m_outBuffer.load();
+
     std::vector<std::string> fields;
     std::stringstream ss(nmea_response);
     std::string field;
-
-    out_t out_nmea = m_outBuffer.load();
 
     while (std::getline(ss, field, ',')) {
         fields.push_back(field);
@@ -1464,12 +1466,6 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         }
     }
     else out_nmea.sog_nmea = 16383; // SpeedValue_unavailable
-
-    /*
-    //remove this for field testing
-    fix_validity = 'A';
-    fix = 'R';
-    */
 
     // Fix Validity Check
     // Possible status values: V = data invalid, A = data valid
