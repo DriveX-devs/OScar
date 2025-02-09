@@ -363,6 +363,10 @@ CABasicService::checkCamConditions()
         long int headCheck = cam_conditions.headCheck;
         double headCheckDbl = cam_conditions.headCheckDbl;
         currPos = cam_conditions.currPos;
+
+        //TODO: remove this (debug)
+        std::cout << currPos.first << " - " << currPos.second << std::endl;
+
         long int speedCheck = cam_conditions.speedCheck;
 
       // Retrieve parser logging data

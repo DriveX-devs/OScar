@@ -1152,7 +1152,8 @@ UBXNMEAParserSingleThread::getFixValidity2D(bool print_error) {
     if (m_2d_valid_fix == false && print_error == true) {
         std::cerr << "No 2D Fix!" << std::endl;
         return false;
-    } else return m_2d_valid_fix;
+    }
+    else return m_2d_valid_fix;
 }
 
 bool
