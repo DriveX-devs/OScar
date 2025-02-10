@@ -1371,6 +1371,8 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 
     // Validates data
     m_sog_cog_ubx_valid = true;
+    m_pos_valid = true;
+    m_alt_valid = true;
 
     // Updates the buffer
     m_outBuffer.store(out_pvt);
