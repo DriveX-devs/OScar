@@ -253,7 +253,8 @@ UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) 
 }
 
 std::string
-UBXNMEAParserSingleThread::getUtcTimeUbx() {
+UBXNMEAParserSingleThread::
+getUtcTimeUbx() {
     if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return std::string("Error!");

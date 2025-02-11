@@ -696,10 +696,9 @@ VDPGPSClient::getCurrentPositionDbl() {
                 }
             }
         }
-    } else if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-        if (m_serialParserPtr->getPositionValidity(false) == true) {
-            return m_serialParserPtr->getPosition(nullptr, false);
-        }
+    }
+    else if (m_serialParserPtr->getPositionValidity(false) == true) {
+        return m_serialParserPtr->getPosition(nullptr, false);
     }
     return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
 }
