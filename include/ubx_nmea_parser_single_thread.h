@@ -74,18 +74,20 @@ class UBXNMEAParserSingleThread {
     private:
         /* Buffer structure to be printed to the user */
         typedef struct Output {
+            // Human-readable date strings that contain the timestamp (epoch time) of the last updates for teach information
+            // Currently, the dates are used just for printing when the "print_error" flag is set to true; they are not used for any other purpose (for the time being)
             char ts_pos[100],
                     ts_pos_ubx[100],
                     ts_pos_nmea[100],
-                    ts_utc_time_ubx[100],
-                    ts_utc_time_nmea[100],
+                    ts_utc_time_ubx[100], // Timestamp of the GNSS time
+                    ts_utc_time_nmea[100], // Timestamp of the GNSS time
                     ts_acc[100],
-                    ts_att[100],
+                    ts_att[100], // Attitude
                     ts_alt[100],
-                    ts_comp_acc[100],
-                    ts_comp_ang_rate[100],
-                    ts_sog_cog_ubx[100],
-                    ts_sog_cog_nmea[100];					// Timestamps
+                    ts_comp_acc[100], // Compensated acceleration (without "g")
+                    ts_comp_ang_rate[100], // Compensated angular rate over the z-axis
+                    ts_sog_cog_ubx[100], // Speed Over Ground (SOG), Course Over Ground (COG) - UBX
+                    ts_sog_cog_nmea[100]; // Speed Over Ground (SOG), Course Over Ground (COG) - NMEA
             char fix_ubx[100],
                     fix_nmea[100];
             double lat, lon, alt,

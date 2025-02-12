@@ -36,24 +36,26 @@ UBXNMEAParserSingleThread::printNmeaSentence(std::string s) {
 	if (!s.empty()) {
 		for (long unsigned int i = 0; i < s.size(); i++) {
 			if (isprint(s[i])) std::cout << s[i];
-			// comment the line below to exclude non-printable characters from the sentence
-			//else printf(" (%d) ", s[i]);
 		}
 		std::cout << std::endl;
-	} else std::cout << "The nmea sentence is empty." << std::endl;
+	} else {
+        std::cout << "The nmea sentence is empty." << std::endl;
+    }
 }
 
 /* Converts latitude and longitude from NMEA format to single values in degrees */
 double
 UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
-    //concatenate int part and dec part
+    // Concatenate int part and dec part
     int degrees = floor(value/100);
     double minutes = value - (degrees*100);
     value = degrees + minutes/60;
 
+    // Value is positive when the quadrant is 'N' or 'E'
     if(quadrant=='W' || quadrant=='S') {
         value = -value;
     }
+
     return value;
 }
 
@@ -68,6 +70,7 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
  *
  *  NOTE: This works only for 3 and 4-dimensioned arrays but it can be extended using
  *  a uint64_t return variable. */
+// TODO: better comment why this function works like this
 int32_t
 UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
     int32_t value = 0;
@@ -79,8 +82,7 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
             return -static_cast<int32_t>(value);
         }
         return value;
-    }
-    else if (data.size() == 3) {
+    } else if (data.size() == 3) {
         value |= (data[0] << 16);
         value |= (data[1] << 8);
         value |= data[2];
@@ -89,8 +91,7 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
             return -static_cast<int32_t>(value);
         }
         return value;
-    }
-    else if (data.size() == 4) {
+    } else if (data.size() == 4) {
         value |= (data[0] << 24);
         value |= (data[1] << 16);
         value |= (data[2] << 8);
@@ -100,29 +101,18 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
             return -static_cast<int32_t>(value);
         }
         return value;
-    }
-    else {
-        std::cerr << "Fatal Error: Invalid std::vector data size. Check ESF-RAW/NAV-ATT. Terminating. ";
+    } else {
+        std::cerr << "Fatal Error: Invalid std::vector data size. Check UBX-ESF-RAW/UBX-NAV-ATT. Terminating. ";
         //*m_terminatorFlagPtr = true; // Breaks the endless loop and terminates the program
         return -1;
     }
 }
 
-long
-UBXNMEAParserSingleThread::hexToSignedValue(uint8_t value) {
-    if (value >= 0xFF) {
-        std::cerr << "Fatal Error: Value too big. Try converting a vector. Terminating.";
-        *m_terminatorFlagPtr = true; // Breaks the endless loop and terminates the program
-        return -1;
-    }
-    long signMask = 1 << 7;
-    long complementMask = signMask - 1;
-    return -((long)value & signMask) | ((long)value & complementMask);
-}
-
 void
 UBXNMEAParserSingleThread::clearBuffer() {
 	out_t tmp;
+
+    // Human-readable dates (epoch time of last update)
 	strcpy(tmp.ts_pos,"");
     strcpy(tmp.ts_pos_ubx,"");
     strcpy(tmp.ts_pos_nmea,"");
@@ -137,6 +127,8 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	strcpy(tmp.ts_sog_cog_nmea,"");
 	strcpy(tmp.fix_ubx,"");
 	strcpy(tmp.fix_nmea,"");
+
+    // Raw and compensated accelerations + angular speeds (deg/s)
 	tmp.raw_acc_x = 0;
 	tmp.raw_acc_y = 0;
 	tmp.raw_acc_z = 0;
@@ -146,15 +138,22 @@ UBXNMEAParserSingleThread::clearBuffer() {
     tmp.comp_ang_rate_x = 0;
     tmp.comp_ang_rate_y = 0;
     tmp.comp_ang_rate_z = 0;
+
+    // Latitude, longitude and altitude
+    // TODO: better comment the division between _ubx and _nmea
+    // "lat" contains the latest update between lat_ubx and lat_nmea
 	tmp.lat = 0;
     tmp.lat_ubx = 0;
     tmp.lat_nmea = 0;
+    // "lon" contains the latest update between lon_ubx and lon_nmea
 	tmp.lon = 0;
     tmp.lon_ubx = 0;
     tmp.lon_nmea = 0;
+    // "alt" contains the latest update between alt_ubx and alt_nmea
 	tmp.alt = 0;
     tmp.alt_ubx = 0;
     tmp.alt_nmea = 0;
+
 	tmp.roll = 0;
 	tmp.pitch = 0;
 	tmp.heading = 0;
