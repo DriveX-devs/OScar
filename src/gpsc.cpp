@@ -165,7 +165,7 @@ VDPGPSClient::getHeadingValue() {
         }
     } else {
         // Check if at least a 2D fix is present and if the data is not outdated, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
+        // if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
                 double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
                 if (heading == HeadingValue_unavailable) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
@@ -174,7 +174,7 @@ VDPGPSClient::getHeadingValue() {
                     return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
                 } else return VDPValueConfidence<>(static_cast<int>(heading * DECI), HeadingConfidence_unavailable);
             }
-        }
+        // }
     }
     return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
 }
@@ -609,7 +609,7 @@ VDPGPSClient::getHeadingValueDbl() {
             }
         }
     } else {
-        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
+        // if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
                 double heading_dbl = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
                 if (heading_dbl == HeadingValue_unavailable) heading_dbl = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
@@ -621,7 +621,7 @@ VDPGPSClient::getHeadingValueDbl() {
                     return heading_dbl;
                 }
             }
-        }
+        // }
     }
     return HeadingValue_unavailable;
 }
@@ -643,13 +643,13 @@ VDPGPSClient::getSpeedValueDbl() {
             }
         }
     } else {
-        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
+        //if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
             if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
                 double speed_dbl = m_serialParserPtr->getSpeedUbx(nullptr, false);
                 if (speed_dbl == SpeedValue_unavailable) speed_dbl = m_serialParserPtr->getSpeedNmea(nullptr, false);
                 return speed_dbl;
             }
-        }
+        //}
     }
     return SpeedValue_unavailable;
 }
@@ -696,10 +696,9 @@ VDPGPSClient::getCurrentPositionDbl() {
                 }
             }
         }
-    } else if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-        if (m_serialParserPtr->getPositionValidity(false) == true) {
-            return m_serialParserPtr->getPosition(nullptr, false);
-        }
+    }
+    else if (m_serialParserPtr->getPositionValidity(false) == true) {
+        return m_serialParserPtr->getPosition(nullptr, false);
     }
     return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
 }

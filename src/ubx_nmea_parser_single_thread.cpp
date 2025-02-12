@@ -16,6 +16,7 @@
 #include <utility>
 #include <chrono>
 #include <algorithm>
+#include <iomanip>
 #include <unistd.h>
 
 using namespace std::chrono;
@@ -252,7 +253,8 @@ UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) 
 }
 
 std::string
-UBXNMEAParserSingleThread::getUtcTimeUbx() {
+UBXNMEAParserSingleThread::
+getUtcTimeUbx() {
     if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return std::string("Error!");
@@ -1151,7 +1153,8 @@ UBXNMEAParserSingleThread::getFixValidity2D(bool print_error) {
     if (m_2d_valid_fix == false && print_error == true) {
         std::cerr << "No 2D Fix!" << std::endl;
         return false;
-    } else return m_2d_valid_fix;
+    }
+    else return m_2d_valid_fix;
 }
 
 bool
@@ -1221,7 +1224,8 @@ UBXNMEAParserSingleThread::getSpeedAndCogValidity(bool print_error) {
         std::cerr << "Error: Outdated NMEA speed/course over ground value (age > threshold)!" << std::endl;
         return false;
     }
-    return m_sog_cog_nmea_valid;
+    if (m_sog_cog_ubx_valid == false) return m_sog_cog_nmea_valid;
+    else return m_sog_cog_ubx_valid;
 }
 
 bool
@@ -1244,42 +1248,60 @@ UBXNMEAParserSingleThread::getDebugAgeInfo() {
     return m_debug_age_info_rate;
 }
 
-void
-UBXNMEAParserSingleThread::showDebugAgeInfo() {
+void UBXNMEAParserSingleThread::showDebugAgeInfo() {
+    int line_counter = 0;
+
     if (!m_debug_age_info_rate) {
         std::cerr << "Error: age of information debug option disabled!" << '\n';
         return;
-    } else {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        std::cout << "\033[?25l";  // Hide the cursor
-        std::cout << "\nAge of information debug info (microseconds - us)\n";
-
-        while (!m_terminatorFlagPtr->load()) {
-            std::cout << "\rPosition:                " << m_debug_age_info.age_pos << "                    " << std::flush;
-            std::cout << "\nPosition(UBX):           " << m_debug_age_info.age_pos_ubx << "                    " << std::flush;
-            std::cout << "\nPosition(NMEA):          " << m_debug_age_info.age_pos_nmea << "                    " << std::flush;
-            std::cout << '\n';
-            std::cout << "\nSpeed and Heading:       " << m_debug_age_info.age_sog_cog << "                    " << std::flush;
-            std::cout << "\nSpeed and Heading(UBX):  " << m_debug_age_info.age_sog_cog_ubx << "                    " << std::flush;
-            std::cout << "\nSpeed and Heading(NMEA): " << m_debug_age_info.age_sog_cog_nmea << "                    " << std::flush;
-            std::cout << '\n';
-            std::cout << "\nAccelerations:           " << m_debug_age_info.age_comp_acc << "                    " << std::flush;
-            std::cout << "\nRaw Accelerations:       " << m_debug_age_info.age_acc << "                    " << std::flush;
-            std::cout << '\n';
-            std::cout << "\nRoll Pitch Yaw:          " << m_debug_age_info.age_att << "                    " << std::flush;
-            std::cout << "\nYaw rate:                " << m_debug_age_info.age_comp_ang_rate << "                    "<< std::flush;
-            std::cout << '\n';
-            std::cout << "\nAltitude:                " << m_debug_age_info.age_alt << "                    " << std::flush;
-            std::cout << "\nAltitude(UBX):           " << m_debug_age_info.age_alt_ubx << "                    " << std::flush;
-            std::cout << "\nAltitude(NMEA):          " << m_debug_age_info.age_alt_nmea << "                    " << std::flush;
-            std::cout << "\033[16F";
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(m_debug_age_info_rate));
-        }
-        std::cout << "\033[17B"; // After the loop, move the cursor to the end (17 lines down)
-        std::cout << "\033[?25h";  // Re-enable the cursor
-        std::cout << "\n\n";
     }
+
+    std::cout << "\033[?25l";  // Hide the cursor
+
+    // Wait for OScar to be fully running
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+
+    while (!m_terminatorFlagPtr->load()) { // Replace with a suitable termination condition
+        out_t buf = m_outBuffer.load();
+
+        // Clear previous output by moving up by the current line count
+        for (int i = 0; i < line_counter; ++i) {
+            std::cout << "\033[F\033[2K"; // Move up and clear line
+        }
+
+        std::cout << "\nDebug Information\n\n";
+        line_counter = 3;
+
+        std::cout << std::fixed << std::setprecision(12);
+        std::cout << "Lat-Lon:                " << buf.lat << " | " << buf.lon << "\tAge[us]: " << m_debug_age_info.age_pos << '\n';
+        std::cout << "Lat-Lon(UBX):           " << buf.lat_ubx << " | " << buf.lon_ubx << "\tAge[us]: " << m_debug_age_info.age_pos << '\n';
+        std::cout << "Lat-Lon(NMEA):          " << buf.lat_nmea << " | " << buf.lon_nmea << "\tAge[us]: " << m_debug_age_info.age_pos << '\n' << '\n';
+        line_counter += 4;
+
+        std::cout << std::fixed << std::setprecision(3);
+        std::cout << "Speed and Heading:       " << buf.sog << "[m/s]" << " | " << buf.cog <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n';
+        std::cout << "Speed and Heading(UBX):  " << buf.sog_ubx << "[m/s]" << " | " << buf.cog_ubx <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n';
+        std::cout << "Speed and Heading(NMEA): " << buf.sog_nmea << "[m/s]" << " | " << buf.cog_nmea <<"[deg]" << "\t Age[us]: " << m_debug_age_info.age_sog_cog << '\n' << '\n';
+        line_counter += 4;
+
+        std::cout << "Longitudinal acc:        " << buf.comp_acc_x << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_comp_acc << '\n';
+        std::cout << "Other accelerations:     " << "Y: " << buf.comp_acc_y << " | " << "Z: " << buf.comp_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_comp_acc << '\n';
+        std::cout << "Raw Accelerations:       " << "X: " << buf.raw_acc_x << " | " << "Y: " << buf.raw_acc_y << " | " << "Z: " << buf.raw_acc_z << " [m/s^2]" << "\tAge[us]: " << m_debug_age_info.age_acc << '\n' << '\n';
+        line_counter += 4;
+
+        std::cout << "Roll Pitch Yaw:          " << buf.roll << " | " << buf.pitch << " | " << buf.heading << " [deg]" << "\tAge[us]: " << m_debug_age_info.age_att << '\n';
+        std::cout << "Yaw rate:                " << buf.comp_ang_rate_z << " [deg/s]" "\tAge[us]: " << m_debug_age_info.age_comp_ang_rate << '\n' << '\n';
+        line_counter += 3;
+
+        std::cout << "Altitude:                " << buf.alt << " [m]" << "\tAge[us]: " << m_debug_age_info.age_alt << '\n';
+        std::cout << "Altitude(UBX):           " << buf.alt_ubx << " [m]" << "\tAge[us]: " << m_debug_age_info.age_alt << '\n';
+        std::cout << "Altitude(NMEA):          " << buf.alt_nmea << " [m]" << "\tAge[us]: " << m_debug_age_info.age_alt << '\n';
+        line_counter += 3;
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(m_debug_age_info_rate));
+    }
+
+    std::cout << "\033[?25h";  // Show the cursor again
 }
 
 double
@@ -1327,47 +1349,6 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     out_pvt.alt = static_cast<double>(hexToSigned(alt)) * 0.001; // Convert from mm to m
     out_pvt.alt_ubx = out_pvt.alt;
 
-    /*
-     * todo: revisit later this part (caused a bug on cog_ubx and sog_ubx)
-     *
-     *
-    std::vector<uint8_t> utc_time(response.begin() + m_UBX_PAYLOAD_OFFSET + 4, response.begin() + m_UBX_PAYLOAD_OFFSET + 12);
-    std::ostringstream out;
-
-    // Check date and time validity
-    if (utc_time[7] != 0x3F)  {
-        strcpy(out_pvt.ts_utc_time_ubx,"Invalid UTC Date/Time [UBX-NAV-PVT]");
-        return;
-    }
-    utc_time.pop_back();
-
-    // Year parsing
-    std::vector<uint8_t> year(utc_time.begin(),utc_time.begin() + 2);
-    std::reverse(year.begin(),year.end());
-
-    // Month, Day, Hour, Minutes, Seconds parsing
-    uint8_t month = utc_time[2];
-    uint8_t day = utc_time[3];
-    uint8_t hour = utc_time[4];
-    uint8_t min = utc_time[5];
-    uint8_t sec = utc_time[6];
-
-    out << hexToSignedValue(day)   << "/"
-        << hexToSignedValue(month) << "/"
-        << hexToSigned(year) 	     << "  "
-        << hexToSignedValue(hour)  << ":"
-        << hexToSignedValue(min)   << ":"
-        << hexToSignedValue(sec)   << "\n";
-
-    strcpy(out_pvt.ts_utc_time_ubx,out.str().data());
-
-    // Produces and prints to struct the current date-time timestamp
-	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-	strcpy(out_pvt.ts_sog_cog_ubx,std::ctime(&now));
-	strcpy(out_pvt.ts_pos_ubx,std::ctime(&now));
-	strcpy(out_pvt.ts_nmea_ubx,std::ctime(&now));
-    */
-
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
@@ -1389,26 +1370,29 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     out_pvt.lu_alt = update.time_since_epoch().count();
     out_pvt.lu_alt_ubx = out_pvt.lu_alt;
 
-    // Updates the buffer
-    m_outBuffer.store(out_pvt);
-
     // Validates data
     m_sog_cog_ubx_valid = true;
+    m_pos_valid = true;
+    m_alt_valid = true;
 
+    // Updates the buffer
+    m_outBuffer.store(out_pvt);
 }
 
 /** Follows the same approach adopted in parseNmeaGns() by scanning the sentence counting
  *  the commas encountered in order to retrieve the speed and the course over ground values
- *  along with the fix mode. */
+ *  Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
+	                            ^fix validity                sog^   cog^     fix mode^
+
+*  along with the fix mode. */
 void
 UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
-	/* Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
-	                            ^fix validity                sog^   cog^     fix mode^         */
+
+    out_t out_nmea = m_outBuffer.load();
+
     std::vector<std::string> fields;
     std::stringstream ss(nmea_response);
     std::string field;
-
-    out_t out_nmea = m_outBuffer.load();
 
     while (std::getline(ss, field, ',')) {
         fields.push_back(field);
@@ -1419,7 +1403,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     std::string sog = fields[7];
     std::string cog = fields[8];
 
-    // Check if speed and heading are negative and parses accondingly using stod
+    // Check if speed and heading are negative and parses accordingly using stod
     if (cog.empty() == false) {
         if (cog[0] == '-') {
             cog = cog.erase(0,1);
@@ -1445,12 +1429,6 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         }
     }
     else out_nmea.sog_nmea = 16383; // SpeedValue_unavailable
-
-    /*
-    //remove this for field testing
-    fix_validity = 'A';
-    fix = 'R';
-    */
 
     // Fix Validity Check
     // Possible status values: V = data invalid, A = data valid
