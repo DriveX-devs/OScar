@@ -84,7 +84,7 @@ class UBXNMEAParserSingleThread {
                     ts_acc[100],
                     ts_att[100], // Attitude
                     ts_alt[100],
-                    ts_comp_acc[100], // Compensated acceleration (without "g")
+                    ts_comp_acc[100], // Compensated acceleration (without "G")
                     ts_comp_ang_rate[100], // Compensated angular rate over the z-axis
                     ts_sog_cog_ubx[100], // Speed Over Ground (SOG), Course Over Ground (COG) - UBX
                     ts_sog_cog_nmea[100]; // Speed Over Ground (SOG), Course Over Ground (COG) - NMEA
@@ -155,9 +155,7 @@ class UBXNMEAParserSingleThread {
         // Mathematical and buffer operations
         static double decimal_deg(double value, char quadrant);
         int32_t hexToSigned(std::vector<uint8_t> data);
-        long hexToSignedValue(uint8_t value);
         void clearBuffer();
-        void printBuffer();
 
         // Parsers
         void parseNmeaGns(std::string nmea_response);

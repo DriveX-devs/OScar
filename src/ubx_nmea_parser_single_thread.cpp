@@ -180,22 +180,11 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	//printf("\n\nBuffer cleared\n\n");
 }
 
-void
-UBXNMEAParserSingleThread::printBuffer() {
-	out_t tmp = m_outBuffer.load();
-	printf("[UBX  - UTC TIME]  - %s\n", tmp.ts_utc_time_ubx);
-    printf("[NMEA - UTC TIME]  - %s\n", tmp.ts_utc_time_nmea);
-	printf("[UBX]  - %s\n", tmp.fix_ubx);
-	printf("[NMEA] - %s\n\n", tmp.fix_nmea);
-	printf("[Position]\nLat: %.8f   deg   -   Lon: %.8f   deg  -   Altitude: %.2f   m\n\n",tmp.lat,tmp.lon,tmp.alt);
-	printf("[Speed over ground]\n(UBX): %.3f m/s   -   (NMEA): %.3f m/s\n\n",tmp.sog_ubx,tmp.sog_nmea);
-	printf("[Course over ground]\n(UBX): %.3f deg   -   (NMEA): %.3f deg\n\n",tmp.cog_ubx,tmp.cog_nmea);
-	printf("[Accelerations (gravity-free)]\nX: %.3f  m/s^2  Y: %.3f  m/s^2  Z: %.3f  m/s^2\n\n",tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
-	printf("[Raw accelerations]\nX: %.3f  m/s^2  Y: %.3f  m/s  Z: %.3f  m/s\n\n",tmp.raw_acc_x,tmp.raw_acc_y,tmp.raw_acc_z);
-	printf("[Attitude]\nRoll: %.3f  deg  Pitch: %.3f  deg  Heading: %.3f  deg\n\n",tmp.roll,tmp.pitch,tmp.heading);
-}
-
-bool UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
+/** Calculates the UBX checksum using the 8-bit Fletcher algorithm. The calculation range excludes
+ *  the first two bytes and the last two bytes of the message, that represent this value.
+ *  see section 3.4 - UBX Checksum of the ZED-F9R Interface Description document for more information */
+bool
+UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
     uint8_t CK_A = 0x00;
     uint8_t CK_B = 0x00;
 
@@ -219,6 +208,9 @@ bool UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
     }
 }
 
+/** Analyzes and validates a NMEA sentence, calculating its checksum character by applying the
+ *  XOR operator between the starting dollar character '$' and the asterisk (excluded),
+ *  comparing it with the checksum value extracted from the sentence read */
 bool
 UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) {
     // Check that the message starts with '$' and contains '*'
@@ -234,7 +226,7 @@ UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) 
         return false;  // Invalid or missing checksum
     }
 
-    // XOR all characters between '$' and '*' (exclusive)
+    // XOR all characters between '$' and '*' (excluded)
     unsigned char checksum = 0;
     for (size_t i = 1; i < asteriskPos; ++i) {
         checksum ^= static_cast<unsigned char>(nmeaMessage[i]);
@@ -252,8 +244,7 @@ UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) 
 }
 
 std::string
-UBXNMEAParserSingleThread::
-getUtcTimeUbx() {
+UBXNMEAParserSingleThread::getUtcTimeUbx() {
     if(m_parser_started == false) {
         std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
         return std::string("Error!");
@@ -264,7 +255,9 @@ getUtcTimeUbx() {
 
     if (utc_time.empty() == false) {
         return utc_time;
-    } else return std::string("Error. UBX UTC time string is empty.");
+    } else {
+        return std::string("Error. UBX UTC time string is empty.");
+    }
 }
 
 
@@ -280,13 +273,16 @@ UBXNMEAParserSingleThread::getUtcTimeNmea() {
 
     if (utc_time.empty() == false) {
         return utc_time;
-    } else return std::string("Error. NMEA UTC time string is empty.");
+    } else {
+        return std::string("Error. NMEA UTC time string is empty.");
+    }
 }
 
-/** Retrives and processes the specific position timestamp, calculates
- *  the age of information in microseconds, then returns latitude and.
- *  longitude as a std::pair, optionally returns the age of info, if specified
- * 
+/** Retrieves and processes the specific position timestamp and data from the atomic buffer,
+ *  calculates the age of information in microseconds, then returns latitude and longitude
+ *  as a std::pair, optionally returns the age of information if print_timestamp_and_age is set
+ *  to true when called.
+ *
  *  Note: use first() and second() to access the element of a pair */
 std::pair<double,double>
 UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_age) {
@@ -297,11 +293,15 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
 
 	out_t tmp = m_outBuffer.load();
 
+    // Obtains the current timestamp, extracts the us value from the time_point<> data type
+    // and calculates the age of information by subtracting with the last update value
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_pos;
+
     long validity_thr = getValidityThreshold();
 
+    // Saves the value if -a debug option is enabled
     if (m_debug_age_info_rate) m_debug_age_info.age_pos = local_age_us;
 
     if (print_timestamp_and_age == true) std::cout << "[Position] - " <<  tmp.ts_sog_cog_ubx
@@ -311,6 +311,7 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
                                                    << std::endl << std::endl;
     if (age_us != nullptr) *age_us = local_age_us;
 
+    // Checks if the information is valid, flagging the state
     if (local_age_us >= validity_thr) {
         m_pos_valid.store(false);
     }
