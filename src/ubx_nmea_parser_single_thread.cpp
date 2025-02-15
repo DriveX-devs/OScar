@@ -386,7 +386,8 @@ UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_an
  *  The substring sought is found between commas 2 and 5.
  *  Example: $GNGNS,133033.40,   4503.87250,N,00739.68967,E   ,RRRR,19,0.86,250.6,47.2,1.4,0000,V*3B
  *
- *  After parsing, it produces the current information specific timestamp and updates the output buffer. */
+ *  After parsing, it produces the current information specific timestamp and updates the output buffer.
+ *  For more information see page 2.7.9.1 GNSS Fix Data on page 28 of ublox ZED-F9R Interface Description*/
 void
 UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 
@@ -396,6 +397,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
     std::stringstream ss(nmea_response);
     std::string field;
 
+    // Separate the sentence by commas and store the fields of interest
     while (std::getline(ss, field, ',')) {
         fields.push_back(field);
     }
@@ -404,6 +406,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	std::string utc_time = "UTC Time: " + fields[1];
     std::string slat = fields[2];
     std::string slon = fields[4];
+    std::string posMode = fields[6];
     std::string salt = fields[9];
 
     // cardinal points (N, S, W, E)
@@ -415,7 +418,44 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
     std::cout << utc_time << " Lat: " << slat << " Lon: " << slon
               << " Alt: " << salt << " cp lat: " << cp_lat << " cp lon: " << cp_lon << std::endl;
     */
+    // Fix value parsing
+    if (posMode == "NNNN") {
+        strcpy(out_nmea.fix_nmea, "NoFix");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (posMode == "EEEE") {
+        strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (posMode == "AAAA") {
+        strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (posMode == "DDDD") {
+        strcpy(out_nmea.fix_nmea,"DGNSS");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (posMode == "FFFF") {
+        strcpy(out_nmea.fix_nmea, "RTKFloat");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (posMode == "RRRR") {
+        strcpy(out_nmea.fix_nmea, "RTKFixed");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else {
+        strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
 
+    // Posistion parsing
     if (!slat.empty()) {
         out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
         out_nmea.lat_nmea = out_nmea.lat;
