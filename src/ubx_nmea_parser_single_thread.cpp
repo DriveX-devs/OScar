@@ -415,6 +415,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
     std::cout << utc_time << " Lat: " << slat << " Lon: " << slon
               << " Alt: " << salt << " cp lat: " << cp_lat << " cp lon: " << cp_lon << std::endl;
     */
+
     // Fix value parsing
     if (posMode == "NNNN") {
         strcpy(out_nmea.fix_nmea, "NoFix");
@@ -457,15 +458,21 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
         out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
         out_nmea.lat_nmea = out_nmea.lat;
     }
-	else out_nmea.lat = 900000001; // Latitude_unavailable
+    else {
+        out_nmea.lat = 900000001; // Latitude_unavailable
+        out_nmea.lat_nmea = out_nmea.lat;
+    }
 
 	if (!slon.empty()) {
-        out_nmea.lon = decimal_deg(std::stod(slon),cp_lon);
+        out_nmea.lon = decimal_deg(std::stod(slon), cp_lon);
         out_nmea.lon_nmea = out_nmea.lon;
     }
-	else out_nmea.lon = 1800000001; // Longitude_unavailable
+    else {
+        out_nmea.lon = 1800000001; // Longitude_unavailable
+        out_nmea.lon_nmea = out_nmea.lon;
+    }
 
-	// Check if the altitude is negative and parses accondingly using stod
+	// Check if the altitude is negative and parses accordingly using stod
 	if (!salt.empty()) {
 		if (salt[0] == '-') {
 			salt = salt.erase(0,1);
@@ -477,7 +484,10 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
             out_nmea.alt_nmea = out_nmea.alt;
         }
 	}
-	else out_nmea.alt = 800001; // AltitudeValue_unavailable
+	else {
+        out_nmea.alt = 800001; // AltitudeValue_unavailable
+        out_nmea.alt_nmea = out_nmea.alt;
+    }
 
 	// Produces and processes the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -524,6 +534,7 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
     std::stringstream ss(nmea_response);
     std::string field;
 
+    // Sentence separation into fields
     while (std::getline(ss, field, ',')) {
         fields.push_back(field);
     }
@@ -538,9 +549,8 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	char cp_lat = fields[3].at(0);
     char cp_lon = fields[5].at(0);
 
+    // Fix value parsing and validation
     char fix = fields[6].at(0);
-
-    // Fix value parsing
     if (fix == '0') {
         strcpy(out_nmea.fix_nmea, "NoFix");
         m_2d_valid_fix = false;
@@ -577,20 +587,26 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
         m_3d_valid_fix = false;
     }
 
-
+    // Position data parsing
     if (!slat.empty()) {
         out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
         out_nmea.lat_nmea = out_nmea.lat;
     }
-	else out_nmea.lat = 900000001; // Latitude_unavailable
+	else {
+        out_nmea.lat = 900000001; // Latitude_unavailable
+        out_nmea.lat_nmea = out_nmea.lat;
+    }
 
 	if (!slon.empty()) {
         out_nmea.lon = decimal_deg(std::stod(slon),cp_lon);
         out_nmea.lon_nmea = out_nmea.lon;
     }
-	else out_nmea.lon = 1800000001; //Longitude_unavailable
+	else {
+        out_nmea.lon = 1800000001; //Longitude_unavailable
+        out_nmea.lon_nmea = out_nmea.lon;
+    }
 
-	// Check if the altitude is negative and parses accondingly using stod
+	// Checks if the altitude is negative and parses accondingly using stod
 	if (!salt.empty()) {
 		if (salt[0] == '-') {
             salt = salt.erase(0,1);
@@ -602,7 +618,10 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
             out_nmea.alt_nmea = out_nmea.alt;
         }
 	}
-	else out_nmea.alt = 800001; //AltitudeValue_unvailable
+	else {
+        out_nmea.alt = 800001; //AltitudeValue_unvailable
+        out_nmea.alt_nmea = out_nmea.alt;
+    }
 
 	// Produces and processes the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -615,12 +634,14 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
+    // Provides age of information debug info if enabled
     if (m_debug_age_info_rate) {
         m_debug_age_info.age_pos = update.time_since_epoch().count() - out_nmea.lu_pos;
         m_debug_age_info.age_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
         m_debug_age_info.age_alt = update.time_since_epoch().count() - out_nmea.lu_alt;
         m_debug_age_info.age_alt_nmea = update.time_since_epoch().count() - out_nmea.lu_alt_nmea;
     }
+
     // Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
 	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
@@ -635,9 +656,9 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	m_outBuffer.store(out_nmea);
 }
 
-/** getAltitude() provides the altitude above sea level
- *  taken from the GNS/GGA NMEA sentences
- */
+/** getAltitude() provides the altitude above sea level parsed from the GNS/GGA NMEA sentences.
+ *  The function loads the atomic data buffer then calculates, process the age of information
+ *  based on user input. */
 double
 UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_age) {
 	if(m_parser_started == false) {
@@ -651,8 +672,10 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_alt;
 
+    // Stores age of information if debug option is enabled
     if (m_debug_age_info_rate) m_debug_age_info.age_alt = local_age_us;
 
+    // Checks information's validity
     if (local_age_us >= getValidityThreshold()) {
         m_alt_valid.store(false);
     }
@@ -1484,18 +1507,21 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     std::string cog = fields[8];
 
     // Check if speed and heading are negative and parses accordingly using stod
-    if (cog.empty() == false) {
+    if (!cog.empty()) {
         if (cog[0] == '-') {
             cog = cog.erase(0,1);
             out_nmea.cog = std::stod(cog) * -1;
             out_nmea.cog_nmea = out_nmea.cog;
         }
         else {
-            out_nmea.cog_nmea = std::stod(cog);
+            out_nmea.cog = std::stod(cog);
             out_nmea.cog_nmea = out_nmea.cog;
         }
     }
-    else out_nmea.cog_nmea = 3601; // HeadingValue_unavailable
+    else {
+        out_nmea.cog = 3601; // HeadingValue_unavailable
+        out_nmea.cog_nmea = out_nmea.cog;
+    }
 
     if (sog.empty() == false) {
         if (sog[0] == '-') {
@@ -1508,7 +1534,10 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
             out_nmea.sog_nmea = out_nmea.sog;
         }
     }
-    else out_nmea.sog_nmea = 16383; // SpeedValue_unavailable
+    else {
+        out_nmea.sog = 16383; // SpeedValue_unavailable
+        out_nmea.sog_nmea = out_nmea.sog;
+    }
 
     // Fix Validity Check
     // Possible status values: V = data invalid, A = data valid
@@ -1535,7 +1564,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         else strcpy(out_nmea.fix_nmea,"DGNSS");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
-        }
+    }
     else if (fix == 'F') {
         if (fix_validity != 'A') strcpy(out_nmea.fix_nmea, "RTKFloat (V)");
         else strcpy(out_nmea.fix_nmea, "RTKFloat");
