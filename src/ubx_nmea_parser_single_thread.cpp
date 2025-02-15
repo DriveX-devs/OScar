@@ -538,7 +538,47 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	char cp_lat = fields[3].at(0);
     char cp_lon = fields[5].at(0);
 
-	if (!slat.empty()) {
+    char fix = fields[6].at(0);
+
+    // Fix value parsing
+    if (fix == '0') {
+        strcpy(out_nmea.fix_nmea, "NoFix");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix == '6') {
+        strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix == '1') {
+        strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix == '2') {
+        strcpy(out_nmea.fix_nmea,"DGNSS");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix == '5') {
+        strcpy(out_nmea.fix_nmea, "RTKFloat");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix == '4') {
+        strcpy(out_nmea.fix_nmea, "RTKFixed");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else {
+        strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+
+
+    if (!slat.empty()) {
         out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
         out_nmea.lat_nmea = out_nmea.lat;
     }
