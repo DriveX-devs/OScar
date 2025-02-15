@@ -382,10 +382,7 @@ UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_an
 
 /** Checks and parses a GNGNS NMEA sentence in order to get the latitude and longitude data
  *
- *  The function scans the sentence by counting the commas encountered.
- *  The substring sought is found between commas 2 and 5.
- *  Example: $GNGNS,133033.40,   4503.87250,N,00739.68967,E   ,RRRR,19,0.86,250.6,47.2,1.4,0000,V*3B
- *
+ *  The function separates the sentence fields using the commaas and extract the data.
  *  After parsing, it produces the current information specific timestamp and updates the output buffer.
  *  For more information see page 2.7.9.1 GNSS Fix Data on page 28 of ublox ZED-F9R Interface Description*/
 void
@@ -513,9 +510,12 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	m_outBuffer.store(out_nmea);
 }
 
-/** Checks and parses a GNGGA NMEA sentence
- *  Example: $GPGGA,092725.00,4717.11399,N,00833.91590,E,1,08,1.01,499.6,M,48.0,M,,*5B\r\n
- */
+/** Checks and parses a GNGGA NMEA sentence in order to get the latitude and longitude data
+ *
+ *  The function separates the sentence fields using the commaas and extract the data.
+ *  After parsing, it produces the current information specific timestamp and updates the output buffer.
+ *  For more information see page 2.7.5.1 Global Positioning System Fix Data
+ *  on page 28 of ublox ZED-F9R Interface Description*/
 void
 UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	out_t out_nmea = m_outBuffer.load();
