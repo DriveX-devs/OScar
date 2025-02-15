@@ -72,15 +72,28 @@ class UBXNMEAParserSingleThread {
 
         void setWrongInputThreshold(int threshold) {m_WRONG_INPUT_THRESHOLD=threshold;}
     private:
-        /* Buffer structure to be printed to the user */
+        /* Atomic Buffer struct that contains gnss data: includes timestamps of the information parsed,
+         * information value and last update in microseconds in order to calculate the age of information.
+         *
+         * For data that can be obtained both from UBX and NMEA protocols, <data> contains the most recent value obtained
+         * from any of the protocols while <data_protocol> stores the most recent data value, for that protocol.
+         *
+         * Example:
+         * lat: latest latitude value (obtained from the latest parsed UBX/NMEA message/sentence)
+         * lat_ubx: latest latitude value from UBX
+         * lat_nmea: latest latuitude value from NMEA
+         *
+         * The parser provide specific function to get all of three data kind, for example:
+         * getPosition() provides the latest position fetching from "lat" and "lon" variables.
+         * getPositionUbx() provides the latest UBX parsed position data.
+         * getPositionNmea() provides the latest NMEA parsed position data */
         typedef struct Output {
             // Human-readable date strings that contain the timestamp (epoch time) of the last updates for teach information
-            // Currently, the dates are used just for printing when the "print_error" flag is set to true; they are not used for any other purpose (for the time being)
+            // Currently, the dates are used just for printing when the "print_error" flag is set to true;
+            // they are not used for any other purpose (for the time being)
             char ts_pos[100],
                     ts_pos_ubx[100],
                     ts_pos_nmea[100],
-                    ts_utc_time_ubx[100], // Timestamp of the GNSS time
-                    ts_utc_time_nmea[100], // Timestamp of the GNSS time
                     ts_acc[100],
                     ts_att[100], // Attitude
                     ts_alt[100],

@@ -21,7 +21,7 @@
 
 using namespace std::chrono;
 
-/* Prints a UBX message in the format index[byte] (for debug purposes) */
+/** printUbxMessage() prints a UBX message in the format index[byte] (used for debug purposes) */
 void
 UBXNMEAParserSingleThread::printUbxMessage(std::vector<uint8_t> msg) {
     std::cout << "message size: " << msg.size() << std::endl;
@@ -30,7 +30,7 @@ UBXNMEAParserSingleThread::printUbxMessage(std::vector<uint8_t> msg) {
     }
 }
 
-/* Prints a NMEA sentence (printable chars only) */
+/** printNmeaSentence() prints a NMEA sentence (printable chars only) */
 void
 UBXNMEAParserSingleThread::printNmeaSentence(std::string s) {
 	if (!s.empty()) {
@@ -43,7 +43,7 @@ UBXNMEAParserSingleThread::printNmeaSentence(std::string s) {
     }
 }
 
-/* Converts latitude and longitude from NMEA format to single values in degrees */
+/** decimal_deg() converts latitude and longitude from the NMEA format to single values in degrees */
 double
 UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
     // Concatenate int part and dec part
@@ -59,7 +59,7 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
     return value;
 }
 
-/** Performs a conversion from a uint8_t array of 3 or 4 bytes to a signed long value.
+/** hexToSigned() performs a conversion from a uint8_t array of 3 or 4 bytes to a signed long value.
  *
  *  By exploiting the dimension of a long value (32 bit), shifts every bytes to the left by
  *  multiples of 8, obtaining the whole number in a single 32 bit variable.
@@ -108,6 +108,8 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
     }
 }
 
+/** clearBuffer() initializes or clears the atomic data buffer
+ * (see ubx_nmea_parser_single_thread.h for more information) */
 void
 UBXNMEAParserSingleThread::clearBuffer() {
 	out_t tmp;
@@ -116,8 +118,6 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	strcpy(tmp.ts_pos,"");
     strcpy(tmp.ts_pos_ubx,"");
     strcpy(tmp.ts_pos_nmea,"");
-	strcpy(tmp.ts_utc_time_ubx,"");
-    strcpy(tmp.ts_utc_time_nmea,"");
 	strcpy(tmp.ts_acc,"");
 	strcpy(tmp.ts_att,"");
 	strcpy(tmp.ts_alt,"");
@@ -139,30 +139,37 @@ UBXNMEAParserSingleThread::clearBuffer() {
     tmp.comp_ang_rate_y = 0;
     tmp.comp_ang_rate_z = 0;
 
-    // Latitude, longitude and altitude
-    // TODO: better comment the division between _ubx and _nmea
-    // "lat" contains the latest update between lat_ubx and lat_nmea
+    // Latitude
 	tmp.lat = 0;
     tmp.lat_ubx = 0;
     tmp.lat_nmea = 0;
-    // "lon" contains the latest update between lon_ubx and lon_nmea
+
+    // Longitude
 	tmp.lon = 0;
     tmp.lon_ubx = 0;
     tmp.lon_nmea = 0;
-    // "alt" contains the latest update between alt_ubx and alt_nmea
+
+    // Altitude
 	tmp.alt = 0;
     tmp.alt_ubx = 0;
     tmp.alt_nmea = 0;
 
+    // Attitude
 	tmp.roll = 0;
 	tmp.pitch = 0;
 	tmp.heading = 0;
+
+    // Speed Over Ground
     tmp.sog = 0;
 	tmp.sog_ubx = 0;
 	tmp.sog_nmea = 0;
+
+    // Coursr Over Ground
     tmp.cog = 0;
 	tmp.cog_ubx = 0;
 	tmp.cog_nmea = 0;
+
+    // Last updates (microseconds)
 	tmp.lu_pos = 0;
     tmp.lu_pos_ubx = 0;
     tmp.lu_pos_nmea = 0;
@@ -176,11 +183,11 @@ UBXNMEAParserSingleThread::clearBuffer() {
     tmp.lu_sog_cog = 0;
 	tmp.lu_sog_cog_ubx = 0;
 	tmp.lu_sog_cog_nmea = 0;
+
 	m_outBuffer.store(tmp);
-	//printf("\n\nBuffer cleared\n\n");
 }
 
-/** Calculates the UBX checksum using the 8-bit Fletcher algorithm. The calculation range excludes
+/** validateUbxMessage() calculates the UBX checksum using the 8-bit Fletcher algorithm. The calculation range excludes
  *  the first two bytes and the last two bytes of the message, that represent this value.
  *  see section 3.4 - UBX Checksum of the ZED-F9R Interface Description document for more information */
 bool
@@ -208,7 +215,7 @@ UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
     }
 }
 
-/** Analyzes and validates a NMEA sentence, calculating its checksum character by applying the
+/** validateNmeaSentence() analyzes and validates a NMEA sentence, calculating its checksum character by applying the
  *  XOR operator between the starting dollar character '$' and the asterisk (excluded),
  *  comparing it with the checksum value extracted from the sentence read */
 bool
@@ -243,42 +250,7 @@ UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) 
     return providedChecksum == hexChecksum;
 }
 
-std::string
-UBXNMEAParserSingleThread::getUtcTimeUbx() {
-    if(m_parser_started == false) {
-        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
-        return std::string("Error!");
-    }
-
-    out_t tmp = m_outBuffer.load();
-    std::string utc_time(tmp.ts_utc_time_ubx);
-
-    if (utc_time.empty() == false) {
-        return utc_time;
-    } else {
-        return std::string("Error. UBX UTC time string is empty.");
-    }
-}
-
-
-std::string
-UBXNMEAParserSingleThread::getUtcTimeNmea() {
-    if(m_parser_started == false) {
-        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
-        return std::string("Error!");
-    }
-
-    out_t tmp = m_outBuffer.load();
-    std::string utc_time(tmp.ts_utc_time_nmea);
-
-    if (utc_time.empty() == false) {
-        return utc_time;
-    } else {
-        return std::string("Error. NMEA UTC time string is empty.");
-    }
-}
-
-/** Retrieves and processes the specific position timestamp and data from the atomic buffer,
+/** getPosition() retrieves and processes the latest position data from the atomic buffer,
  *  calculates the age of information in microseconds, then returns latitude and longitude
  *  as a std::pair, optionally returns the age of information if print_timestamp_and_age is set
  *  to true when called.
@@ -320,6 +292,8 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
 	return std::pair<double,double>(tmp.lat,tmp.lon);
 }
 
+/** getPositionUbx() retrieves the latest UBX position data parsed, behaving in the same
+ * way of getPosition() */
 std::pair<double,double>
 UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -349,6 +323,8 @@ UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and
     return std::pair<double,double>(tmp.lat_ubx,tmp.lon_ubx);
 }
 
+/** getPositionNmea() retrieves the latest UBX position data parsed, behaving in the same
+ * way of getPosition() */
 std::pair<double,double>
 UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -379,8 +355,7 @@ UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_an
 }
 
 
-
-/** Checks and parses a GNGNS NMEA sentence in order to get the latitude and longitude data
+/** parseNmeaGns() checks and parses a GNGNS NMEA sentence in order to get the latitude and longitude data
  *
  *  The function separates the sentence fields using the commaas and extract the data.
  *  After parsing, it produces the current information specific timestamp and updates the output buffer.
@@ -400,7 +375,6 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
     }
 
 	// Latitude and Longitude substrings to be converted to double using std::stod() later
-	std::string utc_time = "UTC Time: " + fields[1];
     std::string slat = fields[2];
     std::string slon = fields[4];
     std::string posMode = fields[6];
@@ -493,10 +467,6 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_nmea.ts_pos,std::ctime(&now));
 
-	// Uncomment this line to join the position timestamp and the UTC time string
-	// strcat(out_nmea.ts_pos, utc_time.data());
-	strcpy(out_nmea.ts_utc_time_nmea, utc_time.data());
-
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
@@ -520,7 +490,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	m_outBuffer.store(out_nmea);
 }
 
-/** Checks and parses a GNGGA NMEA sentence in order to get the latitude and longitude data
+/** parseNmeaGga() checks and parses a GNGGA NMEA sentence in order to get the latitude and longitude data
  *
  *  The function separates the sentence fields using the commaas and extract the data.
  *  After parsing, it produces the current information specific timestamp and updates the output buffer.
@@ -540,7 +510,6 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
     }
 
 	// Latitude and Longitude substrings to be converted to double using std::stod() later
-	std::string utc_time = "UTC Time: " + fields[1];
     std::string slat = fields[2];
     std::string slon = fields[4];
     std::string salt = fields[9];
@@ -627,10 +596,6 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_nmea.ts_pos,std::ctime(&now));
 
-	// Uncomment this line to join the position timestamp and the UTC time string
-	// strcat(out_nmea.ts_pos, utc_time.data());
-	strcpy(out_nmea.ts_utc_time_nmea, utc_time.data());
-
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
@@ -656,9 +621,8 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	m_outBuffer.store(out_nmea);
 }
 
-/** getAltitude() provides the altitude above sea level parsed from the GNS/GGA NMEA sentences.
- *  The function loads the atomic data buffer then calculates, process the age of information
- *  based on user input. */
+/** getAltitude() provides the altitude above sea level parsed from the GNS/GGA NMEA sentences and from the UBX-NAV-PVT message.
+ *  The function loads the atomic data buffer then calculates and process the age of information based on user input. */
 double
 UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_age) {
 	if(m_parser_started == false) {
@@ -689,6 +653,7 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
 	return tmp.alt;
 }
 
+/** getAltitudeUbx() provides the latest altitude value parsed from the UBX-NAV-PVT message */
 double
 UBXNMEAParserSingleThread::getAltitudeUbx(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -717,6 +682,7 @@ UBXNMEAParserSingleThread::getAltitudeUbx(long *age_us, bool print_timestamp_and
     return tmp.alt_ubx;
 }
 
+/** getAltitudeNmea() provides the latest altitude NMEA value parsed from the GNS/GGA sentences */
 double
 UBXNMEAParserSingleThread::getAltitudeNmea(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -745,9 +711,8 @@ UBXNMEAParserSingleThread::getAltitudeNmea(long *age_us, bool print_timestamp_an
     return tmp.alt_nmea;
 }
 
-/** getAccelerations(), getAngularRates(), getYawRate(), getRawAccelerations() and getAttitude()
- *  follow the same structure as getPosition but with the use of
- *  std::tuple instead of std::pair
+/** getAccelerations() provides the compensated accelerations (without the gravity acceleration) and
+ * follow the same structure as getPosition but with the use of std::tuple instead of std::pair
  * 
  *  Note: use std::get<index>(object) to access the elements of a tuple. */
 std::tuple<double,double,double>
@@ -768,16 +733,20 @@ UBXNMEAParserSingleThread::getAccelerations(long *age_us, bool print_timestamp_a
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid.store(false);
     }
-    else m_comp_acc_valid.store(true);
+    else {
+        m_comp_acc_valid.store(true);
+    }
 
     if (print_timestamp_and_age == true) std::cout << "[Accelerations] - " <<  tmp.ts_comp_acc
                                                    << "Age of information: " << local_age_us << " us"
                                                    << std::endl << std::endl;
+
     if (age_us != nullptr) *age_us = local_age_us;
 
 	return std::make_tuple(tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
 }
 
+/** getAngularRate() provide the angular accelerations from the three x, y and z axes. */
 std::tuple<double,double,double>
 UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -796,7 +765,9 @@ UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp_an
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid.store(false);
     }
-    else m_comp_ang_rate_valid.store(true);
+    else {
+        m_comp_ang_rate_valid.store(true);
+    }
 
     if (print_timestamp_and_age == true) std::cout << "[Angular Rates] - " <<  tmp.ts_comp_ang_rate
                                                    << "Age of information: " << local_age_us << " us"
@@ -806,6 +777,7 @@ UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp_an
     return std::make_tuple(tmp.comp_ang_rate_x,tmp.comp_ang_rate_y,tmp.comp_ang_rate_z);
 }
 
+/** getYawRate() provides the z axis angular acceleration value, without the gravity acceleration. */
 double
 UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -824,7 +796,9 @@ UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid.store(false);
     }
-    else m_comp_ang_rate_valid.store(true);
+    else {
+        m_comp_ang_rate_valid.store(true);
+    }
 
     if (print_timestamp_and_age == true) std::cout << "[Yaw Rate timestamp] - " <<  tmp.ts_comp_ang_rate
                                                    << "Age of information: " << local_age_us << " us"
@@ -835,6 +809,7 @@ UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age
     return tmp.comp_ang_rate_z;
 }
 
+/** getYawRate() provides the x axis longitudinal acceleration value */
 double
 UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -853,7 +828,9 @@ UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid.store(false);
     }
-    else m_comp_acc_valid.store(true);
+    else {
+        m_comp_acc_valid.store(true);
+    }
 
     if (print_timestamp_and_age == true) std::cout << "[Longitudinal Acceleration timestamp] - " <<  tmp.ts_comp_acc
                                                    << "Age of information: " << local_age_us << " us"
@@ -863,6 +840,7 @@ UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_
     return tmp.comp_acc_x;
 }
 
+/** getRawAccelerations() provide the three axes acceleration with the gravity acceleration included */
 std::tuple<double,double,double>
 UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -881,7 +859,9 @@ UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestam
     if (local_age_us >= getValidityThreshold()) {
         m_acc_valid.store(false);
     }
-    else m_acc_valid.store(true);
+    else {
+        m_acc_valid.store(true);
+    }
 
     if (print_timestamp_and_age == true) std::cout << "[Raw Accelerations] - " <<  tmp.ts_acc
                                                    << "Age of information: " << local_age_us << " us"
@@ -892,16 +872,16 @@ UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestam
 	return std::make_tuple(tmp.raw_acc_x,tmp.raw_acc_y,tmp.raw_acc_z);
 }
 
-/** Parses a UBX-ESF-RAW message which payload is composed by a 4 bytes of reserved space
+/** parseEsfRaw() parses a UBX-ESF-RAW message which payload is composed by 4 bytes of reserved space
  *  plus a repeated group of 8 bytes whose first 4 bytes contain the relevant information
- *  about the acceleratin in the x,y and z axes.
+ *  about the acceleration in the x,y and z axes.
  *
  *  The function reads the first 4 bytes of the first 3 repeated group
  *  (3 bytes for acceleration value + 1 byte to identify the axis)
  *  but it can be extended in order to read also the gyroscope data
  *  and to include the sTag field too (see the for loop below)
  *
- *  (more details in 3.11.4 Interface description: UBX-ESF-RAW) */
+ *  (more details in the Interface description document of the ZED-F9R Module, 3.11.4 UBX-ESF-RAW ) */
 void
 UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
 
@@ -975,6 +955,7 @@ UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
     m_outBuffer.store(out_esf);
 }
 
+/** getAttitude() provides the roll, pitch and raw angles extracted from the UBX-NAV-ATT Messages (see parseNavAtt()) */
 std::tuple<double,double,double>
 UBXNMEAParserSingleThread::getAttitude(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -1068,6 +1049,7 @@ UBXNMEAParserSingleThread::parseNavAtt(std::vector<uint8_t> response) {
 	m_outBuffer.store(out_att);
 }
 
+/** getSpeedUbx() provide the speed over ground value obtained from UBX-NAV-PVT message. */
 double
 UBXNMEAParserSingleThread::getSpeedUbx(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -1101,6 +1083,7 @@ UBXNMEAParserSingleThread::getSpeedUbx(long *age_us, bool print_timestamp_and_ag
     return tmp.sog_ubx;
 }
 
+/** getSpeedNmea() provide the speed over ground value obtained from the GXRMC sentence. */
 double
 UBXNMEAParserSingleThread::getSpeedNmea(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -1132,6 +1115,7 @@ UBXNMEAParserSingleThread::getSpeedNmea(long *age_us, bool print_timestamp_and_a
     return tmp.sog_nmea;
 }
 
+/** getCourseOverGroundUbx() provides the COG value obtained from the UBX-NAV-PVT message */
 double
 UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -1164,6 +1148,7 @@ UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_times
 	return tmp.cog_ubx;
 }
 
+/** getCourseOverGroundNmea() provides the COG value obtained from the GXRMC sentence */
 double
 UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -1194,8 +1179,8 @@ UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_time
     return tmp.cog_nmea;
 }
 
-/** Retrieves the fix mode both from UBX and NMEA (checking in this order)
- *  check parseNavStatus() and parseNmeaRmc() for details. */
+/** getFixMode() retrieves the fix mode from both UBX and NMEA (checking in this order)
+ *  see parseNavStatus() and parseNmeaRmc() for details. */
 std::string
 UBXNMEAParserSingleThread::getFixMode() {
     if(m_parser_started==false) {
@@ -1207,15 +1192,7 @@ UBXNMEAParserSingleThread::getFixMode() {
 
     std::string fix_ubx(tmp.fix_ubx);
 
-    /*
-    // remove this (local testing purposes. REMOVE FOR FIELD TEST)
-    std::string fix_ubx = "Fix mode: 3D-Fix [UBX]";
-    std::string fix_nmea = "Fix Mode: RTK Fixed (R) [NMEA]";
-    m_3d_valid_fix = true;
-    m_2d_valid_fix = true;
-    */
-
-	// Checks if the fix mode has already been obtained from UBX
+	// Checks if the fix mode has been already obtained from UBX
 	if (fix_ubx.empty() == true) {
         std::string fix_nmea(tmp.fix_nmea);
         if (fix_nmea.empty()) fix_nmea = "Unavailable";
@@ -1224,6 +1201,7 @@ UBXNMEAParserSingleThread::getFixMode() {
 	return fix_ubx;
 }
 
+/** getFixModeUbx() provides the latest fix value obtained from the UBX protocol (UBX-NAV-STATUS message) */
 std::string
 UBXNMEAParserSingleThread::getFixModeUbx() {
     if(m_parser_started==false) {
@@ -1237,6 +1215,8 @@ UBXNMEAParserSingleThread::getFixModeUbx() {
 
     return fix_ubx;
 }
+
+/** getFixModeNmea() provides the latest fix value obtained from the NMEA protocol (GXRMC, GXGGA, GXGNS sentences) */
 std::string
 UBXNMEAParserSingleThread::getFixModeNmea() {
     if(m_parser_started==false) {
@@ -1251,6 +1231,7 @@ UBXNMEAParserSingleThread::getFixModeNmea() {
     return fix_nmea;
 }
 
+/** getFixValidity2D() verifies if at least a 2D fix is present by checking the validity flags set by the parsing functions */
 bool
 UBXNMEAParserSingleThread::getFixValidity2D(bool print_error) {
     if (m_2d_valid_fix == false && print_error == true) {
@@ -1260,6 +1241,7 @@ UBXNMEAParserSingleThread::getFixValidity2D(bool print_error) {
     else return m_2d_valid_fix;
 }
 
+/** getFixValidity3D() verifies if at least a 3D fix is present by checking the validity flags set by the parsing functions */
 bool
 UBXNMEAParserSingleThread::getFixValidity3D(bool print_error) {
     if (m_3d_valid_fix == false && print_error == true) {
@@ -1269,6 +1251,8 @@ UBXNMEAParserSingleThread::getFixValidity3D(bool print_error) {
     else return m_3d_valid_fix;
 }
 
+/** getPositionValidity() verifies if the position value's age of information
+ * is inside the acceptable validity range set by the user. */
 std::atomic<bool>
 UBXNMEAParserSingleThread::getPositionValidity(bool print_error) {
     if (m_pos_valid == false && print_error == true) {
@@ -1331,6 +1315,7 @@ UBXNMEAParserSingleThread::getSpeedAndCogValidity(bool print_error) {
     else return m_sog_cog_ubx_valid;
 }
 
+/** setValidityThreshold() sets the threshold value given by the user. */
 bool
 UBXNMEAParserSingleThread::setValidityThreshold(double threshold) {
     if (m_validity_threshold != 0) return true; // The threshold has already been set
@@ -1340,6 +1325,7 @@ UBXNMEAParserSingleThread::setValidityThreshold(double threshold) {
     }
 }
 
+/** setDebugAgeInfo() sets the refresh rate of infomration printing when the debug option is enabled */
 void
 UBXNMEAParserSingleThread::setDebugAgeInfo(int rate) {
     if (m_debug_age_info_rate) std::cerr << "Error: debug option already enabled!" << '\n';
@@ -1351,6 +1337,7 @@ UBXNMEAParserSingleThread::getDebugAgeInfo() {
     return m_debug_age_info_rate;
 }
 
+/** showDebugAgeInfo() displays on screen the debug information, refreshing at the user specified rate */
 void UBXNMEAParserSingleThread::showDebugAgeInfo() {
     int line_counter = 0;
 
@@ -1416,8 +1403,8 @@ UBXNMEAParserSingleThread::getValidityThreshold() {
     }
 }
 
-/** Extracts the speed over ground (sog, 4 bytes) and course over ground (cog, 4 bytes) values from the
- *  UBX-NAV-PVT message by reading from byte 60 to byte 68 (the two values are store one after the other
+/** parseNavPvt() extracts the speed over ground (sog, 4 bytes) and course over ground (cog, 4 bytes) values from the
+ *  UBX-NAV-PVT message by reading from byte 60 to byte 68 (the two values are store one after the other)
  *
  *  See Interface description § 3.15.13 UBX-NAV-PVT. (page 100) */
 void
@@ -1482,12 +1469,11 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     m_outBuffer.store(out_pvt);
 }
 
-/** Follows the same approach adopted in parseNmeaGns() by scanning the sentence counting
- *  the commas encountered in order to retrieve the speed and the course over ground values
+/** parseNmeaRmc() follows the same approach adopted in parseNmeaGns() by scanning the sentence, separating
+ *  the fields using the commas encountered in order to retrieve the speed and the course over ground values
+ *  along with the fix mode.
  *  Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
-	                            ^fix validity                sog^   cog^     fix mode^
-
-*  along with the fix mode. */
+	                         ^fix validity                sog^   cog^     fix mode^ */
 void
 UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 
@@ -1607,10 +1593,10 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	m_outBuffer.store(out_nmea);
 }
 
-/** Parses a UBX-NAV-STATUS message in order to get the FIX MODE of the receiver
+/** parseNavStatus() parses a UBX-NAV-STATUS message in order to get the Fix Mode of the receiver.
  * 
  *  Skips the first 4 bytes of the payload and processes the following two bytes
- *  See ZED-F9R interface decription at 3.15 (page 109) for details */
+ *  See ZED-F9R interface description at 3.15 (page 109) for more information */
 void
 UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	uint8_t fix_mode  = response[m_UBX_PAYLOAD_OFFSET + 4];
@@ -1619,6 +1605,7 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	// Loads the global output buffer atomic struct
 	out_t out_sts = m_outBuffer.load();
 
+    // Verify fix validity
 	if (fix_flags < 0xD0){
         strcpy(out_sts.fix_ubx, "Invalid");
         m_2d_valid_fix = false;
