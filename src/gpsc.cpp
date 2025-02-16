@@ -89,12 +89,20 @@ std::tuple<double,double,double> VDPGPSClient::getParserRawAccelerations() {
 std::tuple<double,double,double> VDPGPSClient::getParserAttitude() {
     return m_serialParserPtr->getAttitude(nullptr,false);}
 
+double VDPGPSClient::getParserSpeed() {
+    return m_serialParserPtr->getSpeed(nullptr,false);
+}
+
 double VDPGPSClient::getParserSpeedUbx() {
     return m_serialParserPtr->getSpeedUbx(nullptr,false);
 }
 
 double VDPGPSClient::getParserSpeedNmea() {
     return m_serialParserPtr->getSpeedNmea(nullptr,false);
+}
+
+double VDPGPSClient::getParserCourseOverGround() {
+    return m_serialParserPtr->getCourseOverGround(nullptr,false);
 }
 
 double VDPGPSClient::getParserCourseOverGroundUbx() {
@@ -133,14 +141,6 @@ std::string VDPGPSClient::getParserFixModeNmea() {
     return m_serialParserPtr->getFixModeNmea();
 }
 
-std::string VDPGPSClient::getParserUtcTimeUbx() {
-    return m_serialParserPtr->getUtcTimeUbx();
-}
-
-std::string VDPGPSClient::getParserUtcTimeNmea() {
-    return m_serialParserPtr->getUtcTimeNmea();
-}
-
 VDPValueConfidence<>
 VDPGPSClient::getHeadingValue() {
     if(m_use_gpsd==true) {
@@ -164,17 +164,27 @@ VDPGPSClient::getHeadingValue() {
             }
         }
     } else {
-        // Check if at least a 2D fix is present and if the data is not outdated, else return 0 or unavailable
-        // if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
-                if (heading == HeadingValue_unavailable) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
+        // Check if a valid fix is present
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
 
-                if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
+                double heading;
+                // Check if the heading value is present and valid in UBX, NMEA or both
+                if (m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
+                    heading = m_serialParserPtr->getCourseOverGround(nullptr,false);
+                    if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
+                        return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+                    } else {
+                        return VDPValueConfidence<>(static_cast<int>(heading * DECI), HeadingConfidence_unavailable);
+                    }
+                }
+                else {
                     return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
-                } else return VDPValueConfidence<>(static_cast<int>(heading * DECI), HeadingConfidence_unavailable);
-            }
-        // }
+                }
+        }
     }
     return VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
 }
@@ -200,18 +210,28 @@ double VDPGPSClient::getPedHeadingValue() {
             }
         }
     } else {
-        // Check if at least a 2D fix is present and if the data is not outdated, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
-                if (heading == 0) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
 
+            double heading;
+            // Check if the heading value is present and valid in UBX, NMEA or both
+            if (m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
+                heading = m_serialParserPtr->getCourseOverGround(nullptr,false);
                 if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
                     return VRUDP_HEADING_UNAVAILABLE;
-                } else return heading;
+                } else {
+                    return heading;
+                }
+            }
+            else {
+                return VRUDP_HEADING_UNAVAILABLE;
             }
         }
     }
+    return VRUDP_HEADING_UNAVAILABLE;
 }
 
 VDPValueConfidence<>
@@ -231,13 +251,21 @@ VDPGPSClient::getSpeedValue() {
             }
         }
     } else {
-        // Check if at least a 2D fix is present
-        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
-                if (speed == SpeedValue_unavailable) speed = m_serialParserPtr->getSpeedNmea(nullptr, false);
+        // Check if a valid fix is present
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            // Check if the heading value is present and valid in UBX, NMEA or both
+            if (m_serialParserPtr->getSpeedValidity(false) > 0) {
+                double speed = m_serialParserPtr->getSpeed(nullptr,false);
                 return VDPValueConfidence<>(static_cast<int>(speed * CENTI), SpeedConfidence_unavailable);
-            } else return VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+            }
+            else {
+                return VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+            }
         }
     }
     return VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
@@ -259,18 +287,23 @@ double VDPGPSClient::getPedSpeedValue() {
             }
         }
     } else {
-        // Check if at least a 2D fix is present
-        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
-                if (speed == 0) speed = m_serialParserPtr->getSpeedNmea(nullptr, false);
-                return speed;
-            } else return -DBL_MAX;
+        // Check if a valid fix is present
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getSpeedValidity(false) > 0) {
+                return m_serialParserPtr->getSpeed(nullptr, false);
+            } else {
+                return -DBL_MAX;
+            }
         }
+        return -DBL_MAX;
     }
+    return -DBL_MAX;
 }
-
-
 
 VDPValueConfidence<>
 VDPGPSClient::getAltitudeValue() {
@@ -291,12 +324,23 @@ VDPGPSClient::getAltitudeValue() {
 
 
     } else {
-        // Check if at least a 2D fix is present and if the value il not outdated else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity3D(false) == true && m_serialParserPtr->getAltitudeValidity(false) == true) {
-            double altitude = m_serialParserPtr->getAltitude(nullptr, false);
-            return VDPValueConfidence<>(static_cast<int>(altitude * CENTI), AltitudeConfidence_unavailable);
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getAltitudeValidity(false) == true) {
+                double altitude = m_serialParserPtr->getAltitude(nullptr, false);
+                return VDPValueConfidence<>(static_cast<int>(altitude * CENTI), AltitudeConfidence_unavailable);
+            } else {
+                return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+            }
+        } else {
+            return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
         }
-    } return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+    }
+    return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
 }
 
 std::pair<long,long>
@@ -320,15 +364,21 @@ VDPGPSClient::getCurrentPosition() {
         }
         return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
     } else {
-        // Check if at least a 2D fix is present
-        if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
             if (m_serialParserPtr->getPositionValidity(false) == true) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
                 return std::pair<long, long>(position.first * DOT_ONE_MICRO, position.second * DOT_ONE_MICRO);
+            } else {
+                return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
             }
         }
         return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
     }
+    return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
 }
 
 VDPGPSClient::VRU_position_latlon_t
@@ -545,13 +595,24 @@ VDPGPSClient::getLongitudinalAccelerationValue() {
         return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
 
     } else {
-        // Check if at least a 3D fix is present
-        if (m_serialParserPtr->getFixValidity3D(false) == true && m_serialParserPtr->getAccelerationsValidity(false) == true) {
-            double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
-            if (long_acc >= -16 && long_acc <= 16) {
-                return VDPValueConfidence<>(static_cast<int>(long_acc * DECI), AccelerationConfidence_unavailable);
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getAccelerationsValidity(false) == true ) {
+                double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
+                if (long_acc >= -16 && long_acc <= 16) {
+                    return VDPValueConfidence<>(static_cast<int>(long_acc * DECI), AccelerationConfidence_unavailable);
+                } else {
+                    return VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,
+                                                AccelerationConfidence_unavailable);
+                }
             }
-            else return VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable, AccelerationConfidence_unavailable);
+        }
+        else {
+            return VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable, AccelerationConfidence_unavailable);
         }
     }
     return VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable, AccelerationConfidence_unavailable);
@@ -577,12 +638,23 @@ VDPGPSClient::getYawRate() {
         return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
         */
     } else {
-        // Check if at least a 2D fix is present, else return 0 or unavailable
-        if (m_serialParserPtr->getFixValidity3D(false) == true && m_serialParserPtr->getYawRateValidity(false) == true) {
-            double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
-            return VDPValueConfidence<>(static_cast<int>(yaw_rate * CENTI), YawRateConfidence_unavailable);
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getYawRateValidity(false) == true) {
+                double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
+                return VDPValueConfidence<>(static_cast<int>(yaw_rate * CENTI), YawRateConfidence_unavailable);
+            }
+            else {
+                return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+            }
         }
-        return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+        else {
+            return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+        }
     }
     return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
 }
@@ -609,19 +681,24 @@ VDPGPSClient::getHeadingValueDbl() {
             }
         }
     } else {
-        // if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double heading_dbl = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
-                if (heading_dbl == HeadingValue_unavailable) heading_dbl = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
-
-                if (static_cast<int>(heading_dbl * DECI) < 0 ||
-                    static_cast<int>(heading_dbl * DECI) > 3601) {
-                    return HeadingValue_unavailable;
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+                if (m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
+                    double heading_dbl = m_serialParserPtr->getCourseOverGround(nullptr,false);
+                    if (static_cast<int>(heading_dbl * DECI) < 0 || static_cast<int>(heading_dbl * DECI) > 3601) {
+                        return HeadingValue_unavailable;
+                    } else {
+                        return heading_dbl;
+                    }
                 } else {
-                    return heading_dbl;
+                    return HeadingValue_unavailable;
                 }
-            }
-        // }
+            } else {
+            return HeadingValue_unavailable;
+        }
     }
     return HeadingValue_unavailable;
 }
@@ -643,13 +720,20 @@ VDPGPSClient::getSpeedValueDbl() {
             }
         }
     } else {
-        //if (m_serialParserPtr->getFixValidity2D(false) == true || m_serialParserPtr->getFixValidity3D(false) == true) {
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double speed_dbl = m_serialParserPtr->getSpeedUbx(nullptr, false);
-                if (speed_dbl == SpeedValue_unavailable) speed_dbl = m_serialParserPtr->getSpeedNmea(nullptr, false);
-                return speed_dbl;
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getSpeedValidity(false) > 0) {
+                return m_serialParserPtr->getSpeed(nullptr, false);
+            } else {
+                return SpeedValue_unavailable;
             }
-        //}
+        } else {
+            return SpeedValue_unavailable;
+        }
     }
     return SpeedValue_unavailable;
 }
@@ -671,8 +755,19 @@ VDPGPSClient::getAltitudeValueDbl() {
             }
         }
     } else{
-        if (m_serialParserPtr->getFixValidity3D(false) == true && m_serialParserPtr->getAttitudeValidity(false) == true) {
-            return m_serialParserPtr->getAltitude(nullptr, false);
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getAttitudeValidity(false) == true) {
+                return m_serialParserPtr->getAltitude(nullptr, false);
+            } else {
+                return AltitudeValue_unavailable;
+            }
+        } else {
+            return AltitudeValue_unavailable;
         }
     }
     return AltitudeValue_unavailable;
@@ -696,9 +791,21 @@ VDPGPSClient::getCurrentPositionDbl() {
                 }
             }
         }
-    }
-    else if (m_serialParserPtr->getPositionValidity(false) == true) {
-        return m_serialParserPtr->getPosition(nullptr, false);
+    } else {
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
+                return m_serialParserPtr->getPosition(nullptr, false);
+            }
+            else {
+                return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
+            }
+        }
+        return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
     }
     return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
 }
@@ -724,8 +831,21 @@ VDPGPSClient::getLongitudinalAccelerationValueDbl() {
         }
          */
     } else {
-        if (m_serialParserPtr->getFixValidity3D(false) == true && m_serialParserPtr->getAccelerationsValidity(false) == true) {
-            return m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getAccelerationsValidity(false) == true) {
+                return m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
+            }
+            else {
+                return LongitudinalAccelerationValue_unavailable;
+            }
+        }
+        else {
+            return LongitudinalAccelerationValue_unavailable;
         }
     }
     return LongitudinalAccelerationValue_unavailable;
@@ -752,16 +872,28 @@ VDPGPSClient::getYawRateDbl() {
         }
          */
     } else {
-        if (m_serialParserPtr->getFixValidity3D(false) == true && m_serialParserPtr->getYawRateValidity(false) == true) {
-            return m_serialParserPtr->getYawRate(nullptr, false);
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getYawRateValidity(false) == true) {
+                return m_serialParserPtr->getYawRate(nullptr, false);
+            }
+            else {
+                return YawRateValue_unavailable;
+            }
+        }
+        else {
+            return YawRateValue_unavailable;
         }
     }
     return YawRateValue_unavailable;
 }
 
 VDPGPSClient::CAM_mandatory_data_t
-VDPGPSClient::
-getCAMMandatoryData() {
+VDPGPSClient::getCAMMandatoryData() {
 	CAM_mandatory_data_t CAMdata={.avail=false};
 
     if(m_use_gpsd==true) {
@@ -880,33 +1012,39 @@ getCAMMandatoryData() {
             fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
             fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
 
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
+            if (m_serialParserPtr->getSpeedValidity(false) > 0) {
 
-                double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
-                // If no speed is available from UBX, use NMEA
-                if (speed == 0) {
-                    //speed = m_serialParserPtr->getSpeedNmea(nullptr,false);
-                }
+                double speed = m_serialParserPtr->getSpeed(nullptr, false);
                 if (speed >= 0 && speed <= 163.82) {
                     CAMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
-                } else CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+                }
+                else {
+                    CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+                }
 
             } else CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
 
             long pos_age = -1;
             double longitude = -1.0;
             double latitude = -1.0;
-            if (m_serialParserPtr->getPositionValidity(false) == true) {
+
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
                 CAMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
                 latitude = position.first;
-            } else CAMdata.latitude = (Latitude_t) Latitude_unavailable;
+            }
+            else {
+                CAMdata.latitude = (Latitude_t) Latitude_unavailable;
+            }
 
-            if (m_serialParserPtr->getPositionValidity(false) == true) {
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
                 CAMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
                 longitude = position.second;
-            } else CAMdata.longitude = (Longitude_t) Longitude_unavailable;
+            }
+            else {
+                CAMdata.longitude = (Longitude_t) Longitude_unavailable;
+            }
 
 //            long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 //            std::cout << "[getCAMMandatoryData] @ " << time << std::endl;
@@ -916,8 +1054,14 @@ getCAMMandatoryData() {
                 double altitude = m_serialParserPtr->getAltitude(nullptr, false);
                 if (altitude * CENTI >= -100000 && altitude * CENTI <= 800000) {
                     CAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
-                } else CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
-            } else CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+                }
+                else {
+                    CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+                }
+            }
+            else {
+                CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+            }
 
             CAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
             CAMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
@@ -928,27 +1072,29 @@ getCAMMandatoryData() {
                 if (long_acc >= -16 && long_acc <= 16) {
                     //CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
                     CAMdata.longAcceleration = VDPValueConfidence<>(long_acc * DECI, AccelerationConfidence_unavailable);
-                } else CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
-            } else CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+                }
+                else {
+                    CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+                }
+            }
+            else {
+                CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+            }
 
-            double hdd = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
-            if (hdd == 0) hdd = m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
-
-            // printf("BEFORE: %.2lf\n",hdd);
-            // printf("VALID? %d\n",m_serialParserPtr->getSpeedAndCogValidity(true));
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
-
-                // If no heading is available from UBX, use NMEA
-                if (heading == 0) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
-
+            if (m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
+                double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
                 if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
                     CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
-                } else CAMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
+                }
+                else {
+                    CAMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
+                }
 
-            } else CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+            }
+            else {
+                CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+            }
 
-            // printf("AFTER: %d\n",CAMdata.heading.getValue());
 
             CAMdata.driveDirection = DriveDirection_unavailable;
             CAMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);
@@ -958,11 +1104,17 @@ getCAMMandatoryData() {
 
             if (m_serialParserPtr->getYawRateValidity(false) == true) {
                 double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
+
                 if (yaw_rate >= -327.66 && yaw_rate <= 327.66) {
-                    //CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
                     CAMdata.yawRate = VDPValueConfidence<>(yaw_rate * CENTI, YawRateConfidence_unavailable);
-                } else CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
-            } else CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+                }
+                else {
+                    CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+                }
+            }
+            else {
+                CAMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+            }
 
             CAMdata.avail = true;
 
@@ -1088,28 +1240,29 @@ VDPGPSClient::getCAMConditionsData()
             fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
             fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
 
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-
-                double speed = m_serialParserPtr->getSpeedUbx(nullptr, false);
-                // If no speed is available from UBX, use NMEA
-                if (speed == 0) {
-                    //speed = m_serialParserPtr->getSpeedNmea(nullptr,false);
-                }
+            if (m_serialParserPtr->getSpeedValidity(false) > 0) {
+                double speed = m_serialParserPtr->getSpeed(nullptr, false);
                 if (speed >= 0 && speed <= 163.82) {
                     CAMdata.speedCheck = speed * CENTI;
-                } else CAMdata.speedCheck = SpeedValue_unavailable;
-            } else CAMdata.speedCheck = SpeedValue_unavailable;
+                }
+                else {
+                    CAMdata.speedCheck = SpeedValue_unavailable;
+                }
+            }
+            else {
+                CAMdata.speedCheck = SpeedValue_unavailable;
+            }
 
             long pos_age = -1;
             double longitude = -1.0;
             double latitude = -1.0;
-            if (m_serialParserPtr->getPositionValidity(false) == true) {
+
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 CAMdata.currPos = m_serialParserPtr->getPosition(&pos_age, false);
                 latitude = CAMdata.currPos.first;
                 longitude = CAMdata.currPos.second;
             }
-            else
-            {
+            else {
                 CAMdata.currPos.first = -DBL_MAX;
                 CAMdata.currPos.second = -DBL_MAX;
             }
@@ -1121,23 +1274,18 @@ VDPGPSClient::getCAMConditionsData()
 
             // printf("BEFORE: %.2lf\n",hdd);
             // printf("VALID? %d\n",m_serialParserPtr->getSpeedAndCogValidity(true));
-            if (m_serialParserPtr->getSpeedAndCogValidity(false) == true) {
-                double heading = m_serialParserPtr->getCourseOverGroundUbx(nullptr, false);
-
-                // If no heading is available from UBX, use NMEA
-                if (heading == 0) heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
-
+            if (m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
+                double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
                 if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
                     CAMdata.headCheck = HeadingValue_unavailable;
                     CAMdata.headCheckDbl = -DBL_MAX;
-                } else
-                {
+                }
+                else {
                     CAMdata.headCheck = heading * DECI;
                     CAMdata.headCheckDbl = heading;
                 }
-
-            } else
-            {
+            }
+            else {
                 CAMdata.headCheck = HeadingValue_unavailable;
                 CAMdata.headCheckDbl = -DBL_MAX;
             }

@@ -62,6 +62,9 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
 /** hexToSigned() performs a conversion from a uint8_t array of 3 or 4 bytes to a signed long value.
  *
  *  By exploiting the dimension of a long value (32 bit), shifts every bytes to the left by
+ *
+ *
+ *
  *  multiples of 8, obtaining the whole number in a single 32 bit variable.
  *  Then calculates the two's complement to obtain the final signed value.
  *
@@ -316,9 +319,9 @@ UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and
     if (age_us != nullptr) *age_us = local_age_us;
 
     if (local_age_us >= validity_thr) {
-        m_pos_valid.store(false);
+        m_pos_valid_ubx.store(false);
     }
-    else m_pos_valid.store(true);
+    else m_pos_valid_ubx.store(true);
 
     return std::pair<double,double>(tmp.lat_ubx,tmp.lon_ubx);
 }
@@ -337,6 +340,7 @@ UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_an
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_pos_nmea;
+
     long validity_thr = getValidityThreshold();
 
     if (m_debug_age_info_rate) m_debug_age_info.age_pos_nmea = local_age_us;
@@ -347,9 +351,9 @@ UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_an
     if (age_us != nullptr) *age_us = local_age_us;
 
     if (local_age_us >= validity_thr) {
-        m_pos_valid.store(false);
+        m_pos_valid_nmea.store(false);
     }
-    else m_pos_valid.store(true);
+    else m_pos_valid_nmea.store(true);
 
     return std::pair<double,double>(tmp.lat_nmea,tmp.lon_nmea);
 }
@@ -484,7 +488,9 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 
     // Validates data
     m_pos_valid = true;
+    m_pos_valid_nmea = true;
     m_alt_valid = true;
+    m_alt_valid_nmea = true;
 
     // Updates the buffer
 	m_outBuffer.store(out_nmea);
@@ -615,7 +621,9 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 
     // Validates data
     m_pos_valid = true;
+    m_pos_valid_nmea = true;
     m_alt_valid = true;
+    m_alt_valid_nmea = true;
 
     // Updates the buffer
 	m_outBuffer.store(out_nmea);
@@ -1049,6 +1057,37 @@ UBXNMEAParserSingleThread::parseNavAtt(std::vector<uint8_t> response) {
 	m_outBuffer.store(out_att);
 }
 
+/** getSpeed() provides the latest speed value correctly parsed and validated. */
+double
+UBXNMEAParserSingleThread::getSpeed(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started==false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_sog_cog;
+
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+    }
+
+    if (local_age_us >= getValidityThreshold()) {
+        m_sog_valid.store(false);
+    }
+    else m_sog_valid.store(true);
+
+    if (print_timestamp_and_age == true) std::cout << "[Speed timestamp] - " <<  tmp.ts_sog_cog_nmea
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.sog;
+}
+
 /** getSpeedUbx() provide the speed over ground value obtained from UBX-NAV-PVT message. */
 double
 UBXNMEAParserSingleThread::getSpeedUbx(long *age_us, bool print_timestamp_and_age) {
@@ -1070,9 +1109,9 @@ UBXNMEAParserSingleThread::getSpeedUbx(long *age_us, bool print_timestamp_and_ag
 
 
     if (local_age_us >= getValidityThreshold()) {
-        m_sog_cog_ubx_valid.store(false);
+        m_sog_valid_ubx.store(false);
     }
-    else m_sog_cog_ubx_valid.store(true);
+    else m_sog_valid_ubx.store(true);
 
     if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - UBX] - " <<  tmp.ts_sog_cog_ubx
                                                    << "Age of information: " << local_age_us << " us"
@@ -1103,9 +1142,9 @@ UBXNMEAParserSingleThread::getSpeedNmea(long *age_us, bool print_timestamp_and_a
     }
 
     if (local_age_us >= getValidityThreshold()) {
-        m_sog_cog_nmea_valid.store(false);
+        m_sog_valid_nmea.store(false);
     }
-    else m_sog_cog_nmea_valid.store(true);
+    else m_sog_valid_nmea.store(true);
 
     if (print_timestamp_and_age == true) std::cout << "[Speed timestamp - NMEA] - " <<  tmp.ts_sog_cog_nmea
                                                    << "Age of information: " << local_age_us << " us"
@@ -1113,6 +1152,36 @@ UBXNMEAParserSingleThread::getSpeedNmea(long *age_us, bool print_timestamp_and_a
     if (age_us != nullptr) *age_us = local_age_us;
 
     return tmp.sog_nmea;
+}
+
+/** getCourseOverGroundNmea() provides the COG value obtained from the GXRMC sentence */
+double
+UBXNMEAParserSingleThread::getCourseOverGround(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto end = now.time_since_epoch().count();
+    long local_age_us = end - tmp.lu_sog_cog;
+
+    if (m_debug_age_info_rate) {
+        m_debug_age_info.age_sog_cog = local_age_us;
+    }
+
+    if (local_age_us >= getValidityThreshold()) {
+        m_cog_valid.store(false);
+    }
+    else m_cog_valid.store(true);
+
+    if (print_timestamp_and_age == true) std::cout << "[Course Over Ground timestamp] - " <<  tmp.ts_sog_cog_nmea
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.cog;
 }
 
 /** getCourseOverGroundUbx() provides the COG value obtained from the UBX-NAV-PVT message */
@@ -1135,9 +1204,9 @@ UBXNMEAParserSingleThread::getCourseOverGroundUbx(long *age_us, bool print_times
     }
 
     if (local_age_us >= getValidityThreshold()) {
-        m_sog_cog_ubx_valid.store(false);
+        m_cog_valid_ubx.store(false);
     }
-    else m_sog_cog_ubx_valid.store(true);
+    else m_cog_valid_ubx.store(true);
 
     if (print_timestamp_and_age == true) std::cout << "[Course Over Ground timestamp - UBX] - " <<  tmp.ts_sog_cog_ubx
                                                    << "Age of information: " << local_age_us << " us"
@@ -1167,9 +1236,9 @@ UBXNMEAParserSingleThread::getCourseOverGroundNmea(long *age_us, bool print_time
     }
 
     if (local_age_us >= getValidityThreshold()) {
-        m_sog_cog_nmea_valid.store(false);
+        m_cog_valid_nmea.store(false);
     }
-    else m_sog_cog_nmea_valid.store(true);
+    else m_cog_valid_nmea.store(true);
 
     if (print_timestamp_and_age == true) std::cout << "[Course Over Ground timestamp - NMEA] - " <<  tmp.ts_sog_cog_nmea
                                                    << "Age of information: " << local_age_us << " us"
@@ -1252,13 +1321,25 @@ UBXNMEAParserSingleThread::getFixValidity3D(bool print_error) {
 }
 
 /** getPositionValidity() verifies if the position value's age of information
- * is inside the acceptable validity range set by the user. */
-std::atomic<bool>
+ * is inside the acceptable validity range set by the user.
+ *
+ * Return values: 0 invalid - 1 UBX valid - 2 NMEA valid - 3 UBX/NMEA valid*/
+std::atomic<int>
 UBXNMEAParserSingleThread::getPositionValidity(bool print_error) {
     if (m_pos_valid == false && print_error == true) {
         std::cerr << "Error: Outdated position value (age > threshold)!" << std::endl;
-        return false;
-    } else return m_pos_valid.load();
+        return 0;
+    }
+    if (m_pos_valid_ubx && !m_pos_valid_nmea) {
+        return 1;
+    }
+    if (m_pos_valid_nmea && !m_pos_valid_ubx){
+        return 2;
+    }
+    if (m_pos_valid_ubx && m_pos_valid_nmea) {
+        return 3;
+    }
+    return 0;
 }
 
 bool
@@ -1301,18 +1382,48 @@ UBXNMEAParserSingleThread::getYawRateValidity(bool print_error) {
     } else return m_comp_ang_rate_valid;
 }
 
-bool
-UBXNMEAParserSingleThread::getSpeedAndCogValidity(bool print_error) {
-    if (m_sog_cog_ubx_valid == false && print_error == true) {
+/** getSpeedValidity() verifies if the speed value's age of information
+ * is inside the acceptable validity range set by the user.
+ *
+ * Return values: 0 invalid - 1 UBX valid - 2 NMEA valid - 3 UBX/NMEA valid */
+int
+UBXNMEAParserSingleThread::getSpeedValidity(bool print_error) {
+    if (m_sog_valid == false && print_error == true) {
         std::cerr << "Error: Outdated UBX speed/course over ground value (age > threshold)!" << std::endl;
-        return false;
+        return 0;
     }
-    if (m_sog_cog_nmea_valid == false && print_error == true) {
-        std::cerr << "Error: Outdated NMEA speed/course over ground value (age > threshold)!" << std::endl;
-        return false;
+    if (m_sog_valid_ubx && !m_sog_valid_nmea) {
+        return 1;
     }
-    if (m_sog_cog_ubx_valid == false) return m_sog_cog_nmea_valid;
-    else return m_sog_cog_ubx_valid;
+    if (m_sog_valid_nmea && !m_sog_valid_ubx) {
+        return 2;
+    }
+    if (m_sog_valid_ubx && m_sog_valid_nmea) {
+        return 3;
+    }
+    return 0;
+}
+
+/** getCourseOverGroundValidity() verifies if the course over ground value's age of information
+ * is inside the acceptable validity range set by the user.
+ *
+ * Return values: 0 invalid - 1 UBX valid - 2 NMEA valid - 3 UBX/NMEA valid */
+int
+UBXNMEAParserSingleThread::getCourseOverGroundValidity(bool print_error) {
+    if (m_cog_valid == false && print_error == true) {
+        std::cerr << "Error: Outdated UBX speed/course over ground value (age > threshold)!" << std::endl;
+        return 0;
+    }
+    if (m_cog_valid_ubx && !m_cog_valid_nmea) {
+        return 1;
+    }
+    if (m_cog_valid_nmea && !m_cog_valid_ubx) {
+        return 2;
+    }
+    if (m_cog_valid_ubx && m_cog_valid_nmea) {
+        return 3;
+    }
+    return 0;
 }
 
 /** setValidityThreshold() sets the threshold value given by the user. */
@@ -1461,9 +1572,14 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     out_pvt.lu_alt_ubx = out_pvt.lu_alt;
 
     // Validates data
-    m_sog_cog_ubx_valid = true;
+    m_sog_valid = true;
+    m_sog_valid_ubx = true;
+    m_cog_valid = true;
+    m_cog_valid_ubx = true;
     m_pos_valid = true;
+    m_pos_valid_ubx = true;
     m_alt_valid = true;
+    m_alt_valid_ubx = true;
 
     // Updates the buffer
     m_outBuffer.store(out_pvt);
@@ -1587,7 +1703,10 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
 	out_nmea.lu_sog_cog_nmea = out_nmea.lu_sog_cog;
 
     // Validates data
-    m_sog_cog_nmea_valid = true;
+    m_sog_valid = true;
+    m_sog_valid_nmea = true;
+    m_cog_valid = true;
+    m_cog_valid_nmea = true;
 
     // Updates the buffer
 	m_outBuffer.store(out_nmea);

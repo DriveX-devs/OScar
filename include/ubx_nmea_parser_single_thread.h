@@ -32,8 +32,10 @@ class UBXNMEAParserSingleThread {
         std::tuple<double,double,double> getAngularRates(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getRawAccelerations(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getAttitude(long *age_us, bool print_timestamp_and_age);
+        double getSpeed(long *age_us, bool print_timestamp_and_age);
         double getSpeedUbx(long *age_us, bool print_timestamp_and_age);
         double getSpeedNmea(long *age_us, bool print_timestamp_and_age);
+        double getCourseOverGround(long *age_us, bool print_timestamp_and_age);
         double getCourseOverGroundUbx(long *age_us, bool print_timestamp_and_age);
         double getCourseOverGroundNmea(long *age_us, bool print_timestamp_and_age);
         double getAltitude(long *age_us, bool print_timestamp_and_age);
@@ -44,8 +46,6 @@ class UBXNMEAParserSingleThread {
         std::string getFixMode();
         std::string getFixModeUbx();
         std::string getFixModeNmea();
-        std::string getUtcTimeUbx();
-        std::string getUtcTimeNmea();
         double getValidityThreshold();
         void showDebugAgeInfo();
 
@@ -58,13 +58,15 @@ class UBXNMEAParserSingleThread {
         bool validateUbxMessage(std::vector<uint8_t> msg);
         bool getFixValidity2D(bool print_error);
         bool getFixValidity3D(bool print_error);
-        std::atomic<bool> getPositionValidity(bool print_error);
+        std::atomic<int> getPositionValidity(bool print_error);
         bool getRawAccelerationsValidity(bool print_error);
         bool getAttitudeValidity(bool print_error);
         bool getAccelerationsValidity(bool print_error);
         bool getAltitudeValidity(bool print_error);
         bool getYawRateValidity(bool print_error);
-        bool getSpeedAndCogValidity(bool print_error);
+        int getSpeedValidity(bool print_error);
+        int getCourseOverGroundValidity(bool print_error);
+
         bool getDebugAgeInfo();
 
         int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
@@ -81,7 +83,7 @@ class UBXNMEAParserSingleThread {
          * Example:
          * lat: latest latitude value (obtained from the latest parsed UBX/NMEA message/sentence)
          * lat_ubx: latest latitude value from UBX
-         * lat_nmea: latest latuitude value from NMEA
+         * lat_nmea: latest latitude value from NMEA
          *
          * The parser provide specific function to get all of three data kind, for example:
          * getPosition() provides the latest position fetching from "lat" and "lon" variables.
@@ -142,18 +144,30 @@ class UBXNMEAParserSingleThread {
         bool m_parser_started=false;
 
         // Data validity flags and user-defined threshold
-        std::atomic<bool> m_2d_valid_fix = false;
-        std::atomic<bool> m_3d_valid_fix = false;
+        std::atomic<bool> m_2d_valid_fix = false;        // UBX-NAV-STATUS - GXGNS - GXGGA - GXRMC
+        std::atomic<bool> m_3d_valid_fix = false;        // UBX-NAV-STATUS - GXGNS - GXGGA - GXRMC
         std::atomic<bool> m_pos_valid = false;
-        std::atomic<bool> m_acc_valid = false;
-        std::atomic<bool> m_att_valid = false;
+        std::atomic<bool> m_pos_valid_ubx = false;       // UBX-NAV-PVT
+        std::atomic<bool> m_pos_valid_nmea = false;      // GXGGA - GXGNS
+        std::atomic<bool> m_acc_valid = false;           // UBX only (UBX-ESF-RAW)
+        std::atomic<bool> m_att_valid = false;           // UBX only (UBX-NAV-ATT)
         std::atomic<bool> m_alt_valid = false;
-        std::atomic<bool> m_comp_acc_valid = false;
-        std::atomic<bool> m_comp_ang_rate_valid = false;
-        std::atomic<bool> m_sog_cog_ubx_valid = false;
-        std::atomic<bool> m_sog_cog_nmea_valid = false;
+        std::atomic<bool> m_alt_valid_ubx = false;       // UBX-NAV-PVT
+        std::atomic<bool> m_alt_valid_nmea = false;      // GXGGA - GXGNS
+        std::atomic<bool> m_comp_acc_valid = false;      // UBX only (UBX-ESF-INS)
+        std::atomic<bool> m_comp_ang_rate_valid = false; // UBX only (UBX-ESF-INS)
+        std::atomic<bool> m_sog_valid = false;
+        std::atomic<bool> m_sog_valid_ubx = false;       // UBX-NAV-PVT
+        std::atomic<bool> m_sog_valid_nmea = false;      // GXRMC
+        std::atomic<bool> m_cog_valid = false;
+        std::atomic<bool> m_cog_valid_ubx = false;       // UBX-NAV-PVT
+        std::atomic<bool> m_cog_valid_nmea = false;      // GXRMC
+
+        // CLI and debug flags
         double m_validity_threshold = 0;
         int m_debug_age_info_rate = 0;
+
+        // Age of information struct
         age_t m_debug_age_info;
 
         ceSerial m_serial;
@@ -180,6 +194,7 @@ class UBXNMEAParserSingleThread {
         void parseNavStatus(std::vector<uint8_t> response);
         void parseEsfIns(std::vector<uint8_t> response);
 
+        // Serial reading functions
         void readFromSerial();
         void readData();
 };
