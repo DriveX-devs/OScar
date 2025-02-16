@@ -1654,8 +1654,15 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	m_outBuffer.store(out_sts);
 }
 
-/** Parses a UBX-ESF-INS message in order to obtain measures about the vehicle dynamics.
- *  In particular the function parses the compesated acceleration */
+/** parseEsfInf() parses a UBX-ESF-INS message in order to obtain measures about the vehicle dynamics.
+ *
+ *  In particular the function parses the compensated acceleration, without the gravity acceleration added
+ *  to the x axis.
+ *
+ *  The fields of interest in the UBX-ESF-INS message from byte 12 (after the payload) to byte 36, containing
+ *  the threee angular rates and the three gravity-free accelerations-
+ *
+ *  See ZED-F9R interface description at 3.11.2 UBX-ESF-INS for more information */
 void
 UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 	out_t out_ins = m_outBuffer.load();
@@ -1713,7 +1720,13 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 	m_outBuffer.store(out_ins);
 }
 
-/** Reads from serial port, filtering for NMEA sentences and UBX messages and parsing accordingly */
+/** Reads from serial port, filtering for NMEA sentences and UBX messages and parsing accordingly.
+ *
+ *  Accounts for wrong inputs provided by the receiver and suspends the data parsing if the wrong
+ *  bytes quantity is greater than the threshold provided by the user via CLI.
+ *
+ *  It handles overlapped messages by scanning for a new message's header while reading
+ *  the current message and verifies every message calculating the checksum values before parsing. */
 void
 UBXNMEAParserSingleThread::readFromSerial() {
 
@@ -1931,20 +1944,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx = false;
                                 byte_previous = byte;
 
-                                //todo: review this
-                                // Calibration checks
-                                // If there are uncalibrated measures, ignore them
-                                /*
-                                if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
-                                    std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
-                                    break;
-                                }
-                                if (ubx_message[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
-                                    std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
-                                    break;
-                                }
-                                */
-
                                 parseEsfIns(ubx_message);
 
                                 ubx_message.clear();
@@ -2046,19 +2045,6 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
                                 byte_previous = byte;
-                                //todo: review this
-                                // Calibration checks
-                                // If there are uncalibrated measures, ignore them
-                                /*
-                                if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x07) {
-                                    std::cout << "[INFO] Accelerometer uncalibrated!" << std::endl;
-                                    break;
-                                }
-                                if (ubx_message_overlapped[m_UBX_PAYLOAD_OFFSET + 1] != 0x3F) {
-                                    std::cout << "[INFO] Accelerometer and gyroscope uncalibrated!" << std::endl;
-                                    break;
-                                }
-                                */
 
                                 parseEsfIns(ubx_message_overlapped);
 
@@ -2119,13 +2105,14 @@ UBXNMEAParserSingleThread::readFromSerial() {
         }
         byte_previous = byte;
         //printf("byte = %02X\n",byte);
-        // printf("byte_previous = %02X\n",byte_previous);
+        //printf("byte_previous = %02X\n",byte_previous);
     }
 }
 
-/** Enables the necessary messages for data retrieving by sending a UBX-CFG-VALSET poll request.
- * Implements also a CFG-VALSET poll request in order to disable the messages.
- * Then encapsulates "readFromSerial()" and executes it endlessly until the global atomic err_flag is raised.
+/** readData() enables the necessary messages for data retrieving by sending a UBX-CFG-VALSET poll request,
+ *  implementing also a CFG-VALSET poll request in order to disable the messages.
+ *
+ * It encapsulates "readFromSerial()" and executes it endlessly until the global atomic err_flag is raised.
  *
  * NOTE: This function is executed in a parallel thread (see main()) */
 void
@@ -2186,6 +2173,8 @@ UBXNMEAParserSingleThread::readData() {
 	}
 }
 
+/** startUBXNMEAParser() initializes and configures the serial interface, clears the atomic data buffer and
+ *  encapsulates readData() to correctly start the serial reading and parsing process. */
 int
 UBXNMEAParserSingleThread::startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *terminatorFlagPtr) {
 	// Serial interface handling and initializing
