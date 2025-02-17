@@ -76,7 +76,7 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
 // TODO: better comment why this function works like this
 template <typename T> T
 UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
-    int32_t value = 0;
+    T value = 0;
 
     if (data.empty() || data.size() > sizeof(T)) {
         std::cerr << "Fatal Error: Invalid std::vector data size. Check UBX-ESF-RAW/UBX-NAV-ATT. Terminating. ";
