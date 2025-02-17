@@ -74,40 +74,29 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
  *  NOTE: This works only for 3 and 4-dimensioned arrays but it can be extended using
  *  a uint64_t return variable. */
 // TODO: better comment why this function works like this
-int32_t
-UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
+int32_t hexToSigned(std::vector<uint8_t> data) {
     int32_t value = 0;
-    if (data.size() == 2) {
-        value |= (data[0] << 8);
-        value |= data[1];
-        if (value & 0x8000) {
-            return static_cast<int32_t>(static_cast<int16_t>(value));
-        }
-        return value;
-    } else if (data.size() == 3) {
-        // TODO: check this case as it is not working
-        value |= (data[0] << 16);
-        value |= (data[1] << 8);
-        value |= data[2];
-        if (value & 0x800000) {
-            value = ~value + 1;
-            return static_cast<int32_t>(value);
-        }
-        return value;
-    } else if (data.size() == 4) {
-        value |= (data[0] << 24);
-        value |= (data[1] << 16);
-        value |= (data[2] << 8);
-        value |= data[3];
-        if (value & 0x80000000) {
-            return static_cast<int32_t>(value);
-        }
-        return value;
-    } else {
+
+    if (data.empty() || data.size() > 4) {
         std::cerr << "Fatal Error: Invalid std::vector data size. Check UBX-ESF-RAW/UBX-NAV-ATT. Terminating. ";
-        //*m_terminatorFlagPtr = true; // Breaks the endless loop and terminates the program
         return -1;
     }
+
+    for (unsigned int i=0;i<data.size();i++) {
+        value = (value << 8) | data[i];
+    }
+
+    if(value & (0x01 << (data.size()*8-1))) {
+        uint32_t bitmask=0xff;
+
+        for (unsigned int i=0;i<sizeof(int32_t)-data.size();i++) {
+            bitmask = (bitmask << 8) | 0xff;
+        }
+
+        value |= bitmask << (data.size()*8);
+    }
+
+    return static_cast<int32_t>(value);
 }
 
 /** clearBuffer() initializes or clears the atomic data buffer
