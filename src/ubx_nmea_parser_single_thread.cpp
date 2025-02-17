@@ -91,7 +91,7 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
 
     value = (value << shift) >> shift;
 
-    return value;
+    return static_cast<int32_t>(value);
 }
 
 /** clearBuffer() initializes or clears the atomic data buffer
