@@ -181,7 +181,7 @@ class UBXNMEAParserSingleThread {
 
         // Mathematical and buffer operations
         static double decimal_deg(double value, char quadrant);
-        int32_t hexToSigned(std::vector<uint8_t> data);
+        template <typename T = int32_t> T hexToSigned(std::vector<uint8_t> data);
         void clearBuffer();
 
         // Parsers

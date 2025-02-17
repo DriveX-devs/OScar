@@ -74,27 +74,28 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
  *  NOTE: This works only for 3 and 4-dimensioned arrays but it can be extended using
  *  a uint64_t return variable. */
 // TODO: better comment why this function works like this
-int32_t
+template <typename T> T
 UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
     int32_t value = 0;
 
-    if (data.empty() || data.size() > 4) {
+    if (data.empty() || data.size() > sizeof(T)) {
         std::cerr << "Fatal Error: Invalid std::vector data size. Check UBX-ESF-RAW/UBX-NAV-ATT. Terminating. ";
         return -1;
     }
 
-    for(unsigned int i=0;i<data.size();i++) {
+    for (unsigned int i=0;i<data.size();i++) {
         value = (value << 8) | data[i];
     }
 
     if(value & (0x01 << (data.size()*8-1))) {
-        for (unsigned int i=0;i<sizeof(int32_t)-data.size();i++) {
+        for (unsigned int i=0;i<sizeof(T)-data.size();i++) {
             value |= (0xff << (data.size()+i)*8);
         }
     }
 
-    return static_cast<int32_t>(value);
+    return static_cast<T>(value);
 }
+
 /** clearBuffer() initializes or clears the atomic data buffer
  * (see ubx_nmea_parser_single_thread.h for more information) */
 void
