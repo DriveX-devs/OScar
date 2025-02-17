@@ -80,18 +80,18 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
     if (data.size() == 2) {
         value |= (data[0] << 8);
         value |= data[1];
-        if (value & 0x80000000) {
-            value = ~value + 1;
-            return -static_cast<int32_t>(value);
+        if (value & 0x8000) {
+            return static_cast<int32_t>(static_cast<int16_t>(value));
         }
         return value;
     } else if (data.size() == 3) {
+        // TODO: check this case as it is not working
         value |= (data[0] << 16);
         value |= (data[1] << 8);
         value |= data[2];
-        if (value & 0x80000000) {
+        if (value & 0x800000) {
             value = ~value + 1;
-            return -static_cast<int32_t>(value);
+            return static_cast<int32_t>(value);
         }
         return value;
     } else if (data.size() == 4) {
@@ -100,8 +100,7 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
         value |= (data[2] << 8);
         value |= data[3];
         if (value & 0x80000000) {
-            value = ~value + 1;
-            return -static_cast<int32_t>(value);
+            return static_cast<int32_t>(value);
         }
         return value;
     } else {
