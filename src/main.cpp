@@ -626,7 +626,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "5.7-beta");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "5.8-beta");
     
 		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
 		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
@@ -919,7 +919,6 @@ int main (int argc, char *argv[]) {
 	// Create a new DB object
 	ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
     db_ptr->setStationID(vehicleID);
-    db_ptr->setCentralLatLon(45.014570, 7.568314); // Sample default lat and lon values, centered near Turin, Italy
 
     // Configure the global serial parser if gpsd is not used
     if(!use_gpsd) {
@@ -939,6 +938,37 @@ int main (int argc, char *argv[]) {
     }
     ldmgpsc.openConnection();
     db_ptr->setLoggingGNSSClient(&ldmgpsc);
+
+    // Take the current position (if available) from the positioning provider (either gpsd or serial parser)
+    int pos_avail_cnt=0;
+    double test_lat, test_lon;
+    while(true) {
+        std::pair<double,double> curr_pos = ldmgpsc.getCurrentPositionDbl();
+        test_lat = curr_pos.first;
+        test_lon = curr_pos.second;
+
+        if(test_lat>=-90.0 && test_lat<=90.0 && test_lon>=-180.0 && test_lon<=180.0) {
+            std::cout << "[INFO] Position available after roughly " << pos_avail_cnt << " seconds: latitude: " << test_lat << " - longitude: " << test_lon << std::endl;
+            break;
+        } else {
+            std::cout << "[INFO] Position not yet available. Waiting 1 second and trying again..." << std::endl;
+        }
+
+        std::cout << "[INFO] Waiting for the positioning provider to provide the position (a fix may not be yet available)..." << std::endl;
+
+        sleep(1);
+        pos_avail_cnt++;
+
+        if(pos_avail_cnt>20) {
+            std::cerr << "[WARN] Position not available after 20 seconds. Using default position for the LDM and GUI." << std::endl;
+        }
+    }
+
+    if(pos_avail_cnt>20) {
+        db_ptr->setCentralLatLon(45.014570, 7.568314); // Sample default lat and lon values, centered near Turin, Italy
+    } else {
+        db_ptr->setCentralLatLon(test_lat,test_lon);
+    }
 	
 	// We have to create a thread reading periodically (e.g. every 5 s) the database through the pointer "db_ptr" and "cleaning" the entries
 	// which are too old
