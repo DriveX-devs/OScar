@@ -1525,30 +1525,99 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 
 	/* Extract the 4 bytes arrays containing the speed over ground and the heading of motion in the UBX-NAV-PVT message
 	 * Converts the arrays in little endian and retrieves the single signed value after scaling accordingly */
+
+    // When we extract any value that is on more than one byte, we need to std::reverse as the data comes in big endian (network byte order)
+    // and we assume that OScar is run on a little endian architecture
+    // TODO: support both little endian and big endian architecture
+    // Tip: this code can be used to check the current endianness of the system (remember that UBX messages are always big endian - network byte order)
+    /* int num = 1;
+    if(*(char *)&num == 1)
+    {
+        printf("\nLittle-Endian\n");
+    } else {
+        printf("Big-Endian\n");
+    } */
+
+    // Extract the speed (byte 60)
 	std::vector<uint8_t> sog(response.begin() + m_UBX_PAYLOAD_OFFSET + 60, response.begin() + m_UBX_PAYLOAD_OFFSET + 64);
 	std::reverse(sog.begin(),sog.end());
 	out_pvt.sog = static_cast<double>(hexToSigned(sog)) * 0.001; // Converts from mm/s to m/s
     out_pvt.sog_ubx = out_pvt.sog;
 
+    // Extract the course over ground (byte 64)
 	std::vector<uint8_t> head_motion(response.begin() + m_UBX_PAYLOAD_OFFSET + 64, response.begin() + m_UBX_PAYLOAD_OFFSET + 68);
 	std::reverse(head_motion.begin(),head_motion.end());
 	out_pvt.cog = static_cast<double>(hexToSigned(head_motion)) * 0.00001;
     out_pvt.cog_ubx = out_pvt.cog;
 
+    // Extract the latitude (byte 28)
     std::vector<uint8_t> lat(response.begin() + m_UBX_PAYLOAD_OFFSET + 28, response.begin() + m_UBX_PAYLOAD_OFFSET + 32);
     std::reverse(lat.begin(),lat.end());
     out_pvt.lat = static_cast<double>(hexToSigned(lat)) * 0.0000001;
     out_pvt.lat_ubx = out_pvt.lat;
 
+    // Extract the longitude (byte 24)
     std::vector<uint8_t> lon(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 28);
     std::reverse(lon.begin(),lon.end());
     out_pvt.lon = static_cast<double>(hexToSigned(lon)) * 0.0000001;
     out_pvt.lon_ubx = out_pvt.lon;
 
+    // Extract the altitude (byte 36)
     std::vector<uint8_t> alt(response.begin() + m_UBX_PAYLOAD_OFFSET + 36, response.begin() + m_UBX_PAYLOAD_OFFSET + 40);
     std::reverse(alt.begin(),alt.end());
     out_pvt.alt = static_cast<double>(hexToSigned(alt)) * 0.001; // Convert from mm to m
     out_pvt.alt_ubx = out_pvt.alt;
+
+    // Extract the fix (byte 20-21)
+    uint8_t fix_mode  = response[m_UBX_PAYLOAD_OFFSET + 20];
+    uint8_t fix_flags = response[m_UBX_PAYLOAD_OFFSET + 21];
+
+    // Verify fix validity (check if bit 0 in fix_flags is set to 1)
+    // If it is set to 0, the fix is invalid
+    if (!(fix_flags & 0x01)) {
+        printf("Invalid fix: %02X\n",fix_flags);
+        strcpy(out_pvt.fix_ubx, "Invalid");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+        m_outBuffer.store(out_pvt);
+        return;
+    }
+
+    if (fix_mode == 0x00) {
+        strcpy(out_pvt.fix_ubx, "NoFix");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else if (fix_mode == 0x01) {
+        strcpy(out_pvt.fix_ubx, "Estimated/DeadReckoning");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix_mode == 0x02) {
+        strcpy(out_pvt.fix_ubx, "2D-Fix");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = false;
+    }
+    else if (fix_mode == 0x03) {
+        strcpy(out_pvt.fix_ubx, "3D-Fix");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix_mode == 0x04) {
+        strcpy(out_pvt.fix_ubx, "GPS+DeadReckoning");
+        m_2d_valid_fix = true;
+        m_3d_valid_fix = true;
+    }
+    else if (fix_mode == 0x05) {
+        strcpy(out_pvt.fix_ubx, "TimeOnly");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
+    else {
+        strcpy(out_pvt.fix_ubx, "Unknown/Invalid");
+        m_2d_valid_fix = false;
+        m_3d_valid_fix = false;
+    }
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
@@ -1725,6 +1794,7 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 	out_t out_sts = m_outBuffer.load();
 
     // Verify fix validity
+    // TODO: check if it makes sense to implement the same check on bit 0 as it is done for the UBX-NAV-PVT message
 	if (fix_flags < 0xD0){
         strcpy(out_sts.fix_ubx, "Invalid");
         m_2d_valid_fix = false;
