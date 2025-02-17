@@ -89,7 +89,7 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
 
     if(value & (0x01 << (data.size()*8-1))) {
         for (unsigned int i=0;i<sizeof(T)-data.size();i++) {
-            value |= (0xff << (data.size()+i)*8);
+            value |= (0xffULL << (data.size()+i)*8);
         }
     }
 
