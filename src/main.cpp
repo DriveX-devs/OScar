@@ -241,8 +241,6 @@ void CAMtxThr(std::string gnss_device,
         vdpgpsc.setSerialParser(&serialParser);
     }
 
-    VDPGPSClient vrudp(gnss_device,gnss_port);
-    vrudp.selectGPSD(use_gpsd);
     GeoNet GN;
     btp BTP;
 
@@ -324,7 +322,6 @@ void CAMtxThr(std::string gnss_device,
     }while(m_retry_flag==true && terminatorFlag==false);
 
     vdpgpsc.closeConnection();
-    vrudp.closeConnection();
     terminatorFlag=true;
 
 }
