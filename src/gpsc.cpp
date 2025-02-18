@@ -1025,8 +1025,8 @@ VDPGPSClient::getCAMMandatoryData() {
             } else CAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
 
             long pos_age = -1;
-            double longitude = -1.0;
-            double latitude = -1.0;
+            double longitude = Latitude_unavailable;
+            double latitude = Longitude_unavailable;
 
             if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
@@ -1119,7 +1119,7 @@ VDPGPSClient::getCAMMandatoryData() {
             CAMdata.avail = true;
 
             // compute the delta position considering the speed, heading and the pos age
-            if (CAMdata.avail == true) {
+            if (CAMdata.avail == true && (CAMdata.latitude!=Latitude_unavailable && CAMdata.longitude!=Longitude_unavailable)) {
                 double delta_x = 0.0;
                 double delta_y = 0.0;
                 double gammar=0,kr=0;
@@ -1157,7 +1157,6 @@ VDPGPSClient::getCAMMandatoryData() {
 //                std::cout << "New Latitude: " << CAMdata.latitude << std::endl;
 //                std::cout << "New longitude: " << CAMdata.longitude << std::endl;
             }
-
         }
         else {
             // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
@@ -1180,6 +1179,7 @@ VDPGPSClient::getCAMMandatoryData() {
             CAMdata.avail = false;
         }
     }
+
     return CAMdata;
 }
 
@@ -1261,12 +1261,10 @@ VDPGPSClient::getCAMConditionsData()
                 CAMdata.currPos = m_serialParserPtr->getPosition(&pos_age, false);
                 latitude = CAMdata.currPos.first;
                 longitude = CAMdata.currPos.second;
-            }
-            else {
+            } else {
                 CAMdata.currPos.first = -DBL_MAX;
                 CAMdata.currPos.second = -DBL_MAX;
             }
-
 
 /*            long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
             std::cout << "[getCAMConditionsData] @ " << time << std::endl;
@@ -1293,7 +1291,7 @@ VDPGPSClient::getCAMConditionsData()
             CAMdata.avail = true;
 
             // compute the delta position considering the speed, heading and the pos age
-            if (CAMdata.avail == true) {
+            if (CAMdata.avail == true && (CAMdata.currPos.first != -DBL_MAX && CAMdata.currPos.second != -DBL_MAX)) {
                 double delta_x = 0.0;
                 double delta_y = 0.0;
                 double gammar=0,kr=0;
@@ -1334,7 +1332,6 @@ VDPGPSClient::getCAMConditionsData()
                 std::cout << "New Latitude: " << CAMdata.currPos.first << std::endl;
                 std::cout << "New longitude: " << CAMdata.currPos.second  << std::endl;*/
             }
-
         }
         else {
             // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)

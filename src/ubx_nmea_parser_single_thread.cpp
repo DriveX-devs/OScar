@@ -59,34 +59,40 @@ UBXNMEAParserSingleThread::decimal_deg(double value, char quadrant) {
     return value;
 }
 
-/** hexToSigned() performs a conversion from a uint8_t array of 3 or 4 bytes to a signed long value.
+/** hexToSigned() performs a conversion from a uint8_t array of 1 to sizeof(T) bytes to a signed long value.
  *
- *  By exploiting the dimension of a long value (32 bit), shifts every bytes to the left by
+ *  By exploiting the dimension of the type T (by default set to a int32_t, see the .h file), shifts every
+ *  bytes to the left by multiples of 8, obtaining the whole number in a single sizeof(T)*8 bit variable.
+ *  Then, in case the sign bit it set, fills the leading bits with 1s so that the cast will correctly output a
+ *  negative signed number.
  *
+ *  If it's provided with wrong input, raises an error and returns -1.
  *
- *
- *  multiples of 8, obtaining the whole number in a single 32 bit variable.
- *  Then calculates the two's complement to obtain the final signed value.
- *
- *  If it's provided with wrong input, raises a fatal error and triggers the global err_flag
- *  thus terminating the program
- *
- *  NOTE: This works only for 3 and 4-dimensioned arrays but it can be extended using
- *  a uint64_t return variable. */
+ *  NOTE: This works only for T = integer signed types  */
 // TODO: better comment why this function works like this
 template <typename T> T
 UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
     T value = 0;
 
-    if (data.empty() || data.size() > sizeof(T)) {
-        std::cerr << "Fatal Error: Invalid std::vector data size. Check UBX-ESF-RAW/UBX-NAV-ATT. Terminating. ";
+    // Check if the function has been called with a proper type for the template T
+    if constexpr (!std::is_same<T, int8_t>::value && !std::is_same<T, int16_t>::value && !std::is_same<T, int32_t>::value && !std::is_same<T, int64_t>::value) {
+        std::cerr << "[ERROR] Invalid type for T in hexToSigned(). This is a (very bad) bug. Please report it to the developers.";
         return -1;
     }
 
-    for (unsigned int i=0;i<data.size();i++) {
+    // Return an error in case a vector exceeding the size of T is provided (i.e., more bytes are provided than what T can store)
+    if (data.empty() || data.size() > sizeof(T)) {
+        std::cerr << "[ERROR] Invalid std::vector data size. Check UBX-ESF-RAW/UBX-NAV-ATT. ";
+        return -1;
+    }
+
+    // Store all the bytes in a single value, by looping over the 'data' array and setting one byte at a time
+    for(unsigned int i=0;i<data.size();i++) {
         value = (value << 8) | data[i];
     }
 
+    // If the number if negative (the first if() checks if the sign bit - the highest bit - is set), fill the leading bits with 1s so that the
+    // cast will correctly output a negative signed number
     if(value & (0x01 << (data.size()*8-1))) {
         for (unsigned int i=0;i<sizeof(T)-data.size();i++) {
             value |= (0xffULL << (data.size()+i)*8);

@@ -465,7 +465,11 @@ CABasicService::checkCamConditions()
        * the position included in the CAM previously transmitted by the originating
        * ITS-S exceeds 4 m;
       */
-      pos_diff = haversineDist(currPos.first, currPos.second, m_prev_pos.first, m_prev_pos.second); // Compute the position difference with the previous CAM sent
+      if(currPos.first != -DBL_MAX && currPos.second != -DBL_MAX) {
+          pos_diff = haversineDist(currPos.first, currPos.second, m_prev_pos.first,m_prev_pos.second);
+      } else {
+          pos_diff = 0;
+      }
 
       // Create the data for the log print
       data_pos="[DISTANCE] PrevLat="+std::to_string(m_prev_pos.first)+" PrevLon="+std::to_string(m_prev_pos.second)+" CurrLat="+std::to_string(currPos.first)+" CurrLon="+std::to_string(currPos.second)+" PosDiff="+std::to_string(pos_diff)+"\n";
