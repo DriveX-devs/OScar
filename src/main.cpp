@@ -961,6 +961,7 @@ int main (int argc, char *argv[]) {
 
         if(pos_avail_cnt>20) {
             std::cerr << "[WARN] Position not available after 20 seconds. Using default position for the LDM and GUI." << std::endl;
+            break;
         }
     }
 
