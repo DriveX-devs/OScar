@@ -374,6 +374,7 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
 GNDataConfirm_t
 GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHeader basicHeader,GNlpv_t longPV) {
 	shbHeader header;
+
 	//1) Create SHB GN-PDU with SHB header setting according to ETSI EN 302 636-4-1 [10.3.10.2]
 	//a) and b) already done
 	//c) SHB extended header
@@ -517,6 +518,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 GNDataConfirm_t
 GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHeader basicHeader,GNlpv_t longPV) {
 	gbcHeader header;
+
 	//1) Create SHB GN-PDU with GBC header setting according to ETSI EN 302 636-4-1 [10.3.11.2]
 	//a) and b) already done
 	//GBC extended header

@@ -369,7 +369,7 @@ VDPGPSClient::getCurrentPosition() {
         if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
             fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
             fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
-            if (m_serialParserPtr->getPositionValidity(false) == true) {
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
                 return std::pair<long, long>(position.first * DOT_ONE_MICRO, position.second * DOT_ONE_MICRO);
             } else {
@@ -416,17 +416,17 @@ VDPGPSClient::getPedPosition() {
             double longitude = -1.0;
             double latitude = -1.0;
             double altitude = -8001.0;
-            if (m_serialParserPtr->getPositionValidity(false) == true) {
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
                 latitude = position.first;
             } else latitude = (Latitude_t) Latitude_unavailable;
 
-            if (m_serialParserPtr->getPositionValidity(false) == true) {
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
                 longitude = position.second;
             } else longitude = (Longitude_t) Longitude_unavailable;
 
-            if (m_serialParserPtr->getAltitudeValidity(false) == true) {
+            if (m_serialParserPtr->getAltitudeValidity(false) > 0) {
                 altitude = m_serialParserPtr->getAltitude(nullptr, false);
             } else altitude = AltitudeValue_unavailable/100.0;
 
@@ -499,75 +499,227 @@ VDPGPSClient::convertLatLontoXYZ_TM(VDPGPSClient::VRU_position_latlon_t pos_latl
 VDPGPSClient::VAM_mandatory_data_t
 VDPGPSClient::getVAMMandatoryData() {
     VAM_mandatory_data_t VAMdata={.avail=false};
-    int rval;
 
-    rval=gps_read(&m_gps_data,nullptr,0);
+    if(m_use_gpsd==true) {
+        int rval;
 
-    if(rval==-1) {
-        throw std::runtime_error("Cannot read data from GNSS device: " + std::string(gps_errstr(rval)));
-    } else {
-        // Check if the mode is set and if a fix has been obtained
-        if((m_gps_data.set & MODE_SET)==MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
-            if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+        rval=gps_read(&m_gps_data,nullptr,0);
+
+        if(rval==-1) {
+            throw std::runtime_error("Cannot read data from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if((m_gps_data.set & MODE_SET)==MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if(m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    /* Speed [0.01 m/s] */
+                    VAMdata.speed = VDPValueConfidence<>(m_gps_data.fix.speed*CENTI,SpeedConfidence_unavailable);
+
+                    /* Latitude WGS84 [0,1 microdegree] */
+                    VAMdata.latitude = (Latitude_t)(m_gps_data.fix.latitude*DOT_ONE_MICRO);
+                    /* Longitude WGS84 [0,1 microdegree] */
+                    VAMdata.longitude = (Longitude_t)(m_gps_data.fix.longitude*DOT_ONE_MICRO);
+
+                    int asnAltitudeValue=static_cast<int>(m_gps_data.fix.altitude*CENTI);
+                    /* Altitude [0,01 m] */
+                    if(m_gps_data.fix.mode == MODE_3D && asnAltitudeValue>=-100000 &&  asnAltitudeValue<=800000) {
+                        VAMdata.altitude = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.altitude*CENTI),AltitudeConfidence_unavailable);
+                    } else {
+                        VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
+                    }
+
+                    /* Position Confidence Ellipse */
+                    VAMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
+                    VAMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
+                    VAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
+
+                    /* Heading WGS84 north [0.1 degree] - m_gps_data.fix.track should already provide a CW heading relative to North */
+                    if(static_cast<int>(m_gps_data.fix.track*DECI)<0 || static_cast<int>(m_gps_data.fix.track*DECI)>3601) {
+                        VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+                    } else {
+                        VAMdata.heading = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.track*DECI),HeadingConfidence_unavailable);
+                    }
+
+                    /* Longitudinal acceleration [0.1 m/s^2] */
+                    VAMdata.longAcceleration = VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,AccelerationConfidence_unavailable);
+
+                    /* This flag represents an easy way to understand if it was possible to read any valid data from the GNSS device */
+                    VAMdata.avail = true;
+                }
+            } else{
+                // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
+
                 /* Speed [0.01 m/s] */
-                VAMdata.speed = VDPValueConfidence<>(m_gps_data.fix.speed*CENTI,SpeedConfidence_unavailable);
+                VAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable,SpeedConfidence_unavailable);
 
                 /* Latitude WGS84 [0,1 microdegree] */
-                VAMdata.latitude = (Latitude_t)(m_gps_data.fix.latitude*DOT_ONE_MICRO);
+                VAMdata.latitude = (Latitude_t)Latitude_unavailable;
                 /* Longitude WGS84 [0,1 microdegree] */
-                VAMdata.longitude = (Longitude_t)(m_gps_data.fix.longitude*DOT_ONE_MICRO);
+                VAMdata.longitude = (Longitude_t)Longitude_unavailable;
 
-                int asnAltitudeValue=static_cast<int>(m_gps_data.fix.altitude*CENTI);
                 /* Altitude [0,01 m] */
-                if(m_gps_data.fix.mode == MODE_3D && asnAltitudeValue>=-100000 &&  asnAltitudeValue<=800000) {
-                    VAMdata.altitude = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.altitude*CENTI),AltitudeConfidence_unavailable);
-                } else {
-                    VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
-                }
+                VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
 
                 /* Position Confidence Ellipse */
                 VAMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
                 VAMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
                 VAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
 
-                /* Heading WGS84 north [0.1 degree] - m_gps_data.fix.track should already provide a CW heading relative to North */
-                if(static_cast<int>(m_gps_data.fix.track*DECI)<0 || static_cast<int>(m_gps_data.fix.track*DECI)>3601) {
-                    VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
-                } else {
-                    VAMdata.heading = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.track*DECI),HeadingConfidence_unavailable);
-                }
-
                 /* Longitudinal acceleration [0.1 m/s^2] */
                 VAMdata.longAcceleration = VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,AccelerationConfidence_unavailable);
 
-                /* This flag represents an easy way to understand if it was possible to read any valid data from the GNSS device */
-                VAMdata.avail = true;
+                /* Heading WGS84 north [0.1 degree] */
+                VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+
+                VAMdata.avail = false;
             }
-        } else{
-            // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
+        }
+    } else {
+        // Check if a valid fix is present
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
 
             /* Speed [0.01 m/s] */
-            VAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable,SpeedConfidence_unavailable);
+            if (m_serialParserPtr->getSpeedValidity(false) > 0) {
+                double speed = m_serialParserPtr->getSpeed(nullptr, false);
+                if (speed >= 0 && speed <= 163.82) {
+                    VAMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
+                }
+                else {
+                    VAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+                }
+            } else {
+                VAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+            }
 
-            /* Latitude WGS84 [0,1 microdegree] */
-            VAMdata.latitude = (Latitude_t)Latitude_unavailable;
-            /* Longitude WGS84 [0,1 microdegree] */
-            VAMdata.longitude = (Longitude_t)Longitude_unavailable;
+            long pos_age = -1;
+            double longitude = Latitude_unavailable;
+            double latitude = Longitude_unavailable;
 
-            /* Altitude [0,01 m] */
-            VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,AltitudeConfidence_unavailable);
+            /* Latitude [0.1 microdegrees] */
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
+                VAMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
+                latitude = position.first;
+            }
+            else {
+                VAMdata.latitude = (Latitude_t) Latitude_unavailable;
+            }
 
-            /* Position Confidence Ellipse */
-            VAMdata.posConfidenceEllipse.semiMajorConfidence=SemiAxisLength_unavailable;
-            VAMdata.posConfidenceEllipse.semiMinorConfidence=SemiAxisLength_unavailable;
-            VAMdata.posConfidenceEllipse.semiMajorOrientation=HeadingValue_unavailable;
+            /* Longitude [0.1 microdegrees] */
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
+                VAMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
+                longitude = position.second;
+            }
+            else {
+                VAMdata.longitude = (Longitude_t) Longitude_unavailable;
+            }
+
+            /* Altitude [0.01 m] */
+            if (m_serialParserPtr->getAltitudeValidity(false) == true) {
+                double altitude = m_serialParserPtr->getAltitude(nullptr, false);
+                if (altitude * CENTI >= -100000 && altitude * CENTI <= 800000) {
+                    VAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
+                }
+                else {
+                    VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+                }
+            }
+            else {
+                VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+            }
+
+            VAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+            VAMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+            VAMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
 
             /* Longitudinal acceleration [0.1 m/s^2] */
-            VAMdata.longAcceleration = VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable,AccelerationConfidence_unavailable);
+            if (m_serialParserPtr->getAccelerationsValidity(false) == true) {
+                double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
+                if (long_acc >= -16 && long_acc <= 16) {
+                    //CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+                    VAMdata.longAcceleration = VDPValueConfidence<>(long_acc * DECI, AccelerationConfidence_unavailable);
+                }
+                else {
+                    VAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+                }
+            }
+            else {
+                VAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+            }
 
             /* Heading WGS84 north [0.1 degree] */
-            VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable,HeadingConfidence_unavailable);
+            if (m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
+                double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
+                if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
+                    VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+                }
+                else {
+                    VAMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
+                }
 
+            }
+            else {
+                VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+            }
+
+            VAMdata.avail = true;
+
+            // compute the delta position considering the speed, heading and the pos age
+            if (VAMdata.avail == true && (VAMdata.latitude!=Latitude_unavailable && VAMdata.longitude!=Longitude_unavailable)) {
+                double delta_x = 0.0;
+                double delta_y = 0.0;
+                double gammar=0,kr=0;
+//                std::cout << "Read latitude: " << CAMdata.latitude << std::endl;
+//                std::cout << "Read longitude: " << CAMdata.longitude << std::endl;
+
+                if (VAMdata.speed.getValue() != SpeedValue_unavailable && VAMdata.heading.getValue() != HeadingValue_unavailable) {
+                    double speed = VAMdata.speed.getValue() / CENTI; // [m/s]
+                    double heading = VAMdata.heading.getValue() / DECI; // [degrees]
+                    heading = DEG_2_RAD_BSR_2((90-heading));
+
+                    // Compute the delta position
+                    double delta_t = pos_age / 1000000.0; // [s]
+                    delta_x = speed * delta_t * sin(heading);
+                    delta_y = speed * delta_t * cos(heading);
+                }
+
+                // Update the position
+                transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();
+                double lat1, lon1, ego_x, ego_y;
+                TransverseMercator_Forward(&tmerc, longitude, latitude, longitude, &ego_x, &ego_y, &gammar, &kr);
+                ego_x += delta_x;
+                ego_y += delta_y;
+                TransverseMercator_Reverse(&tmerc, longitude, ego_x, ego_y, &lat1, &lon1, &gammar, &kr);
+
+                VAMdata.latitude = (Latitude_t) (lat1 * DOT_ONE_MICRO);
+                VAMdata.longitude = (Longitude_t) (lon1 * DOT_ONE_MICRO);
+
+                //print all the data
+//                std::cout << "Speed: " << CAMdata.speed.getValue()/CENTI << "[m/s]"<< std::endl;
+//                std::cout << "Heading: " << CAMdata.heading.getValue()/DECI  << "[degrees]"<< std::endl;
+//                std::cout << "Delta x: " << delta_x << "[m]" << std::endl;
+//                std::cout << "Delta y: " << delta_y << "[m]" << std::endl;
+//                std::cout << "PositionDelta: " << sqrt(delta_x*delta_x + delta_y*delta_y) << "[m]" <<  std::endl;
+//                std::cout << "New Latitude: " << CAMdata.latitude << std::endl;
+//                std::cout << "New longitude: " << CAMdata.longitude << std::endl;
+            }
+        }
+        else {
+            // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
+            VAMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+            VAMdata.latitude = (Latitude_t) Latitude_unavailable;
+            VAMdata.longitude = (Longitude_t) Longitude_unavailable;
+            VAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+            VAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+            VAMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+            VAMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+            VAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,
+                                                            AccelerationConfidence_unavailable);
+            VAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
             VAMdata.avail = false;
         }
     }

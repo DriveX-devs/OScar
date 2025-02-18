@@ -242,6 +242,7 @@ void CAMtxThr(std::string gnss_device,
     }
 
     VDPGPSClient vrudp(gnss_device,gnss_port);
+    vrudp.selectGPSD(use_gpsd);
     GeoNet GN;
     btp BTP;
 
@@ -260,7 +261,6 @@ void CAMtxThr(std::string gnss_device,
                 GN.setLogFile2(log_filename_GNsecurity);
             }
             BTP.setGeoNet(&GN);
-
             
             while (true) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
@@ -435,6 +435,7 @@ void VAMtxThr(std::string gnss_device,
     bool m_retry_flag=false;
 
     VDPGPSClient vrudp(gnss_device,gnss_port);
+    vrudp.selectGPSD(use_gpsd);
 
     if(!use_gpsd) {
         vrudp.setSerialParser(&serialParser);

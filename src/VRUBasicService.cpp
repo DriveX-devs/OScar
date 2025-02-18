@@ -81,6 +81,7 @@ VRUBasicService::VRUBasicService(){
   m_log_filename = "dis";
 }
 
+// TODO: fix this function as seems to create a "ghost" vehicle that makes OScar always trigger the safe_distance VAM transmission
 std::vector<distance_t>
 VRUBasicService::get_min_distance(ldmmap::LDMMap* LDM) {
     std::vector<distance_t> min_distance(2,{MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationId_t)0,(StationType_t)-1,false});
@@ -90,7 +91,10 @@ VRUBasicService::get_min_distance(ldmmap::LDMMap* LDM) {
     std::vector<ldmmap::LDMMap::returnedVehicleData_t> selectedStations;
 
     // Extract all stations from the LDM
-    VDPGPSClient vrudp;
+    if(m_VRUdp==nullptr) {
+        std::cerr << "[ERROR] VRUdp object not initialized. Cannot get the minimum distance. This is a bug. Please report it to the developers." << std::endl;
+    }
+    VDPGPSClient vrudp = *m_VRUdp;
     VDPGPSClient::VRU_position_latlon_t ped_pos = vrudp.getPedPosition();
     LDM->rangeSelect(MAXFLOAT,ped_pos.lat,ped_pos.lon,selectedStations);
 
