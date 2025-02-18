@@ -93,6 +93,7 @@ VRUBasicService::get_min_distance(ldmmap::LDMMap* LDM) {
     // Extract all stations from the LDM
     if(m_VRUdp==nullptr) {
         std::cerr << "[ERROR] VRUdp object not initialized. Cannot get the minimum distance. This is a bug. Please report it to the developers." << std::endl;
+        return min_distance;
     }
     VDPGPSClient vrudp = *m_VRUdp;
     VDPGPSClient::VRU_position_latlon_t ped_pos = vrudp.getPedPosition();

@@ -72,6 +72,7 @@ typedef struct vizOptions {
 	int vehviz_web_interface_port;
 	double vehviz_update_interval_sec;
 	std::string vehviz_nodejs_addr;
+    StationType_t ego_station_type;
 } vizOptions_t;
 
 void clearVisualizerObject(uint64_t id,void *vizObjVoidPtr) {
@@ -131,16 +132,22 @@ void *VehVizUpdater_callback(void *arg) {
 			POLL_CLEAR_EVENT(clockFd);
 
 			// ---- These operations will be performed periodically ----
-            if(db_ptr->updateEgoPosition() == ldmmap::LDMMap::LDMMAP_NO_VDP) {
+            auto db_retval = db_ptr->updateEgoPosition(vizopts_ptr->ego_station_type);
+            if(db_retval == ldmmap::LDMMap::LDMMAP_NO_VDP) {
                 std::cerr << "[ERROR] Cannot update the ego position in the LDM: VDP not set." << std::endl;
                 terminatorFlag = true;
                 break;
+            } else if(db_retval == ldmmap::LDMMap::LDMMAP_INVALID_STATIONTYPE) {
+                std::cerr << "[ERROR] Cannot update the ego position in the LDM: invalid station type. This is a bug. Please inform the developers." << std::endl;
+                terminatorFlag = true;
+                break;
             }
+
             // Dirty workaround to 'flush' gps data TODO: remove this
 //            for (int i = 0; i < 20; i++) {
 //                db_ptr->updateEgoPosition();
 //            }
-            db_ptr->updateEgoPosition();
+            db_ptr->updateEgoPosition(vizopts_ptr->ego_station_type);
             ////////////////////////////////////////
 
 			db_ptr->executeOnAllContents(&updateVisualizer, static_cast<void *>(&vehicleVisObj));
@@ -622,6 +629,9 @@ int main (int argc, char *argv[]) {
 
     bool force_20Hz_freq = false;
 
+    // Ego station type; it is set to passenger car if CAMs are activated, and to pedestrian if VAMs are activated
+    StationType_t ego_station_type = StationType_passengerCar;
+
 	// Parse the command line options with the TCLAP library
 	try {
 		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "5.8-beta");
@@ -810,7 +820,16 @@ int main (int argc, char *argv[]) {
 			return 1;
 		}
 
-		enable_hmi=EnableHMIArg.getValue();
+        // Set the ego station type -> if CAMs are enabled, set it to passenger car, otherwise to pedestrian
+        if(enable_CAM_dissemination) {
+            ego_station_type = StationType_passengerCar;
+        } else {
+            ego_station_type = StationType_pedestrian;
+        }
+
+        vizOpts.ego_station_type = ego_station_type;
+
+        enable_hmi=EnableHMIArg.getValue();
 		disable_selfMAC_check=DisableSelfMACArg.getValue();
 		json_over_tcp_port=JSONserverPortArg.getValue();
 
@@ -916,7 +935,14 @@ int main (int argc, char *argv[]) {
 	
 	// Create a new DB object
 	ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
-    db_ptr->setStationID(vehicleID);
+    if(ego_station_type==StationType_passengerCar) {
+        db_ptr->setStationID(vehicleID);
+    } else if (ego_station_type==StationType_pedestrian) {
+        db_ptr->setStationID(VRUID);
+    } else {
+        // For the time being, use the vehicle ID as a fallback in case an unexpected station type is encountered
+        db_ptr->setStationID(vehicleID);
+    }
 
     // Configure the global serial parser if gpsd is not used
     if(!use_gpsd) {
