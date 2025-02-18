@@ -107,7 +107,12 @@ VRUBasicService::get_min_distance(ldmmap::LDMMap* LDM) {
     double ped_heading = vrudp.getPedHeadingValue();
 
     // Iterate over all stations present in the LDM
-    for(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it = selectedStations.begin (); it!=selectedStations.end (); ++it){
+    for(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it = selectedStations.begin (); it!=selectedStations.end (); ++it) {
+        // Skip the ego station
+        if(it->vehData.stationID == m_station_id) {
+            continue;
+        }
+
         distance_t curr_distance = {MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationId_t)0,(StationType_t)-1,false};
         curr_distance.ID = it->vehData.stationID;
         curr_distance.station_type = it->vehData.stationType;
