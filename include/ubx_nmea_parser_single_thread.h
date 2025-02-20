@@ -12,6 +12,11 @@
 #include <atomic>
 #include <vector>
 
+// Values the serial parser should return to indicate that this information is not available
+#define Latitude_unavailable_serial_parser 900000001
+#define Longitude_unavailable_serial_parser 1800000001
+#define AltitudeValue_unavailable_serial_parser 800001
+
 class UBXNMEAParserSingleThread {
     public:
         UBXNMEAParserSingleThread() {
@@ -129,13 +134,21 @@ class UBXNMEAParserSingleThread {
 
         typedef struct AgeInfo {
             long age_pos, age_pos_ubx, age_pos_nmea,
-                 age_acc, age_att,
-                 age_alt, age_alt_ubx, age_alt_nmea,
-                 age_comp_acc,
-                 age_comp_ang_rate,
-                 age_sog_cog,
-                 age_sog_cog_ubx,
-                 age_sog_cog_nmea;						    // Last updates on relevant information
+                age_acc, age_att,
+                age_alt, age_alt_ubx, age_alt_nmea,
+                age_comp_acc,
+                age_comp_ang_rate,
+                age_sog_cog,
+                age_sog_cog_ubx,
+                age_sog_cog_nmea,						    // Last updates on relevant information
+                prd_pos, prd_pos_ubx, prd_pos_nmea,
+                prd_acc, prd_att,
+                prd_alt, prd_alt_ubx, prd_alt_nmea,
+                prd_comp_acc,
+                prd_comp_ang_rate,
+                prd_sog_cog,
+                prd_sog_cog_ubx,
+                prd_sog_cog_nmea;						    // Last periodicity ("prd") of the information update
         } age_t;
 
         std::atomic<out_t> m_outBuffer;

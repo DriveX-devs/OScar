@@ -102,7 +102,7 @@ UBXNMEAParserSingleThread::hexToSigned(std::vector<uint8_t> data) {
     return static_cast<T>(value);
 }
 
-/** clearBuffer() initializes or clears the atomic data buffer
+/** clearBuffer() initializes or clears the atomic data structure
  * (see ubx_nmea_parser_single_thread.h for more information) */
 void
 UBXNMEAParserSingleThread::clearBuffer() {
@@ -189,24 +189,15 @@ UBXNMEAParserSingleThread::validateUbxMessage(std::vector<uint8_t> msg) {
     uint8_t CK_A = 0x00;
     uint8_t CK_B = 0x00;
 
-    for (long unsigned int i = 0; i < msg.size(); i++) {
-        if (i >=2 && i <= msg.size() -3) { //checksum calculation range
+    for (long unsigned int i = 2; i <= msg.size()-3; i++) { //checksum calculation range
             CK_A = CK_A + msg[i];
             CK_B = CK_B + CK_A;
 
             CK_A &= 0xFF;
             CK_B &= 0xFF;
-        }
     }
 
-    if (msg[msg.size() -2] == CK_A && msg[msg.size()-1] == CK_B) {
-        return true;
-    }
-    else {
-        //printf("\n\nINVALID MESSAGE: CK_A: %02X  CK_B: %02X\n\n", CK_A,CK_B);
-        //printUbxMessage(msg);
-        return false;
-    }
+    return (msg[msg.size() -2] == CK_A && msg[msg.size()-1] == CK_B);
 }
 
 /** validateNmeaSentence() analyzes and validates a NMEA sentence, calculating its checksum character by applying the
@@ -223,11 +214,12 @@ UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) 
     size_t asteriskPos = nmeaMessage.find('*');
 
     // Ensure there's enough space for the checksum after '*'
+    // This basically checks it the checksum is there as expected
     if (asteriskPos + 2 >= nmeaMessage.length()) {
         return false;  // Invalid or missing checksum
     }
 
-    // XOR all characters between '$' and '*' (excluded)
+    // XOR all characters between '$' and '*' (excluded), as required by the NMEA standard
     unsigned char checksum = 0;
     for (size_t i = 1; i < asteriskPos; ++i) {
         checksum ^= static_cast<unsigned char>(nmeaMessage[i]);
@@ -246,10 +238,12 @@ UBXNMEAParserSingleThread::validateNmeaSentence(const std::string& nmeaMessage) 
 
 /** getPosition() retrieves and processes the latest position data from the atomic buffer,
  *  calculates the age of information in microseconds, then returns latitude and longitude
- *  as a std::pair, optionally returns the age of information if print_timestamp_and_age is set
- *  to true when called.
+ *  as a std::pair, optionally returns the age of information if age_us is not a nullptr
+ *  print_timestamp_and_age is a flag that enables the printing of the timestamp and age of
+ *  information (i.e., how old is the information now with respect to when it was last parsed)
+ *  for debug purposes
  *
- *  Note: use first() and second() to access the element of a pair */
+ *  Note: use first() and second() to access the element of a pair - first() contains the lat, second() contains the lon */
 std::pair<double,double>
 UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -262,16 +256,16 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
     // Obtains the current timestamp, extracts the us value from the time_point<> data type
     // and calculates the age of information by subtracting with the last update value
     auto now = time_point_cast<microseconds>(system_clock::now());
-    auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_pos;
+    auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_pos;
 
-    long validity_thr = getValidityThreshold();
+    long validity_thr = getValidityThreshold(); // Get the threshold after which the data should be considered too old to be valid
 
-    // Saves the value if -a debug option is enabled
+    // Saves the value if --show-live-data debug option is enabled
     if (m_debug_age_info_rate) m_debug_age_info.age_pos = local_age_us;
 
     if (print_timestamp_and_age == true) std::cout << "[Position] - " <<  tmp.ts_sog_cog_ubx
-                                                   << " Now: " << end
+                                                   << " Now: " << epoch_ts
                                                    << " TS position UBX: " << tmp.lu_pos_ubx
                                                    << " Age of information: " << local_age_us << " us"
                                                    << std::endl << std::endl;
@@ -287,7 +281,8 @@ UBXNMEAParserSingleThread::getPosition(long *age_us, bool print_timestamp_and_ag
 }
 
 /** getPositionUbx() retrieves the latest UBX position data parsed, behaving in the same
- * way of getPosition() */
+ * way of getPosition(), but considering only the data coming from UBX messages */
+ // TODO: evaluate whether the three functions getPosition(), getPositionUbx() and getPositionNmea() can be merged into a single one
 std::pair<double,double>
 UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -300,6 +295,7 @@ UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and
     auto now = time_point_cast<microseconds>(system_clock::now());
     auto end = now.time_since_epoch().count();
     long local_age_us = end - tmp.lu_pos_ubx;
+
     long validity_thr = getValidityThreshold();
 
     if (m_debug_age_info_rate) m_debug_age_info.age_pos_ubx = local_age_us;
@@ -318,7 +314,7 @@ UBXNMEAParserSingleThread::getPositionUbx(long *age_us, bool print_timestamp_and
 }
 
 /** getPositionNmea() retrieves the latest UBX position data parsed, behaving in the same
- * way of getPosition() */
+ * way of getPosition(), but considering only the data coming from UBX messages */
 std::pair<double,double>
 UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -352,17 +348,20 @@ UBXNMEAParserSingleThread::getPositionNmea(long *age_us, bool print_timestamp_an
 
 /** parseNmeaGns() checks and parses a GNGNS NMEA sentence in order to get the latitude and longitude data
  *
- *  The function separates the sentence fields using the commaas and extract the data.
- *  After parsing, it produces the current information specific timestamp and updates the output buffer.
- *  For more information see page 2.7.9.1 GNSS Fix Data on page 28 of ublox ZED-F9R Interface Description*/
+ *  The function separates the sentence fields using the commas and extract the relevant data.
+ *  After parsing, it produces the timestamp related to when the information was parsed and updates
+ *  the atomic data buffer ("m_outBuffer").
+ *  For more information see page 2.7.9.1 GNSS Fix Data on page 28 of ublox ZED-F9R Interface Description */
 void
 UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
+    // The approach of using .load() and then .store() works only in a single-writer multiple-reader context!
+    // This is, however, not a problem here as we expect to have a single function writing at a time on the m_outBuffer,
+    // since the read from serial procedure is single threaded
+    out_t out_nmea = m_outBuffer.load(); // Get the current data in the atomic buffer
 
-    out_t out_nmea = m_outBuffer.load();
-
-    std::vector<std::string> fields;
+    std::vector<std::string> fields; // Fields of the NMEA sentence
     std::stringstream ss(nmea_response);
-    std::string field;
+    std::string field; // Current field
 
     // Separate the sentence by commas and store the fields of interest
     while (std::getline(ss, field, ',')) {
@@ -370,33 +369,29 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
     }
 
 	// Latitude and Longitude substrings to be converted to double using std::stod() later
-    std::string slat = fields[2];
-    std::string slon = fields[4];
+    std::string slat = fields[2]; // "s" = string --> "slat" = string latitude
+    std::string slon = fields[4]; // "s" = string --> "slon" = string longitude
     std::string posMode = fields[6];
-    std::string salt = fields[9];
+    std::string salt = fields[9]; // "s" = string --> "salt" = string altitude
 
-    // cardinal points (N, S, W, E)
+    // cardinal points (N, S, W, E) - stored in fields 3 and 5 of GxGNS
 	char cp_lat = fields[3].at(0);
     char cp_lon = fields[5].at(0);
 
-    /* debug
-    std::cout << nmea_response;
-    std::cout << utc_time << " Lat: " << slat << " Lon: " << slon
-              << " Alt: " << salt << " cp lat: " << cp_lat << " cp lon: " << cp_lon << std::endl;
-    */
-
-    // Fix value parsing
+    // Parse the fix mode
+    // Here we assume that the fix mode is the same from all satellite systems
+    // The letters are related respectively to GPS, GLONASS, Galileo, BeiDou
+    // TODO: improve support to the case when different fix modes are provided by different constellations
+    // TODO: improve support to consider that there may be more letters (e.g., devices supporting QZSS may report five letters)
     if (posMode == "NNNN") {
         strcpy(out_nmea.fix_nmea, "NoFix");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
-    }
-    else if (posMode == "EEEE") {
+    } else if (posMode == "EEEE") {
         strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
-    }
-    else if (posMode == "AAAA") {
+    } else if (posMode == "AAAA") {
         strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
@@ -405,43 +400,41 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
         strcpy(out_nmea.fix_nmea,"DGNSS");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
-    }
-    else if (posMode == "FFFF") {
+    } else if (posMode == "FFFF") {
         strcpy(out_nmea.fix_nmea, "RTKFloat");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
-    }
-    else if (posMode == "RRRR") {
+    } else if (posMode == "RRRR") {
         strcpy(out_nmea.fix_nmea, "RTKFixed");
         m_2d_valid_fix = true;
         m_3d_valid_fix = true;
-    }
-    else {
+    } else {
         strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
 
-    // Posistion parsing
+    // Position parsing
+    // If the position is not available, the NMEA sentence will contain empty fields (e.g., ",,")
     if (!slat.empty()) {
         out_nmea.lat = decimal_deg(std::stod(slat),cp_lat);
         out_nmea.lat_nmea = out_nmea.lat;
-    }
-    else {
-        out_nmea.lat = 900000001; // Latitude_unavailable
+    } else {
+        out_nmea.lat = Latitude_unavailable_serial_parser; // Latitude_unavailable
         out_nmea.lat_nmea = out_nmea.lat;
     }
 
 	if (!slon.empty()) {
         out_nmea.lon = decimal_deg(std::stod(slon), cp_lon);
         out_nmea.lon_nmea = out_nmea.lon;
-    }
-    else {
-        out_nmea.lon = 1800000001; // Longitude_unavailable
+    } else {
+        out_nmea.lon = Longitude_unavailable_serial_parser; // Longitude_unavailable
         out_nmea.lon_nmea = out_nmea.lon;
     }
 
-	// Check if the altitude is negative and parses accordingly using stod
+	// Check if the altitude is negative and parse it accordingly using std::stod
+    // TODO: check if we could avoid the if-else by giving directly the negative value as input to std::stod()
+    // TODO: implement better error management in case a non-numeric string is found for the altitude field (currently, std::stod() would generate an exception)
 	if (!salt.empty()) {
 		if (salt[0] == '-') {
 			salt = salt.erase(0,1);
@@ -454,23 +447,25 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
         }
 	}
 	else {
-        out_nmea.alt = 800001; // AltitudeValue_unavailable
+        out_nmea.alt = AltitudeValue_unavailable_serial_parser; // AltitudeValue_unavailable
         out_nmea.alt_nmea = out_nmea.alt;
     }
 
-	// Produces and processes the current date-time timestamp
+	// Produces and processes the current date-time timestamp (stores in a human-readable format when the information was parsed)
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_nmea.ts_pos,std::ctime(&now));
 
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
+    // Compute the
     if (m_debug_age_info_rate) {
         m_debug_age_info.age_pos = update.time_since_epoch().count() - out_nmea.lu_pos;
         m_debug_age_info.age_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
         m_debug_age_info.age_alt = update.time_since_epoch().count() - out_nmea.lu_alt;
         m_debug_age_info.age_alt_nmea = update.time_since_epoch().count() - out_nmea.lu_alt_nmea;
     }
+
     // Converts time_point to microseconds
 	out_nmea.lu_pos = update.time_since_epoch().count();
 	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
@@ -594,23 +589,23 @@ UBXNMEAParserSingleThread::parseNmeaGga(std::string nmea_response) {
 	strcpy(out_nmea.ts_pos,std::ctime(&now));
 
 	// Gets the update time with precision of microseconds
-	auto update = time_point_cast<microseconds>(system_clock::now());
+	auto update = time_point_cast<microseconds>(system_clock::now()); // "update" is the "now" timestamp
 
-    // Provides age of information debug info if enabled
+    // Compute the period occurred between this update and the last update
     if (m_debug_age_info_rate) {
-        m_debug_age_info.age_pos = update.time_since_epoch().count() - out_nmea.lu_pos;
-        m_debug_age_info.age_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
-        m_debug_age_info.age_alt = update.time_since_epoch().count() - out_nmea.lu_alt;
-        m_debug_age_info.age_alt_nmea = update.time_since_epoch().count() - out_nmea.lu_alt_nmea;
+        m_debug_age_info.prd_pos = update.time_since_epoch().count() - out_nmea.lu_pos; // "lu" = "last update"
+        m_debug_age_info.prd_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
+        m_debug_age_info.prd_alt = update.time_since_epoch().count() - out_nmea.lu_alt;
+        m_debug_age_info.prd_alt_nmea = update.time_since_epoch().count() - out_nmea.lu_alt_nmea;
     }
 
     // Converts time_point to microseconds
-	out_nmea.lu_pos = update.time_since_epoch().count();
+	out_nmea.lu_pos = update.time_since_epoch().count(); // "lu" = "last update"
 	out_nmea.lu_pos_nmea = out_nmea.lu_pos;
     out_nmea.lu_alt = update.time_since_epoch().count();
     out_nmea.lu_alt_nmea = out_nmea.lu_alt;
 
-    // Validates data
+    // Set the flags to tell that this data is now valid and can be used
     m_pos_valid = true;
     m_pos_valid_nmea = true;
     m_alt_valid = true;
@@ -629,16 +624,18 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
 		return 0;
 	}
 
+    // Loads the atomic structure with the navigation/sensor data
+    // This approach works only in a single-writer multiple-reader context, which is the case here
 	out_t tmp = m_outBuffer.load();
 
     auto now = time_point_cast<microseconds>(system_clock::now());
-    auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_alt;
+    auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_alt;
 
     // Stores age of information if debug option is enabled
     if (m_debug_age_info_rate) m_debug_age_info.age_alt = local_age_us;
 
-    // Checks information's validity
+    // Checks the information validity
     if (local_age_us >= getValidityThreshold()) {
         m_alt_valid.store(false);
     }
@@ -652,7 +649,9 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
 	return tmp.alt;
 }
 
-/** getAltitudeUbx() provides the latest altitude value parsed from the UBX-NAV-PVT message */
+/** getAltitudeUbx() provides the latest altitude value parsed from the UBX-NAV-PVT message
+ * This function behaves like getAltitude() but considers only the data coming from UBX messages.
+ */
 double
 UBXNMEAParserSingleThread::getAltitudeUbx(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -663,8 +662,8 @@ UBXNMEAParserSingleThread::getAltitudeUbx(long *age_us, bool print_timestamp_and
     out_t tmp = m_outBuffer.load();
 
     auto now = time_point_cast<microseconds>(system_clock::now());
-    auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_alt_ubx;
+    auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_alt_ubx;
 
     if (m_debug_age_info_rate) m_debug_age_info.age_alt_ubx = local_age_us;
 
@@ -681,7 +680,9 @@ UBXNMEAParserSingleThread::getAltitudeUbx(long *age_us, bool print_timestamp_and
     return tmp.alt_ubx;
 }
 
-/** getAltitudeNmea() provides the latest altitude NMEA value parsed from the GNS/GGA sentences */
+/** getAltitudeNmea() provides the latest altitude NMEA value parsed from the GNS/GGA sentences
+ * This function behaves like getAltitude() but considers only the data coming from NMEA messages.
+ */
 double
 UBXNMEAParserSingleThread::getAltitudeNmea(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -692,8 +693,8 @@ UBXNMEAParserSingleThread::getAltitudeNmea(long *age_us, bool print_timestamp_an
     out_t tmp = m_outBuffer.load();
 
     auto now = time_point_cast<microseconds>(system_clock::now());
-    auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_alt_nmea;
+    auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_alt_nmea;
 
     if (m_debug_age_info_rate) m_debug_age_info.age_alt_nmea = local_age_us;
 
@@ -711,7 +712,9 @@ UBXNMEAParserSingleThread::getAltitudeNmea(long *age_us, bool print_timestamp_an
 }
 
 /** getAccelerations() provides the compensated accelerations (without the gravity acceleration) and
- * follow the same structure as getPosition but with the use of std::tuple instead of std::pair
+ * follows the same structure as getPosition() but with the use of std::tuple instead of std::pair
+ * std::tuple is used as the function returns the acceleration along (x,y,z), considering the reference system of
+ * the GNSS(+IMU) device
  * 
  *  Note: use std::get<index>(object) to access the elements of a tuple. */
 std::tuple<double,double,double>
@@ -721,14 +724,18 @@ UBXNMEAParserSingleThread::getAccelerations(long *age_us, bool print_timestamp_a
         return std::make_tuple(0,0,0);
     }
 
+    // Loads the atomic structure with the navigation/sensor data
+    // This approach works only in a single-writer multiple-reader context, which is the case here
 	out_t tmp = m_outBuffer.load();
 
 	auto now = time_point_cast<microseconds>(system_clock::now());
-	auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_comp_acc;
+	auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_comp_acc;
 
+    // Stores age of information if the --show-live-data option is enabled
     if (m_debug_age_info_rate) m_debug_age_info.age_comp_acc = local_age_us;
 
+    // Check the information validity
     if (local_age_us >= getValidityThreshold()) {
         m_comp_acc_valid.store(false);
     }
@@ -745,7 +752,9 @@ UBXNMEAParserSingleThread::getAccelerations(long *age_us, bool print_timestamp_a
 	return std::make_tuple(tmp.comp_acc_x,tmp.comp_acc_y,tmp.comp_acc_z);
 }
 
-/** getAngularRate() provide the angular accelerations from the three x, y and z axes. */
+/** getAngularRate() provide the angular accelerations from the three x, y and z axes.
+ * The yaw rate will be the angular acceleration along the z axis.
+*/
 std::tuple<double,double,double>
 UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -753,14 +762,17 @@ UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp_an
         return std::make_tuple(0,0,0);
     }
 
+    // Loads the atomic structure with the navigation/sensor data
     out_t tmp = m_outBuffer.load();
 
     auto now = time_point_cast<microseconds>(system_clock::now());
-    auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_comp_ang_rate;
+    auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_comp_ang_rate;
 
+    // Stores age of information if the --show-live-data option is enabled
     if (m_debug_age_info_rate) m_debug_age_info.age_comp_ang_rate = local_age_us;
 
+    // Check the information validity
     if (local_age_us >= getValidityThreshold()) {
         m_comp_ang_rate_valid.store(false);
     }
@@ -771,12 +783,16 @@ UBXNMEAParserSingleThread::getAngularRates(long *age_us, bool print_timestamp_an
     if (print_timestamp_and_age == true) std::cout << "[Angular Rates] - " <<  tmp.ts_comp_ang_rate
                                                    << "Age of information: " << local_age_us << " us"
                                                    << std::endl << std::endl;
+
+    // Store the age of information into age_us, if it was specified as a non-null pointer
     if (age_us != nullptr) *age_us = local_age_us;
 
     return std::make_tuple(tmp.comp_ang_rate_x,tmp.comp_ang_rate_y,tmp.comp_ang_rate_z);
 }
 
-/** getYawRate() provides the z axis angular acceleration value, without the gravity acceleration. */
+/** getYawRate() provides the z axis angular acceleration value, without the gravity acceleration.
+ * It calls getAngularRates and returns the z component.
+*/
 double
 UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -784,31 +800,12 @@ UBXNMEAParserSingleThread::getYawRate(long *age_us, bool print_timestamp_and_age
         return 0;
     }
 
-    out_t tmp = m_outBuffer.load();
-
-    auto now = time_point_cast<microseconds>(system_clock::now());
-    auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_comp_ang_rate;
-
-    if (m_debug_age_info_rate) m_debug_age_info.age_comp_ang_rate = local_age_us;
-
-    if (local_age_us >= getValidityThreshold()) {
-        m_comp_ang_rate_valid.store(false);
-    }
-    else {
-        m_comp_ang_rate_valid.store(true);
-    }
-
-    if (print_timestamp_and_age == true) std::cout << "[Yaw Rate timestamp] - " <<  tmp.ts_comp_ang_rate
-                                                   << "Age of information: " << local_age_us << " us"
-                                                   << std::endl << std::endl;
-
-    if (age_us != nullptr) *age_us = local_age_us;
-
-    return tmp.comp_ang_rate_z;
+    return std::get<2>(getAngularRates(age_us, print_timestamp_and_age));
 }
 
-/** getYawRate() provides the x axis longitudinal acceleration value */
+/** getLongitudinalAcceleration() provides the x axis longitudinal acceleration value.
+ * It calls getAccelerations() and returns the x component.
+*/
 double
 UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started == false) {
@@ -816,30 +813,12 @@ UBXNMEAParserSingleThread::getLongitudinalAcceleration(long *age_us, bool print_
         return 0;
     }
 
-    out_t tmp = m_outBuffer.load();
-
-    auto now = time_point_cast<microseconds>(system_clock::now());
-    auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_comp_acc;
-
-    if (m_debug_age_info_rate) m_debug_age_info.age_comp_acc = local_age_us;
-
-    if (local_age_us >= getValidityThreshold()) {
-        m_comp_acc_valid.store(false);
-    }
-    else {
-        m_comp_acc_valid.store(true);
-    }
-
-    if (print_timestamp_and_age == true) std::cout << "[Longitudinal Acceleration timestamp] - " <<  tmp.ts_comp_acc
-                                                   << "Age of information: " << local_age_us << " us"
-                                                   << std::endl << std::endl;
-    if (age_us != nullptr) *age_us = local_age_us;
-
-    return tmp.comp_acc_x;
+    return std::get<0>(getAccelerations(age_us, print_timestamp_and_age));
 }
 
-/** getRawAccelerations() provide the three axes acceleration with the gravity acceleration included */
+/** getRawAccelerations() provide the three axes acceleration with the gravity acceleration included.
+ * Therefore, on a flat surface a z component around 9.8 m/s^2 is expected.
+*/
 std::tuple<double,double,double>
 UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestamp_and_age) {
     if(m_parser_started==false) {
@@ -847,14 +826,18 @@ UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestam
         return std::make_tuple(0,0,0);
     }
 
+    // Loads the atomic structure with the navigation/sensor data
+    // This approach works only in a single-writer multiple-reader context, which is the case here
 	out_t tmp = m_outBuffer.load();
 
     auto now = time_point_cast<microseconds>(system_clock::now());
-    auto end = now.time_since_epoch().count();
-    long local_age_us = end - tmp.lu_acc;
+    auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_acc;
 
+    // Stores age of information if the --show-live-data option is enabled
     if (m_debug_age_info_rate) m_debug_age_info.age_acc = local_age_us;
 
+    // Check the information validity
     if (local_age_us >= getValidityThreshold()) {
         m_acc_valid.store(false);
     }
@@ -866,63 +849,70 @@ UBXNMEAParserSingleThread::getRawAccelerations(long *age_us, bool print_timestam
                                                    << "Age of information: " << local_age_us << " us"
                                                    << std::endl << std::endl;
 
+    // Store the age of information into age_us, if it was specified as a non-null pointer
     if (age_us != nullptr) *age_us = local_age_us;
 
 	return std::make_tuple(tmp.raw_acc_x,tmp.raw_acc_y,tmp.raw_acc_z);
 }
 
-/** parseEsfRaw() parses a UBX-ESF-RAW message which payload is composed by 4 bytes of reserved space
- *  plus a repeated group of 8 bytes whose first 4 bytes contain the relevant information
- *  about the acceleration in the x,y and z axes.
+/** parseEsfRaw() parses a UBX-ESF-RAW message which payload is composed by 4 reserved bytes
+ *  plus a repeated group of 3x 8 bytes whose first 4 bytes in each group contain the relevant information
+ *  about the acceleration in the x, y and z axes.
  *
  *  The function reads the first 4 bytes of the first 3 repeated group
  *  (3 bytes for acceleration value + 1 byte to identify the axis)
  *  but it can be extended in order to read also the gyroscope data
- *  and to include the sTag field too (see the for loop below)
+ *  and to include the sTag field too (see the for loop below).
+ *
+ *  In general, each group of 8 bytes is composed of 4 bytes with the current value, and 4 bytes for an unisgned
+ *  sTag (sensor time tag), not parsed here; the 4 butes with the current value are in turn divided into 3 data bytes
+ *  and a fourth data type byte (index 3 in esf_data when parsing), that indicated in this case the axis allong which
+ *  the raw acceleration is measured.
  *
  *  (more details in the Interface description document of the ZED-F9R Module, 3.11.4 UBX-ESF-RAW ) */
 void
 UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
-
 	// Skips the first 4 bytes of the payload (reserved)
     int offset = m_UBX_PAYLOAD_OFFSET + 4;
 
-    int j = 0; // Resets every 8 bytes to isolate the repeated group
-    std::vector<uint8_t> esf_data; // Temporarily stores the 3 bytes of interest
+    int j = 0; // This index is reset every 8 bytes to isolate the repeated group
+    std::vector<uint8_t> esf_data; // This "byte group vector" is used to temporarily stores each group of 3 bytes of interest
 
+    // Loads the atomic structure with the navigation/sensor data
+    // This approach works only in a single-writer multiple-reader context, which is the case here
     out_t out_esf = m_outBuffer.load();
 
-    for (int i = offset; i < offset + 24; i++) { // Ignores gyroscope data on the payload
-
-    	esf_data.push_back(response[i]); j++; // Loads the ESF-RAW repeated group (data + sTag)
+    // TODO: extend this function to parse gyroscope data and sTag field
+    for (int i = offset; i < offset + 24; i++) { // For the time being, ignores gyroscope data on the payload
+    	esf_data.push_back(response[i]); j++; // Stores the ESF-RAW current byte
 
     	if (j == 8) {
+            // After reading 8 bytes, a group has been fully read --> perform parsing
 
             /* Stops every 8 bytes to check and parse the data type
              * (16 (0x10),17 (0x11) or 18 (0x12) for XYZ acceleration values)*/
             if (esf_data[3] == 0x10) {
-
             	// Erases the unneeded bytes (byte 3 to identify the data type and bytes 4,5,6 and 7 (sTag field))
             	esf_data.erase(esf_data.begin()+3,esf_data.end());
 
             	// Converts the resulting array of 3 bytes to big endian by reversing it
+                // TODO: we suppose here that OScar is run on a little-endian architecture; could be extended to support also execution on big-endian architectures (where reverse would not be needed)
             	std::reverse(esf_data.begin(),esf_data.end());
 
-            	/* Produces the final signed value and scales it, dividing by 2^10
+            	/* Produces the final signed value and scales it, dividing by 2^10 = 1024
             	 * as indicated in 3.2.7.5 Sensor data types (Integration manual) */
             	out_esf.raw_acc_x = static_cast<double>(hexToSigned(esf_data))/1024;
 
-				esf_data.clear();
+				esf_data.clear(); // Clears the current byte group vector for the next iteration
 				j = 0;
-			}
-            if (esf_data[3] == 0x11) {
+			} else if (esf_data[3] == 0x11) {
+                // TODO: improve code by writing esf_data.erase() and std::reverse() once for all cases, as these operations are in common to all the considered cases
             	esf_data.erase(esf_data.begin()+3,esf_data.end());
             	std::reverse(esf_data.begin(),esf_data.end());
             	out_esf.raw_acc_y = static_cast<double>(hexToSigned(esf_data))/1024;
             	esf_data.clear();
 				j = 0;
-			}
-            if (esf_data[3] == 0x12) {
+			} else if (esf_data[3] == 0x12) {
             	esf_data.erase(esf_data.begin()+3,esf_data.end());
             	std::reverse(esf_data.begin(),esf_data.end());
             	out_esf.raw_acc_z = static_cast<double>(hexToSigned(esf_data))/1024;
@@ -932,19 +922,19 @@ UBXNMEAParserSingleThread::parseEsfRaw(std::vector<uint8_t> response) {
         }
     }
 
-	// Produces and prints to output struct the current date-time specific timestamp
+    // Produces and processes the current date-time timestamp (stores in a human-readable format when the information was parsed)
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_esf.ts_acc,std::ctime(&now));
 
-	// Gets the update time with precision of microseconds
+	// Gets the current update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-    // Updates age of information
+    // Compute the period occurred between this update and the last update
     if (m_debug_age_info_rate) {
-        m_debug_age_info.age_acc = update.time_since_epoch().count() - out_esf.lu_acc;
+        m_debug_age_info.prd_acc = update.time_since_epoch().count() - out_esf.lu_acc;
     }
 
-    // Retrieves the time since epoch in microseconds and updates the output struct
+    // Store the timestamp when this information was last retrieved
 	out_esf.lu_acc = update.time_since_epoch().count();
 
     // Validates data
@@ -1440,6 +1430,7 @@ UBXNMEAParserSingleThread::getDebugAgeInfo() {
 }
 
 /** showDebugAgeInfo() displays on screen the debug information, refreshing at the user specified rate */
+// TODO: make this function capture SIGINT in an intelligent way, so that "\033[?25h" is not skipped and the cursor is shown again
 void UBXNMEAParserSingleThread::showDebugAgeInfo() {
     int line_counter = 0;
 
