@@ -754,7 +754,7 @@ int main (int argc, char *argv[]) {
 			false,DEFAULT_VEHVIZ_NODEJS_UDP_ADDR,"IPv4 address string");
 		cmd.add(VV_NodejsAddrArg);
 
-        TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
+        TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","[Considered only if -g is not specified] Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
         cmd.add(WrongInputTsholdArg);
 
         TCLAP::ValueArg<double> CheckFaultyObjectAcceleration("6","faulty-object-acceleration-threshold","Advanced option: enable the check of faulty acceleration values of the objects in the CPMs by setting a custom threshold.",false,0.0,"double");
@@ -773,7 +773,7 @@ int main (int argc, char *argv[]) {
         cmd.add(ShowDebugAgeInfo);
 
 		cmd.parse(argc,argv);
-        
+
 		dissem_vif=vifName.getValue();
 		
 		log_filename_CAM=LogfileCAM.getValue();
