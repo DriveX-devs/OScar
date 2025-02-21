@@ -110,7 +110,8 @@ class UBXNMEAParserSingleThread {
                     ts_sog_cog_ubx[100], // Speed Over Ground (SOG), Course Over Ground (COG) - UBX
                     ts_sog_cog_nmea[100]; // Speed Over Ground (SOG), Course Over Ground (COG) - NMEA
             char fix_ubx[100],
-                    fix_nmea[100];
+                    fix_nmea[100],
+                    fix_nmea_rmc; // Letter of the GxRMC fix mode - used internally
             double lat, lon, alt,
                     lat_ubx, lon_ubx, alt_ubx,
                     lat_nmea, lon_nmea, alt_nmea;           // Latitude, longitude and altitude above sea level
@@ -130,7 +131,8 @@ class UBXNMEAParserSingleThread {
                  lu_comp_ang_rate,
                  lu_sog_cog,
                  lu_sog_cog_ubx,
-                 lu_sog_cog_nmea;						    // Last updates on relevant information
+                 lu_sog_cog_nmea,						    // Last updates on relevant information
+                 lu_fix_nmea_rmc;                           // Last RMC fix mode update - used internally
         } out_t;
 
         typedef struct AgeInfo {

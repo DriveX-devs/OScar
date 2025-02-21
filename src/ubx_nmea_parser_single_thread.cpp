@@ -127,6 +127,7 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	strcpy(tmp.ts_sog_cog_nmea,"");
 	strcpy(tmp.fix_ubx,"");
 	strcpy(tmp.fix_nmea,"");
+    tmp.fix_nmea_rmc='0';
 
     // Raw and compensated accelerations + angular speeds (deg/s)
 	tmp.raw_acc_x = 0;
@@ -183,6 +184,7 @@ UBXNMEAParserSingleThread::clearBuffer() {
     tmp.lu_sog_cog = 0;
 	tmp.lu_sog_cog_ubx = 0;
 	tmp.lu_sog_cog_nmea = 0;
+    tmp.lu_fix_nmea_rmc = 0;
 
 	m_outBuffer.store(tmp);
 }
@@ -385,39 +387,113 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
     char cp_lon = fields[5].at(0);
 
     // Parse the fix mode
-    // Here we assume that the fix mode is the same from all satellite systems
-    // The letters are related respectively to GPS, GLONASS, Galileo, BeiDou
-    // TODO: improve support to the case when different fix modes are provided by different constellations
-    // TODO: improve support to consider that there may be more letters (e.g., devices supporting QZSS may report five letters)
-    if (posMode == "NNNN") {
-        strcpy(out_nmea.fix_nmea, "NoFix");
-        m_2d_valid_fix = false;
-        m_3d_valid_fix = false;
-    } else if (posMode == "EEEE") {
-        strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
-        m_2d_valid_fix = false;
-        m_3d_valid_fix = false;
-    } else if (posMode == "AAAA") {
-        strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
-        m_2d_valid_fix = true;
-        m_3d_valid_fix = true;
-    }
-    else if (posMode == "DDDD") {
-        strcpy(out_nmea.fix_nmea,"DGNSS");
-        m_2d_valid_fix = true;
-        m_3d_valid_fix = true;
-    } else if (posMode == "FFFF") {
-        strcpy(out_nmea.fix_nmea, "RTKFloat");
-        m_2d_valid_fix = true;
-        m_3d_valid_fix = true;
-    } else if (posMode == "RRRR") {
-        strcpy(out_nmea.fix_nmea, "RTKFixed");
-        m_2d_valid_fix = true;
-        m_3d_valid_fix = true;
+    // Unlike other NMEA sentences, GxGNS does not contain a single fix mode, but the fix mode for all constellations.
+    // posMode will therefore contain as many characters as the number of constellations, each one representing the corresponding fix mode.
+    // The first five characters are respectively for GPS, GLONASS, Galileo, BeiDou, and QZSS.
+    // For example, RRRRN means that the fix mode is "RTK Fixed" for GPS, GLONASS, Galileo, and BeiDou, and "No Fix" for QZSS.
+
+    // Here we want to parse a "global" fix mode, returning a single piece of information that best represents the current mode,
+    // like if a single fix mode was parsed from GxRMC.
+
+    // Therefore, if a fix was available from RMC shortly before this GNS sentence, check if the GNS fix mode contains
+    // at least once the RMC fix mode character. In this case, "confirm" the fix already received from RMC, if it was
+    // received within the last second
+    auto fix_nmea_rmc_now = time_point_cast<microseconds>(system_clock::now()).time_since_epoch().count();
+    if(out_nmea.fix_nmea_rmc != '0' && fix_nmea_rmc_now - out_nmea.lu_fix_nmea_rmc < 1000000 && posMode.find(out_nmea.fix_nmea_rmc) != std::string::npos) {
+        switch(out_nmea.fix_nmea_rmc) {
+            case 'N':
+                strcpy(out_nmea.fix_nmea, "NoFix");
+                m_2d_valid_fix = false;
+                m_3d_valid_fix = false;
+                break;
+            case 'E':
+                strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
+                m_2d_valid_fix = false;
+                m_3d_valid_fix = false;
+                break;
+            case 'A':
+                strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
+                m_2d_valid_fix = true;
+                m_3d_valid_fix = true;
+                break;
+            case 'D':
+                strcpy(out_nmea.fix_nmea, "DGNSS");
+                m_2d_valid_fix = true;
+                m_3d_valid_fix = true;
+                break;
+            case 'F':
+                strcpy(out_nmea.fix_nmea, "RTKFloat");
+                m_2d_valid_fix = true;
+                m_3d_valid_fix = true;
+                break;
+            case 'R':
+                strcpy(out_nmea.fix_nmea, "RTKFixed");
+                m_2d_valid_fix = true;
+                m_3d_valid_fix = true;
+                break;
+            default:
+                strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
+                m_2d_valid_fix = false;
+                m_3d_valid_fix = false;
+                break;
+        }
     } else {
-        strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
-        m_2d_valid_fix = false;
-        m_3d_valid_fix = false;
+        // Otherwise, check the fix mode from GPS, Galileo, GLONASS, BeiDou (ignoring QZSS and other constellations for the time being)
+        char fix_cumulative_char = '0';
+
+        // If the first four characters are the same, take as fix mode the common one between GPS, Galileo, GLONASS, and BeiDou
+        if (posMode[0] == posMode[1] && posMode[1] == posMode[2] && posMode[2] == posMode[3]) {
+            fix_cumulative_char = posMode[0];
+        } else {
+            // Otherwise, take as reference the first non-'N' valid character between the first four, if any.
+            // If no valid character is found, take as reference the GPS fix (i.e., initialize fix_cumulative_char with posMode[0])
+            // TODO: for the time being, only (N,) E, A, D, F, R are supported. However, this could be extended to P, M, S even if we hardly ever encounter these modes
+            fix_cumulative_char = posMode[0];
+            for (int i = 0; i < 4; i++) {
+                if (posMode[i] == 'E' || posMode[i] == 'A' || posMode[i] == 'D' || posMode[i] == 'F' || posMode[i] == 'R') {
+                    fix_cumulative_char = posMode[i];
+                    break;
+                }
+            }
+        }
+
+        switch(fix_cumulative_char) {
+            case 'N':
+                strcpy(out_nmea.fix_nmea, "NoFix");
+                m_2d_valid_fix = false;
+                m_3d_valid_fix = false;
+                break;
+            case 'E':
+                strcpy(out_nmea.fix_nmea, "Estimated/DeadReckoning");
+                m_2d_valid_fix = false;
+                m_3d_valid_fix = false;
+                break;
+            case 'A':
+                strcpy(out_nmea.fix_nmea, "AutonomousGNSSFix");
+                m_2d_valid_fix = true;
+                m_3d_valid_fix = true;
+                break;
+            case 'D':
+                strcpy(out_nmea.fix_nmea, "DGNSS");
+                m_2d_valid_fix = true;
+                m_3d_valid_fix = true;
+                break;
+            case 'F':
+                strcpy(out_nmea.fix_nmea, "RTKFloat");
+                m_2d_valid_fix = true;
+                m_3d_valid_fix = true;
+                break;
+            case 'R':
+                strcpy(out_nmea.fix_nmea, "RTKFixed");
+                m_2d_valid_fix = true;
+                m_3d_valid_fix = true;
+                break;
+            default:
+                strcpy(out_nmea.fix_nmea, "Unknown/Invalid");
+                m_2d_valid_fix = false;
+                m_3d_valid_fix = false;
+                break;
+        }
     }
 
     // Position parsing
@@ -464,7 +540,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
 	// Gets the update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-    // Compute the
+    // Compute the age of information
     if (m_debug_age_info_rate) {
         m_debug_age_info.age_pos = update.time_since_epoch().count() - out_nmea.lu_pos;
         m_debug_age_info.age_pos_nmea = update.time_since_epoch().count() - out_nmea.lu_pos_nmea;
@@ -639,6 +715,7 @@ UBXNMEAParserSingleThread::getAltitude(long *age_us, bool print_timestamp_and_ag
     long local_age_us = epoch_ts - tmp.lu_alt;
 
     // Stores age of information if debug option is enabled
+    // TODO: check why it is stored instead of just being computed and returned
     if (m_debug_age_info_rate) m_debug_age_info.age_alt = local_age_us;
 
     // Checks the information validity
@@ -1742,6 +1819,10 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         m_2d_valid_fix = false;
         m_3d_valid_fix = false;
     }
+
+    // Store the current letter of the fix status, obtained via the NMEA sentence
+    out_nmea.fix_nmea_rmc = fix;
+    out_nmea.lu_fix_nmea_rmc = time_point_cast<microseconds>(system_clock::now()).time_since_epoch().count();
 
 	// Produces and prints the current date-time timestamp
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
