@@ -1967,7 +1967,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                 if(ti>=m_trace.size()) {
                     std::cout << "[INFO] Trace reproduction terminated. OScar will now terminate..." << std::endl;
                     m_terminatorFlagPtr->store(true);
-                    exit(EXIT_FAILURE);
+                    break;
                 }
             }
 
