@@ -5,6 +5,7 @@
 // Copyright (c) 2024 Mauro Vittorio
 
 #include "ubx_nmea_parser_single_thread.h"
+#include "utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -18,8 +19,13 @@
 #include <algorithm>
 #include <iomanip>
 #include <unistd.h>
+#include <fstream>
 
 using namespace std::chrono;
+
+#define JSON_GET_NUM(json,key) (json[key].number_value())
+#define JSON_GET_INT(json,key) (json[key].int_value())
+#define JSON_GET_STR(json,key) (json[key].string_value())
 
 /** printUbxMessage() prints a UBX message in the format index[byte] (used for debug purposes) */
 void
@@ -1915,12 +1921,67 @@ UBXNMEAParserSingleThread::readFromSerial() {
     std::string expectedLengthStr;
     std::string expectedLengthStrOverlapped;
 
+    // Variables useful for the trace file reproduction: not used in normal serial parser mode
+    size_t ti = 0, tj = 0;
+    std::string curr_data_str, curr_msg_type;
+    uint64_t curr_tstamp, start_time=0, delta_time_us_real=0, start_time_us=0, delta_time_us_trace=0, variable_delta_us_factor=0;
+    // Get current timestamp in microseconds
+    uint64_t startup_time = get_timestamp_us();
+
     while (true) {
+        if(!m_is_file_no_serial) {
+            byte = m_serial.ReadChar(success);
 
-        byte = m_serial.ReadChar(success);
+            if (!success) {
+                continue;
+            }
+        } else {
+            // Read bytes from the trace in a timed manner
+            if(ti==0 || tj>=curr_data_str.size()) {
+                curr_data_str = JSON_GET_STR(m_trace[ti],"data");
+                curr_msg_type = JSON_GET_STR(m_trace[ti],"type");
+                curr_tstamp = JSON_GET_INT(m_trace[ti],"timestamp");
 
-        if (!success) {
-            continue;
+                if(!m_trace[ti].is_object()) {
+                    std::cerr << "[ERROR] Unexpected JSON trace format. Terminating..." << std::endl;
+                    m_terminatorFlagPtr->store(true);
+                    break;
+                }
+
+                if(ti>0) {
+                    delta_time_us_real = get_timestamp_us() - startup_time;
+                    delta_time_us_trace = curr_tstamp - start_time;
+                    variable_delta_us_factor = delta_time_us_trace - delta_time_us_real;
+
+                    if(variable_delta_us_factor>0) {
+                        std::this_thread::sleep_for(std::chrono::microseconds(variable_delta_us_factor));
+                    }
+                } else {
+                    start_time = curr_tstamp;
+                }
+
+                ti++;
+
+                tj=0;
+
+                if(ti>=m_trace.size()) {
+                    std::cout << "[INFO] Trace reproduction terminated. OScar will now terminate..." << std::endl;
+                    m_terminatorFlagPtr->store(true);
+                    exit(EXIT_FAILURE);
+                }
+            }
+
+            if(curr_msg_type=="UBX" || curr_msg_type=="Unknown") {
+                byte = str_to_byte(curr_data_str.substr(tj, 2));
+                tj+=2;
+            } else if(curr_msg_type=="NMEA") {
+                byte = curr_data_str[tj];
+                tj+=1;
+            } else {
+                std::cout << "[ERROR] Unexpected JSON trace format. Terminating..." << std::endl;
+                m_terminatorFlagPtr->store(true);
+                break;
+            }
         }
 
         //printf("%c",byte); // For debug purposes
@@ -2317,8 +2378,10 @@ UBXNMEAParserSingleThread::readData() {
 		0x00, 0x53 // Checksum
 	};
 	
-	// Writes to serial port in order to enable the messages
-	m_serial.Write(reinterpret_cast<char*>(ubx_valset_req_enable.data()), ubx_valset_req_enable.size());
+	// Writes to serial port in order to enable the messages (skip this line if a trace is used instead of a real serial device)
+    if(!m_is_file_no_serial) {
+        m_serial.Write(reinterpret_cast<char *>(ubx_valset_req_enable.data()), ubx_valset_req_enable.size());
+    }
 
 	// Same as above but with the value 0x00 after the keyID
 	std::vector<uint8_t> ubx_valset_req_disable = {
@@ -2336,8 +2399,10 @@ UBXNMEAParserSingleThread::readData() {
 	};
 
 	// Disables the messages
-	//serialDev.Write(reinterpret_cast<char*>(ubx_valset_req_disable.data()), ubx_valset_req_disable.size());
-
+    // TODO: why was this here? This is very likely not needed
+    // if(!m_is_file_no_serial) {
+	//      serialDev.Write(reinterpret_cast<char*>(ubx_valset_req_disable.data()), ubx_valset_req_disable.size());
+    // }
 
 	while (m_terminatorFlagPtr->load() == false && m_stopParserFlag.load() == false) {
 		readFromSerial();
@@ -2347,14 +2412,7 @@ UBXNMEAParserSingleThread::readData() {
 /** startUBXNMEAParser() initializes and configures the serial interface, clears the atomic data buffer and
  *  encapsulates readData() to correctly start the serial reading and parsing process. */
 int
-UBXNMEAParserSingleThread::startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *terminatorFlagPtr) {
-	// Serial interface handling and initializing
-    m_serial.SetBaudRate(baudrate);
-    m_serial.SetDataSize(data_bits);
-    m_serial.SetParity(parity);
-    m_serial.SetStopBits(stop_bits);
-    m_serial.SetPortName(device);
-
+UBXNMEAParserSingleThread::startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *terminatorFlagPtr, bool is_file_no_serial) {
     clearBuffer();
 
     if(terminatorFlagPtr==nullptr) {
@@ -2364,18 +2422,51 @@ UBXNMEAParserSingleThread::startUBXNMEAParser(std::string device, int baudrate, 
 
     m_terminatorFlagPtr = terminatorFlagPtr;
 
-	// ceSerial serial(device, baudrate, data_bits, parity, stop_bits);
-    // Correct sample configuration for a U-blox ZED-F9R device: ("/dev/ttyACM0",115200,8,'N',1)
-    std::cout << "Opening device " << m_serial.GetPort().c_str() << std::endl;
-    std::cout << "Setting baudrate " << baudrate << std::endl;
-    std::cout << "Setting data bits " << m_serial.GetDataSize() << std::endl;
+    m_is_file_no_serial = is_file_no_serial;
 
-	if (m_serial.Open() == 0) {
-		std::cout << "Serial device opened successfully." << std::endl;
-	} else {
-        std::cerr << "Error: cannot open serial device." << std::endl;
-		return -1;
-	}
+    if(!m_is_file_no_serial) {
+        // Serial interface handling and initializing
+        m_serial.SetBaudRate(baudrate);
+        m_serial.SetDataSize(data_bits);
+        m_serial.SetParity(parity);
+        m_serial.SetStopBits(stop_bits);
+        m_serial.SetPortName(device);
+
+        // ceSerial serial(device, baudrate, data_bits, parity, stop_bits);
+        // Correct sample configuration for a U-blox ZED-F9R device: ("/dev/ttyACM0",115200,8,'N',1)
+        std::cout << "Opening device " << m_serial.GetPort().c_str() << std::endl;
+        std::cout << "Setting baudrate " << baudrate << std::endl;
+        std::cout << "Setting data bits " << m_serial.GetDataSize() << std::endl;
+
+        if (m_serial.Open() == 0) {
+            std::cout << "Serial device opened successfully." << std::endl;
+        } else {
+            std::cerr << "Error: cannot open serial device." << std::endl;
+            return -1;
+        }
+    } else {
+        // Open the file specified by "device" and read the JSON using json11
+        std::cout << "Opening trace file " << device << std::endl;
+        std::ifstream json_trace_ifstream(device);
+        std::string json_str((std::istreambuf_iterator<char>(json_trace_ifstream)), std::istreambuf_iterator<char>());
+        std::string err="";
+        json11::Json full_json_trace;
+        full_json_trace = json11::Json::parse(json_str,err);
+
+        json_trace_ifstream.close();
+
+        if (!err.empty()) {
+            std::cerr << "Error: cannot open JSON trace. More details: " << err << std::endl;
+            return -1;
+        }
+
+        if(!full_json_trace.is_array()) {
+            std::cerr << "Error: unsupported JSON trace format." << std::endl;
+            return -1;
+        }
+
+        m_trace=full_json_trace.array_items();
+    }
 
 	// Start executing the parallel reading thread
 	std::thread readerThread(&UBXNMEAParserSingleThread::readData,this);
@@ -2391,4 +2482,31 @@ UBXNMEAParserSingleThread::stopUBXNMEAParser() {
     m_stopParserFlag = true;
     m_parser_started = false;
     m_serial.Close();
+}
+
+uint8_t UBXNMEAParserSingleThread::str_to_byte(const std::string &str) {
+    if (str.length() != 2) {
+        std::cerr << "str_to_byte: received size: " << str.size() << " - expected size: 2" << std::endl;
+        throw std::invalid_argument("str_to_byte: invalid size of input string");
+    }
+
+    uint8_t final_val=0x00;
+    for(int i=0;i<str.length();i++) {
+        char curr_c = str[i];
+        uint8_t curr_val= 0x00;
+
+        if (curr_c <= '9' && curr_c >= '0') {
+           curr_val = curr_c - '0';
+        } else if (curr_c <= 'F' && curr_c >= 'A') {
+           curr_val = curr_c - 'A' + 10;
+        } else if (curr_c <= 'f' && curr_c >= 'a') {
+           curr_val = curr_c - 'a' + 10;
+        } else {
+           throw std::invalid_argument("str_to_byte: invalid input string");
+        }
+
+        final_val=final_val*16+curr_val;
+   }
+
+    return final_val;
 }

@@ -8,6 +8,7 @@
 #define UBXNMEAPARSERSINGLETHREAD_H
 
 #include "ceSerial.h"
+#include "json11.h"
 
 #include <atomic>
 #include <vector>
@@ -74,7 +75,7 @@ class UBXNMEAParserSingleThread {
 
         bool getDebugAgeInfo();
 
-        int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
+        int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr, bool is_file_no_serial);
         void stopUBXNMEAParser();
 
         void setWrongInputThreshold(int threshold) {m_WRONG_INPUT_THRESHOLD=threshold;}
@@ -184,10 +185,13 @@ class UBXNMEAParserSingleThread {
         age_t m_debug_age_info;
 
         ceSerial m_serial;
+        std::vector<json11::Json> m_trace;
 
         const std::vector<uint8_t> m_UBX_HEADER = {0xb5, 0x62};
         int m_WRONG_INPUT_THRESHOLD = 1000;
 
+        // Flag that is set to true when reading from a JSON trace (from TRACEN-X) instead of a real serial port
+        bool m_is_file_no_serial = false;
 
         // UBX Header (2 bytes) + message class (1 byte) + message ID (1 byte) + message length (2 bytes)
         const uint8_t m_UBX_PAYLOAD_OFFSET = 6;
@@ -195,6 +199,7 @@ class UBXNMEAParserSingleThread {
         // Mathematical and buffer operations
         static double decimal_deg(double value, char quadrant);
         template <typename T = int32_t> T hexToSigned(std::vector<uint8_t> data);
+        static uint8_t str_to_byte(const std::string& str);
         void clearBuffer();
 
         // Parsers

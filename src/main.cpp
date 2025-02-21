@@ -632,9 +632,13 @@ int main (int argc, char *argv[]) {
     // Ego station type; it is set to passenger car if CAMs are activated, and to pedestrian if VAMs are activated
     StationType_t ego_station_type = StationType_passengerCar;
 
+    // Flag that is set to true when using a pre-recorded JSON trace, recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X)
+    // instead of reading from a real serial device, when the serial parser is used to get positioning+IMU data via NMEA+UBX
+    bool use_json_trace = false;
+
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "6.1-beta");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "6.2-beta");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -772,6 +776,9 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<int> ShowDebugAgeInfo("","show-live-data","[Considered only if -g is not specified] When activated, OScar will show, while it is running, the live data obtained from the GNSS system, together with the age of each piece of information (how old it is with respect to when it was last retrieved). After the option, an update interval in milliseconds should be specified. This will be the frequency at which the live data will be displayed.", false, 0, "integer");
         cmd.add(ShowDebugAgeInfo);
 
+        TCLAP::SwitchArg UseJsonTrace("","use-tracenx-json-trace","[Considered only if -g is not specified] Instead of reading from a real serial device, when the serial parser is used, use a JSON pre-recorded trace for the provision of positioning data. The path to the .json file should be specified after -s as if it was the path to a serial device. OScar supports JSON trace files recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X).",false);
+        cmd.add(UseJsonTrace);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -819,7 +826,7 @@ int main (int argc, char *argv[]) {
 		vizOpts.vehviz_nodejs_addr=VV_NodejsAddrArg.getValue();
 
 		if(vizOpts.vehviz_update_interval_sec<0.05 || vizOpts.vehviz_update_interval_sec>1) {
-			std::cerr << "[Error] The Vehicle Visualizer update interval cannot be lower than 0.05 s or grater than 1 second." << std::endl;
+			std::cerr << "[ERROR] The Vehicle Visualizer update interval cannot be lower than 0.05 s or grater than 1 second." << std::endl;
 			return 1;
 		}
 
@@ -848,8 +855,16 @@ int main (int argc, char *argv[]) {
 
         force_20Hz_freq = Force20HzFreq.getValue();
 
+        use_json_trace = UseJsonTrace.getValue();
+
+        if(use_gpsd==true && use_json_trace==true) {
+            std::cerr << "[ERROR] --use-tracenx-json-trace can only be used when --use-gpsd is not specified and the serial parser is used." << std::endl;
+            return 1;
+        }
+
 		if(enable_reception==false && enable_hmi==true) {
-			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
+            // TODO: support the usage of the HMI just to show the ego vehicle/road user, letting the user enable the HMI without reception
+			std::cerr << "[ERROR] Reception must be enabled to use the HMI, for the time being. This limitation is going to be solved in the future." << std::endl;
 			return 1;
 		}
 
@@ -954,7 +969,7 @@ int main (int argc, char *argv[]) {
         if (debug_age_info_rate_ms){
             serialParser.setDebugAgeInfo(debug_age_info_rate_ms);
         }
-        serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag);
+        serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag,use_json_trace);
     }
 
     // Create a new VDP GPS Client object for the LDM
@@ -969,7 +984,7 @@ int main (int argc, char *argv[]) {
     // Take the current position (if available) from the positioning provider (either gpsd or serial parser)
     int pos_avail_cnt=0;
     double test_lat, test_lon;
-    while(true) {
+    while(!terminatorFlag) {
         std::pair<double,double> curr_pos = ldmgpsc.getCurrentPositionDbl();
         test_lat = curr_pos.first;
         test_lon = curr_pos.second;
@@ -1014,6 +1029,10 @@ int main (int argc, char *argv[]) {
 
     // Transmission threads creation
     std::vector<std::thread> txThreads;
+
+    if(terminatorFlag) {
+        goto exit_failure;
+    }
 
     if(enable_CAM_dissemination) {
         txThreads.emplace_back(CAMtxThr,
