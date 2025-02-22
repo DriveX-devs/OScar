@@ -439,17 +439,30 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
         }
     } else {
         // Otherwise, check the fix mode from GPS, Galileo, GLONASS, BeiDou (ignoring QZSS and other constellations for the time being)
+        // If there are less constellations than the expected four, consider only the first N<4
+        // If posMode is empty, consider it as "No fix"
         char fix_cumulative_char = '0';
+        bool all_chars_equal = false;
 
-        // If the first four characters are the same, take as fix mode the common one between GPS, Galileo, GLONASS, and BeiDou
-        if (posMode[0] == posMode[1] && posMode[1] == posMode[2] && posMode[2] == posMode[3]) {
+        // If the first N (up to 4) characters are the same, take as fix mode the common one
+        for(int i=0;i<posMode.length() && i<4;i++) {
+            if(posMode[i]!=posMode[0]) {
+                all_chars_equal=false;
+                break;
+            }
+            all_chars_equal=true;
+        }
+
+        if(posMode.empty()) {
+            fix_cumulative_char = 'N';
+        } else if(!posMode.empty() && all_chars_equal) {
             fix_cumulative_char = posMode[0];
         } else {
             // Otherwise, take as reference the first non-'N' valid character between the first four, if any.
             // If no valid character is found, take as reference the GPS fix (i.e., initialize fix_cumulative_char with posMode[0])
             // TODO: for the time being, only (N,) E, A, D, F, R are supported. However, this could be extended to P, M, S even if we hardly ever encounter these modes
             fix_cumulative_char = posMode[0];
-            for (int i = 0; i < 4; i++) {
+            for (int i=0;i<posMode.length() && i<4;i++) {
                 if (posMode[i] == 'E' || posMode[i] == 'A' || posMode[i] == 'D' || posMode[i] == 'F' || posMode[i] == 'R') {
                     fix_cumulative_char = posMode[i];
                     break;
