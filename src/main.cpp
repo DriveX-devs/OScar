@@ -318,6 +318,8 @@ void CAMtxThr(std::string gnss_device,
                 CABS.setLogfile(log_filename_CAM);
             }
             // Start the CAM dissemination
+            // TODO: stop dissemination when the terminator flag becomes true
+            // TODO: we should call CABS.terminateDissemination() or pass directly a pointer to the global atomic terminatorFlag to the CA Basic Service
             CABS.startCamDissemination();
 
         } catch (const std::exception &e) {
@@ -638,7 +640,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "6.3-beta");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "6.4-beta");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.

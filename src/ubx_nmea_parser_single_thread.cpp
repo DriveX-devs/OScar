@@ -23,7 +23,6 @@
 
 using namespace std::chrono;
 
-#define JSON_GET_NUM(json,key) (json[key].number_value())
 #define JSON_GET_INT(json,key) (json[key].int_value())
 #define JSON_GET_STR(json,key) (json[key].string_value())
 
@@ -399,7 +398,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
     // at least once the RMC fix mode character. In this case, "confirm" the fix already received from RMC, if it was
     // received within the last second
     auto fix_nmea_rmc_now = time_point_cast<microseconds>(system_clock::now()).time_since_epoch().count();
-    if(out_nmea.fix_nmea_rmc != '0' && fix_nmea_rmc_now - out_nmea.lu_fix_nmea_rmc < 1000000 && posMode.find(out_nmea.fix_nmea_rmc) != std::string::npos) {
+    if(out_nmea.fix_nmea_rmc != '0' && fix_nmea_rmc_now - out_nmea.lu_fix_nmea_rmc < 1000000 && posMode.find(out_nmea.fix_nmea_rmc)!=std::string::npos) {
         switch(out_nmea.fix_nmea_rmc) {
             case 'N':
                 strcpy(out_nmea.fix_nmea, "NoFix");
@@ -454,9 +453,9 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
         }
 
         if(posMode.empty()) {
-            fix_cumulative_char = 'N';
+            fix_cumulative_char = 'N'; // No fix in case posMode is empty
         } else if(!posMode.empty() && all_chars_equal) {
-            fix_cumulative_char = posMode[0];
+            fix_cumulative_char = posMode[0];  // Take the common fix mode among all constellations
         } else {
             // Otherwise, take as reference the first non-'N' valid character between the first four, if any.
             // If no valid character is found, take as reference the GPS fix (i.e., initialize fix_cumulative_char with posMode[0])
@@ -2032,12 +2031,20 @@ UBXNMEAParserSingleThread::readFromSerial() {
         } else {
             // Read bytes from the trace in a timed manner
             if(ti==0 || tj>=curr_data_str.size()) {
+                // Return an error and stop the execution of OScar if the JSON trace is not formatted correctly or the current
+                // JSON object does not include a timestamp
+                if(!m_trace[ti].is_object() || !m_trace[ti].object_items().count("timestamp")) {
+                    std::cerr << "[ERROR] Unexpected JSON trace format - wrong JSON object format or missing timestamp. Terminating..." << std::endl;
+                    m_terminatorFlagPtr->store(true);
+                    break;
+                }
+
                 curr_data_str = JSON_GET_STR(m_trace[ti],"data");
                 curr_msg_type = JSON_GET_STR(m_trace[ti],"type");
                 curr_tstamp = JSON_GET_INT(m_trace[ti],"timestamp");
 
-                if(!m_trace[ti].is_object()) {
-                    std::cerr << "[ERROR] Unexpected JSON trace format. Terminating..." << std::endl;
+                if(curr_data_str.empty()) {
+                    std::cerr << "[ERROR] Unexpected JSON trace format - missing data name/value. Terminating..." << std::endl;
                     m_terminatorFlagPtr->store(true);
                     break;
                 }
@@ -2072,7 +2079,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                 byte = curr_data_str[tj];
                 tj+=1;
             } else {
-                std::cout << "[ERROR] Unexpected JSON trace format. Terminating..." << std::endl;
+                std::cout << "[ERROR] Unexpected JSON trace format - wrong or missing message type name/value. Terminating..." << std::endl;
                 m_terminatorFlagPtr->store(true);
                 break;
             }

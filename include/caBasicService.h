@@ -24,7 +24,7 @@ typedef enum {
 } CABasicService_error_t;
 
 
-// Important future work: implement terminateDissemination(), which should also close m_edcp_sock if needed
+// TODO: important future work: implement terminateDissemination(), which should also close m_edcp_sock if needed
 class CABasicService
 {
 public:
