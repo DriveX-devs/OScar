@@ -15,6 +15,9 @@
 // Epoch time at 2004-01-01 (in ms)
 #define TIME_SHIFT_MILLI 1072915200000
 
+// UTC epoch time at 2004-01-01 00:00:00 (in ms)
+#define ITS_EPOCH_TIME_MILLI TIME_SHIFT_MILLI // Equal to the TIME_SHIFT_MILLI; can be updated to a different value for future CPM versions, if needed
+
 // Size of the popen iw buffer, to read the RSSI given a MAC address
 // This is currently a bit oversized -> need to define a "more tight" size in the near future
 #define POPEN_IW_BUFF_SIZE 2000
@@ -72,6 +75,28 @@ uint64_t get_timestamp_ms_gn(void) {
 	}
 
 	return (static_cast<uint64_t>(floor((seconds*1000000+microseconds)/1000.0))-TIME_SHIFT_MILLI)%4294967296;
+}
+
+uint64_t get_timestamp_ms_cpm(void) {
+    time_t seconds;
+    uint64_t microseconds;
+    struct timespec now;
+
+    if(clock_gettime(CLOCK_TAI, &now) == -1) {
+        perror("Cannot get the current microseconds TAI timestamp");
+        return -1;
+    }
+
+    seconds=now.tv_sec;
+    microseconds=round(now.tv_nsec/1e3);
+
+    // milliseconds, due to the rounding operation, shall not exceed 999999
+    if(microseconds > 999999) {
+        seconds++;
+        microseconds=0;
+    }
+
+    return (static_cast<uint64_t>(floor((seconds*1000000+microseconds)/1000.0))-ITS_EPOCH_TIME_MILLI)%4398046511103;
 }
 
 uint64_t get_timestamp_ms_cam(void) {

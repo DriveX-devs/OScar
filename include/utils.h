@@ -34,6 +34,8 @@ bool doublecomp(double d1, double d2, double eps = 0.0001);
 // be slightly slower than fprintf and should thus be used only when really needed
 int logfprintf(FILE *stream,std::string modulename,const char *format,...);
 double get_rssi_from_iw(uint8_t macaddr[6],std::string interface_name);
+// This function returns a TimestampIts (as defined in ETSI-ITS-CDD.asn) for the referenceTime field in CPMs v2
+uint64_t get_timestamp_ms_cpm(void);
 
 nl_sock_info_t open_nl_socket(std::string interface_name);
 void free_nl_socket(nl_sock_info_t nl_sock_info);

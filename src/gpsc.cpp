@@ -1270,7 +1270,8 @@ VDPGPSClient::getCAMMandatoryData() {
 
             CAMdata.avail = true;
 
-            // compute the delta position considering the speed, heading and the pos age
+            // Compute the delta position considering the speed, heading and the pos age
+            // This interpolation is done all the times for the time being
             if (CAMdata.avail == true && (CAMdata.latitude!=Latitude_unavailable && CAMdata.longitude!=Longitude_unavailable)) {
                 double delta_x = 0.0;
                 double delta_y = 0.0;
