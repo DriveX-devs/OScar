@@ -564,7 +564,7 @@ void VRUBasicService::checkVamConditions(){
           data="[VAM] VAM sent\n";
           sent="true";
 
-          if(head_diff > 4.0 || head_diff < -4.0) {
+          if(head_diff > m_head_th || head_diff < -m_head_th) {
             motivation="heading";
             joint=joint+"H";
             num_VAMs_sent=std::to_string(m_head_sent);
@@ -657,21 +657,26 @@ bool VRUBasicService::checkVamRedundancyMitigation(){
   double ped_heading = m_VRUdp->getPedHeadingValue ();
   ped_heading += (ped_heading>180.0) ? -360.0 : (ped_heading<-180.0) ? 360.0 : 0.0;
 
-  if(now-lastVamGen < m_N_GenVam_max_red*5000){
+  if(now-lastVamGen < m_N_GenVam_max_red*5000) {
     m_LDM->rangeSelect (4,ped_pos.lat,ped_pos.lon,selectedStations);
 
     for(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it = selectedStations.begin (); it!=selectedStations.end () && !redundancy_mitigation; ++it){
-      if((StationType_t)it->vehData.stationType == StationType_pedestrian){
-        double speed_diff = it->vehData.speed_ms - ped_speed;
-        double near_VRU_heading = it->vehData.heading;
-        near_VRU_heading += (near_VRU_heading>180.0) ? -360.0 : (near_VRU_heading<-180.0) ? 360.0 : 0.0;
-        double heading_diff = near_VRU_heading - ped_heading;
-
-        if((speed_diff < 0.5 && speed_diff > -0.5) && (heading_diff < 4 && heading_diff > -4)){
-          redundancy_mitigation = true;
-          m_N_GenVam_max_red = (int16_t)std::round(((double)std::rand()/RAND_MAX)*8) + 2;
+        // Skip the ego station
+        if(it->vehData.stationID == m_station_id) {
+            continue;
         }
-      }
+
+        if((StationType_t)it->vehData.stationType == StationType_pedestrian) {
+            double speed_diff = it->vehData.speed_ms - ped_speed;
+            double near_VRU_heading = it->vehData.heading;
+            near_VRU_heading += (near_VRU_heading>180.0) ? -360.0 : (near_VRU_heading<-180.0) ? 360.0 : 0.0;
+            double heading_diff = near_VRU_heading - ped_heading;
+
+            if((speed_diff < 0.5 && speed_diff > -0.5) && (heading_diff < 4 && heading_diff > -4)) {
+                redundancy_mitigation = true;
+                m_N_GenVam_max_red = (int16_t)std::round(((double)std::rand()/RAND_MAX)*8) + 2;
+            }
+        }
     }
   }
 
