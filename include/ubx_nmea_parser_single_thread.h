@@ -12,11 +12,23 @@
 
 #include <atomic>
 #include <vector>
+#include <climits>
 
 // Values the serial parser should return to indicate that this information is not available
 #define Latitude_unavailable_serial_parser 900000001
 #define Longitude_unavailable_serial_parser 1800000001
 #define AltitudeValue_unavailable_serial_parser 800001
+
+#define COMPUTE_EPOCH_TS_VALIDITY(value) ((epoch_ts-value)>=LONG_MAX?0:(epoch_ts-value))
+
+/** The current version of the serial parser reads the following information from:
+ * Lat/Lon [deg]: UBX-NAV-PVT, GxGNS, GxGGA
+ * Speed [m/s], heading [deg]: UBX-NAV-PVT, GxRMC
+ * Acceleration (if available) [m/s^2]: UBX-ESF-INS, UBX-ESF-RAW
+ * Attitude (if available) [deg]: UBX-NAV-ATT
+ * Altitude [m]: UBX-NAV-PVT, GxGNS, GxGGA
+ * Fix mode: UBX-NAV-STATUS, GxRMC, GxGNS, GxGGA
+*/
 
 class UBXNMEAParserSingleThread {
     public:
@@ -99,6 +111,9 @@ class UBXNMEAParserSingleThread {
             // Human-readable date strings that contain the timestamp (epoch time) of the last updates for teach information
             // Currently, the dates are used just for printing when the "print_error" flag is set to true;
             // they are not used for any other purpose (for the time being)
+
+            // We save the strings as char[100] instead of std::string as we want to define and use an atomic structure
+            // More details are available here: https://stackoverflow.com/questions/16876410/does-stdatomicstdstring-work-appropriately
             char ts_pos[100],
                     ts_pos_ubx[100],
                     ts_pos_nmea[100],
