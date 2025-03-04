@@ -150,6 +150,7 @@ class UBXNMEAParserSingleThread {
                  lu_fix_nmea_rmc;                           // Last RMC fix mode update - used internally
         } out_t;
 
+        // TODO: this structure is storing useful information, that is, however, not used for the time being; evaluate whether to remove it
         typedef struct AgeInfo {
             long age_pos, age_pos_ubx, age_pos_nmea,
                 age_acc, age_att,
