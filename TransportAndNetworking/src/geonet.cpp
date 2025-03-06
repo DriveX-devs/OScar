@@ -248,6 +248,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 		longPV.heading = (uint16_t) m_vrudp->getPedHeadingValue()*DECI;// [degrees] to [0.1 degrees]
 	} else{
 		std::pair<double,double> POS_EPV_pair = m_vdp->getCurrentPositionDbl();
+        // TODO: manage the case in which unavailable values are returned by getCurrentPositionDbl() (e.g., when the serial stram is stopped and the serial parser is no more able to provide positioning data)
 		longPV.latitude = (int32_t) (POS_EPV_pair.first*DOT_ONE_MICRO);
 		longPV.longitude = (int32_t) (POS_EPV_pair.second*DOT_ONE_MICRO);
 		longPV.positionAccuracy = false;
