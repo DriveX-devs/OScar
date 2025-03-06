@@ -1799,13 +1799,14 @@ UBXNMEAParserSingleThread::getValidityThreshold() {
     }
 }
 
-/** parseNavPvt() extracts the speed over ground (sog, 4 bytes) and course over ground (cog, 4 bytes) values from the
- *  UBX-NAV-PVT message by reading from byte 60 to byte 68 (the two values are store one after the other)
+/** parseNavPvt() extracts the speed over ground (sog, 4 bytes), course over ground (cog, 4 bytes),
+ *  latitude (4 bytes), longitude (4 bytes), altitude (4 bytes) and fix (2 bytes) values from the
+ *  UBX-NAV-PVT message by reading the proper bytes reported in the ZED-F9R Interface Description.
  *
- *  See Interface description § 3.15.13 UBX-NAV-PVT. (page 100) */
+ *  See Interface description § 3.15.13 UBX-NAV-PVT. (page 100)
+ *  https://cdn.sparkfun.com/assets/learn_tutorials/1/1/7/2/ZED-F9R_Interfacedescription__UBX-19056845_.pdf */
 void
 UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
-
 	out_t out_pvt = m_outBuffer.load();
 
 	/* Extract the 4 bytes arrays containing the speed over ground and the heading of motion in the UBX-NAV-PVT message
@@ -1823,42 +1824,48 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
         printf("Big-Endian\n");
     } */
 
-    // Extract the speed (byte 60)
+    // Extract the speed (byte 60) - 4 bytes
+    // m_UBX_PAYLOAD_OFFSET is used to exclude the header (B562...)
 	std::vector<uint8_t> sog(response.begin() + m_UBX_PAYLOAD_OFFSET + 60, response.begin() + m_UBX_PAYLOAD_OFFSET + 64);
+    // Convert to little endian
 	std::reverse(sog.begin(),sog.end());
-	out_pvt.sog = static_cast<double>(hexToSigned(sog)) * 0.001; // Converts from mm/s to m/s
+    // Cast and convert units
+	out_pvt.sog = static_cast<double>(hexToSigned(sog)) * 0.001; // Converts from mm/s (UBX unit) to m/s
     out_pvt.sog_ubx = out_pvt.sog;
 
-    // Extract the course over ground (byte 64)
+    // Extract the course over ground (byte 64) - 4 bytes
 	std::vector<uint8_t> head_motion(response.begin() + m_UBX_PAYLOAD_OFFSET + 64, response.begin() + m_UBX_PAYLOAD_OFFSET + 68);
+    // Convert to little endian
 	std::reverse(head_motion.begin(),head_motion.end());
-	out_pvt.cog = static_cast<double>(hexToSigned(head_motion)) * 0.00001;
+    // Cast and convert units
+	out_pvt.cog = static_cast<double>(hexToSigned(head_motion)) * 0.00001; // Converts from 0.0001 degrees (UBX unit) to degrees
     out_pvt.cog_ubx = out_pvt.cog;
 
-    // Extract the latitude (byte 28)
+    // Extract the latitude (byte 28) - 4 bytes
     std::vector<uint8_t> lat(response.begin() + m_UBX_PAYLOAD_OFFSET + 28, response.begin() + m_UBX_PAYLOAD_OFFSET + 32);
     std::reverse(lat.begin(),lat.end());
-    out_pvt.lat = static_cast<double>(hexToSigned(lat)) * 0.0000001;
+    out_pvt.lat = static_cast<double>(hexToSigned(lat)) * 0.0000001; // Converts from 0.1 microdegrees (UBX unit) to degrees
     out_pvt.lat_ubx = out_pvt.lat;
 
-    // Extract the longitude (byte 24)
+    // Extract the longitude (byte 24) - 4 bytes
     std::vector<uint8_t> lon(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 28);
     std::reverse(lon.begin(),lon.end());
-    out_pvt.lon = static_cast<double>(hexToSigned(lon)) * 0.0000001;
+    out_pvt.lon = static_cast<double>(hexToSigned(lon)) * 0.0000001; // Converts from 0.1 microdegrees (UBX unit) to degrees
     out_pvt.lon_ubx = out_pvt.lon;
 
-    // Extract the altitude (byte 36)
+    // Extract the altitude (byte 36) - 4 bytes
     std::vector<uint8_t> alt(response.begin() + m_UBX_PAYLOAD_OFFSET + 36, response.begin() + m_UBX_PAYLOAD_OFFSET + 40);
     std::reverse(alt.begin(),alt.end());
-    out_pvt.alt = static_cast<double>(hexToSigned(alt)) * 0.001; // Convert from mm to m
+    out_pvt.alt = static_cast<double>(hexToSigned(alt)) * 0.001; // Convert from mm (UBX unit) to m
     out_pvt.alt_ubx = out_pvt.alt;
 
-    // Extract the fix (byte 20-21)
+    // Extract the fix (byte 20-21) - 2 bytes containing the fix mode and fix flags
     uint8_t fix_mode  = response[m_UBX_PAYLOAD_OFFSET + 20];
     uint8_t fix_flags = response[m_UBX_PAYLOAD_OFFSET + 21];
 
     // Verify fix validity (check if bit 0 in fix_flags is set to 1)
     // If it is set to 0, the fix is invalid
+    // bit 0 is the gnssFixOK flag; it is set to 1 for a valid fix (i.e., within DOP & accuracy masks)
     if (!(fix_flags & 0x01)) {
         printf("Invalid fix: %02X\n",fix_flags);
         strcpy(out_pvt.fix_ubx, "Invalid");
@@ -1868,6 +1875,7 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
         return;
     }
 
+    // Get the fix mode if the fix flag signal that a valid fix is available
     if (fix_mode == 0x00) {
         strcpy(out_pvt.fix_ubx, "NoFix");
         m_2d_valid_fix = false;
@@ -1904,20 +1912,20 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
         m_3d_valid_fix = false;
     }
 
-	// Gets the update time with precision of microseconds
+	// Gets the current time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-    // Updates age of information
+    // Compute the period ("prd") occurred between this update and the last update
     if (m_debug_age_info_rate) {
-        m_debug_age_info.age_sog_cog = update.time_since_epoch().count() - out_pvt.lu_sog_cog;
-        m_debug_age_info.age_sog_cog_ubx = update.time_since_epoch().count() - out_pvt.lu_sog_cog_ubx;
-        m_debug_age_info.age_pos = update.time_since_epoch().count() - out_pvt.lu_pos;
-        m_debug_age_info.age_pos_ubx = update.time_since_epoch().count() - out_pvt.lu_pos_ubx;
-        m_debug_age_info.age_alt = update.time_since_epoch().count() - out_pvt.lu_alt;
-        m_debug_age_info.age_alt_ubx = update.time_since_epoch().count() - out_pvt.lu_alt_ubx;
+        m_debug_age_info.prd_sog_cog = update.time_since_epoch().count() - out_pvt.lu_sog_cog;
+        m_debug_age_info.prd_sog_cog_ubx = update.time_since_epoch().count() - out_pvt.lu_sog_cog_ubx;
+        m_debug_age_info.prd_pos = update.time_since_epoch().count() - out_pvt.lu_pos;
+        m_debug_age_info.prd_pos_ubx = update.time_since_epoch().count() - out_pvt.lu_pos_ubx;
+        m_debug_age_info.prd_alt = update.time_since_epoch().count() - out_pvt.lu_alt;
+        m_debug_age_info.prd_alt_ubx = update.time_since_epoch().count() - out_pvt.lu_alt_ubx;
     }
 
-    // Retrieves the time since epoch in microseconds and updates the output struct
+    // Set the last update (lu) time to now for all the information parsed from UBX-NAV-PVT
 	out_pvt.lu_sog_cog = update.time_since_epoch().count();
 	out_pvt.lu_sog_cog_ubx = out_pvt.lu_sog_cog;
 	out_pvt.lu_pos = update.time_since_epoch().count();
@@ -1926,6 +1934,7 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     out_pvt.lu_alt_ubx = out_pvt.lu_alt;
 
     // Validates data
+    // TODO: this can be potentially removed in the future
     m_sog_valid = true;
     m_sog_valid_ubx = true;
     m_cog_valid = true;
@@ -1940,15 +1949,15 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
 }
 
 /** parseNmeaRmc() follows the same approach adopted in parseNmeaGns() by scanning the sentence, separating
- *  the fields using the commas encountered in order to retrieve the speed and the course over ground values
+ *  the fields using the commas encountered in order to retrieve the speed and the course over ground (heading) values
  *  along with the fix mode.
  *  Example $GNRMC,083559.00,A,4717.11437,N,00833.91522,E, 0.004,77.52, 091202,,, A ,V*57\r\n
 	                         ^fix validity                sog^   cog^     fix mode^ */
 void
 UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
-
     out_t out_nmea = m_outBuffer.load();
 
+    // Split the NMEA sentence by commas and store each "field" inside the "fields" vector
     std::vector<std::string> fields;
     std::stringstream ss(nmea_response);
     std::string field;
@@ -1957,13 +1966,21 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         fields.push_back(field);
     }
 
+    // The fix is stored as a single character in the 13th field of the NMEA sentence
     char fix = fields[12].at(0);
+    // The fix validity is stored as a single character in the 2nd "field" of the NMEA sentence (the 1st "field" is the type of sentence)
     char fix_validity = fields[2].at(0);
+    // The speed over ground (sog) is stored in the 7th "field" of the NMEA sentence
     std::string sog = fields[7];
+    // The course over ground (cog) is stored in the 8th "field" of the NMEA sentence
     std::string cog = fields[8];
 
-    // Check if speed and heading are negative and parses accordingly using stod
+    // Check if speed and heading are negative and parse them accordingly using stod() to convert from string to double
+    // Here we distinguish the case in which the value is negative from the case in which it is positive, to make std::stod() work only with positive values
+    // Actually, std::stod() would work fine also with negative values, without the need of separating the two cases
+    // TODO: we could also use directly stod() without separating the negative/positive case
     if (!cog.empty()) {
+        // Check if the value if negative
         if (cog[0] == '-') {
             cog = cog.erase(0,1);
             out_nmea.cog = std::stod(cog) * -1;
@@ -1975,10 +1992,11 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         }
     }
     else {
-        out_nmea.cog = 3601; // HeadingValue_unavailable
+        out_nmea.cog = HeadingValue_unavailable_serial_parser; // HeadingValue_unavailable
         out_nmea.cog_nmea = out_nmea.cog;
     }
 
+    // Parse the SOG in a similar way as it is done for the COG
     if (sog.empty() == false) {
         if (sog[0] == '-') {
             sog = sog.erase(0,1);
@@ -1991,7 +2009,7 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
         }
     }
     else {
-        out_nmea.sog = 16383; // SpeedValue_unavailable
+        out_nmea.sog = SpeedValue_unavailable_serial_parser; // SpeedValue_unavailable
         out_nmea.sog_nmea = out_nmea.sog;
     }
 
@@ -2041,22 +2059,24 @@ UBXNMEAParserSingleThread::parseNmeaRmc(std::string nmea_response) {
     }
 
     // Store the current letter of the fix status, obtained via the NMEA sentence
+    // This is used for the fix parsing strategy in GxGNS
     out_nmea.fix_nmea_rmc = fix;
     out_nmea.lu_fix_nmea_rmc = time_point_cast<microseconds>(system_clock::now()).time_since_epoch().count();
 
-	// Produces and prints the current date-time timestamp
+	// Produces and stores a human-readable timestamp containing the last update of the COG and SOG
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_nmea.ts_sog_cog_nmea,std::ctime(&now));
 
-	// Gets the update time with precision of microseconds
+	// Gets the last update time with precision of microseconds
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
+    // Compute the period ("prd") occurred between this update and the last update
     if (m_debug_age_info_rate) {
-        m_debug_age_info.age_sog_cog = update.time_since_epoch().count() - out_nmea.lu_sog_cog;
-        m_debug_age_info.age_sog_cog_nmea = update.time_since_epoch().count() - out_nmea.lu_sog_cog_nmea;
+        m_debug_age_info.prd_sog_cog = update.time_since_epoch().count() - out_nmea.lu_sog_cog;
+        m_debug_age_info.prd_sog_cog_nmea = update.time_since_epoch().count() - out_nmea.lu_sog_cog_nmea;
     }
 
-    // Converts time_point to microseconds
+    // Converts time_point to microseconds, and set the last update (lu) timestamp to now
 	out_nmea.lu_sog_cog = update.time_since_epoch().count();
 	out_nmea.lu_sog_cog_nmea = out_nmea.lu_sog_cog;
 
@@ -2092,6 +2112,7 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
 		return;
     }
 
+    // Get the fix mode if the fix flag signal that a valid fix is available
     if (fix_mode == 0x00) {
         strcpy(out_sts.fix_ubx, "NoFix");
         m_2d_valid_fix = false;
@@ -2138,7 +2159,7 @@ UBXNMEAParserSingleThread::parseNavStatus(std::vector<uint8_t> response) {
  *  to the x axis.
  *
  *  The fields of interest in the UBX-ESF-INS message from byte 12 (after the payload) to byte 36, containing
- *  the threee angular rates and the three gravity-free accelerations-
+ *  the three angular rates and the three gravity-free accelerations.
  *
  *  See ZED-F9R interface description at 3.11.2 UBX-ESF-INS for more information */
 void
@@ -2146,47 +2167,53 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 	out_t out_ins = m_outBuffer.load();
 
     // Compensated angular rates
+    // m_UBX_PAYLOAD_OFFSET is used to exclude the header (B562...)
+    // x angular rate (byte 12) - 4 bytes
     std::vector<uint8_t> comp_ang_rate_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 12, response.begin() + m_UBX_PAYLOAD_OFFSET + 16);
     std::reverse(comp_ang_rate_x.begin(),comp_ang_rate_x.end());
-    out_ins.comp_ang_rate_x = static_cast<double>(hexToSigned(comp_ang_rate_x)) * 0.001; // Accordingly scales to deg/s
+    out_ins.comp_ang_rate_x = static_cast<double>(hexToSigned(comp_ang_rate_x)) * 0.001; // Accordingly scales to deg/s, to convert from the UBX unit to deg/s
 
+    // y angular rate (byte 16) - 4 bytes
     std::vector<uint8_t> comp_ang_rate_y(response.begin() + m_UBX_PAYLOAD_OFFSET + 16, response.begin() + m_UBX_PAYLOAD_OFFSET + 20);
     std::reverse(comp_ang_rate_y.begin(),comp_ang_rate_y.end());
     out_ins.comp_ang_rate_y = static_cast<double>(hexToSigned(comp_ang_rate_y)) * 0.001;
 
+    // z angular rate (byte 20) - 4 bytes - this is the yaw rate
     std::vector<uint8_t> comp_ang_rate_z(response.begin() + m_UBX_PAYLOAD_OFFSET + 20, response.begin() + m_UBX_PAYLOAD_OFFSET + 24);
     std::reverse(comp_ang_rate_z.begin(),comp_ang_rate_z.end());
     out_ins.comp_ang_rate_z = static_cast<double>(hexToSigned(comp_ang_rate_z)) * 0.001;
 
     // Compensated accelerations
+    // x acceleration (byte 24) - 4 bytes - this is the longitudinal compensated acceleration
     std::vector<uint8_t> comp_acc_x(response.begin() + m_UBX_PAYLOAD_OFFSET + 24, response.begin() + m_UBX_PAYLOAD_OFFSET + 28);
 	std::reverse(comp_acc_x.begin(),comp_acc_x.end());
 	out_ins.comp_acc_x = static_cast<double>(hexToSigned(comp_acc_x)) * 0.01; // Accordingly scales to m/s^2
 
+    // y acceleration (byte 28) - 4 bytes
 	std::vector<uint8_t> comp_acc_y(response.begin() + m_UBX_PAYLOAD_OFFSET + 28, response.begin() + m_UBX_PAYLOAD_OFFSET + 32);
 	std::reverse(comp_acc_y.begin(),comp_acc_y.end());
 	out_ins.comp_acc_y = static_cast<double>(hexToSigned(comp_acc_y)) * 0.01;
 
+    // z acceleration (byte 32) - 4 bytes
 	std::vector<uint8_t> comp_acc_z(response.begin() + m_UBX_PAYLOAD_OFFSET + 32, response.begin() + m_UBX_PAYLOAD_OFFSET + 36);
 	std::reverse(comp_acc_z.begin(),comp_acc_z.end());
 	out_ins.comp_acc_z = static_cast<double>(hexToSigned(comp_acc_z)) * 0.01;
 
-	// Produces and prints to struct the current date-time timestamp
+	// Produces and stores a human-readable timestamp containing the last update of the compensated accelerations and angular rates
 	std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 	strcpy(out_ins.ts_comp_acc,std::ctime(&now));
     strcpy(out_ins.ts_comp_ang_rate,std::ctime(&now));
 
-    // Timestamps, age and last update (Same for accelerations and angular rate, but implemented as separate variables for scalability)
-	// Gets the update time with precision of microseconds
+	// Gets the current time in microseconds to set the last update (lu) time (see below)
 	auto update = time_point_cast<microseconds>(system_clock::now());
 
-    // Updates age of information
+    // Compute the period ("prd") occurred between this update and the last update
     if (m_debug_age_info_rate) {
-        m_debug_age_info.age_comp_acc = update.time_since_epoch().count() - out_ins.lu_comp_acc;
-        m_debug_age_info.age_comp_ang_rate = update.time_since_epoch().count() - out_ins.lu_comp_ang_rate;
+        m_debug_age_info.prd_comp_acc = update.time_since_epoch().count() - out_ins.lu_comp_acc;
+        m_debug_age_info.prd_comp_ang_rate = update.time_since_epoch().count() - out_ins.lu_comp_ang_rate;
     }
 
-	// Retrieves the time since epoch in microseconds and updates the output struct
+	// Set the last update (lu) time to now for all the information parsed from UBX-ESF-INS
 	out_ins.lu_comp_acc = update.time_since_epoch().count();
     out_ins.lu_comp_ang_rate = update.time_since_epoch().count();
 
@@ -2200,23 +2227,27 @@ UBXNMEAParserSingleThread::parseEsfIns(std::vector<uint8_t> response) {
 
 /** Reads from serial port, filtering for NMEA sentences and UBX messages and parsing accordingly.
  *
- *  Accounts for wrong inputs provided by the receiver and suspends the data parsing if the wrong
- *  bytes quantity is greater than the threshold provided by the user via CLI.
+ *  Accounts for wrong inputs provided by the receiver and suspends the data parsing if a number of unrecognized
+ *  bytes is greater than a number of bytes provided by the user via CLI.
  *
- *  It handles overlapped messages by scanning for a new message's header while reading
- *  the current message and verifies every message calculating the checksum values before parsing. */
+ *  It handles overlapped messages (due to serial device issues) by scanning the current message for possible new message
+ *   headers (B562...) and verifies every message calculating the checksum values before parsing */
 void
 UBXNMEAParserSingleThread::readFromSerial() {
-
+    // UBX messages are read in vector of bytes
     std::vector<uint8_t> ubx_message, ubx_message_overlapped, wrong_input;
+    // NMEA sentences are read in strings
     std::string nmea_sentence;
 
     uint8_t byte = 0x00;
     uint8_t byte_previous = 0x00;
+    // Flags to tell if the parsing of a UBX message/NMEA sentence has been started
     bool started_ubx = false;
     bool started_ubx_overlapped = false;
     bool started_nmea = false;
     bool success = false;
+    // Expected UBX message length parsed from the UBX message header
+    // This value is used to check if a UBX message has been fully read
     long unsigned int expectedLength = 0;
     long unsigned int expectedLengthOverlapped = 0;
     std::string expectedLengthStr;
@@ -2230,14 +2261,17 @@ UBXNMEAParserSingleThread::readFromSerial() {
     uint64_t startup_time = get_timestamp_us();
 
     while (true) {
+        // In case the serial parser is working connected to a real serial device (default mode), read the byte stream from the device, ome byte at a time
         if(!m_is_file_no_serial) {
             byte = m_serial.ReadChar(success);
 
+            // If we fail to read a byte, skip to the next byte
             if (!success) {
                 continue;
             }
         } else {
-            // Read bytes from the trace in a timed manner
+            // In case the serial parser is working in trace reproduction mode, read bytes from the trace in a timed manner, one byte at a time
+            // We enter here at the beginning (ti==0) and when we have finished reading a UBX message/NMEA sentence (tj>=curr_data_str.size())
             if(ti==0 || tj>=curr_data_str.size()) {
                 // Return an error and stop the execution of OScar if the JSON trace is not formatted correctly or the current
                 // JSON object does not include a timestamp
@@ -2247,6 +2281,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     break;
                 }
 
+                // Read the trace; the TRACEN-X JSON format is expected
                 curr_data_str = JSON_GET_STR(m_trace[ti],"data");
                 curr_msg_type = JSON_GET_STR(m_trace[ti],"type");
                 curr_tstamp = JSON_GET_INT(m_trace[ti],"timestamp");
@@ -2257,6 +2292,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     break;
                 }
 
+                // Sleep for the proper amount of time between different UBX messages/NMEA sentences
                 if(ti>0) {
                     delta_time_us_real = get_timestamp_us() - startup_time;
                     delta_time_us_trace = curr_tstamp - start_time;
@@ -2269,9 +2305,9 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     start_time = curr_tstamp;
                 }
 
-                ti++;
+                ti++; // ti = index of the current UBX message/NMEA sentence in the trace
 
-                tj=0;
+                tj=0; // tj = index of the current byte in the current UBX message/NMEA sentence
 
                 if(ti>=m_trace.size()) {
                     std::cout << "[INFO] Trace reproduction terminated. OScar will now terminate..." << std::endl;
@@ -2280,6 +2316,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                 }
             }
 
+            // Take the current byte
             if(curr_msg_type=="UBX" || curr_msg_type=="Unknown") {
                 byte = str_to_byte(curr_data_str.substr(tj, 2));
                 tj+=2;
@@ -2297,6 +2334,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
 
         // This array is cleared every time a correct UBX/NMEA message is received
         wrong_input.push_back(byte);
+        // If too many wrong bytes have been accumulated, terminate the parser (and the whole program)
+        // Print also the accumulated bytes for debug purposes
         if (wrong_input.size() >= m_WRONG_INPUT_THRESHOLD) {
             std::cerr << "Error. Wrong input detected. Size: " << wrong_input.size() << " . Terminating. Content: ";
             for (int i = 0; i < wrong_input.size(); i++) {
@@ -2315,6 +2354,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
         // NMEA sentences reading and parsing
         if (started_ubx == false) {
             if (started_nmea == false) {
+                // If the first byte is $, start reading an NMEA sentence
                 if (byte == '$') {
                     nmea_sentence.push_back(byte);
                     wrong_input.clear();
@@ -2324,11 +2364,12 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     continue;
                 }
             } else {
+                // NMEA sentence parsing has already started, do these operations to read a full NMEA sentence
                 if (byte != '$') {
                     nmea_sentence.push_back(byte);
                     wrong_input.clear();
                 }
-                // If another $ is found, start over
+                // If another $ is found, start over (this make the code more robust in case of wronly overlapped NMEA sentences)
                 else {
                     nmea_sentence.clear();
                     nmea_sentence.push_back(byte);
@@ -2337,7 +2378,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     byte_previous = byte;
                     continue;
                 }
+
+                // If at least the minimum number of characters for an NMEA sentence have been read, and a newline is encountered, consider the sentence as complete and try to parse it
+                // We support for the time being GN and GP sentences
                 if (byte == '\n' && nmea_sentence.size() >= 9) { // 9 = min. valid sentence lenght e.g. $--XXX*hh
+                    // Parse the NMEA sentence only if the checksum is valid
                     if (validateNmeaSentence(nmea_sentence)) {
                         if (nmea_sentence.compare(0, 6, "$GNGNS") == 0 ||
                             nmea_sentence.compare(0, 6, "$GPGNS") == 0) {
@@ -2372,13 +2417,14 @@ UBXNMEAParserSingleThread::readFromSerial() {
                         }
 
                         // Valid but unhandled NMEA sentence, ignore it and start over
+                        // TODO: we could extend this to support more NMEA sentences
                         started_nmea = false;
                         nmea_sentence.clear();
 
                         byte_previous = byte;
                         continue;
 
-                    } else { // Invalid sentence
+                    } else { // Invalid sentence due to wrong checksum: ignore it and start over
                         started_nmea = false;
                         nmea_sentence.clear();
 
@@ -2389,9 +2435,14 @@ UBXNMEAParserSingleThread::readFromSerial() {
             }
         }
 
-        // UBX reading logic
+        // UBX message reading and parsing
         if (started_nmea == false) {
             if (started_ubx == false) {
+                // If we have not started parsing any NMEA sentence or UBX message, and the first two bytes are 0xB5, 0x62.
+                // consider it as the start of a new UBX message
+                // As we need to check two bytes, when 0xB5 is encountered nothing happens, but is it set as "byte_previous"
+                // At the next iteration, if the next byte is 0x62, we start reading a UBX message since byte will be set
+                // to 0x62 and byte_previous to 0xB5
                 if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
                     expectedLength = 0;
                     ubx_message.push_back(byte_previous);
@@ -2403,12 +2454,15 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     continue;
                 }
             } else { // started_ubx is true
-
-                // check if B5 62 is part of the current message or if it's a new message
+                // Check if B5 62 is part of the current message or if it is a new message
+                // We enter here is we enounter B5 62 inside a UBX message (it could be to store a normal value, or it
+                // could be due to an overlapped message due to some issue with the serial device)
                 if (byte_previous == m_UBX_HEADER[0] && byte == m_UBX_HEADER[1]) {
-                    // if length is nt reached -> surely it's an overlapping message
+                    // If message length is not reached -> surely it is an overlapping message
+                    // If we read B5 62 B5 62 (that should normally not happen inside any consistent UBX message),
+                    // we basically just keep the second B5 62 and start reading a new message
                     if (ubx_message.size() <= 4) {
-                        std::cout << "length not reached!" << std::endl; //debug
+                        // std::cerr << "length not reached!" << std::endl; //debug
                         //printf("byte: %02X byte_previous: %02X\n", byte, byte_previous);
                         //printUbxMessage(ubx_message);
                         ubx_message.clear();
@@ -2419,7 +2473,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                         byte_previous = byte;
                         continue;
                     }
-                    //if a B5 62 sequence is read in the middle of the message, start storing bytes also into the overlapped msg
+
+                    // If a B5 62 sequence is read in the middle of the message, start storing bytes in a separate vector
+                    // as this may be an overlapped message
+                    // We read the potentially overlapped message in parallel with the previous one, and then we check both
+                    // for validity
                     expectedLengthOverlapped = 0;
                     ubx_message_overlapped.clear();
                     ubx_message_overlapped.push_back(byte_previous);
@@ -2432,34 +2490,45 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     continue;
                 }
 
+                // started_ubx is true: store the current byte and reset the wrong_input vector
                 ubx_message.push_back(byte);
                 wrong_input.clear();
 
-                // now use the length and checksum to see which message is valid and which is not
+                // Now use the length and checksum to see which message is valid and which is not
+                // When you arrive at the point of reading 6 bytes, get the length from the UBX message header
+                // This is then used to check if we have read the number of bytes that we actually expect to read
                 if (ubx_message.size() == 6) {
                     sprintf(expectedLengthStr.data(), "%02X%02X", ubx_message[5], ubx_message[4]);
-                    //since length is referred to payload only, add 8 bytes (6 bytes for header, class and length fields + 2 bytes for checksum field)
+                    // Since length is referred to payload only, add 8 bytes (6 bytes for header, class and length fields + 2 bytes for checksum field)
                     expectedLength = std::stol(expectedLengthStr, nullptr, 16) + 8;
                     expectedLengthStr.clear();
                 }
+
+                // We enter here when we have finished reading
+                // Any message with expectedLength = 0 is considered invalid and ignored
                 if (expectedLength > 0 && ubx_message.size() == expectedLength) {
                     //std::cout << "normal msg" << std::endl;
                     //printUbxMessage(ubx_message); //debug
 
                     if (started_ubx_overlapped == false) {
+                        // If we don't have any potentially overlapped message, validate the current message, checking the checksum, and parse it
                         if (validateUbxMessage(ubx_message) == true) {
-
                             // Configuration messages
+                            // If we receive a UBX-ACK-NAK message, we terminate the parser as there is a problem
                             if (ubx_message[2] == 0x05 && ubx_message[3] == 0x00) {
-                                std::cerr << "Configuration Error: CFG-ACK-NAK received. Terminating." << std::endl;
+                                std::cerr << "Configuration Error: UBX-ACK-NAK received. Terminating." << std::endl;
                                 // *m_terminatorFlagPtr=true;
                             }
 
                             // Parse data messages
+                            // ubx_message[2] == 0x01 = NAV
                             if (ubx_message[2] == 0x01 && ubx_message[3] == 0x03) {
                                 // Parse, clear everything and start a new read
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
+
+                                // I should insert here this, even if it is included at the end of the loop, since
+                                // we move immediately to the next iteration of the loop with "continue"
                                 byte_previous = byte;
 
                                 parseNavStatus(ubx_message);
@@ -2468,6 +2537,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 ubx_message_overlapped.clear();
                                 continue;
                             }
+                            // ubx_message[2] == 0x10 = ESF
                             if (ubx_message[2] == 0x10 && ubx_message[3] == 0x03) {
                                 // Parse, clear everything and start a new read
                                 started_ubx_overlapped = false;
@@ -2480,6 +2550,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 ubx_message_overlapped.clear();
                                 continue;
                             }
+                            // ubx_message[2] == 0x10 = ESF
                             if (ubx_message[2] == 0x10 && ubx_message[3] == 0x15) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
@@ -2491,6 +2562,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 ubx_message_overlapped.clear();
                                 continue;
                             }
+                            // ubx_message[2] == 0x01 = NAV
                             if (ubx_message[2] == 0x01 && ubx_message[3] == 0x05) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
@@ -2502,6 +2574,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 ubx_message_overlapped.clear();
                                 continue;
                             }
+                            // ubx_message[2] == 0x01 = NAV
                             if (ubx_message[2] == 0x01 && ubx_message[3] == 0x07) {
                                 started_ubx_overlapped = false;
                                 started_ubx = false;
@@ -2513,11 +2586,11 @@ UBXNMEAParserSingleThread::readFromSerial() {
                                 ubx_message_overlapped.clear();
                                 continue;
                             }
-                            // Valid but unhandled message
+                            // Valid but unhandled message: ignore it
                             ubx_message_overlapped.clear();
                             started_ubx_overlapped = false;
 
-                            //printUbxMessage(ubx_message);
+                            //printUbxMessage(ubx_message); <- uncomment this only for debug purposes
                             ubx_message.clear();
                             started_ubx = false;
 
@@ -2528,7 +2601,7 @@ UBXNMEAParserSingleThread::readFromSerial() {
                             ubx_message_overlapped.clear();
                             started_ubx_overlapped = false;
 
-                            //printUbxMessage(ubx_message);
+                            //printUbxMessage(ubx_message); <- uncomment this only for debug purposes
                             ubx_message.clear();
                             started_ubx = false;
 
@@ -2538,20 +2611,28 @@ UBXNMEAParserSingleThread::readFromSerial() {
                     }
                 }
 
-                // Overlapped message checks section
+                // Possibly overlapped message checks section
+                // Do the same as before but for the overlapped bytes (if detected), in parallel with the non-overlapped message
+                // (that may contain 0xB5 0x62 to store a normal value)
                 if (started_ubx_overlapped == true) {
                     ubx_message_overlapped.push_back(byte);
                     wrong_input.clear();
 
+                    // Get the expected length of the overlapped message
                     if (ubx_message_overlapped.size() == 6) {
                         sprintf(expectedLengthStrOverlapped.data(), "%02X%02X", ubx_message_overlapped[5],ubx_message_overlapped[4]);
                         expectedLengthOverlapped = std::stol(expectedLengthStrOverlapped, nullptr, 16) + 8; // 8 bytes for header and checksum
                         expectedLengthStrOverlapped.clear();
                     }
 
+                    // If the overlapped message is complete, validate it and parse it
+                    // Any (overlapped) message with expectedLength = 0 is considered invalid and ignored
                     if (expectedLengthOverlapped > 0 && ubx_message_overlapped.size() == expectedLengthOverlapped) {
-                        //std::cout << "overlapped msg" << std::endl;
+                        //std::cout << "overlapped msg" << std::endl; //debug
                         //printUbxMessage(ubx_message_overlapped); //debug
+
+                        // This is exactly equal to the case of the normal message, but with the possibly overlapped message
+                        // TODO: avoid duplication of code by creating an additional UBX parsing function that can take as input either the ubx_message_overlapped vector or ubx_message vector
                         if (validateUbxMessage(ubx_message_overlapped) == true) {
                             // Configuration messages
                             if (ubx_message_overlapped[2] == 0x05 && ubx_message_overlapped[3] == 0x00) {
@@ -2645,20 +2726,23 @@ UBXNMEAParserSingleThread::readFromSerial() {
             }
         }
         byte_previous = byte;
+
+        // Do not uncomment these two prints, that can be useful only for debug purposes
+        // Uncommenting this will print a lot of data and significantly slow down the parser
         //printf("byte = %02X\n",byte);
         //printf("byte_previous = %02X\n",byte_previous);
     }
 }
 
-/** readData() enables the necessary messages for data retrieving by sending a UBX-CFG-VALSET poll request,
- *  implementing also a CFG-VALSET poll request in order to disable the messages.
+/** readData() enables, if possible, the necessary UBX messages for data retrieving by sending a UBX-CFG-VALSET poll
+ * request over the serial port. If this message is sent to non-U-blox devices supporting only NMEA sentences, it should
+ * be simply ignored.
  *
  * It encapsulates "readFromSerial()" and executes it endlessly until the global atomic err_flag is raised.
  *
  * NOTE: This function is executed in a parallel thread (see main()) */
 void
 UBXNMEAParserSingleThread::readData() {
-	
 	// Initialization and preliminary operation on data buffer
     m_terminatorFlagPtr->store(false);
     clearBuffer();
@@ -2666,7 +2750,7 @@ UBXNMEAParserSingleThread::readData() {
     std::cout << "Serial data reader thread started." << std::endl;
 
 	// Sends CFG-VALSET Command to enable messages
-	// See more in interface description 3.10.5 UBX-CFG-VALSET S
+	// See more in interface description 3.10.5 UBX-CFG-VALSET
 	std::vector<uint8_t> ubx_valset_req_enable = {
 		0xb5, 0x62, 0x06, 0x8a,  // Preamble + header
 		0x27, 0x00, 		     // Length (PAYLOAD ONLY, 24 bytes) REMEMBER: little endian
@@ -2675,7 +2759,8 @@ UBXNMEAParserSingleThread::readData() {
 		0x01, 					 // 0x01 = update configuration in the RAM layer
 		0x00, 0x00, 	         //Reserved
 
-		//Messages KeyIds + value to be set (see chapter 5  of the sinterface description manual)
+		// Messages KeyIds + value to be set (see chapter 5 of the interface description manual)
+        // See here: https://cdn.sparkfun.com/assets/learn_tutorials/1/1/7/2/ZED-F9R_Interfacedescription__UBX-19056845_.pdf
 		0xb8, 0x00, 0x91, 0x20, 0x01, //CFG-MSGOUT-NMEA_ID_GNS_USB + enable value (0x01)
 		0xae, 0x00, 0x91, 0x20, 0x01, //CFG-MSGOUT-NMEA_ID_RMC_USB
 		0x17, 0x01, 0x91, 0x20, 0x01, //CFG-MSGOUT-UBX_ESF_INS_USB
@@ -2692,7 +2777,8 @@ UBXNMEAParserSingleThread::readData() {
         m_serial.Write(reinterpret_cast<char *>(ubx_valset_req_enable.data()), ubx_valset_req_enable.size());
     }
 
-	// Same as above but with the value 0x00 after the keyID
+	// Same as above but with the value 0x00 after the keyID to disable all the messages enabled before
+    // This is implemented here just for reference, in case it is needed in the future, but it is not used
 	std::vector<uint8_t> ubx_valset_req_disable = {
 		0xb5, 0x62, 0x06, 0x8a, 0x27, 0x00, 0x00, 0x01, 0x00, 0x00,
 
@@ -2707,12 +2793,12 @@ UBXNMEAParserSingleThread::readData() {
 		0xf9, 0xe3
 	};
 
-	// Disables the messages
-    // TODO: why was this here? This is very likely not needed
+	// Disables the messages - here just for reference - do not uncomment
     // if(!m_is_file_no_serial) {
 	//      serialDev.Write(reinterpret_cast<char*>(ubx_valset_req_disable.data()), ubx_valset_req_disable.size());
     // }
 
+    // Start reading the bytes
 	while (m_terminatorFlagPtr->load() == false && m_stopParserFlag.load() == false) {
 		readFromSerial();
 	}
@@ -2734,14 +2820,14 @@ UBXNMEAParserSingleThread::startUBXNMEAParser(std::string device, int baudrate, 
     m_is_file_no_serial = is_file_no_serial;
 
     if(!m_is_file_no_serial) {
-        // Serial interface handling and initializing
+        // Serial interface handling and initializing using the ceSerial library
+        // Set the serial port parameters before opening it
         m_serial.SetBaudRate(baudrate);
         m_serial.SetDataSize(data_bits);
         m_serial.SetParity(parity);
         m_serial.SetStopBits(stop_bits);
         m_serial.SetPortName(device);
 
-        // ceSerial serial(device, baudrate, data_bits, parity, stop_bits);
         // Correct sample configuration for a U-blox ZED-F9R device: ("/dev/ttyACM0",115200,8,'N',1)
         std::cout << "Opening device " << m_serial.GetPort().c_str() << std::endl;
         std::cout << "Setting baudrate " << baudrate << std::endl;
@@ -2793,7 +2879,10 @@ UBXNMEAParserSingleThread::stopUBXNMEAParser() {
     m_serial.Close();
 }
 
+/** str_to_byte() converts a string with two hex digits into the corresponding byte.
+*/
 uint8_t UBXNMEAParserSingleThread::str_to_byte(const std::string &str) {
+    // If a string with less or more than 2 characters is passed, throw an exception
     if (str.length() != 2) {
         std::cerr << "str_to_byte: received size: " << str.size() << " - expected size: 2" << std::endl;
         throw std::invalid_argument("str_to_byte: invalid size of input string");

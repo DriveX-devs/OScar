@@ -18,6 +18,8 @@
 #define Latitude_unavailable_serial_parser 900000001
 #define Longitude_unavailable_serial_parser 1800000001
 #define AltitudeValue_unavailable_serial_parser 800001
+#define HeadingValue_unavailable_serial_parser 3601
+#define SpeedValue_unavailable_serial_parser 16383 // We take the same value used for an unavailable speed in ETSI C-ITS messages
 
 #define COMPUTE_EPOCH_TS_VALIDITY(value) ((epoch_ts-value)>=LONG_MAX?0:(epoch_ts-value))
 
