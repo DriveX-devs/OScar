@@ -248,6 +248,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 		longPV.heading = (uint16_t) m_vrudp->getPedHeadingValue()*DECI;// [degrees] to [0.1 degrees]
 	} else{
 		std::pair<double,double> POS_EPV_pair = m_vdp->getCurrentPositionDbl();
+        // TODO: manage the case in which unavailable values are returned by getCurrentPositionDbl() (e.g., when the serial stram is stopped and the serial parser is no more able to provide positioning data)
 		longPV.latitude = (int32_t) (POS_EPV_pair.first*DOT_ONE_MICRO);
 		longPV.longitude = (int32_t) (POS_EPV_pair.second*DOT_ONE_MICRO);
 		longPV.positionAccuracy = false;
@@ -374,6 +375,7 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
 GNDataConfirm_t
 GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHeader basicHeader,GNlpv_t longPV) {
 	shbHeader header;
+
 	//1) Create SHB GN-PDU with SHB header setting according to ETSI EN 302 636-4-1 [10.3.10.2]
 	//a) and b) already done
 	//c) SHB extended header
@@ -517,6 +519,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 GNDataConfirm_t
 GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHeader basicHeader,GNlpv_t longPV) {
 	gbcHeader header;
+
 	//1) Create SHB GN-PDU with GBC header setting according to ETSI EN 302 636-4-1 [10.3.11.2]
 	//a) and b) already done
 	//GBC extended header

@@ -339,37 +339,73 @@ namespace ldmmap
         return LDMMAP_OK;
     }
 
-    LDMMap::LDMMap_error_t LDMMap::updateEgoPosition() {
+    // Update ego position for a vehicle or pedestrian - this function inserts the ego road user in the LDM
+    // Two station types are supported for the time being: StationType_passengerCar and StationType_pedestrian
+    // Other station types will make the function not add anything to the LDM and return LDMMAP_INVALID_STATIONTYPE
+    LDMMap::LDMMap_error_t LDMMap::updateEgoPosition(StationType_t stationType) {
         if (m_gpsc_ptr == nullptr) {
             return LDMMAP_NO_VDP;
         }
-        auto ego_data=m_gpsc_ptr->getCAMMandatoryData();
-        ldmmap::vehicleData_t vehdata;
-        ldmmap::LDMMap::LDMMap_error_t db_retval;
-        if (ego_data.latitude!= Latitude_unavailable && ego_data.longitude!= Longitude_unavailable) {
-            vehdata.detected = false;
-            vehdata.lat = (double) ego_data.latitude / DOT_ONE_MICRO;
-            vehdata.lon = (double) ego_data.longitude / DOT_ONE_MICRO;
-            m_ego_lon = vehdata.lon;
-            m_ego_lat = vehdata.lat;
-            vehdata.elevation = (double) ego_data.altitude.getValue() / CENTI;
-            vehdata.timestamp_us = get_timestamp_us();
-        	vehdata.stationType = StationType_LDM_passengerCar;
-            if (ego_data.heading.getValue() == HeadingValue_unavailable) {
-                vehdata.heading = LDM_HEADING_UNAVAILABLE;
-            } else {
-                vehdata.heading = (double) ego_data.heading.getValue() / DECI;
+
+        if(stationType==StationType_passengerCar) {
+            auto ego_data=m_gpsc_ptr->getCAMMandatoryData();
+            ldmmap::vehicleData_t vehdata;
+            ldmmap::LDMMap::LDMMap_error_t db_retval;
+            if (ego_data.latitude!= Latitude_unavailable && ego_data.longitude!= Longitude_unavailable) {
+                vehdata.detected = false;
+                vehdata.lat = (double) ego_data.latitude / DOT_ONE_MICRO;
+                vehdata.lon = (double) ego_data.longitude / DOT_ONE_MICRO;
+                m_ego_lon = vehdata.lon;
+                m_ego_lat = vehdata.lat;
+                vehdata.elevation = (double) ego_data.altitude.getValue() / CENTI;
+                vehdata.timestamp_us = get_timestamp_us();
+                vehdata.stationType = StationType_LDM_passengerCar;
+                if (ego_data.heading.getValue() == HeadingValue_unavailable) {
+                    vehdata.heading = LDM_HEADING_UNAVAILABLE;
+                } else {
+                    vehdata.heading = (double) ego_data.heading.getValue() / DECI;
+                }
+                vehdata.speed_ms = (double) ego_data.speed.getValue() / CENTI;
+                vehdata.stationID = m_station_id;
+                vehdata.vehicleWidth = ldmmap::OptionalDataItem<long>((long) ego_data.VehicleWidth / DECI);
+                vehdata.vehicleLength = ldmmap::OptionalDataItem<long>((long) ego_data.VehicleLength.getValue() / DECI);
+                db_retval = this->insert(vehdata);
+                if ((db_retval != LDMMAP_OK) && (db_retval != LDMMAP_UPDATED)) {
+                    return db_retval;
+                }
+                //std::cout << "[LDM] Ego Position: [" << vehdata.lat << ", " << vehdata.lon << "], heading: " << vehdata.heading << ", speed: " << vehdata.speed_ms << " m/s" << std::endl;
             }
-            vehdata.speed_ms = (double) ego_data.speed.getValue() / CENTI;
-            vehdata.stationID = m_station_id;
-            vehdata.vehicleWidth = ldmmap::OptionalDataItem<long>((long) ego_data.VehicleWidth / DECI);
-            vehdata.vehicleLength = ldmmap::OptionalDataItem<long>((long) ego_data.VehicleLength.getValue() / DECI);
-            db_retval = this->insert(vehdata);
-            if ((db_retval != LDMMAP_OK) && (db_retval != LDMMAP_UPDATED)) {
-                return db_retval;
+        } else if(stationType==StationType_pedestrian) {
+            auto ego_data=m_gpsc_ptr->getVAMMandatoryData();
+
+            ldmmap::vehicleData_t vehdata;
+            ldmmap::LDMMap::LDMMap_error_t db_retval;
+
+            if (ego_data.latitude!= Latitude_unavailable && ego_data.longitude!= Longitude_unavailable) {
+                vehdata.detected = false;
+                vehdata.lat = (double) ego_data.latitude / DOT_ONE_MICRO;
+                vehdata.lon = (double) ego_data.longitude / DOT_ONE_MICRO;
+                m_ego_lon = vehdata.lon;
+                m_ego_lat = vehdata.lat;
+                vehdata.elevation = (double) ego_data.altitude.getValue() / CENTI;
+                vehdata.timestamp_us = get_timestamp_us();
+                vehdata.stationType = StationType_LDM_pedestrian;
+                if (ego_data.heading.getValue() == HeadingValue_unavailable) {
+                    vehdata.heading = LDM_HEADING_UNAVAILABLE;
+                } else {
+                    vehdata.heading = (double) ego_data.heading.getValue() / DECI;
+                }
+                vehdata.speed_ms = (double) ego_data.speed.getValue() / CENTI;
+                vehdata.stationID = m_station_id;
+                db_retval = this->insert(vehdata);
+                if ((db_retval != LDMMAP_OK) && (db_retval != LDMMAP_UPDATED)) {
+                    return db_retval;
+                }
             }
-            //std::cout << "[LDM] Ego Position: [" << vehdata.lat << ", " << vehdata.lon << "], heading: " << vehdata.heading << ", speed: " << vehdata.speed_ms << " m/s" << std::endl;
+        } else {
+            return LDMMAP_INVALID_STATIONTYPE;
         }
+
         return LDMMAP_OK;
     }
 }

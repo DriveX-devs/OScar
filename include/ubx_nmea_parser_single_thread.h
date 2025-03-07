@@ -8,9 +8,29 @@
 #define UBXNMEAPARSERSINGLETHREAD_H
 
 #include "ceSerial.h"
+#include "json11.h"
 
 #include <atomic>
 #include <vector>
+#include <climits>
+
+// Values the serial parser should return to indicate that this information is not available
+#define Latitude_unavailable_serial_parser 900000001
+#define Longitude_unavailable_serial_parser 1800000001
+#define AltitudeValue_unavailable_serial_parser 800001
+#define HeadingValue_unavailable_serial_parser 3601
+#define SpeedValue_unavailable_serial_parser 16383 // We take the same value used for an unavailable speed in ETSI C-ITS messages
+
+#define COMPUTE_EPOCH_TS_VALIDITY(value) (value==0?0:(((epoch_ts-value)>=LONG_MAX?0:(epoch_ts-value))))
+
+/** The current version of the serial parser reads the following information from:
+ * Lat/Lon [deg]: UBX-NAV-PVT, GxGNS, GxGGA
+ * Speed [m/s], heading [deg]: UBX-NAV-PVT, GxRMC
+ * Acceleration (if available) [m/s^2]: UBX-ESF-INS, UBX-ESF-RAW
+ * Attitude (if available) [deg]: UBX-NAV-ATT
+ * Altitude [m]: UBX-NAV-PVT, GxGNS, GxGGA
+ * Fix mode: UBX-NAV-STATUS, GxRMC, GxGNS, GxGGA
+*/
 
 class UBXNMEAParserSingleThread {
     public:
@@ -32,8 +52,10 @@ class UBXNMEAParserSingleThread {
         std::tuple<double,double,double> getAngularRates(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getRawAccelerations(long *age_us, bool print_timestamp_and_age);
         std::tuple<double,double,double> getAttitude(long *age_us, bool print_timestamp_and_age);
+        double getSpeed(long *age_us, bool print_timestamp_and_age);
         double getSpeedUbx(long *age_us, bool print_timestamp_and_age);
         double getSpeedNmea(long *age_us, bool print_timestamp_and_age);
+        double getCourseOverGround(long *age_us, bool print_timestamp_and_age);
         double getCourseOverGroundUbx(long *age_us, bool print_timestamp_and_age);
         double getCourseOverGroundNmea(long *age_us, bool print_timestamp_and_age);
         double getAltitude(long *age_us, bool print_timestamp_and_age);
@@ -44,8 +66,6 @@ class UBXNMEAParserSingleThread {
         std::string getFixMode();
         std::string getFixModeUbx();
         std::string getFixModeNmea();
-        std::string getUtcTimeUbx();
-        std::string getUtcTimeNmea();
         double getValidityThreshold();
         void showDebugAgeInfo();
 
@@ -58,36 +78,57 @@ class UBXNMEAParserSingleThread {
         bool validateUbxMessage(std::vector<uint8_t> msg);
         bool getFixValidity2D(bool print_error);
         bool getFixValidity3D(bool print_error);
-        std::atomic<bool> getPositionValidity(bool print_error);
+        std::atomic<int> getPositionValidity(bool print_error);
         bool getRawAccelerationsValidity(bool print_error);
         bool getAttitudeValidity(bool print_error);
         bool getAccelerationsValidity(bool print_error);
         bool getAltitudeValidity(bool print_error);
         bool getYawRateValidity(bool print_error);
-        bool getSpeedAndCogValidity(bool print_error);
+        int getSpeedValidity(bool print_error);
+        int getCourseOverGroundValidity(bool print_error);
+
         bool getDebugAgeInfo();
 
-        int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr);
+        int startUBXNMEAParser(std::string device, int baudrate, int data_bits, char parity, int stop_bits, std::atomic<bool> *m_terminatorFlagPtr, bool is_file_no_serial);
         void stopUBXNMEAParser();
 
         void setWrongInputThreshold(int threshold) {m_WRONG_INPUT_THRESHOLD=threshold;}
     private:
-        /* Buffer structure to be printed to the user */
+        /* Atomic Buffer struct that contains gnss data: includes timestamps of the information parsed,
+         * information value and last update in microseconds in order to calculate the age of information.
+         *
+         * For data that can be obtained both from UBX and NMEA protocols, <data> contains the most recent value obtained
+         * from any of the protocols while <data_protocol> stores the most recent data value, for that protocol.
+         *
+         * Example:
+         * lat: latest latitude value (obtained from the latest parsed UBX/NMEA message/sentence)
+         * lat_ubx: latest latitude value from UBX
+         * lat_nmea: latest latitude value from NMEA
+         *
+         * The parser provide specific function to get all of three data kind, for example:
+         * getPosition() provides the latest position fetching from "lat" and "lon" variables.
+         * getPositionUbx() provides the latest UBX parsed position data.
+         * getPositionNmea() provides the latest NMEA parsed position data */
         typedef struct Output {
+            // Human-readable date strings that contain the timestamp (epoch time) of the last updates for teach information
+            // Currently, the dates are used just for printing when the "print_error" flag is set to true;
+            // they are not used for any other purpose (for the time being)
+
+            // We save the strings as char[100] instead of std::string as we want to define and use an atomic structure
+            // More details are available here: https://stackoverflow.com/questions/16876410/does-stdatomicstdstring-work-appropriately
             char ts_pos[100],
                     ts_pos_ubx[100],
                     ts_pos_nmea[100],
-                    ts_utc_time_ubx[100],
-                    ts_utc_time_nmea[100],
                     ts_acc[100],
-                    ts_att[100],
+                    ts_att[100], // Attitude
                     ts_alt[100],
-                    ts_comp_acc[100],
-                    ts_comp_ang_rate[100],
-                    ts_sog_cog_ubx[100],
-                    ts_sog_cog_nmea[100];					// Timestamps
+                    ts_comp_acc[100], // Compensated acceleration (without "g")
+                    ts_comp_ang_rate[100], // Compensated angular rate over the z-axis
+                    ts_sog_cog_ubx[100], // Speed Over Ground (SOG), Course Over Ground (COG) - UBX
+                    ts_sog_cog_nmea[100]; // Speed Over Ground (SOG), Course Over Ground (COG) - NMEA
             char fix_ubx[100],
-                    fix_nmea[100];
+                    fix_nmea[100],
+                    fix_nmea_rmc; // Letter of the GxRMC fix mode - used internally
             double lat, lon, alt,
                     lat_ubx, lon_ubx, alt_ubx,
                     lat_nmea, lon_nmea, alt_nmea;           // Latitude, longitude and altitude above sea level
@@ -107,18 +148,28 @@ class UBXNMEAParserSingleThread {
                  lu_comp_ang_rate,
                  lu_sog_cog,
                  lu_sog_cog_ubx,
-                 lu_sog_cog_nmea;						    // Last updates on relevant information
+                 lu_sog_cog_nmea,						    // Last updates on relevant information
+                 lu_fix_nmea_rmc;                           // Last RMC fix mode update - used internally
         } out_t;
 
+        // TODO: this structure is storing useful information, that is, however, not used for the time being; evaluate whether to remove it
         typedef struct AgeInfo {
             long age_pos, age_pos_ubx, age_pos_nmea,
-                 age_acc, age_att,
-                 age_alt, age_alt_ubx, age_alt_nmea,
-                 age_comp_acc,
-                 age_comp_ang_rate,
-                 age_sog_cog,
-                 age_sog_cog_ubx,
-                 age_sog_cog_nmea;						    // Last updates on relevant information
+                age_acc, age_att,
+                age_alt, age_alt_ubx, age_alt_nmea,
+                age_comp_acc,
+                age_comp_ang_rate,
+                age_sog_cog,
+                age_sog_cog_ubx,
+                age_sog_cog_nmea,						    // Last updates on relevant information
+                prd_pos, prd_pos_ubx, prd_pos_nmea,
+                prd_acc, prd_att,
+                prd_alt, prd_alt_ubx, prd_alt_nmea,
+                prd_comp_acc,
+                prd_comp_ang_rate,
+                prd_sog_cog,
+                prd_sog_cog_ubx,
+                prd_sog_cog_nmea;						    // Last periodicity ("prd") of the information update
         } age_t;
 
         std::atomic<out_t> m_outBuffer;
@@ -127,35 +178,49 @@ class UBXNMEAParserSingleThread {
         bool m_parser_started=false;
 
         // Data validity flags and user-defined threshold
-        std::atomic<bool> m_2d_valid_fix = false;
-        std::atomic<bool> m_3d_valid_fix = false;
+        std::atomic<bool> m_2d_valid_fix = false;        // UBX-NAV-STATUS - GXGNS - GXGGA - GXRMC
+        std::atomic<bool> m_3d_valid_fix = false;        // UBX-NAV-STATUS - GXGNS - GXGGA - GXRMC
         std::atomic<bool> m_pos_valid = false;
-        std::atomic<bool> m_acc_valid = false;
-        std::atomic<bool> m_att_valid = false;
+        std::atomic<bool> m_pos_valid_ubx = false;       // UBX-NAV-PVT
+        std::atomic<bool> m_pos_valid_nmea = false;      // GXGGA - GXGNS
+        std::atomic<bool> m_acc_valid = false;           // UBX only (UBX-ESF-RAW)
+        std::atomic<bool> m_att_valid = false;           // UBX only (UBX-NAV-ATT)
         std::atomic<bool> m_alt_valid = false;
-        std::atomic<bool> m_comp_acc_valid = false;
-        std::atomic<bool> m_comp_ang_rate_valid = false;
-        std::atomic<bool> m_sog_cog_ubx_valid = false;
-        std::atomic<bool> m_sog_cog_nmea_valid = false;
+        std::atomic<bool> m_alt_valid_ubx = false;       // UBX-NAV-PVT
+        std::atomic<bool> m_alt_valid_nmea = false;      // GXGGA - GXGNS
+        std::atomic<bool> m_comp_acc_valid = false;      // UBX only (UBX-ESF-INS)
+        std::atomic<bool> m_comp_ang_rate_valid = false; // UBX only (UBX-ESF-INS)
+        std::atomic<bool> m_sog_valid = false;
+        std::atomic<bool> m_sog_valid_ubx = false;       // UBX-NAV-PVT
+        std::atomic<bool> m_sog_valid_nmea = false;      // GXRMC
+        std::atomic<bool> m_cog_valid = false;
+        std::atomic<bool> m_cog_valid_ubx = false;       // UBX-NAV-PVT
+        std::atomic<bool> m_cog_valid_nmea = false;      // GXRMC
+
+        // CLI and debug flags
         double m_validity_threshold = 0;
         int m_debug_age_info_rate = 0;
+
+        // Age of information struct
         age_t m_debug_age_info;
 
         ceSerial m_serial;
+        std::vector<json11::Json> m_trace;
 
         const std::vector<uint8_t> m_UBX_HEADER = {0xb5, 0x62};
         int m_WRONG_INPUT_THRESHOLD = 1000;
 
+        // Flag that is set to true when reading from a JSON trace (from TRACEN-X) instead of a real serial port
+        bool m_is_file_no_serial = false;
 
         // UBX Header (2 bytes) + message class (1 byte) + message ID (1 byte) + message length (2 bytes)
         const uint8_t m_UBX_PAYLOAD_OFFSET = 6;
 
         // Mathematical and buffer operations
         static double decimal_deg(double value, char quadrant);
-        int32_t hexToSigned(std::vector<uint8_t> data);
-        long hexToSignedValue(uint8_t value);
+        template <typename T = int32_t> T hexToSigned(std::vector<uint8_t> data);
+        static uint8_t str_to_byte(const std::string& str);
         void clearBuffer();
-        void printBuffer();
 
         // Parsers
         void parseNmeaGns(std::string nmea_response);
@@ -167,6 +232,7 @@ class UBXNMEAParserSingleThread {
         void parseNavStatus(std::vector<uint8_t> response);
         void parseEsfIns(std::vector<uint8_t> response);
 
+        // Serial reading functions
         void readFromSerial();
         void readData();
 };

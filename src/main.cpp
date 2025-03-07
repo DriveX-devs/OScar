@@ -72,6 +72,7 @@ typedef struct vizOptions {
 	int vehviz_web_interface_port;
 	double vehviz_update_interval_sec;
 	std::string vehviz_nodejs_addr;
+    StationType_t ego_station_type;
 } vizOptions_t;
 
 void clearVisualizerObject(uint64_t id,void *vizObjVoidPtr) {
@@ -131,16 +132,22 @@ void *VehVizUpdater_callback(void *arg) {
 			POLL_CLEAR_EVENT(clockFd);
 
 			// ---- These operations will be performed periodically ----
-            if(db_ptr->updateEgoPosition() == ldmmap::LDMMap::LDMMAP_NO_VDP) {
+            auto db_retval = db_ptr->updateEgoPosition(vizopts_ptr->ego_station_type);
+            if(db_retval == ldmmap::LDMMap::LDMMAP_NO_VDP) {
                 std::cerr << "[ERROR] Cannot update the ego position in the LDM: VDP not set." << std::endl;
                 terminatorFlag = true;
                 break;
+            } else if(db_retval == ldmmap::LDMMap::LDMMAP_INVALID_STATIONTYPE) {
+                std::cerr << "[ERROR] Cannot update the ego position in the LDM: invalid station type. This is a bug. Please inform the developers." << std::endl;
+                terminatorFlag = true;
+                break;
             }
+
             // Dirty workaround to 'flush' gps data TODO: remove this
 //            for (int i = 0; i < 20; i++) {
 //                db_ptr->updateEgoPosition();
 //            }
-            db_ptr->updateEgoPosition();
+            db_ptr->updateEgoPosition(vizopts_ptr->ego_station_type);
             ////////////////////////////////////////
 
 			db_ptr->executeOnAllContents(&updateVisualizer, static_cast<void *>(&vehicleVisObj));
@@ -241,7 +248,6 @@ void CAMtxThr(std::string gnss_device,
         vdpgpsc.setSerialParser(&serialParser);
     }
 
-    VDPGPSClient vrudp(gnss_device,gnss_port);
     GeoNet GN;
     btp BTP;
 
@@ -260,7 +266,6 @@ void CAMtxThr(std::string gnss_device,
                 GN.setLogFile2(log_filename_GNsecurity);
             }
             BTP.setGeoNet(&GN);
-
             
             while (true) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
@@ -313,6 +318,8 @@ void CAMtxThr(std::string gnss_device,
                 CABS.setLogfile(log_filename_CAM);
             }
             // Start the CAM dissemination
+            // TODO: stop dissemination when the terminator flag becomes true
+            // TODO: we should call CABS.terminateDissemination() or pass directly a pointer to the global atomic terminatorFlag to the CA Basic Service
             CABS.startCamDissemination();
 
         } catch (const std::exception &e) {
@@ -324,7 +331,6 @@ void CAMtxThr(std::string gnss_device,
     }while(m_retry_flag==true && terminatorFlag==false);
 
     vdpgpsc.closeConnection();
-    vrudp.closeConnection();
     terminatorFlag=true;
 
 }
@@ -435,6 +441,7 @@ void VAMtxThr(std::string gnss_device,
     bool m_retry_flag=false;
 
     VDPGPSClient vrudp(gnss_device,gnss_port);
+    vrudp.selectGPSD(use_gpsd);
 
     if(!use_gpsd) {
         vrudp.setSerialParser(&serialParser);
@@ -624,88 +631,114 @@ int main (int argc, char *argv[]) {
 
     bool force_20Hz_freq = false;
 
+    // Ego station type; it is set to passenger car if CAMs are activated, and to pedestrian if VAMs are activated
+    StationType_t ego_station_type = StationType_passengerCar;
+
+    // Flag that is set to true when using a pre-recorded JSON trace, recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X)
+    // instead of reading from a real serial device, when the serial parser is used to get positioning+IMU data via NMEA+UBX
+    bool use_json_trace = false;
+
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "5.7-beta");
-    
-		// Arguments: short option, long option, description, is it mandatory?, default value, type indication (just a string to help the user)
-		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
-		cmd.add(vifName);
-		
-		TCLAP::ValueArg<std::string> LogfileCAM("L","log-file-CAM","Print on file the log for the CAM condition checks. Default: (disabled).",false,"dis","string");
-		cmd.add(LogfileCAM);
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.0");
+
+        // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
+        // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
+        TCLAP::ValueArg<int> SerialDeviceBaudrate("b","serial-device-baudrate","[Considered only if -g is not specified] Serial device baudrate for the GNSS receiver. Default: 115200",false,115200,"positive integer");
+        cmd.add(SerialDeviceBaudrate);
+
+        TCLAP::ValueArg<std::string> CANDeviceArg("c","can-device","Optional CAN interface: CAN device to be used (i.e., where can-utils is currently running). Default: none (CAN bus interface disabled).",false,"none","string");
+        cmd.add(CANDeviceArg);
+
+        TCLAP::SwitchArg CAMsDissArg("C","enable-CAMs-dissemination","Enable the dissemination of standard CAMs",false);
+        cmd.add(CAMsDissArg);
+
+        TCLAP::SwitchArg DENMsDecArg("d","enable-DENMs-decoding","Enable the decoding of DENMs",false);
+        cmd.add(DENMsDecArg);
+
+        TCLAP::ValueArg<std::string> GNSSDevArg("D","gnss-device","[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",false,"localhost","string");
+        cmd.add(GNSSDevArg);
+
+        TCLAP::ValueArg<double> HEAD_threshold("e","Heading-threshold","VAM heading triggering condition threshold",false,-1,"double");
+        cmd.add(HEAD_threshold);
 
         TCLAP::ValueArg<std::string> LogfileGNsecurity("f","log-file-GNsecurity","Print on file the log for the GN security checks. Default: (disabled).",false,"dis","string");
         cmd.add(LogfileGNsecurity);
 
-		TCLAP::ValueArg<std::string> LogfileVAM("F","log-file-VAM","Print on file the log for the VAM condition checks. Default: (disabled).",false,"dis","string");
-		cmd.add(LogfileVAM);
-		
-		TCLAP::ValueArg<std::string> LogfileReception("R","log-file-Reception","Print on file the data retrieved from CAM/VAM/DENM reception. Default: (disabled).",false,"dis","string");
-		cmd.add(LogfileReception);
+        TCLAP::ValueArg<std::string> LogfileVAM("F","log-file-VAM","[Considered only if security is enabled] Print on file the log for the VAM condition checks. Default: (disabled).",false,"dis","string");
+        cmd.add(LogfileVAM);
 
-        TCLAP::ValueArg<std::string> LogfileCPM("z","log-file-CPM","Print on file the log for the CPM condition checks. Default: (disabled).",false,"cps_dis","string");
-        cmd.add(LogfileCPM);
+        TCLAP::SwitchArg UseGPSD("g","use-gpsd","Use GPSD instead of the serial NMEA+UBX parser that is normally used by default.",false);
+        cmd.add(UseGPSD);
 
-		TCLAP::ValueArg<std::string> GNSSDevArg("D","gnss-device","[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",false,"localhost","string");
-		cmd.add(GNSSDevArg);
+        // -h / --help is reserved for the help and should not be added as an option
 
-		TCLAP::ValueArg<long> GNSSPortArg("P","gnss-port","[Considered only if -g is specified] Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OCABS is 3000.",false,GNSS_DEFAULT_PORT,"integer");
-		cmd.add(GNSSPortArg);
+		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
+		cmd.add(vifName);
 
-		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service Station ID",false,0,"unsigned integer");
-		cmd.add(VehicleIDArg);
+        TCLAP::ValueArg<long> JSONserverPortArg("j","ldm-json-server-port","Set the port for on-demand JSON-over-TCP requests to the LDM.",false,DEFAULT_JSON_OVER_TCP_PORT,"integer");
+        cmd.add(JSONserverPortArg);
 		
-		TCLAP::ValueArg<unsigned long> VRUIDArg("r","VRU-id","VRU Basic Service Station ID",false,1000,"unsigned integer");
-		cmd.add(VRUIDArg);
-		
-		TCLAP::SwitchArg CAMsDissArg("C","enable-CAMs-dissemination","Enable the dissemination of standard CAMs",false);
-		cmd.add(CAMsDissArg);
-		
-		TCLAP::SwitchArg VAMsDissArg("V","enable-VAMs-dissemination","Enable the dissemination of VAMs",false);
-		cmd.add(VAMsDissArg);
+		TCLAP::ValueArg<std::string> LogfileCAM("L","log-file-CAM","Print on file the log for the CAM condition checks. Default: (disabled).",false,"dis","string");
+		cmd.add(LogfileCAM);
+
+        TCLAP::SwitchArg EnableHMIArg("m","enable-HMI","Enable the OScar HMI",false);
+        cmd.add(EnableHMIArg);
 
         TCLAP::SwitchArg CPMsDissArg("M","enable-CPMs-dissemination","Enable the dissemination of CPMs",false);
         cmd.add(CPMsDissArg);
-		
-		TCLAP::SwitchArg DENMsDecArg("d","enable-DENMs-decoding","Enable the decoding of DENMs",false);
-		cmd.add(DENMsDecArg);
 
-		TCLAP::ValueArg<std::string> UDPSockAddrArg("u","udp-sock-addr","If specified, OCABS, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",false,"dis","string");
-		cmd.add(UDPSockAddrArg);
+        TCLAP::ValueArg<double> POS_threshold("p","Position-threshold","VAM position triggering condition threshold",false,-1,"double");
+        cmd.add(POS_threshold);
 
-		TCLAP::ValueArg<std::string> UDPBindIPArg("U","udp-bind-ip","This options is valid only if --udp-sock-addr/-u has been specified. It can be used to set an interface/address to bind the UDP socket to. By default, no specific address is used for binding (i.e., binding to any address/interface).",false,"0.0.0.0","string");
-		cmd.add(UDPBindIPArg);
+        TCLAP::ValueArg<long> GNSSPortArg("P","gnss-port","[Considered only if -g is specified] Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OCABS is 3000.",false,GNSS_DEFAULT_PORT,"integer");
+        cmd.add(GNSSPortArg);
 
-		TCLAP::SwitchArg ExtraPosUDPArg("X","add-extra-position-udp","This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",false);
-		cmd.add(ExtraPosUDPArg);
+        TCLAP::ValueArg<unsigned long> VRUIDArg("r","VRU-id","VRU Basic Service Station ID",false,1000,"unsigned integer");
+        cmd.add(VRUIDArg);
 
-		TCLAP::ValueArg<double> POS_threshold("p","Position-threshold","VAM position triggering condition threshold",false,-1,"double");
-		cmd.add(POS_threshold);
-
-		TCLAP::ValueArg<double> SPEED_threshold("S","Speed-threshold","VAM speed triggering condition threshold",false,-1,"double");
-		cmd.add(SPEED_threshold);
-
-		TCLAP::ValueArg<double> HEAD_threshold("e","Heading-threshold","VAM heading triggering condition threshold",false,-1,"double");
-		cmd.add(HEAD_threshold);
-
-		TCLAP::SwitchArg EnableRxArg("x","enable-reception","Enable the reception of messages and the LDM",false);
-		cmd.add(EnableRxArg);
-
-        TCLAP::SwitchArg UseGPSD("g","use-gpsd","Use GPSD instead of the serial NMEA+UBX parser",false);
-        cmd.add(UseGPSD);
+        TCLAP::ValueArg<std::string> LogfileReception("R","log-file-Reception","Print on file the data retrieved from CAM/VAM/DENM reception. Default: (disabled).",false,"dis","string");
+		cmd.add(LogfileReception);
 
         TCLAP::ValueArg<std::string> SerialDevice("s","serial-device","[Considered only if -g is not specified] Serial device path for the GNSS receiver. Default: /dev/ttyACM0",false,"/dev/ttyACM0","string");
         cmd.add(SerialDevice);
 
-        TCLAP::ValueArg<int> SerialDeviceBaudrate("b","serial-device-baudrate","[Considered only if -g is not specified] Serial device baudrate for the GNSS receiver. Default: 115200",false,115200,"positive integer");
-        cmd.add(SerialDeviceBaudrate);
+        TCLAP::ValueArg<double> SPEED_threshold("S","Speed-threshold","VAM speed triggering condition threshold",false,-1,"double");
+        cmd.add(SPEED_threshold);
 
-        TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
+        TCLAP::SwitchArg DisableSelfMACArg("T","disable-self-MAC-check","Debugging option: disable the self MAC check: if this option is set, "
+                                                                        "OScar will likely receive also the messages sent by itself (i.e., it will receive messages with a MAC address equal to its own too). Useful for debugging.",false);
+        cmd.add(DisableSelfMACArg);
+
+        TCLAP::ValueArg<std::string> UDPSockAddrArg("u","udp-sock-addr","If specified, OCABS, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",false,"dis","string");
+        cmd.add(UDPSockAddrArg);
+
+        TCLAP::ValueArg<std::string> UDPBindIPArg("U","udp-bind-ip","This options is valid only if --udp-sock-addr/-u has been specified. It can be used to set an interface/address to bind the UDP socket to. By default, no specific address is used for binding (i.e., binding to any address/interface).",false,"0.0.0.0","string");
+        cmd.add(UDPBindIPArg);
+
+		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service Station ID",false,0,"unsigned integer");
+		cmd.add(VehicleIDArg);
+		
+		TCLAP::SwitchArg VAMsDissArg("V","enable-VAMs-dissemination","Enable the dissemination of VAMs",false);
+		cmd.add(VAMsDissArg);
+
+        TCLAP::SwitchArg SecurityArg("w","enable-security","Enable the the transmission and reception of secured messages (tested on CAMs and CPMs)",false);
+        cmd.add(SecurityArg);
+
+        TCLAP::SwitchArg EnableRxArg("x","enable-reception","Enable the reception of messages and the LDM",false);
+        cmd.add(EnableRxArg);
+
+		TCLAP::SwitchArg ExtraPosUDPArg("X","add-extra-position-udp","This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",false);
+		cmd.add(ExtraPosUDPArg);
+
+        TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Advanced options (set only if you know what you are doing): serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
         cmd.add(SerialDeviceValidityThr);
 
-        TCLAP::ValueArg<int> ShowDebugAgeInfo("a","show-debug-age-of-information","[Considered only if -g is not specified] Debug option: shows the time between the previous serial parser CAM informations and the current ones a the specified time rate. Default: 0 ms (disabled).", false, 0, "integer");
-        cmd.add(ShowDebugAgeInfo);
+        TCLAP::SwitchArg Force20HzFreq("Y","force-CAM-20Hz","Advanced options: force the CAM transmission frequency to a fixed 20 Hz (in line with the 5G-CARMEN project experimentation)",false);
+        cmd.add(Force20HzFreq);
+
+        TCLAP::ValueArg<std::string> LogfileCPM("z","log-file-CPM","Print on file the log for the CPM condition checks. Default: (disabled).",false,"cps_dis","string");
+        cmd.add(LogfileCPM);
 
         // Vehicle Visualizer options
 		TCLAP::ValueArg<long> VV_NodejsPortArg("1","vehviz-nodejs-port","Advanced option: set the port number for the UDP connection to the Vehicle Visualizer Node.js server",false,DEFAULT_VEHVIZ_NODEJS_UDP_PORT,"integer");
@@ -713,9 +746,6 @@ int main (int argc, char *argv[]) {
 
 		TCLAP::ValueArg<long> VV_WebInterfacePortArg("2","vehviz-web-interface-port","set the port at which the web interface of the Vehicle Visualizer will be available",false,DEFAULT_VEHVIZ_WEB_PORT,"integer");
 		cmd.add(VV_WebInterfacePortArg);
-
-        TCLAP::SwitchArg SecurityArg("w","enable-security","Enable the security features of standard CAMs and CPMs",false);
-        cmd.add(SecurityArg);
 
 		TCLAP::ValueArg<double> VV_UpdateIntervalArg("3","vehviz-update-interval-sec",
 			"Advanced option: this option can be used to modify the update rate of the web-based GUI. "
@@ -730,7 +760,7 @@ int main (int argc, char *argv[]) {
 			false,DEFAULT_VEHVIZ_NODEJS_UDP_ADDR,"IPv4 address string");
 		cmd.add(VV_NodejsAddrArg);
 
-        TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
+        TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","[Considered only if -g is not specified] Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
         cmd.add(WrongInputTsholdArg);
 
         TCLAP::ValueArg<double> CheckFaultyObjectAcceleration("6","faulty-object-acceleration-threshold","Advanced option: enable the check of faulty acceleration values of the objects in the CPMs by setting a custom threshold.",false,0.0,"double");
@@ -745,21 +775,11 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg EnableVerbose("9","vv","Enable verbose output.",false);
         cmd.add(EnableVerbose);
 
-		TCLAP::SwitchArg EnableHMIArg("m","enable-HMI","Enable the OScar HMI",false);
-		cmd.add(EnableHMIArg);
+        TCLAP::ValueArg<int> ShowDebugAgeInfo("","show-live-data","[Considered only if -g is not specified] When activated, OScar will show, while it is running, the live data obtained from the GNSS system, together with the age of each piece of information (how old it is with respect to when it was last retrieved). After the option, an update interval in milliseconds should be specified. This will be the frequency at which the live data will be displayed.", false, 0, "integer");
+        cmd.add(ShowDebugAgeInfo);
 
-		TCLAP::SwitchArg DisableSelfMACArg("T","disable-self-MAC-check","Debugging option: disable the self MAC check: if this option is set, "
-			"OScar will likely receive also the messages sent by itself (i.e., it will receive messages with a MAC address equal to its own too). Useful for debugging.",false);
-		cmd.add(DisableSelfMACArg);
-
-		TCLAP::ValueArg<long> JSONserverPortArg("j","ldm-json-server-port","Set the port for on-demand JSON-over-TCP requests to the LDM.",false,DEFAULT_JSON_OVER_TCP_PORT,"integer");
-		cmd.add(JSONserverPortArg);
-
-        TCLAP::ValueArg<std::string> CANDeviceArg("c","can-device","Optional CAN interface: CAN device to be used (i.e., where can-utils is currently running). Default: none (CAN bus interface disabled).",false,"none","string");
-        cmd.add(CANDeviceArg);
-
-        TCLAP::SwitchArg Force20HzFreq("Y","force-CAM-20Hz","Advanced options: use for testing only! Force the CAM transmission frequency to 20 Hz",false);
-        cmd.add(Force20HzFreq);
+        TCLAP::SwitchArg UseJsonTrace("","use-tracenx-json-trace","[Considered only if -g is not specified] Instead of reading from a real serial device, when the serial parser is used, use a JSON pre-recorded trace for the provision of positioning data. The path to the .json file should be specified after -s as if it was the path to a serial device. OScar supports JSON trace files recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X).",false);
+        cmd.add(UseJsonTrace);
 
 		cmd.parse(argc,argv);
 
@@ -808,11 +828,20 @@ int main (int argc, char *argv[]) {
 		vizOpts.vehviz_nodejs_addr=VV_NodejsAddrArg.getValue();
 
 		if(vizOpts.vehviz_update_interval_sec<0.05 || vizOpts.vehviz_update_interval_sec>1) {
-			std::cerr << "[Error] The Vehicle Visualizer update interval cannot be lower than 0.05 s or grater than 1 second." << std::endl;
+			std::cerr << "[ERROR] The Vehicle Visualizer update interval cannot be lower than 0.05 s or grater than 1 second." << std::endl;
 			return 1;
 		}
 
-		enable_hmi=EnableHMIArg.getValue();
+        // Set the ego station type -> if CAMs are enabled, set it to passenger car, otherwise to pedestrian
+        if(enable_CAM_dissemination) {
+            ego_station_type = StationType_passengerCar;
+        } else {
+            ego_station_type = StationType_pedestrian;
+        }
+
+        vizOpts.ego_station_type = ego_station_type;
+
+        enable_hmi=EnableHMIArg.getValue();
 		disable_selfMAC_check=DisableSelfMACArg.getValue();
 		json_over_tcp_port=JSONserverPortArg.getValue();
 
@@ -828,8 +857,16 @@ int main (int argc, char *argv[]) {
 
         force_20Hz_freq = Force20HzFreq.getValue();
 
+        use_json_trace = UseJsonTrace.getValue();
+
+        if(use_gpsd==true && use_json_trace==true) {
+            std::cerr << "[ERROR] --use-tracenx-json-trace can only be used when --use-gpsd is not specified and the serial parser is used." << std::endl;
+            return 1;
+        }
+
 		if(enable_reception==false && enable_hmi==true) {
-			std::cerr << "[Error] Reception must be enabled to use the HMI (an HMI without reception doesn't make a lot of sense right now)." << std::endl;
+            // TODO: support the usage of the HMI just to show the ego vehicle/road user, letting the user enable the HMI without reception
+			std::cerr << "[ERROR] Reception must be enabled to use the HMI, for the time being. This limitation is going to be solved in the future." << std::endl;
 			return 1;
 		}
 
@@ -918,8 +955,14 @@ int main (int argc, char *argv[]) {
 	
 	// Create a new DB object
 	ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
-    db_ptr->setStationID(vehicleID);
-    db_ptr->setCentralLatLon(45.014570, 7.568314); // Sample default lat and lon values, centered near Turin, Italy
+    if(ego_station_type==StationType_passengerCar) {
+        db_ptr->setStationID(vehicleID);
+    } else if (ego_station_type==StationType_pedestrian) {
+        db_ptr->setStationID(VRUID);
+    } else {
+        // For the time being, use the vehicle ID as a fallback in case an unexpected station type is encountered
+        db_ptr->setStationID(vehicleID);
+    }
 
     // Configure the global serial parser if gpsd is not used
     if(!use_gpsd) {
@@ -928,7 +971,7 @@ int main (int argc, char *argv[]) {
         if (debug_age_info_rate_ms){
             serialParser.setDebugAgeInfo(debug_age_info_rate_ms);
         }
-        serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag);
+        serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag,use_json_trace);
     }
 
     // Create a new VDP GPS Client object for the LDM
@@ -939,6 +982,38 @@ int main (int argc, char *argv[]) {
     }
     ldmgpsc.openConnection();
     db_ptr->setLoggingGNSSClient(&ldmgpsc);
+
+    // Take the current position (if available) from the positioning provider (either gpsd or serial parser)
+    int pos_avail_cnt=0;
+    double test_lat, test_lon;
+    while(!terminatorFlag) {
+        std::pair<double,double> curr_pos = ldmgpsc.getCurrentPositionDbl();
+        test_lat = curr_pos.first;
+        test_lon = curr_pos.second;
+
+        if(test_lat>=-90.0 && test_lat<=90.0 && test_lon>=-180.0 && test_lon<=180.0) {
+            std::cout << "[INFO] Position available after roughly " << pos_avail_cnt << " seconds: latitude: " << test_lat << " - longitude: " << test_lon << std::endl;
+            break;
+        } else {
+            std::cout << "[INFO] Position not yet available. Waiting 1 second and trying again..." << std::endl;
+        }
+
+        std::cout << "[INFO] Waiting for the positioning provider to provide the position (a fix may not be yet available)..." << std::endl;
+
+        sleep(1);
+        pos_avail_cnt++;
+
+        if(pos_avail_cnt>20) {
+            std::cerr << "[WARN] Position not available after 20 seconds. Using default position for the LDM and GUI." << std::endl;
+            break;
+        }
+    }
+
+    if(pos_avail_cnt>20) {
+        db_ptr->setCentralLatLon(45.014570, 7.568314); // Sample default lat and lon values, centered near Turin, Italy
+    } else {
+        db_ptr->setCentralLatLon(test_lat,test_lon);
+    }
 	
 	// We have to create a thread reading periodically (e.g. every 5 s) the database through the pointer "db_ptr" and "cleaning" the entries
 	// which are too old
@@ -956,6 +1031,10 @@ int main (int argc, char *argv[]) {
 
     // Transmission threads creation
     std::vector<std::thread> txThreads;
+
+    if(terminatorFlag) {
+        goto exit_failure;
+    }
 
     if(enable_CAM_dissemination) {
         txThreads.emplace_back(CAMtxThr,

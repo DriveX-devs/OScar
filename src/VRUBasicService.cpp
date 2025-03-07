@@ -81,6 +81,7 @@ VRUBasicService::VRUBasicService(){
   m_log_filename = "dis";
 }
 
+// TODO: fix this function as seems to create a "ghost" vehicle that makes OScar always trigger the safe_distance VAM transmission
 std::vector<distance_t>
 VRUBasicService::get_min_distance(ldmmap::LDMMap* LDM) {
     std::vector<distance_t> min_distance(2,{MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationId_t)0,(StationType_t)-1,false});
@@ -90,7 +91,11 @@ VRUBasicService::get_min_distance(ldmmap::LDMMap* LDM) {
     std::vector<ldmmap::LDMMap::returnedVehicleData_t> selectedStations;
 
     // Extract all stations from the LDM
-    VDPGPSClient vrudp;
+    if(m_VRUdp==nullptr) {
+        std::cerr << "[ERROR] VRUdp object not initialized. Cannot get the minimum distance. This is a bug. Please report it to the developers." << std::endl;
+        return min_distance;
+    }
+    VDPGPSClient vrudp = *m_VRUdp;
     VDPGPSClient::VRU_position_latlon_t ped_pos = vrudp.getPedPosition();
     LDM->rangeSelect(MAXFLOAT,ped_pos.lat,ped_pos.lon,selectedStations);
 
@@ -102,7 +107,12 @@ VRUBasicService::get_min_distance(ldmmap::LDMMap* LDM) {
     double ped_heading = vrudp.getPedHeadingValue();
 
     // Iterate over all stations present in the LDM
-    for(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it = selectedStations.begin (); it!=selectedStations.end (); ++it){
+    for(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it = selectedStations.begin (); it!=selectedStations.end (); ++it) {
+        // Skip the ego station
+        if(it->vehData.stationID == m_station_id) {
+            continue;
+        }
+
         distance_t curr_distance = {MAXFLOAT,MAXFLOAT,MAXFLOAT,(StationId_t)0,(StationType_t)-1,false};
         curr_distance.ID = it->vehData.stationID;
         curr_distance.station_type = it->vehData.stationType;
@@ -554,7 +564,7 @@ void VRUBasicService::checkVamConditions(){
           data="[VAM] VAM sent\n";
           sent="true";
 
-          if(head_diff > 4.0 || head_diff < -4.0) {
+          if(head_diff > m_head_th || head_diff < -m_head_th) {
             motivation="heading";
             joint=joint+"H";
             num_VAMs_sent=std::to_string(m_head_sent);
@@ -647,21 +657,26 @@ bool VRUBasicService::checkVamRedundancyMitigation(){
   double ped_heading = m_VRUdp->getPedHeadingValue ();
   ped_heading += (ped_heading>180.0) ? -360.0 : (ped_heading<-180.0) ? 360.0 : 0.0;
 
-  if(now-lastVamGen < m_N_GenVam_max_red*5000){
+  if(now-lastVamGen < m_N_GenVam_max_red*5000) {
     m_LDM->rangeSelect (4,ped_pos.lat,ped_pos.lon,selectedStations);
 
     for(std::vector<ldmmap::LDMMap::returnedVehicleData_t>::iterator it = selectedStations.begin (); it!=selectedStations.end () && !redundancy_mitigation; ++it){
-      if((StationType_t)it->vehData.stationType == StationType_pedestrian){
-        double speed_diff = it->vehData.speed_ms - ped_speed;
-        double near_VRU_heading = it->vehData.heading;
-        near_VRU_heading += (near_VRU_heading>180.0) ? -360.0 : (near_VRU_heading<-180.0) ? 360.0 : 0.0;
-        double heading_diff = near_VRU_heading - ped_heading;
-
-        if((speed_diff < 0.5 && speed_diff > -0.5) && (heading_diff < 4 && heading_diff > -4)){
-          redundancy_mitigation = true;
-          m_N_GenVam_max_red = (int16_t)std::round(((double)std::rand()/RAND_MAX)*8) + 2;
+        // Skip the ego station
+        if(it->vehData.stationID == m_station_id) {
+            continue;
         }
-      }
+
+        if((StationType_t)it->vehData.stationType == StationType_pedestrian) {
+            double speed_diff = it->vehData.speed_ms - ped_speed;
+            double near_VRU_heading = it->vehData.heading;
+            near_VRU_heading += (near_VRU_heading>180.0) ? -360.0 : (near_VRU_heading<-180.0) ? 360.0 : 0.0;
+            double heading_diff = near_VRU_heading - ped_heading;
+
+            if((speed_diff < 0.5 && speed_diff > -0.5) && (heading_diff < 4 && heading_diff > -4)) {
+                redundancy_mitigation = true;
+                m_N_GenVam_max_red = (int16_t)std::round(((double)std::rand()/RAND_MAX)*8) + 2;
+            }
+        }
     }
   }
 

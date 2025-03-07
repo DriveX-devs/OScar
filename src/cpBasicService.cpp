@@ -224,11 +224,25 @@ CPBasicService::generateAndEncodeCPM()
                 {
                     auto PO = asn1cpp::makeSeq (PerceivedObject);
                     asn1cpp::setField (PO->objectId, it->vehData.stationID);
+                    // computeTimestampUInt64() is what is used to set the timestamp in the LDM corresponding to the time in which the object was perceived
+                    // (computeTimestampUInt64()/NANO_TO_MICRO - it->vehData.timestamp_us) is how much time has passed since the object was inserted in the LDM
                     long timeOfMeasurement =
                             (computeTimestampUInt64()/NANO_TO_MICRO - it->vehData.timestamp_us) /
                             1000; // time of measuremente in ms
-                    if (timeOfMeasurement > 1500)
-                        timeOfMeasurement = 1500;
+
+                    // Cap the values to avoid encoding errors in the CPM in case of errors in the code or in the input
+                    // Anyway, the LDM is already providing consistent values, and we should never enter in the two if statements below
+                    if (timeOfMeasurement > 2047) {
+                        timeOfMeasurement = 2047;
+                    } else if(timeOfMeasurement < -2048) {
+                        timeOfMeasurement = -2048;
+                    }
+
+                    // We take the negative as the ETSI CDD says: measurementDeltaTime: the time difference from a reference time to the time of the measurement
+                    // of the object. Negative values indicate that the provided object state refers to a point in time before the reference time.
+                    // We cannot have positive values as we take as reference time the current generation time of the CPM.
+                    timeOfMeasurement = -timeOfMeasurement;
+
                     asn1cpp::setField (PO->measurementDeltaTime, timeOfMeasurement);
                     asn1cpp::setField (PO->position.xCoordinate.value,
                                        it->vehData.xDistance);
@@ -321,6 +335,8 @@ CPBasicService::generateAndEncodeCPM()
                     numberOfPOs++;
                 }
             }
+            // The check for the Perceived Object Container is independent from the one of the Sensor Information Container
+            // If we have no objects to include, we may include only the Sensor Information Container
             if (numberOfPOs != 0)
             {
                 asn1cpp::setField (POsContainer->perceivedObjects, CPM_POs);
@@ -341,14 +357,14 @@ CPBasicService::generateAndEncodeCPM()
     asn1cpp::setField (cpm->header.stationId, m_station_id);
 
     /*
-     * Compute the generationDeltaTime, "computed as the time corresponding to the
-     * time of the reference position in the CPM, considered as time of the CPM generation.
-     * The value of the generationDeltaTime shall be wrapped to 65 536. This value shall be set as the
-     * remainder of the corresponding value of TimestampIts divided by 65 536 as below:
-     * generationDeltaTime = TimestampIts mod 65 536"
+     * Compute the referenceTime. According to the ETSI-ITS-CDD .asn file, the referenceTime is defined as TimestampIts.
+     * The TimestampIts is defined represents the number of elapsed (TAI) milliseconds since the ITS Epoch.
+     * The ITS epoch, in turn, is `00:00:00.000 UTC, 1 January 2004`.
+     * The referenceTime was equal to generationDeltaTime in CPMs v1, but for CPMs v2, it has changed to a TimestampIts.
+     * As a reference, we align here the referenceTime to the CPM generation time.
     */
-    asn1cpp::setField (cpm->payload.managementContainer.referenceTime,
-                       compute_timestampIts () % 65536);
+    // asn1cpp::setField (cpm->payload.managementContainer.referenceTime, compute_timestampIts () % 65536); // <- this was valid for CPMs v1
+    asn1cpp::setField(cpm->payload.managementContainer.referenceTime, get_timestamp_ms_cpm());
 
     /* Fill the managementContainer */
     asn1cpp::setField (cpm->payload.managementContainer.referencePosition.altitude.altitudeValue,
@@ -386,6 +402,11 @@ CPBasicService::generateAndEncodeCPM()
     asn1cpp::sequenceof::pushList (cpm->payload.cpmContainers, wrappedCpmContainer);
 
     /* Generate Sensor Information Container as detailed in ETSI TS 103 324, Section 6.1.2.2 */
+    // This check should occur with respect to when the Sensor Information Container was last included
+    // So, we should have a Sensor Information Container every 1 s regardless of the perceived objects container
+    // This is implemented following the ETSI TS 103 324 standard; however, it could be potentially optimized
+    // to avoid sending CPMs with just Sensor Information, that do not include too much informative content;
+    // however, this would potentially fall outise whet the ETSI standards foresee for CPMs v2
     if (now - m_T_LastSensorInfoContainer >= m_T_AddSensorInformation)
     {
         auto CPMcontainer = asn1cpp::makeSeq (WrappedCpmContainer);
@@ -421,7 +442,10 @@ CPBasicService::generateAndEncodeCPM()
     }
     else
     {
-        //If no sensorInformationContainer and no perceivedObjectsContainer
+        // If no sensorInformationContainer and no perceivedObjectsContainer
+        // If no "WrappedCpmContainers" are there, we should not send the CPM
+        // Sending a CPM with just the originatingVehicleContainer would be like sending a CAM, and therefore the standards
+        // foresee that no CPM should be sent in this case
         if (numberOfPOs == 0){
             //No CPM is generated in the current cycle
             long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();

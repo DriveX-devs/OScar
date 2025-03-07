@@ -157,18 +157,18 @@ class VDPGPSClient {
         std::tuple<double,double,double> getParserAngularRates();
         std::tuple<double,double,double> getParserRawAccelerations();
         std::tuple<double,double,double> getParserAttitude();
+        double getParserSpeed();
         double getParserSpeedUbx();
         double getParserSpeedNmea();
+        double getParserCourseOverGround();
         double getParserCourseOverGroundUbx();
         double getParserCourseOverGroundNmea();
-        double getParserAltitude();
+        double getParserAltitude(); // add getParserAltitude() for UBX and NMEA, if needed
         double getParserYawRate();
         double getParserLongitudinalAcceleration();
         std::string getParserFixMode();
         std::string getParserFixModeUbx();
         std::string getParserFixModeNmea();
-        std::string getParserUtcTimeUbx();
-        std::string getParserUtcTimeNmea();
         double getParserValidityThreshold();
 
         bool setSerialParser(UBXNMEAParserSingleThread *serialParserPtr) {
