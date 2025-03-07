@@ -21,7 +21,7 @@
 #define HeadingValue_unavailable_serial_parser 3601
 #define SpeedValue_unavailable_serial_parser 16383 // We take the same value used for an unavailable speed in ETSI C-ITS messages
 
-#define COMPUTE_EPOCH_TS_VALIDITY(value) ((epoch_ts-value)>=LONG_MAX?0:(epoch_ts-value))
+#define COMPUTE_EPOCH_TS_VALIDITY(value) (value==0?0:(((epoch_ts-value)>=LONG_MAX?0:(epoch_ts-value))))
 
 /** The current version of the serial parser reads the following information from:
  * Lat/Lon [deg]: UBX-NAV-PVT, GxGNS, GxGGA
