@@ -1569,6 +1569,7 @@ UBXNMEAParserSingleThread::getAccelerationsValidity(bool print_error) {
     } else return m_comp_acc_valid;
 }
 
+// TODO: this function can be improved to return an integer instead of a boolean, indicating the validity of the altitude information separately for UBX and NMEA
 bool
 UBXNMEAParserSingleThread::getAltitudeValidity(bool print_error) {
     // Get the "now" timestamp and computer how old is the information now with respect to when it was last parsed

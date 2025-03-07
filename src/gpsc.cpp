@@ -1,8 +1,3 @@
-/*
- * VRUdp integration changes:
- *
- * */
-
 #include "gpsc.h"
 #include "HeadingConfidence.h"
 #include <stdexcept>
@@ -36,6 +31,7 @@ VDPGPSClient::openConnection() {
 	int rval;
 
 	// Set some initial "unavailable" values for the Vehicle Width and Length
+    // TODO: insert actual values taken from the command line interface
 	m_vehicle_length=VDPValueConfidence<long,long>(VehicleLengthValue_unavailable,VehicleLengthConfidenceIndication_unavailable);
 	m_vehicle_width=VehicleWidth_unavailable;
 
@@ -62,82 +58,145 @@ VDPGPSClient::closeConnection() {
 }
 
 // Serial parser performance log methods
+// All the following functions are used just for logging purposes to get information from the serial parser from within
+// the basic services (e.g., the CA Basic Service) that just have a pointer to the VDP (and not directly to the serial parser)
+// These functions can be used to get directly the last valid information that was parsed, skipping all the age of information checks
 std::pair<double,double> VDPGPSClient::getParserPosition() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getPosition(nullptr,false);
 }
 
 std::pair<double,double> VDPGPSClient::getParserPositionUbx() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getPositionUbx(nullptr,false);
 }
 
 std::pair<double,double> VDPGPSClient::getParserPositionNmea() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getPositionNmea(nullptr,false);
 }
 
 std::tuple<double,double,double> VDPGPSClient::getParserAccelerations() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getAccelerations(nullptr,false);
 }
 
 std::tuple<double,double,double> VDPGPSClient::getParserAngularRates() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getAngularRates(nullptr,false);
 }
 
 std::tuple<double,double,double> VDPGPSClient::getParserRawAccelerations() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getRawAccelerations(nullptr,false);
 }
 
 std::tuple<double,double,double> VDPGPSClient::getParserAttitude() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getAttitude(nullptr,false);}
 
 double VDPGPSClient::getParserSpeed() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getSpeed(nullptr,false);
 }
 
 double VDPGPSClient::getParserSpeedUbx() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getSpeedUbx(nullptr,false);
 }
 
 double VDPGPSClient::getParserSpeedNmea() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getSpeedNmea(nullptr,false);
 }
 
 double VDPGPSClient::getParserCourseOverGround() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getCourseOverGround(nullptr,false);
 }
 
 double VDPGPSClient::getParserCourseOverGroundUbx() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getCourseOverGroundUbx(nullptr,false);
 }
 
 double VDPGPSClient::getParserCourseOverGroundNmea() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getCourseOverGroundNmea(nullptr,false);
 }
 
 double VDPGPSClient::getParserAltitude() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getAltitude(nullptr,false);
 }
 
 double VDPGPSClient::getParserYawRate() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getYawRate(nullptr,false);
 }
 
 double VDPGPSClient::getParserLongitudinalAcceleration() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getLongitudinalAcceleration(nullptr,false);
 }
 
 double VDPGPSClient::getParserValidityThreshold() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getValidityThreshold();
 }
 
 std::string VDPGPSClient::getParserFixMode() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getFixMode();
 }
 
 std::string VDPGPSClient::getParserFixModeUbx() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getFixModeUbx();
 }
 
 std::string VDPGPSClient::getParserFixModeNmea() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
     return m_serialParserPtr->getFixModeNmea();
 }
 
@@ -165,6 +224,8 @@ VDPGPSClient::getHeadingValue() {
         }
     } else {
         // Check if a valid fix is present
+        // We take the fix mode separately from UBX and NMEA to perform a more fine-grained and flexible check
+        // TODO: check if we can use, instead, a single fix starting from the output of m_serialParserPtr->getFixMode()
         std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
         std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
         if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
@@ -210,6 +271,8 @@ double VDPGPSClient::getPedHeadingValue() {
             }
         }
     } else {
+        // Check if a valid fix is present
+        // We take the fix mode separately from UBX and NMEA to perform a more fine-grained and flexible check
         std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
         std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
         if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
@@ -252,6 +315,7 @@ VDPGPSClient::getSpeedValue() {
         }
     } else {
         // Check if a valid fix is present
+        // We take the fix mode separately from UBX and NMEA to perform a more fine-grained and flexible check
         std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
         std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
         if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
@@ -321,9 +385,9 @@ VDPGPSClient::getAltitudeValue() {
                 } else return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
             }
         }
-
-
     } else {
+        // Check if a valid fix is present
+        // We take the fix mode separately from UBX and NMEA to perform a more fine-grained and flexible check
         std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
         std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
         if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
@@ -343,6 +407,7 @@ VDPGPSClient::getAltitudeValue() {
     return VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
 }
 
+// This function returns the (lat, lon) in 0.1 microdegrees (ETSI unit)
 std::pair<long,long>
 VDPGPSClient::getCurrentPosition() {
     if(m_use_gpsd==true) {
@@ -381,6 +446,7 @@ VDPGPSClient::getCurrentPosition() {
     return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
 }
 
+// This function returns the (lat, lon, alt) in deg for lat, lon and m for alt
 VDPGPSClient::VRU_position_latlon_t
 VDPGPSClient::getPedPosition() {
     VRU_position_latlon_t ped_pos{-DBL_MAX,-DBL_MAX,-DBL_MAX};
@@ -428,9 +494,8 @@ VDPGPSClient::getPedPosition() {
 
             if (m_serialParserPtr->getAltitudeValidity(false) > 0) {
                 altitude = m_serialParserPtr->getAltitude(nullptr, false);
-            } else altitude = AltitudeValue_unavailable/100.0;
+            } else altitude = AltitudeValue_unavailable;
 
-            std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
             ped_pos.lat = latitude;
             ped_pos.lon = longitude;
             ped_pos.alt = altitude;
@@ -496,6 +561,7 @@ VDPGPSClient::convertLatLontoXYZ_TM(VDPGPSClient::VRU_position_latlon_t pos_latl
     return pos_xyz;
 }
 
+// This function returns the main kinematic data to be inserted into VAM messages in ETSI units
 VDPGPSClient::VAM_mandatory_data_t
 VDPGPSClient::getVAMMandatoryData() {
     VAM_mandatory_data_t VAMdata={.avail=false};
@@ -584,6 +650,7 @@ VDPGPSClient::getVAMMandatoryData() {
             /* Speed [0.01 m/s] */
             if (m_serialParserPtr->getSpeedValidity(false) > 0) {
                 double speed = m_serialParserPtr->getSpeed(nullptr, false);
+                // Check for valid values
                 if (speed >= 0 && speed <= 163.82) {
                     VAMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
                 }
@@ -598,6 +665,7 @@ VDPGPSClient::getVAMMandatoryData() {
             double longitude = Latitude_unavailable;
             double latitude = Longitude_unavailable;
 
+            // TODO: this can be potentially merged into a single block of code managing both latitude and longitude
             /* Latitude [0.1 microdegrees] */
             if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
@@ -621,6 +689,7 @@ VDPGPSClient::getVAMMandatoryData() {
             /* Altitude [0.01 m] */
             if (m_serialParserPtr->getAltitudeValidity(false) == true) {
                 double altitude = m_serialParserPtr->getAltitude(nullptr, false);
+                // Check for valid values
                 if (altitude * CENTI >= -100000 && altitude * CENTI <= 800000) {
                     VAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
                 }
@@ -668,7 +737,9 @@ VDPGPSClient::getVAMMandatoryData() {
 
             VAMdata.avail = true;
 
-            // compute the delta position considering the speed, heading and the pos age
+            // Compute the delta position considering the speed, heading and the pos age
+            // This part performs the data interpolation, to get updated positioning information even when the GNSS receiver
+            // has a low update rate (< 10 Hz)
             if (VAMdata.avail == true && (VAMdata.latitude!=Latitude_unavailable && VAMdata.longitude!=Longitude_unavailable)) {
                 double delta_x = 0.0;
                 double delta_y = 0.0;
@@ -727,8 +798,11 @@ VDPGPSClient::getVAMMandatoryData() {
     return VAMdata;
 }
 
+// This function returns the longitudinal acceleration in 0.1 m/s^2 (ETSI unit)
 VDPValueConfidence<>
 VDPGPSClient::getLongitudinalAccelerationValue() {
+    // gpsd currently cannot return the longitudinal acceleration
+    // TODO: implement an interpolation strategy to estimate the longitudinal acceleration from the speed even when no IMU/U-blox device is available
     if(m_use_gpsd == true) {
         /*
         int rval;
@@ -770,8 +844,11 @@ VDPGPSClient::getLongitudinalAccelerationValue() {
     return VDPValueConfidence<>(LongitudinalAccelerationValue_unavailable, AccelerationConfidence_unavailable);
 }
 
+// This function returns the yaw rate in 0.01 deg/s (ETSI unit)
 VDPValueConfidence<>
 VDPGPSClient::getYawRate() {
+    // gpsd currently cannot return the yaw rate
+    // TODO: implement an interpolation strategy to estimate the yaw rate from the heading even when no IMU/U-blox device is available
     if(m_use_gpsd == true) {
         /*
         int rval;
@@ -799,18 +876,18 @@ VDPGPSClient::getYawRate() {
             if (m_serialParserPtr->getYawRateValidity(false) == true) {
                 double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
                 return VDPValueConfidence<>(static_cast<int>(yaw_rate * CENTI), YawRateConfidence_unavailable);
-            }
-            else {
+            } else {
                 return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
             }
-        }
-        else {
+        } else {
             return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
         }
     }
     return VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
 }
 
+// This function returns the heading in deg
+// TODO: better manage the return of unavailable values (for now, it returns the ETSI unavailable value, but any value > 360.1 could be used instead of 3601)
 double
 VDPGPSClient::getHeadingValueDbl() {
     if(m_use_gpsd == true) {
@@ -855,6 +932,8 @@ VDPGPSClient::getHeadingValueDbl() {
     return HeadingValue_unavailable;
 }
 
+// This function returns the speed in m/s
+// TODO: better manage the return of unavailable values (for now, it returns the ETSI unavailable value, but any value > 163.82 could be used instead of 16382)
 double
 VDPGPSClient::getSpeedValueDbl() {
     if(m_use_gpsd==true) {
@@ -890,6 +969,8 @@ VDPGPSClient::getSpeedValueDbl() {
     return SpeedValue_unavailable;
 }
 
+// This function returns the altitude in m
+// TODO: better manage the return of unavailable values (for now, it returns the ETSI unavailable value, but any value > 8000.01 could be used instead of 800001)
 double
 VDPGPSClient::getAltitudeValueDbl() {
     if(m_use_gpsd == true) {
@@ -925,6 +1006,8 @@ VDPGPSClient::getAltitudeValueDbl() {
     return AltitudeValue_unavailable;
 }
 
+// This function returns the position (lat, lon) in deg
+// TODO: better manage the return of unavailable values (for now, it returns the ETSI unavailable value, but any value > 90.0 / 180.0 could be used instead of 900000001 / 1800000001)
 std::pair<double,double>
 VDPGPSClient::getCurrentPositionDbl() {
     if(m_use_gpsd==true) {
@@ -952,8 +1035,7 @@ VDPGPSClient::getCurrentPositionDbl() {
 
             if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 return m_serialParserPtr->getPosition(nullptr, false);
-            }
-            else {
+            } else {
                 return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
             }
         }
@@ -962,8 +1044,11 @@ VDPGPSClient::getCurrentPositionDbl() {
     return std::pair<double, double>(Latitude_unavailable, Longitude_unavailable);
 }
 
+// This function returns the longitudinal acceleration in m/s^2
 double
 VDPGPSClient::getLongitudinalAccelerationValueDbl() {
+    // gpsd currently cannot return the longitudinal acceleration
+    // TODO: implement an interpolation strategy to estimate the longitudinal acceleration from the speed even when no IMU/U-blox device is available
     if(m_use_gpsd == true) {
         /*
         int rval;
@@ -1003,8 +1088,10 @@ VDPGPSClient::getLongitudinalAccelerationValueDbl() {
     return LongitudinalAccelerationValue_unavailable;
 }
 
+// This function returns the yaw rate in deg/s
 double
 VDPGPSClient::getYawRateDbl() {
+    // gpsd currently cannot return the yaw rate
     if(m_use_gpsd == true) {
         /*
         int rval;
@@ -1044,6 +1131,7 @@ VDPGPSClient::getYawRateDbl() {
     return YawRateValue_unavailable;
 }
 
+// This function returns the main kinematic data to be inserted into CAM messages in ETSI units
 VDPGPSClient::CAM_mandatory_data_t
 VDPGPSClient::getCAMMandatoryData() {
 	CAM_mandatory_data_t CAMdata={.avail=false};
@@ -1160,6 +1248,7 @@ VDPGPSClient::getCAMMandatoryData() {
     } else {
         std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
         std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        // If there is no fix set all the information as unavailable
         if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
             fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
             fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
@@ -1180,12 +1269,12 @@ VDPGPSClient::getCAMMandatoryData() {
             double longitude = Latitude_unavailable;
             double latitude = Longitude_unavailable;
 
+            // TODO: this can be potentially merged into a single block of code managing both latitude and longitude
             if (m_serialParserPtr->getPositionValidity(false) > 0) {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
                 CAMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
                 latitude = position.first;
-            }
-            else {
+            } else {
                 CAMdata.latitude = (Latitude_t) Latitude_unavailable;
             }
 
@@ -1193,25 +1282,18 @@ VDPGPSClient::getCAMMandatoryData() {
                 std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
                 CAMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
                 longitude = position.second;
-            }
-            else {
+            } else {
                 CAMdata.longitude = (Longitude_t) Longitude_unavailable;
             }
-
-//            long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-//            std::cout << "[getCAMMandatoryData] @ " << time << std::endl;
-//            std::cout << "Position age: " << pos_age << "[us]" << std::endl;
 
             if (m_serialParserPtr->getAltitudeValidity(false) == true) {
                 double altitude = m_serialParserPtr->getAltitude(nullptr, false);
                 if (altitude * CENTI >= -100000 && altitude * CENTI <= 800000) {
                     CAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
-                }
-                else {
+                } else {
                     CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
                 }
-            }
-            else {
+            } else {
                 CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
             }
 
@@ -1224,12 +1306,10 @@ VDPGPSClient::getCAMMandatoryData() {
                 if (long_acc >= -16 && long_acc <= 16) {
                     //CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
                     CAMdata.longAcceleration = VDPValueConfidence<>(long_acc * DECI, AccelerationConfidence_unavailable);
-                }
-                else {
+                } else {
                     CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
                 }
-            }
-            else {
+            } else {
                 CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
             }
 
@@ -1237,17 +1317,15 @@ VDPGPSClient::getCAMMandatoryData() {
                 double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
                 if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
                     CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
-                }
-                else {
+                } else {
                     CAMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
                 }
 
-            }
-            else {
+            } else {
                 CAMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
             }
 
-
+            // Set some data that we are not parsing yet as unavailable
             CAMdata.driveDirection = DriveDirection_unavailable;
             CAMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);
             CAMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
@@ -1271,6 +1349,8 @@ VDPGPSClient::getCAMMandatoryData() {
             CAMdata.avail = true;
 
             // Compute the delta position considering the speed, heading and the pos age
+            // This part performs the data interpolation, to get updated positioning information even when the GNSS receiver
+            // has a low update rate (< 10 Hz)
             // This interpolation is done all the times for the time being
             if (CAMdata.avail == true && (CAMdata.latitude!=Latitude_unavailable && CAMdata.longitude!=Longitude_unavailable)) {
                 double delta_x = 0.0;
@@ -1336,6 +1416,9 @@ VDPGPSClient::getCAMMandatoryData() {
     return CAMdata;
 }
 
+// This function returns the kinematic data useful for CAM triggering condition checks (speed, position, heading)
+// The speed is returned in ETSI units, the heading in normal and ETSI units, the position in normal units
+// TODO: make the units used here more consistent
 VDPGPSClient::CAM_conditions_data
 VDPGPSClient::getCAMConditionsData()
 {
@@ -1397,12 +1480,10 @@ VDPGPSClient::getCAMConditionsData()
                 double speed = m_serialParserPtr->getSpeed(nullptr, false);
                 if (speed >= 0 && speed <= 163.82) {
                     CAMdata.speedCheck = speed * CENTI;
-                }
-                else {
+                } else {
                     CAMdata.speedCheck = SpeedValue_unavailable;
                 }
-            }
-            else {
+            } else {
                 CAMdata.speedCheck = SpeedValue_unavailable;
             }
 
@@ -1419,24 +1500,16 @@ VDPGPSClient::getCAMConditionsData()
                 CAMdata.currPos.second = -DBL_MAX;
             }
 
-/*            long int time=duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-            std::cout << "[getCAMConditionsData] @ " << time << std::endl;
-            std::cout << "Position age: " << pos_age << "[us]" << std::endl;*/
-
-            // printf("BEFORE: %.2lf\n",hdd);
-            // printf("VALID? %d\n",m_serialParserPtr->getSpeedAndCogValidity(true));
             if (m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
                 double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
                 if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
                     CAMdata.headCheck = HeadingValue_unavailable;
                     CAMdata.headCheckDbl = -DBL_MAX;
-                }
-                else {
+                } else {
                     CAMdata.headCheck = heading * DECI;
                     CAMdata.headCheckDbl = heading;
                 }
-            }
-            else {
+            } else {
                 CAMdata.headCheck = HeadingValue_unavailable;
                 CAMdata.headCheckDbl = -DBL_MAX;
             }
@@ -1499,6 +1572,7 @@ VDPGPSClient::getCAMConditionsData()
     return CAMdata;
 }
 
+// This function returns the main kinematic data to be inserted into CPM messages in ETSI units
 VDPGPSClient::CPM_mandatory_data_t VDPGPSClient::getCPMMandatoryData() {
     CPM_mandatory_data_t CPMdata={.avail=false};
 
@@ -1608,16 +1682,48 @@ VDPGPSClient::CPM_mandatory_data_t VDPGPSClient::getCPMMandatoryData() {
     } else {
         std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
         std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        // If there is no fix set all the information as unavailable
         if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
             fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
             fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
-            std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
-            double speed = m_serialParserPtr->getSpeedNmea(nullptr, false);
-            double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
 
-            CPMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
-            CPMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
-            CPMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
+            if(m_serialParserPtr->getSpeedValidity(false) > 0) {
+                double speed = m_serialParserPtr->getSpeed(nullptr, false);
+                if (speed >= 0 && speed <= 163.82) {
+                    CPMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
+                } else {
+                    CPMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+                }
+            } else CPMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+
+            if(m_serialParserPtr->getPositionValidity(false) > 0) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+                CPMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
+                CPMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
+            } else {
+                CPMdata.latitude = (Latitude_t) Latitude_unavailable;
+                CPMdata.longitude = (Longitude_t) Longitude_unavailable;
+            }
+
+            if(m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
+                double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
+                if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
+                    CPMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+                } else {
+                    CPMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
+                }
+            } else {
+                CPMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+            }
+
+            // std::pair<double, double> position = m_serialParserPtr->getPosition(nullptr, false);
+            // double speed = m_serialParserPtr->getSpeedNmea(nullptr, false);
+            // double heading = m_serialParserPtr->getCourseOverGroundNmea(nullptr, false);
+
+            // CPMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
+            // CPMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
+            // CPMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
+
             CPMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
             CPMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
             CPMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
@@ -1625,13 +1731,13 @@ VDPGPSClient::CPM_mandatory_data_t VDPGPSClient::getCPMMandatoryData() {
             CPMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,
                                                             AccelerationConfidence_unavailable);
 
-            if (static_cast<int>(heading * DECI) < 0 ||
-                static_cast<int>(heading * DECI) > 3601) {
-                CPMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
-            } else {
-                CPMdata.heading = VDPValueConfidence<>(static_cast<int>(heading * DECI),
-                                                       HeadingConfidence_unavailable);
-            }
+            // if (static_cast<int>(heading * DECI) < 0 ||
+            //    static_cast<int>(heading * DECI) > 3601) {
+            //    CPMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+            // } else {
+            //    CPMdata.heading = VDPValueConfidence<>(static_cast<int>(heading * DECI),
+            //                                           HeadingConfidence_unavailable);
+            // }
 
             CPMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);
             CPMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
