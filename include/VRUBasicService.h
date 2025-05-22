@@ -76,6 +76,13 @@ public:
     void startVamDissemination(int desync_ms);
 
     uint64_t terminateDissemination();
+
+    void setCheckVamGenMs(long nextVAM) {m_vam_gen_mutex.lock(); m_T_CheckVamGen_ms = nextVAM; m_vam_gen_mutex.unlock();};
+
+    void toffUpdateAfterDeltaUpdate(double delta);
+
+    void toffUpdateAfterTransmission();
+
     
     const long T_GenVamMin_ms = 100;
     const long T_GenVamMax_ms = 5000;
@@ -148,6 +155,12 @@ private:
     int m_VRU_clust_state;
     
     std::atomic<bool> m_terminateFlag;
+
+    int64_t m_last_transmission = 0;
+    double m_Ton_pp = 0;
+    double m_last_delta = 0;
+
+    std::mutex m_vam_gen_mutex;
 };
 
 #endif /* VRUBasicService_h */

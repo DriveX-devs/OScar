@@ -34,6 +34,8 @@
 #include "JSONserver.h"
 #include "vehicle-visualizer.h"
 
+#include "DCC.h"
+
 #define DB_CLEANER_INTERVAL_SECONDS 5
 #define DB_DELETE_OLDER_THAN_SECONDS 2 // This value should NEVER be set greater than (5-DB_CLEANER_INTERVAL_SECONDS/60) minutes or (300-DB_CLEANER_INTERVAL_SECONDS) seconds - doing so may break the database age check functionality!
 
@@ -64,6 +66,10 @@ std::condition_variable synccv;
 
 // Global flag to tell if the HMI has been enabled
 bool enable_hmi = true;
+
+//CABasicService* cabs;
+//CPBasicService* cpbs;
+//VRUBasicService* vrubs;
 
 // Structure to store the options for the vehicle visualizer
 typedef struct vizOptions {
@@ -215,24 +221,26 @@ void *DBcleaner_callback(void *arg) {
 
 // Main CAM transmission thread
 void CAMtxThr(std::string gnss_device,
-           int gnss_port,
-           int sockfd,
-           int ifindex,
-           uint8_t srcmac[6],
-           int vehicleID,
-           std::string udp_sock_addr,
-           std::string udp_bind_ip,
-           bool extra_position_udp,
-           std::string log_filename_CAM,
-           std::string log_filename_GNsecurity,
-           ldmmap::LDMMap *db_ptr,
-           double pos_th,
-           double speed_th,
-           double head_th,
-           bool rx_enabled,
-           bool use_gpsd,
-           bool enable_security,
-           bool force_20Hz_freq) {
+        int gnss_port,
+        int sockfd,
+        int ifindex,
+        uint8_t srcmac[6],
+        int vehicleID,
+        std::string udp_sock_addr,
+        std::string udp_bind_ip,
+        bool extra_position_udp,
+        std::string log_filename_CAM,
+        std::string log_filename_GNsecurity,
+        ldmmap::LDMMap *db_ptr,
+        double pos_th,
+        double speed_th,
+        double head_th,
+        bool rx_enabled,
+        bool use_gpsd,
+        bool enable_security,
+        bool force_20Hz_freq,
+        CABasicService* cabs
+    ) {
     bool m_retry_flag=false;
 
     // VDP (Vehicle Data Provider) GPS Client object test
@@ -304,23 +312,23 @@ void CAMtxThr(std::string gnss_device,
                     exit(EXIT_FAILURE);
                 }
             }
-            CABasicService CABS;
-            CABS.setBTP(&BTP);
-            CABS.setStationProperties(vehicleID, StationType_passengerCar);
-            CABS.setVDP(&vdpgpsc);
-            CABS.setLDM(db_ptr);
+        
+            cabs->setBTP(&BTP);
+            cabs->setStationProperties(vehicleID, StationType_passengerCar);
+            cabs->setVDP(&vdpgpsc);
+            cabs->setLDM(db_ptr);
 
             if(force_20Hz_freq) {
-                CABS.force20HzFreq();
+                cabs->force20HzFreq();
             }
 
             if (log_filename_CAM != "dis" && log_filename_CAM != "") {
-                CABS.setLogfile(log_filename_CAM);
+                cabs->setLogfile(log_filename_CAM);
             }
             // Start the CAM dissemination
             // TODO: stop dissemination when the terminator flag becomes true
             // TODO: we should call CABS.terminateDissemination() or pass directly a pointer to the global atomic terminatorFlag to the CA Basic Service
-            CABS.startCamDissemination();
+            cabs->startCamDissemination();
 
         } catch (const std::exception &e) {
             std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
@@ -337,21 +345,22 @@ void CAMtxThr(std::string gnss_device,
 
 // Main CPM transmission thread
 void CPMtxThr(std::string gnss_device,
-              int gnss_port,
-              int sockfd,
-              int ifindex,
-              uint8_t srcmac[6],
-              int vehicleID,
-              std::string udp_sock_addr,
-              std::string udp_bind_ip,
-              bool extra_position_udp,
-              std::string log_filename_CPM,
-              ldmmap::LDMMap *db_ptr,
-              bool use_gpsd,
-              double check_faulty_object_acceleration,
-              bool disable_cpm_speed_triggering,
-              bool verbose,
-              bool enable_security) {
+            int gnss_port,
+            int sockfd,
+            int ifindex,
+            uint8_t srcmac[6],
+            int vehicleID,
+            std::string udp_sock_addr,
+            std::string udp_bind_ip,
+            bool extra_position_udp,
+            std::string log_filename_CPM,
+            ldmmap::LDMMap *db_ptr,
+            bool use_gpsd,
+            double check_faulty_object_acceleration,
+            bool disable_cpm_speed_triggering,
+            bool verbose,
+            bool enable_security,
+            CPBasicService* cpbs) {
     bool m_retry_flag=false;
 
     VDPGPSClient vdpgpsc(gnss_device,gnss_port);
@@ -394,20 +403,20 @@ void CPMtxThr(std::string gnss_device,
                     exit(EXIT_FAILURE);
                 }
             }
-            CPBasicService CPBS;
-            CPBS.setBTP(&BTP);
-            CPBS.setStationProperties(vehicleID, StationType_passengerCar);
-            CPBS.setVDP(&vdpgpsc);
-            CPBS.setLDM(db_ptr);
-            CPBS.setVerbose(verbose);
+            
+            cpbs->setBTP(&BTP);
+            cpbs->setStationProperties(vehicleID, StationType_passengerCar);
+            cpbs->setVDP(&vdpgpsc);
+            cpbs->setLDM(db_ptr);
+            cpbs->setVerbose(verbose);
             if (check_faulty_object_acceleration != 0.0)
-                CPBS.setFaultyAccelerationCheck(check_faulty_object_acceleration);
-            CPBS.setSpeedTriggering(!disable_cpm_speed_triggering);
+                cpbs->setFaultyAccelerationCheck(check_faulty_object_acceleration);
+            cpbs->setSpeedTriggering(!disable_cpm_speed_triggering);
             if (log_filename_CPM != "dis" && log_filename_CPM != "") {
-                CPBS.setLogfile(log_filename_CPM);
+                cpbs->setLogfile(log_filename_CPM);
             }
             // Start the CAM dissemination
-            CPBS.initDissemination();
+            cpbs->initDissemination();
 
         } catch (const std::exception &e) {
             std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
@@ -424,20 +433,21 @@ void CPMtxThr(std::string gnss_device,
 
 // Main VAM transmission thread
 void VAMtxThr(std::string gnss_device,
-              int gnss_port,
-              int sockfd,
-              int ifindex,
-              uint8_t srcmac[6],
-              int VRUID,
-              std::string udp_sock_addr,
-              std::string udp_bind_ip,
-              bool extra_position_udp,
-              std::string log_filename_VAM,
-              ldmmap::LDMMap *db_ptr,
-              double pos_th,
-              double speed_th,
-              double head_th,
-              bool use_gpsd) {
+            int gnss_port,
+            int sockfd,
+            int ifindex,
+            uint8_t srcmac[6],
+            int VRUID,
+            std::string udp_sock_addr,
+            std::string udp_bind_ip,
+            bool extra_position_udp,
+            std::string log_filename_VAM,
+            ldmmap::LDMMap *db_ptr,
+            double pos_th,
+            double speed_th,
+            double head_th,
+            bool use_gpsd,
+            VRUBasicService* vrubs) {
     bool m_retry_flag=false;
 
     VDPGPSClient vrudp(gnss_device,gnss_port);
@@ -472,7 +482,6 @@ void VAMtxThr(std::string gnss_device,
 
             std::cout << "[INFO] VAM Dissemination started!" << std::endl;
 
-            VRUBasicService VBS;
             GeoNet GN;
 
             GN.setVRUdp(&vrudp);
@@ -495,26 +504,27 @@ void VAMtxThr(std::string gnss_device,
             BTP.setGeoNet(&GN);
 
             if(log_filename_VAM!="dis" && log_filename_VAM!="") {
-                VBS.setLogfile(log_filename_VAM);
+                vrubs->setLogfile(log_filename_VAM);
             }
 
-            VBS.setBTP(&BTP);
-            VBS.setStationProperties(VRUID,StationType_pedestrian);
-            VBS.setVRUdp(&vrudp);
-            VBS.setLDM(db_ptr);
+            vrubs->setBTP(&BTP);
+            vrubs->setStationProperties(VRUID,StationType_pedestrian);
+            vrubs->setVRUdp(&vrudp);
+            vrubs->setLDM(db_ptr);
 
             // Set triggering conditions threshold
             if(pos_th != -1){
-                VBS.setPositionThreshold(pos_th);
+                vrubs->setPositionThreshold(pos_th);
             }
             if(speed_th != -1){
-                VBS.setSpeedThreshold(speed_th);
+                vrubs->setSpeedThreshold(speed_th);
             }
             if(head_th != -1){
-                VBS.setHeadingThreshold(head_th);
+                vrubs->setHeadingThreshold(head_th);
             }
 
-            VBS.startVamDissemination();
+            vrubs->startVamDissemination();
+
         } catch(const std::exception& e) {
             std::cerr << "Error in creating a new VRUdp connection: " << e.what() << std::endl;
             sleep(5);
@@ -1032,6 +1042,17 @@ int main (int argc, char *argv[]) {
     // Transmission threads creation
     std::vector<std::thread> txThreads;
 
+    DCC dcc;
+    CABasicService cabs;
+    CABasicService* cabs_ptr = &cabs;
+    CPBasicService cpbs;
+    CPBasicService* cpbs_ptr = &cpbs;
+    VRUBasicService vrubs;
+    VRUBasicService* vrubs_ptr = &vrubs;
+
+    dcc.setupDCC(500, dissem_vif, cabs_ptr, cpbs_ptr, vrubs_ptr, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, 0.01f, false);
+
+
     if(terminatorFlag) {
         goto exit_failure;
     }
@@ -1056,7 +1077,8 @@ int main (int argc, char *argv[]) {
                                         enable_reception,
                                         use_gpsd,
                                         enable_security,
-                                        force_20Hz_freq);
+                                        force_20Hz_freq,
+                                        cabs_ptr);
     }
     if(enable_VAM_dissemination) {
         txThreads.emplace_back(VAMtxThr,
@@ -1074,7 +1096,8 @@ int main (int argc, char *argv[]) {
                                         pos_th,
                                         speed_th,
                                         head_th,
-                                        use_gpsd);
+                                        use_gpsd,
+                                        vrubs_ptr);
     }
     if(enable_CPM_dissemination) {
         txThreads.emplace_back(CPMtxThr,
@@ -1093,7 +1116,8 @@ int main (int argc, char *argv[]) {
                                         check_faulty_object_acceleration,
                                         disable_cpm_speed_triggering,
                                         verbose,
-                                        enable_security);
+                                        enable_security,
+                                        cpbs_ptr);
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
@@ -1106,6 +1130,8 @@ int main (int argc, char *argv[]) {
                                enable_sensor_classification,
                                verbose);
     }
+
+    dcc.adaptiveDCC();
 
 	// Enable debug age of information, if option has been specified
     if (serialParser.getDebugAgeInfo()) serialParser.showDebugAgeInfo();

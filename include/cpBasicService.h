@@ -57,6 +57,12 @@ public:
 
     void initDissemination();
 
+    void setCheckCpmGenMs(long nextCPM) {m_cpm_gen_mutex.lock(); m_N_GenCpm=nextCPM; m_cpm_gen_mutex.unlock();};
+
+    void toffUpdateAfterDeltaUpdate(double delta);
+
+    void toffUpdateAfterTransmission();
+
     const long T_GenCpmMin_ms = 100;
     const long T_GenCpm_ms = 100;
     const long T_GenCpmMax_ms = 1000;
@@ -117,6 +123,12 @@ public:
     // OScar custom variables
     double m_acceleration_threshold;
     bool m_verbose;
+
+    double m_last_transmission = 0;
+    double m_Ton_pp = 0;
+    double m_last_delta = 0;
+
+    std::mutex m_cpm_gen_mutex;
 };
 
 

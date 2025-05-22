@@ -222,8 +222,8 @@ void VRUBasicService::startVamDissemination(){
   }
   
   //if(m_VRU_clust_state==VRU_IDLE && m_VRU_role==VRU_ROLE_ON){
-    SCHEDULE(0,initDissemination);
-    m_VRU_clust_state = VRU_ACTIVE_STANDALONE;
+  SCHEDULE(0,initDissemination);
+  m_VRU_clust_state = VRU_ACTIVE_STANDALONE;
   //}
 
   while(m_terminateFlag==false); // Disseminate VAMs
@@ -259,7 +259,7 @@ void VRUBasicService::initDissemination(){
   #pragma GCC diagnostic pop
 
   //if((m_VRU_clust_state==VRU_ACTIVE_STANDALONE || m_VRU_clust_state==VRU_ACTIVE_CLUSTER_LEADER) && m_VRU_role==VRU_ROLE_ON)
-    SCHEDULE(m_T_CheckVamGen_ms, checkVamConditions);
+  SCHEDULE(m_T_CheckVamGen_ms, checkVamConditions);
 }
 
 void VRUBasicService::checkVamConditions(){
@@ -283,11 +283,15 @@ void VRUBasicService::checkVamConditions(){
   int clockFd;
   
   // The last argument of timer_fd_create should be in microseconds
+  m_vam_gen_mutex.lock();
   if(timer_fd_create(pollfddata, clockFd, m_T_CheckVamGen_ms*1e3)<0) {
     std::cerr << "[ERROR] Fatal error! Cannot create timer for the VAM dissemination" << std::endl;
     terminateDissemination();
+    m_vam_gen_mutex.unlock();
     return;
   }
+
+  m_vam_gen_mutex.unlock();
 
   POLL_DEFINE_JUNK_VARIABLE();
   
@@ -776,6 +780,22 @@ VRUBasicService::generateAndEncodeVam(){
   // Update the VAM statistics
   m_vam_sent++;
 
+  int64_t int_tstamp = 0;
+  struct timespec tv;
+  clock_gettime (CLOCK_MONOTONIC, &tv);
+  int_tstamp = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+  m_vam_gen_mutex.lock();
+  m_last_transmission = int_tstamp;
+  uint32_t packetSize = static_cast<unsigned int>(encode_result.size());
+  auto bits = packetSize * 8;
+  auto tx_duration_ns = static_cast<long> (bits * 166.66) * NANO_TO_MILLI;
+  auto extra_delay = 68 / NANO_TO_MILLI;
+  auto total_duration = tx_duration_ns + extra_delay;
+  m_Ton_pp = total_duration / 1e6;
+  m_vam_gen_mutex.unlock();
+
+  toffUpdateAfterTransmission();
+
   // Compute the time in which the VAM has been sent
   now = computeTimestampUInt64 ()/NANO_TO_MILLI;
 
@@ -810,4 +830,44 @@ int64_t VRUBasicService::computeTimestampUInt64(){
   int_tstamp=tv.tv_sec*1e9+tv.tv_nsec;
 
   return int_tstamp;
+}
+
+void
+VRUBasicService::toffUpdateAfterDeltaUpdate(double delta)
+{
+  m_vam_gen_mutex.lock();
+  if (m_last_transmission == 0)
+  {
+    m_vam_gen_mutex.unlock();
+    return;
+  }
+  int64_t int_tstamp = 0;
+  struct timespec tv;
+  clock_gettime (CLOCK_MONOTONIC, &tv);
+  int_tstamp = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+  int64_t waiting = int_tstamp - m_last_transmission;
+  double aux = m_Ton_pp / delta * (m_T_CheckVamGen_ms - waiting) / m_T_CheckVamGen_ms + waiting;
+  aux = std::max (aux, 25.0);
+  double new_gen_time = std::min (aux, 1000.0);
+  m_vam_gen_mutex.unlock();
+  setCheckVamGenMs ((long) new_gen_time);
+  m_vam_gen_mutex.lock();
+  m_last_delta = delta;
+  m_vam_gen_mutex.unlock();
+}
+
+void
+VRUBasicService::toffUpdateAfterTransmission()
+{
+  m_vam_gen_mutex.lock();
+  if (m_last_delta == 0)
+  {
+    m_vam_gen_mutex.unlock();
+    return;
+  }
+  double aux = m_Ton_pp / m_last_delta;
+  double new_gen_time = std::max(aux, 25.0);
+  new_gen_time = std::min(new_gen_time, 1000.0);
+  m_vam_gen_mutex.unlock();
+  setCheckVamGenMs ((long) new_gen_time);
 }
