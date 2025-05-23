@@ -3,6 +3,7 @@
 <div align="center">
 <img height="179.7" src="logo/OScar_logo_v1_subtitle.png" width="511.5"/>
 </div>
+<br>
 
 Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Carlos Mateo RISMA CARLETTI [carlosrisma@gmail.com], Diego GASCO [diego.gasco99@gmail.com], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it]
 
