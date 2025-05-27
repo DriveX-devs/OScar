@@ -51,6 +51,8 @@
 
 #define DEFAULT_JSON_OVER_TCP_PORT 49000
 
+#define MAXIMUM_TIME_WINDOW_DCC 2000
+
 // Global atomic flag to terminate all the threads in case of errors
 std::atomic<bool> terminatorFlag;
 
@@ -648,6 +650,11 @@ int main (int argc, char *argv[]) {
     // instead of reading from a real serial device, when the serial parser is used to get positioning+IMU data via NMEA+UBX
     bool use_json_trace = false;
 
+    bool enable_DCC = false;
+    int time_window_DCC = 0;
+    std::string modality_DCC = "";
+    bool verbose_DCC = false;
+
 	// Parse the command line options with the TCLAP library
 	try {
 		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.0");
@@ -791,6 +798,27 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg UseJsonTrace("","use-tracenx-json-trace","[Considered only if -g is not specified] Instead of reading from a real serial device, when the serial parser is used, use a JSON pre-recorded trace for the provision of positioning data. The path to the .json file should be specified after -s as if it was the path to a serial device. OScar supports JSON trace files recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X).",false);
         cmd.add(UseJsonTrace);
 
+        TCLAP::SwitchArg EnableDCC("","enable-DCC","Activate the Decentralized Congestion Control (DCC) for the CAM, VAM and CPM messages. Remember to specify also the other DCC arguments to guarantee a correct usage of this feature.", false);
+        cmd.add(EnableDCC);
+        
+        std::string helpText =
+            "Time window for DCC Channel State check (Channel Busy Ratio). "
+            "It must be a strictly positive integer value, expressed in milliseconds, "
+            "and it has to be lower than " + std::to_string(MAXIMUM_TIME_WINDOW_DCC) + "ms.";
+
+        TCLAP::ValueArg<int> TimeWindowDCC(
+            "", "time-window-DCC",
+            helpText,
+            false, 0, "integer");
+
+        cmd.add(TimeWindowDCC);
+
+        TCLAP::ValueArg<std::string> ModalityDCC("","modality-DCC","Select the DCC modality, it could be Reactive or Adaptive. The strings to be used to indicate the modality are: ['reactive', 'adaptive'].", false, "", "string");
+        cmd.add(ModalityDCC);
+
+        TCLAP::SwitchArg VerboseDCC("","verbose-DCC","If set to 1, this argument provides a verbose description of the Channel State during the DCC checks.", false);
+        cmd.add(VerboseDCC);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -869,6 +897,11 @@ int main (int argc, char *argv[]) {
 
         use_json_trace = UseJsonTrace.getValue();
 
+        enable_DCC = EnableDCC.getValue();
+        time_window_DCC = TimeWindowDCC.getValue();
+        modality_DCC = ModalityDCC.getValue();
+        verbose_DCC = VerboseDCC.getValue();
+
         if(use_gpsd==true && use_json_trace==true) {
             std::cerr << "[ERROR] --use-tracenx-json-trace can only be used when --use-gpsd is not specified and the serial parser is used." << std::endl;
             return 1;
@@ -882,6 +915,23 @@ int main (int argc, char *argv[]) {
 
         if(enable_reception==true && enable_hmi==false) {
             std::cerr << "[WARN] Enabling reception without HMI is not recommended! However, it is possible and everything should just work." << std::endl;
+        }
+
+        if (enable_DCC == true)
+        {
+            if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC)
+            {
+                std::cerr << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0 and lower than " << MAXIMUM_TIME_WINDOW_DCC <<"ms, please check the helper." << std::endl;
+                return 1;
+            }
+
+            if (modality_DCC != "reactive" && modality_DCC != "adaptive")
+            {
+                std::cerr << "[ERROR] Modality for DCC was not correctly set. Remember that it must be a string of value 'reactive' or 'adaptive', please check the helper." << std::endl;
+                return 1;
+            }
+
+            std::cout << "[INFO] DCC enabled correctly in " << modality_DCC << " modality and with a time window of " << std::to_string(time_window_DCC) << std::endl;
         }
 
 		std::cout << "[INFO] CAM/VAM dissemination interface: " << dissem_vif << std::endl;
@@ -1042,7 +1092,6 @@ int main (int argc, char *argv[]) {
     // Transmission threads creation
     std::vector<std::thread> txThreads;
 
-    DCC dcc;
     CABasicService cabs;
     CABasicService* cabs_ptr = &cabs;
     CPBasicService cpbs;
@@ -1050,8 +1099,21 @@ int main (int argc, char *argv[]) {
     VRUBasicService vrubs;
     VRUBasicService* vrubs_ptr = &vrubs;
 
-    dcc.setupDCC(500, dissem_vif, cabs_ptr, cpbs_ptr, vrubs_ptr, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, 0.01f, false);
+    if (enable_DCC)
+    {
+        DCC dcc;
+        dcc.setupDCC(time_window_DCC, dissem_vif, cabs_ptr, cpbs_ptr, vrubs_ptr, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, 0.01f, verbose_DCC);
+        if (modality_DCC == "reactive")
+        {
+            dcc.reactiveDCC();
+        }
+        else
+        {
+            dcc.adaptiveDCC();
+        }
+    }
 
+    
 
     if(terminatorFlag) {
         goto exit_failure;
@@ -1130,8 +1192,6 @@ int main (int argc, char *argv[]) {
                                enable_sensor_classification,
                                verbose);
     }
-
-    dcc.adaptiveDCC();
 
 	// Enable debug age of information, if option has been specified
     if (serialParser.getDebugAgeInfo()) serialParser.showDebugAgeInfo();
