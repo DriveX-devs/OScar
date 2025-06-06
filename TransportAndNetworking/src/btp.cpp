@@ -64,11 +64,17 @@ btp::decodeBTP(GNDataIndication_t dataIndication, BTPDataIndication_t* btpDataIn
 
 	btpDataIndication->BTPType = dataIndication.upperProtocol;
 
-	if((header.getDestPort ()!= CA_PORT) && (header.getDestPort ()!= DEN_PORT) && (header.getDestPort () != VA_PORT))
+	if((header.getDestPort ()!= CA_PORT) && (header.getDestPort ()!= DEN_PORT) && (header.getDestPort () != VA_PORT) && (header.getDestPort () != CP_PORT))
 	{
 		std::cerr << "[ERROR] [Decoder] BTP port not supported" << std::endl;
 		return BTP_ERROR;
 	}
+
+    if(header.getDestPort () == CP_PORT)
+    {
+        std::cerr << "[ERROR] [Decoder] Reception of CPMs is not yet fully supported" << std::endl;
+        return BTP_ERROR;
+    }
 
 	btpDataIndication->destPort = header.getDestPort ();
 

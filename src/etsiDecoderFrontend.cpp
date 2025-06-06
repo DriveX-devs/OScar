@@ -132,8 +132,8 @@ namespace etsiDecoder {
                 }
                 else{
                     decoded_data.decoded_cpm = decoded_cpm;
-                    free(decoded_);
-                    delete[] gndataIndication.data;
+                    if(decoded_) free(decoded_);
+                    // delete[] gndataIndication.data;
                     return ETSI_DECODER_OK;
                 }
 			} else if(btpDataIndication.destPort == VA_PORT){
