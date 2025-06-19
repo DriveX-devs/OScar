@@ -815,6 +815,7 @@ int main (int argc, char *argv[]) {
     bool use_json_trace = false;
 
     std::string veh_data_sock_addr = "dis"; // Address for the vehicle data socket, used to send the vehicle data to a remote server (e.g., for data analysis purposes)
+    double veh_data_periodicity_s = 1.0; // Periodicity of the vehicle data transmission, in seconds
 
 	// Parse the command line options with the TCLAP library
 	try {
@@ -962,6 +963,9 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<std::string> SendVehdataSocket("","send-vehdata-socket","Send vehicle data to external applications via a dedicated UDP socket. After this option, the IP and port of the external application should be specified in the format <IP>:<port>.",false,"dis","string");
         cmd.add(SendVehdataSocket);
 
+        TCLAP::ValueArg<double> SendVehdataPeriod("","send-vehdata-period","Periodicity, in seconds, for sending the vehicle data to external applications. Can be specified only if --send-vehdata-socket has been specified too. Default: 1 second.",false,1.0,"double");
+        cmd.add(SendVehdataPeriod);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -1009,11 +1013,17 @@ int main (int argc, char *argv[]) {
 		vizOpts.vehviz_nodejs_addr=VV_NodejsAddrArg.getValue();
 
         veh_data_sock_addr=SendVehdataSocket.getValue();
+        veh_data_periodicity_s=SendVehdataPeriod.getValue();
 
 		if(vizOpts.vehviz_update_interval_sec<0.05 || vizOpts.vehviz_update_interval_sec>1) {
 			std::cerr << "[ERROR] The Vehicle Visualizer update interval cannot be lower than 0.05 s or grater than 1 second." << std::endl;
 			return 1;
 		}
+
+        if(veh_data_periodicity_s<0.01 || veh_data_periodicity_s>60.0) {
+            std::cerr << "[ERROR] The vehicle data transmission periodicity cannot be lower than 100 ms or greater than 60 seconds." << std::endl;
+            return 1;
+        }
 
         // Set the ego station type -> if CAMs are enabled, set it to passenger car, otherwise to pedestrian
         if(enable_CAM_dissemination) {
@@ -1294,7 +1304,7 @@ int main (int argc, char *argv[]) {
         // If the user has specified a socket address for the vehicle data transmission, start the thread
         txThreads.emplace_back(vehdataTxThread,
                                veh_data_sock_addr,
-                               1.0,
+                               veh_data_periodicity_s,
                                gnss_device,
                                gnss_port,
                                use_gpsd);
