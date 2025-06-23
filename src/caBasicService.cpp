@@ -292,11 +292,14 @@ CABasicService::checkCamConditions()
 
   if(!m_force_20Hz_freq) {
       // The last argument of timer_fd_create should be in microseconds
+      m_cam_gen_mutex.lock();
       if (timer_fd_create(pollfddata, clockFd, m_T_CheckCamGen_ms * 1e3) < 0) {
           std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
           terminateDissemination();
+          m_cam_gen_mutex.unlock();
           return;
       }
+      m_cam_gen_mutex.unlock();
   } else {
       // Force 20 Hz CAM transmission
       if (timer_fd_create(pollfddata, clockFd, 50 * 1e3) < 0) {
@@ -749,7 +752,7 @@ CABasicService::generateAndEncodeCam()
           << std::endl;
         return CAM_ASN1_UPER_ENC_ERROR;
     }
-
+    
     /* Initialize parameters */
     BTPDataRequest_t dataRequest = {};
     dataRequest.BTPType = BTP_B;
@@ -769,6 +772,22 @@ CABasicService::generateAndEncodeCam()
     m_btp->sendBTP(dataRequest);
     /* Update the CAM statistics */
     m_cam_sent++;
+
+    int64_t int_tstamp = 0;
+    struct timespec tv;
+    clock_gettime (CLOCK_MONOTONIC, &tv);
+    int_tstamp = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    m_cam_gen_mutex.lock();
+    m_last_transmission = int_tstamp;
+    uint32_t packetSize = static_cast<unsigned int>(encode_result.size());
+    auto bits = packetSize * 8;
+    auto tx_duration_ns = static_cast<long> (bits * 166.66) * 1e9;
+    auto extra_delay = 68 / 1e9;
+    auto total_duration = tx_duration_ns + extra_delay;
+    m_Ton_pp = total_duration / 1e6;
+    m_cam_gen_mutex.unlock();
+
+    toffUpdateAfterTransmission();
 
     /* Store the time in which the last CAM (i.e. this one) has been generated and successfully sent */
     now=computeTimestampUInt64()/NANO_TO_MILLI;
@@ -807,4 +826,46 @@ CABasicService::computeTimestampUInt64()
   int_tstamp=tv.tv_sec*1e9+tv.tv_nsec;
 
   return int_tstamp;
+}
+
+void
+CABasicService::toffUpdateAfterDeltaUpdate(double delta)
+{
+  m_cam_gen_mutex.lock();
+  if (m_last_transmission == 0)
+  {
+    m_cam_gen_mutex.unlock();
+    return;
+  }
+
+  int64_t int_tstamp = 0;
+  struct timespec tv;
+  clock_gettime (CLOCK_MONOTONIC, &tv);
+  int_tstamp = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+  int64_t waiting = int_tstamp - m_last_transmission;
+  double aux = m_Ton_pp / delta * (m_T_CheckCamGen_ms - waiting) / m_T_CheckCamGen_ms + waiting;
+  aux = std::max (aux, 25.0);
+  double new_gen_time = std::min (aux, 1000.0);
+  m_cam_gen_mutex.unlock();
+  setCheckCamGenMs ((long) new_gen_time);
+  m_cam_gen_mutex.lock();
+  m_last_delta = delta;
+  m_cam_gen_mutex.unlock();
+}
+
+void
+CABasicService::toffUpdateAfterTransmission()
+{
+  m_cam_gen_mutex.lock();
+  if (m_last_delta == 0)
+  {
+    m_cam_gen_mutex.unlock();
+    return;
+  }
+
+  double aux = m_Ton_pp / m_last_delta;
+  double new_gen_time = std::max(aux, 25.0);
+  new_gen_time = std::min(new_gen_time, 1000.0);
+  m_cam_gen_mutex.unlock();
+  setCheckCamGenMs ((long) new_gen_time);
 }

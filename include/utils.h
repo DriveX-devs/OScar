@@ -9,6 +9,9 @@
 #include <sys/timerfd.h>
 #include <string>
 #include <unistd.h>
+#include <shared_mutex>
+#include <chrono>
+#include <thread>
 
 #define POLL_DEFINE_JUNK_VARIABLE() long int junk
 #define POLL_CLEAR_EVENT(clockFd) junk=read(clockFd,&junk,sizeof(junk))
@@ -19,6 +22,20 @@ typedef struct {
     int nl80211_id;
     bool sock_valid;
 } nl_sock_info_t;
+
+typedef struct CBRUpdates {
+    bool firstTime = true;
+    bool verbose;
+    unsigned long long startActiveTime;
+    unsigned long long startBusyTime;
+    unsigned long long startReceiveTime;
+    unsigned long long startTransmitTime;
+    float currentCBR = -1.0f;
+} CBRUpdates;
+
+extern CBRUpdates cbrData;
+
+extern std::mutex cbrMutex;
 
 uint64_t get_timestamp_us(void);
 uint64_t get_timestamp_ns(void);
@@ -41,4 +58,9 @@ nl_sock_info_t open_nl_socket(std::string interface_name);
 void free_nl_socket(nl_sock_info_t nl_sock_info);
 double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info);
 
+void setup_cbr_structure(bool verbose);
+void start_reading_cbr(nl_sock_info_t m_nl_sock_info);
+void read_cbr_from_netlink(nl_sock_info_t nl_sock_info);
+float get_current_cbr();
+void setNewTxPower(double txPower, std::string dissemination_interface);
 #endif // SLDM_UTILS_H

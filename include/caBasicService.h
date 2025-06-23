@@ -63,6 +63,11 @@ public:
 
   uint64_t terminateDissemination();
 
+  void setCheckCamGenMs(long nextCAM) {m_cam_gen_mutex.lock(); m_T_CheckCamGen_ms = nextCAM; m_cam_gen_mutex.unlock();};
+
+  void toffUpdateAfterDeltaUpdate(double delta);
+  void toffUpdateAfterTransmission();
+
   void setOwnPrivateIP(std::string own_private_IP) {m_own_private_IP=own_private_IP;}
   void setOwnPublicIP(std::string own_public_IP) {m_own_public_IP=own_public_IP;}
   void disableOwnPrivateIP() {m_own_private_IP="0.0.0.0";}
@@ -135,6 +140,12 @@ private:
   std::string m_own_public_IP;
 
   bool m_force_20Hz_freq=false;
+
+  int64_t m_last_transmission = 0;
+  double m_Ton_pp = 0;
+  double m_last_delta = 0;
+
+  std::mutex m_cam_gen_mutex;
 };
 
 #endif // CABASICSERVICE_H
