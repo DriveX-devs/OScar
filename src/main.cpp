@@ -650,6 +650,9 @@ int main (int argc, char *argv[]) {
     // instead of reading from a real serial device, when the serial parser is used to get positioning+IMU data via NMEA+UBX
     bool use_json_trace = false;
 
+    std::string veh_data_sock_addr = "dis"; // Address for the vehicle data socket, used to send the vehicle data to a remote server (e.g., for data analysis purposes)
+    double veh_data_periodicity_s = 1.0; // Periodicity of the vehicle data transmission, in seconds
+
     bool enable_DCC = false;
     int time_window_DCC = 0;
     std::string modality_DCC = "";
@@ -797,6 +800,12 @@ int main (int argc, char *argv[]) {
 
         TCLAP::SwitchArg UseJsonTrace("","use-tracenx-json-trace","[Considered only if -g is not specified] Instead of reading from a real serial device, when the serial parser is used, use a JSON pre-recorded trace for the provision of positioning data. The path to the .json file should be specified after -s as if it was the path to a serial device. OScar supports JSON trace files recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X).",false);
         cmd.add(UseJsonTrace);
+
+        TCLAP::ValueArg<std::string> SendVehdataSocket("","send-vehdata-socket","Send vehicle data to external applications via a dedicated UDP socket. After this option, the IP and port of the external application should be specified in the format <IP>:<port>.",false,"dis","string");
+        cmd.add(SendVehdataSocket);
+
+        TCLAP::ValueArg<double> SendVehdataPeriod("","send-vehdata-period","Periodicity, in seconds, for sending the vehicle data to external applications. Can be specified only if --send-vehdata-socket has been specified too. Default: 1 second.",false,1.0,"double");
+        cmd.add(SendVehdataPeriod);
 
         TCLAP::SwitchArg EnableDCC("","enable-DCC","Activate the Decentralized Congestion Control (DCC) for the CAM, VAM and CPM messages. Remember to specify also the other DCC arguments to guarantee a correct usage of this feature.", false);
         cmd.add(EnableDCC);
