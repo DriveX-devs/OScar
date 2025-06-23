@@ -31,6 +31,9 @@
 #include <net/ethernet.h>
 #include <linux/if_packet.h>
 
+// Linux net include for the vehicle data tx thread
+#include <netdb.h>
+
 #include "JSONserver.h"
 #include "vehicle-visualizer.h"
 
@@ -573,6 +576,179 @@ void radarReaderThr(std::string gnss_device,
     terminatorFlag=true;
 }
 
+void vehdataTxThread(std::string udp_sock_addr,
+              double periodicity_s,
+              std::string gnss_device,
+             int gnss_port,
+             bool use_gpsd) {
+    VDPGPSClient vdpgpsc(gnss_device,gnss_port);
+    vdpgpsc.selectGPSD(use_gpsd);
+    if(!use_gpsd) {
+        vdpgpsc.setSerialParser(&serialParser);
+    }
+
+    // Open UDP socket
+    size_t delimiter_pos=udp_sock_addr.find(":");
+    std::string dest_ip=udp_sock_addr.substr(0, delimiter_pos);
+    udp_sock_addr.erase(0,delimiter_pos+1);
+    long dest_port=strtol(udp_sock_addr.c_str(),nullptr,0);
+
+    if(udp_sock_addr=="dis") {
+        std::cerr << "[ERROR] Fatal error! Cannot start the vehicle data transmission thread: no destination address specified!" << std::endl;
+        terminatorFlag = true;
+        return;
+    }
+
+    int udp_sockfd=socket(AF_INET,SOCK_DGRAM,0);
+
+    if(udp_sockfd<0) {
+        std::cerr << "[ERROR] Fatal error! Cannot create UDP socket for the vehicle data transmission thread!" << std::endl;
+        terminatorFlag = true;
+        return;
+    }
+
+    // Generic size of a struct sockaddr_in (used multiple times below)
+    socklen_t addrlen = sizeof(struct sockaddr_in);
+
+    struct sockaddr_in bind_address;
+    memset(&bind_address,0,addrlen);
+    bind_address.sin_family = AF_INET;
+    // By default, do not bind to any specific address/interface
+    bind_address.sin_addr.s_addr = INADDR_ANY;
+    bind_address.sin_port = htons(0);
+
+    if(bind(udp_sockfd,(struct sockaddr*) &bind_address,addrlen)<0) {
+        std::cerr << "[ERROR] Fatal error! Cannot bind UDP socket for the vehicle data transmission thread!" << std::endl;
+        terminatorFlag = true;
+        close(udp_sockfd);
+        return;
+    }
+
+    // "connect" the UDP socket (i.e., set the default destination address and port)
+    struct sockaddr_in dest_address;
+    memset(&dest_address,0,addrlen);
+    dest_address.sin_family = AF_INET;
+
+    if(dest_ip=="0.0.0.0" || inet_pton(AF_INET,dest_ip.c_str(),&dest_address.sin_addr)<1) {
+        std::cout << "[ERROR] " << dest_ip << " does not appear to be a valid destination IP address for the UDP packet. Attempting address resolution..." << std::endl;
+        // Attempt to resolve host name if inet_pton fails (maybe the user specified a name and not an IP address?)
+        if(dest_ip!="0.0.0.0") {
+            struct hostent *hostaddrs;
+            struct in_addr **addr_list;
+
+            hostaddrs=gethostbyname(dest_ip.c_str());
+
+            if(hostaddrs==nullptr) {
+                herror("[ERROR] Address resolution failed for UDP destination address. Details");
+                terminatorFlag = true;
+                close(udp_sockfd);
+                return;
+            }
+
+            addr_list=(struct in_addr **)hostaddrs->h_addr_list;
+
+            // Gather the first address corresponding to the given name
+            if(addr_list[0]==nullptr) {
+                std::cerr << "[ERROR] Address resolution failed for " << dest_ip << ". No IP addresses found for given host name." << std::endl;
+                terminatorFlag = true;
+                close(udp_sockfd);
+                return;
+            } else {
+                dest_address.sin_addr=*addr_list[0];
+            }
+        } else {
+            std::cerr << "[ERROR] Generic address resolution error for " << dest_ip << "." << std::endl;
+            terminatorFlag = true;
+            close(udp_sockfd);
+            return;
+        }
+    }
+
+    dest_address.sin_port = htons(dest_port);
+
+    if(connect(udp_sockfd,(struct sockaddr*) &dest_address,addrlen)<0) {
+        std::cerr << "[ERROR] Fatal error! Cannot set destination address for UDP socket for the vehicle data transmission thread!" << std::endl;
+        terminatorFlag = true;
+        close(udp_sockfd);
+        return;
+    }
+
+    // Create a new timer
+    struct pollfd pollfddata;
+    int clockFd;
+
+    std::cout << "[INFO] Vehicle data transmission thread started. The vehicle data will be sent to " << dest_ip << ":" << dest_port <<  " every " << periodicity_s << " seconds." << std::endl;
+
+    if(timer_fd_create(pollfddata, clockFd, periodicity_s*1e6)<0) {
+        std::cerr << "[ERROR] Fatal error! Cannot create timer for the vehicle data transmission thread!" << std::endl;
+        terminatorFlag = true;
+        return;
+    }
+
+    POLL_DEFINE_JUNK_VARIABLE();
+
+    while(terminatorFlag == false) {
+        if(poll(&pollfddata,1,0)>0) {
+            POLL_CLEAR_EVENT(clockFd);
+
+            auto vehdata = vdpgpsc.getCAMMandatoryData();
+            double lat = vehdata.latitude/1e7; // [deg]
+            double lon = vehdata.longitude/1e7; // [deg]
+            double altitude = vehdata.altitude.getValue()/100.0; // [m]
+            double speed = vehdata.speed.getValue()/100.0; // [m/s]
+            double heading = vehdata.heading.getValue()/10.0; // [deg]
+            double acceleration = vehdata.longAcceleration.getValue()/10.0; // [m/s^2]
+            double yawRate = vehdata.yawRate.getValue()/100.0; // [deg/s]
+
+            // Check if at least the position is available; if not, do not send any message and iterate again
+            time_t seconds;
+            uint64_t microseconds;
+            struct timespec now;
+            double rt_tstamp_ms;
+
+            if(clock_gettime(CLOCK_REALTIME, &now) == -1) {
+                perror("[WARN] Cannot get the current microseconds UTC timestamp");
+                rt_tstamp_ms = 0;
+            }
+
+            seconds=now.tv_sec;
+            microseconds=round(now.tv_nsec/1e3);
+
+            // milliseconds, due to the rounding operation, shall not exceed 999999
+            if(microseconds > 999999) {
+                seconds++;
+                microseconds=0;
+            }
+
+            rt_tstamp_ms = (seconds*1000000.0+microseconds)/1000.0;
+
+            if(lat>=-90.0 && lat<=90.0 && lon>=-180.0 && lon<=180.0) {
+                // Save all the gathered data in a human-readable string to be sent via UDP socket
+                std::string veh_data = "timestamp_monotonic=" + std::to_string(static_cast<double>(get_timestamp_us())/1000.0) +
+                                       ",timestamp_realtime=" + std::to_string(rt_tstamp_ms) +
+                                       ",lat=" + std::to_string(lat) +
+                                       ",lon=" + std::to_string(lon) +
+                                       ",speed=" + std::to_string(speed) +
+                                       ",heading=" + std::to_string(heading) +
+                                       ",acceleration=" + std::to_string(acceleration) +
+                                       ",yawRate=" + std::to_string(yawRate);
+
+                // Send the data via UDP socket
+                ssize_t sent_bytes = send(udp_sockfd, veh_data.c_str(), veh_data.size(), 0);
+                if(sent_bytes < 0) {
+                    std::cerr << "[WARN] Cannot send vehicle data via UDP socket. Error: " << (errno == 0 ? "None" : strerror(errno)) << std::endl;
+                }
+            }
+        }
+    }
+
+    if(terminatorFlag == true) {
+        std::cerr << "[WARN] Vehicle data transmission thread terminated due to error." << std::endl;
+    }
+
+    close(udp_sockfd);
+}
+
 
 int main (int argc, char *argv[]) {
 	std::string dissem_vif = "wlan0";
@@ -660,7 +836,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.0");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.1");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -874,10 +1050,18 @@ int main (int argc, char *argv[]) {
 		vizOpts.vehviz_update_interval_sec=VV_UpdateIntervalArg.getValue();
 		vizOpts.vehviz_nodejs_addr=VV_NodejsAddrArg.getValue();
 
+        veh_data_sock_addr=SendVehdataSocket.getValue();
+        veh_data_periodicity_s=SendVehdataPeriod.getValue();
+
 		if(vizOpts.vehviz_update_interval_sec<0.05 || vizOpts.vehviz_update_interval_sec>1) {
 			std::cerr << "[ERROR] The Vehicle Visualizer update interval cannot be lower than 0.05 s or grater than 1 second." << std::endl;
 			return 1;
 		}
+
+        if(veh_data_periodicity_s<0.01 || veh_data_periodicity_s>60.0) {
+            std::cerr << "[ERROR] The vehicle data transmission periodicity cannot be lower than 100 ms or greater than 60 seconds." << std::endl;
+            return 1;
+        }
 
         // Set the ego station type -> if CAMs are enabled, set it to passenger car, otherwise to pedestrian
         if(enable_CAM_dissemination) {
@@ -1200,6 +1384,16 @@ int main (int argc, char *argv[]) {
                                use_gpsd,
                                enable_sensor_classification,
                                verbose);
+    }
+
+    if(veh_data_sock_addr!="dis") {
+        // If the user has specified a socket address for the vehicle data transmission, start the thread
+        txThreads.emplace_back(vehdataTxThread,
+                               veh_data_sock_addr,
+                               veh_data_periodicity_s,
+                               gnss_device,
+                               gnss_port,
+                               use_gpsd);
     }
 
 	// Enable debug age of information, if option has been specified
