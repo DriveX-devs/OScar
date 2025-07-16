@@ -197,3 +197,5 @@ logread
 This project uses internally the _TCLAP - Templatized Command Line Argument Parser_ library (v1.2), available [here](https://tclap.sourceforge.net/), and included in the `tclap` directory.
 
 It also includes a porting and C adaptation of a part of [_GeographicLib_](https://geographiclib.sourceforge.io/) for the computation of Transverse Mercator projections, included in the `geographiclib-port` directory.
+
+Finally, it uses the INIH library available [here](https://github.com/benhoyt/inih), included in the `iniLibraryC` and `iniReader` directories, for reading INI configuration files.

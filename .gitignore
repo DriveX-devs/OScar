@@ -17,3 +17,9 @@ log_3000
 
 # Python venv
 venv
+
+# Any CAN database file
+*.dbc
+
+# CAN db parsing test INI file
+PCAN.ini

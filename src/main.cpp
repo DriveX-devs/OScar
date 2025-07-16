@@ -21,6 +21,8 @@
 #include "SocketClient.h"
 // Sensor reader
 #include "basicSensorReader.h"
+// CAN database reader
+#include "dbcReader.h"
 
 // Linux net includes
 #include <sys/ioctl.h>
@@ -549,7 +551,9 @@ void radarReaderThr(std::string gnss_device,
                     uint64_t vehicleID,
                     bool use_gpsd,
                     bool enable_sensor_classification,
-                    bool verbose) {
+                    bool verbose,
+                    CAN_SENSOR_SIGNAL_INFO_t can_db_sensor_info,
+                    std::vector<uint32_t> can_db_id_info) {
     bool m_retry_flag=false;
 
     do {
@@ -563,6 +567,7 @@ void radarReaderThr(std::string gnss_device,
 
             sensorgpsc.openConnection();
             BasicSensorReader sensorReader(can_device, db_ptr, &sensorgpsc, vehicleID);
+            sensorReader.setCANdbInfo(can_db_sensor_info,can_db_id_info);
             sensorReader.setEnableClassification(enable_sensor_classification);
             sensorReader.setVerbose(verbose);
             sensorReader.startReader();
@@ -759,6 +764,12 @@ int main (int argc, char *argv[]) {
 	std::string log_filename_rcv = "dis";
     std::string log_filename_CPM = "cps_dis";
 
+    // CAN database file name for CPM transmission
+    std::string can_db = "";
+
+    // INI file for configuring the CAN database parsing (i.e., which CAN messages carry information about sensed objects and which are the names of the related signals)
+    std::string can_db_param_ini = "dis";
+
     // gpsd options
 	std::string gnss_device = "localhost";
 	long gnss_port = 3000; // Using 3000 as default port, in our case
@@ -836,7 +847,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.2-development");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.3-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -971,6 +982,16 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg EnableVerbose("9","vv","Enable verbose output.",false);
         cmd.add(EnableVerbose);
 
+        TCLAP::ValueArg<std::string> CANdb("","can-db","CAN database file for CPM dissemination. A CAN db telling OSCar how to parse data about sensed objects is mandatory for the dissemination of CPMs.",false,"","string");
+        cmd.add(CANdb);
+
+        TCLAP::ValueArg<std::string> CANdbParamINI("","can-db-param-file","INI file for specifying which CAN messages should be considered for the parsing of the sensor data for CPM dissemination, and the names of the CAN signals corresponding to object classification (classification), "
+                                                                  "angle between the sensor and the left-most edge of the object (phi_left), angle between the sensor and the right-most edge of the object (phi_right), distance between sensor and object (distance). "
+                                                                  "The name of the CAN messages containing such signals (sensor_message_regex in the INI file) should be specified through a regular expression, in case more than one message should be parsed (e.g., if different CAN frames carry information about "
+                                                                  "different sensed objects at the same time). In any case, OScar assumes that all the CAN messages matching the regular expression contain the same signals related to detected objects. "
+                                                                  "If this option is not specified, default values will be used, i.e., a CAN message name regex equal to \"^Video_Object_\\d{2}_B$\", and signal names set to, respectively, \"classification\", \"phi_left\", \"phi_right\" and \"dx_v\".",false,"dis","string");
+        cmd.add(CANdbParamINI);
+
         TCLAP::ValueArg<int> ShowDebugAgeInfo("","show-live-data","[Considered only if -g is not specified] When activated, OScar will show, while it is running, the live data obtained from the GNSS system, together with the age of each piece of information (how old it is with respect to when it was last retrieved). After the option, an update interval in milliseconds should be specified. This will be the frequency at which the live data will be displayed.", false, 0, "integer");
         cmd.add(ShowDebugAgeInfo);
 
@@ -1013,6 +1034,9 @@ int main (int argc, char *argv[]) {
 		log_filename_VAM=LogfileVAM.getValue();
 		log_filename_rcv=LogfileReception.getValue();
         log_filename_CPM=LogfileCPM.getValue();
+
+        can_db=CANdb.getValue();
+        can_db_param_ini=CANdbParamINI.getValue();
 
 		gnss_device=GNSSDevArg.getValue();
 		gnss_port=GNSSPortArg.getValue();
@@ -1095,6 +1119,22 @@ int main (int argc, char *argv[]) {
         modality_DCC = ModalityDCC.getValue();
         verbose_DCC = VerboseDCC.getValue();
 
+        if(can_db=="") {
+            if(can_db_param_ini!="dis" && can_db_param_ini!="") {
+                std::cerr << "[ERROR] Specified an INI file for CAN database parsing but no .dbc file was specified with --can-db!" << std::endl;
+                return 1;
+            }
+        }
+
+        if(enable_CPM_dissemination==true && can_db=="") {
+            std::cerr << "[ERROR] A CAN database file must be specified with --can-db when CPM dissemination is enabled." << std::endl;
+            return 1;
+        }
+
+        if(enable_CPM_dissemination==false && can_db!="") {
+            std::cerr << "[WARN] A CAN databae file was specified even if CPM dissemination is disabled. The --can-db option will be ignored." << std::endl;
+        }
+
         if(use_gpsd==true && use_json_trace==true) {
             std::cerr << "[ERROR] --use-tracenx-json-trace can only be used when --use-gpsd is not specified and the serial parser is used." << std::endl;
             return 1;
@@ -1145,6 +1185,54 @@ int main (int argc, char *argv[]) {
 
 		return 1;
 	}
+
+    // Read the CAN db if CPM dissemination is enabled
+    std::vector<uint32_t> CPM_CAN_ids;
+    CAN_SENSOR_SIGNAL_INFO_t CPM_CAN_signals;
+    if(can_db!="" && enable_CPM_dissemination==true) {
+        dbcReader dbr;
+
+        if(can_db_param_ini!="dis") {
+            if(!dbr.setUserParamsIni(can_db_param_ini)) {
+                std::cerr << "[ERROR] Cannot open the INI file with the parameters for parsing the CAN database. CPM dissemination will be disabled." << std::endl;
+                enable_CPM_dissemination = false;
+                can_device = "none";
+            }
+        }
+
+        // If no error occurred, the CPM dissemination should be still enabled at this point
+        if(enable_CPM_dissemination==true) {
+            if(!dbr.parseDBC(can_db)) {
+                std::cerr << "[ERROR] Cannot parse the specified CAN database file: " << can_db << ". CPM dissemination will be disabled." << std::endl;
+                enable_CPM_dissemination = false;
+                can_device = "none";
+            } else {
+                bool error = false;
+                CPM_CAN_ids = dbr.getSensorObjectCANIDs(error);
+                if (error) {
+                    std::cerr
+                            << "[ERROR] Cannot get the required CAN message IDs from the specified CAN database file: "
+                            << can_db << ". CPM dissemination will be disabled." << std::endl;
+                    enable_CPM_dissemination = false;
+                    can_device = "none";
+                } else {
+                    CPM_CAN_signals = dbr.getSignalInfoSensorObject(error);
+                    if (error) {
+                        std::cerr
+                                << "[ERROR] Cannot get the required signal information from the specified CAN database file: "
+                                << can_db << ". CPM dissemination will be disabled." << std::endl;
+                        enable_CPM_dissemination = false;
+                        can_device = "none";
+                    } else {
+                        std::cout << "[INFO] CAN database successfully parsed." << std::endl;
+                        if (verbose) {
+                            dbr.printCANdb(error);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 	/*
     if(use_gpsd==false) {
@@ -1383,7 +1471,9 @@ int main (int argc, char *argv[]) {
                                vehicleID,
                                use_gpsd,
                                enable_sensor_classification,
-                               verbose);
+                               verbose,
+                               CPM_CAN_signals,
+                               CPM_CAN_ids);
     }
 
     if(veh_data_sock_addr!="dis") {

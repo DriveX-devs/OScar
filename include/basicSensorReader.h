@@ -5,6 +5,7 @@
 #include <thread>
 #include "LDMmap.h"
 #include "gpsc.h"
+#include "dbcReader.h"
 
 class BasicSensorReader
 {
@@ -23,7 +24,8 @@ public:
         m_gpsc_ptr = gpsc;
         m_stationID = vehicleID;
         m_enable_classification = false;
-        m_verbose = false;}
+        m_verbose = false;
+        m_can_db_info_set = false;}
     bool startReader();
     bool stopReader();
     void setLDMmap(ldmmap::LDMMap* ldm){m_LDM = ldm;}
@@ -36,6 +38,7 @@ public:
     int getStationID(){return m_stationID;}
     void setEnableClassification(bool enable){m_enable_classification = enable;}
     void setVerbose(bool verbose){m_verbose = verbose;}
+    void setCANdbInfo(CAN_SENSOR_SIGNAL_INFO_t can_db_sensor_info, std::vector<uint32_t> can_db_id_info) {m_can_db_sensor_info = can_db_sensor_info; m_can_db_id_info = can_db_id_info; m_can_db_info_set = true;}
 
 private:
 
@@ -53,6 +56,10 @@ private:
 
     bool m_enable_classification = false;
     bool m_verbose = false;
+
+    CAN_SENSOR_SIGNAL_INFO_t m_can_db_sensor_info;
+    std::vector<uint32_t> m_can_db_id_info;
+    bool m_can_db_info_set = false;
 
     void reader_thread();
 };
