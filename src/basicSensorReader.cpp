@@ -57,18 +57,6 @@ BasicSensorReader::readerLoop() {
         if(radar_msg.can_dlc!=8) {
             fprintf(stderr,"Warning: expected DLC=8, but received DLC=%u\n)\n",radar_msg.can_dlc);
         } else {
-            // Old "hard-coded" version - kept here only for reference
-            /*
-            double phi_left = ((radar_msg.data[0] << 8) | (radar_msg.data[1])) & 0x07FF;
-            phi_left = phi_left * VO_0x_phi_left_FACTOR + VO_0x_phi_left_OFFSET;
-            uint8_t radar_class = (radar_msg.data[0] >> 5) & 0x07;
-            auto classification = (classification_t) radar_class;
-            double phi_right = ((radar_msg.data[2] << 8) | (radar_msg.data[3])) & 0x07FF;
-            phi_right = phi_right * VO_0x_phi_right_FACTOR + VO_0x_phi_right_OFFSET;
-            double dx_v = ((radar_msg.data[4] << 8) | (radar_msg.data[5])) & 0x0FFF;
-            dx_v = dx_v * VO_0x_dx_v_FACTOR + VO_0x_dx_v_OFFSET;
-             */
-
             // CAN db version
             // Lambda to extract a raw value from a CAN message depending on the contect read from the CAN DB
             auto extract_raw = [&](const CANSignalInfo &sig, const uint8_t raw_data[8]) -> uint32_t {
@@ -244,7 +232,7 @@ BasicSensorReader::readerLoop() {
 
 bool BasicSensorReader::startReader() {
     std::cout << "Starting sensor reader on interface " << m_interface << std::endl;
-    // struct can_filter canfilter[4]; // We need to filter for 4 CAN IDs (standard format) - old "hard-coded" version - kept here only for reference
+    // Currently, m_can_db_sensor_info.size() = 4 - we currently need to filter for 4 CAN IDs (standard format)
     std::vector<struct can_filter> canfilter(m_can_db_sensor_info.size());
 
     struct sockaddr_can addr;
@@ -277,21 +265,7 @@ bool BasicSensorReader::startReader() {
 
     // Prepare a CAN ID filter
     // Filter only for the messages of interest
-    // The data of interest should be located inside "Video_Object_0x_B"
-
-    // Old "hard-coded" version - kept here only for reference
-    // Four messages are available containing the data of interest: 0x2C0, 0x320, 0x360, 0x3A0
-    /*
-    canfilter[0].can_id=0x2C0;
-    canfilter[0].can_mask=CAN_SFF_MASK;
-    canfilter[1].can_id=0x320;
-    canfilter[1].can_mask=CAN_SFF_MASK;
-    canfilter[2].can_id=0x360;
-    canfilter[2].can_mask=CAN_SFF_MASK;
-    canfilter[3].can_id=0x3A0;
-    canfilter[3].can_mask=CAN_SFF_MASK;
-    */
-
+    // The data of interest should be located inside the messages matching the regex used to read the CAN database (default CAN message names: "Video_Object_0x_B")
     for(int can_id_idx=0;can_id_idx<m_can_db_id_info.size();can_id_idx++) {
         canfilter[can_id_idx].can_id=m_can_db_id_info[can_id_idx];
         canfilter[can_id_idx].can_mask=CAN_SFF_MASK;

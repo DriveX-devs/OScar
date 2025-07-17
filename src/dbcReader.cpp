@@ -4,10 +4,41 @@
 #include "dbcReader.h"
 #include "INIReader.h"
 
-bool dbcReader::signalMatches(const std::string& signal_name, const std::string& target_suffix) {
-    return signal_name.length() > target_suffix.length() &&
-           signal_name.substr(signal_name.length() - target_suffix.length()) == target_suffix &&
-           signal_name.substr(signal_name.length() - target_suffix.length() - 1, 1) == "_";
+bool dbcReader::signalMatches(const std::string& signal_name, const std::string& target_signal) {
+    // Exact match check
+    if (signal_name == target_signal) {
+        return true;
+    }
+
+    // Match target_signal with signal_name except for any suffix with a "_" separator
+    if (signal_name.length() > target_signal.length() &&
+        signal_name.substr(0, target_signal.length()) == target_signal &&
+        signal_name.substr(target_signal.length(), 1) == "_") {
+        return true;
+    }
+
+    // Match target_signal with signal_name except for any suffix with a "-" separator
+    if (signal_name.length() > target_signal.length() &&
+        signal_name.substr(0, target_signal.length()) == target_signal &&
+        signal_name.substr(target_signal.length(), 1) == "-") {
+        return true;
+    }
+
+    // Match target_signal as suffix with "_" separator (<prefix>_<target_signal>)
+    if (signal_name.length() > target_signal.length() &&
+        signal_name.substr(signal_name.length() - target_signal.length()) == target_signal &&
+        signal_name.substr(signal_name.length() - target_signal.length() - 1, 1) == "_") {
+        return true;
+    }
+
+    // Match target_signal as suffix with "-" separator (<prefix>-<target_signal>)
+    if (signal_name.length() > target_signal.length() &&
+        signal_name.substr(signal_name.length() - target_signal.length()) == target_signal &&
+        signal_name.substr(signal_name.length() - target_signal.length() - 1, 1) == "-") {
+        return true;
+    }
+
+    return false;
 }
 
 bool dbcReader::calculateSignalExtraction(CANSignalInfo& signal) {

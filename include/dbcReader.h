@@ -2,6 +2,8 @@
 #define DBCREADER_H
 
 // Class for reading a CAN database .dbc file and extracting the relevant information for the parsing of sensor data, required in turn for the dissemination of CPMs
+// Currently, the dbcReader does not support CAN signals that use enums (BA_, BA_DEF_, VAL_) or multiplexed signals
+// Comments (CM_) will also not be imported
 
 #include <string>
 #include <vector>
@@ -105,8 +107,19 @@ class dbcReader {
         void printCANdb(bool &error);
 
     private:
-        // Method that returns true if a signal_name contains the suffix target_suffix
-        bool signalMatches(const std::string& signal_name, const std::string& target_suffix);
+        // Method that returns true if signal_name is equal to target_signal, or if it is equal except for any suffix separated with "-" or "_",
+        // or if it is equal except for any prefix separated with "-" or "_".
+        // For instance, if "target_signal" is "classification", this method will return:
+        // - signal_name: "classification" -> true
+        // - signal_name: "classification_test" -> true
+        // - signal_name: "classification-test" -> true
+        // - signal_name "classificationtest" -> false
+        // - signal_name "test_classification" -> true
+        // - signal_name "test-classification" -> true
+        // - signal_name "testclassification" -> false
+        // - signal_name "test#classification" -> false
+        // - signal_name "classification#test" -> false
+        bool signalMatches(const std::string& signal_name, const std::string& target_signal);
         // Method that determines the start byte, mask and required right shift for extracting a given information from a CAN message
         bool calculateSignalExtraction(CANSignalInfo& signal);
         // Method that parses CAN message information from a BO_ line of .dbc file

@@ -1189,6 +1189,7 @@ int main (int argc, char *argv[]) {
     // Read the CAN db if CPM dissemination is enabled
     std::vector<uint32_t> CPM_CAN_ids;
     CAN_SENSOR_SIGNAL_INFO_t CPM_CAN_signals;
+
     if(can_db!="" && enable_CPM_dissemination==true) {
         dbcReader dbr;
 
@@ -1196,6 +1197,7 @@ int main (int argc, char *argv[]) {
             if(!dbr.setUserParamsIni(can_db_param_ini)) {
                 std::cerr << "[ERROR] Cannot open the INI file with the parameters for parsing the CAN database. CPM dissemination will be disabled." << std::endl;
                 enable_CPM_dissemination = false;
+                // Disable also the basic sensor reader
                 can_device = "none";
             }
         }
@@ -1205,6 +1207,7 @@ int main (int argc, char *argv[]) {
             if(!dbr.parseDBC(can_db)) {
                 std::cerr << "[ERROR] Cannot parse the specified CAN database file: " << can_db << ". CPM dissemination will be disabled." << std::endl;
                 enable_CPM_dissemination = false;
+                // Disable also the basic sensor reader
                 can_device = "none";
             } else {
                 bool error = false;
@@ -1214,6 +1217,7 @@ int main (int argc, char *argv[]) {
                             << "[ERROR] Cannot get the required CAN message IDs from the specified CAN database file: "
                             << can_db << ". CPM dissemination will be disabled." << std::endl;
                     enable_CPM_dissemination = false;
+                    // Disable also the basic sensor reader
                     can_device = "none";
                 } else {
                     CPM_CAN_signals = dbr.getSignalInfoSensorObject(error);
@@ -1222,6 +1226,7 @@ int main (int argc, char *argv[]) {
                                 << "[ERROR] Cannot get the required signal information from the specified CAN database file: "
                                 << can_db << ". CPM dissemination will be disabled." << std::endl;
                         enable_CPM_dissemination = false;
+                        // Disable also the basic sensor reader
                         can_device = "none";
                     } else {
                         std::cout << "[INFO] CAN database successfully parsed." << std::endl;
@@ -1233,13 +1238,6 @@ int main (int argc, char *argv[]) {
             }
         }
     }
-
-	/*
-    if(use_gpsd==false) {
-        std::cerr << "Error. The NMEA/UBX serial parser for positioning is not yet fully implemented. Please use libgps with --use-gpsd for the time being." << std::endl;
-        return 1;
-    }
-	*/
 
 	// Create the raw socket for the transmission of CAMs/VAMs, encapsulated inside GeoNetworking and BTP (in user space) 
 	int sockfd=-1;
