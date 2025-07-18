@@ -43,6 +43,7 @@ BasicSensorReader::readerLoop() {
     struct can_frame radar_msg;
     ssize_t nbytes;
     int cansockfd = m_can_socket;
+
     // Start reading messages from the CAN bus
     while(m_thread_running) {
         nbytes = read(cansockfd,&radar_msg,sizeof(struct can_frame));
@@ -56,14 +57,44 @@ BasicSensorReader::readerLoop() {
         if(radar_msg.can_dlc!=8) {
             fprintf(stderr,"Warning: expected DLC=8, but received DLC=%u\n)\n",radar_msg.can_dlc);
         } else {
-            double phi_left = ((radar_msg.data[0] << 8) | (radar_msg.data[1])) & 0x07FF;
-            phi_left = phi_left * VO_0x_phi_left_FACTOR + VO_0x_phi_left_OFFSET;
-            uint8_t radar_class = (radar_msg.data[0] >> 5) & 0x07;
-            auto classification = (classification_t) radar_class;
-            double phi_right = ((radar_msg.data[2] << 8) | (radar_msg.data[3])) & 0x07FF;
-            phi_right = phi_right * VO_0x_phi_right_FACTOR + VO_0x_phi_right_OFFSET;
-            double dx_v = ((radar_msg.data[4] << 8) | (radar_msg.data[5])) & 0x0FFF;
-            dx_v = dx_v * VO_0x_dx_v_FACTOR + VO_0x_dx_v_OFFSET;
+            // CAN db version
+            // Lambda to extract a raw value from a CAN message depending on the contect read from the CAN DB
+            auto extract_raw = [&](const CANSignalInfo &sig, const uint8_t raw_data[8]) -> uint32_t {
+                uint32_t raw = 0;
+                if (sig.length <= 8) {
+                    // single‐byte
+                    raw = (raw_data[sig.start_byte] >> sig.shift_right) & sig.mask;
+                }
+                else if (sig.length <= 16) {
+                    // two‐byte
+                    uint16_t b0 = raw_data[sig.start_byte];
+                    uint16_t b1 = raw_data[sig.start_byte + 1];
+                    uint16_t hi = (sig.byte_order == 0) ? b0 : b1;  // 0=Motorola
+                    uint16_t lo = (sig.byte_order == 0) ? b1 : b0;
+                    raw = ((hi << 8) | lo) & sig.mask;
+                }
+                else {
+                    throw std::runtime_error("Signal too wide for automatic extraction");
+                }
+                return raw;
+            };
+
+            const CANSignalInfo phi_left_sig = m_can_db_sensor_info[phiLeftSignal];
+            const CANSignalInfo class_sig = m_can_db_sensor_info[classificationSignal];
+            const CANSignalInfo phi_right_sig = m_can_db_sensor_info[phiRightSignal];
+            const CANSignalInfo dx_v_sig = m_can_db_sensor_info[distanceSignal];
+
+            uint32_t raw_phi_left = extract_raw(phi_left_sig, radar_msg.data);
+            double phi_left = raw_phi_left * phi_left_sig.factor + phi_left_sig.offset;
+
+            uint32_t raw_class = extract_raw(class_sig, radar_msg.data);
+            auto classification = static_cast<classification_t>(raw_class);
+
+            uint32_t raw_phi_right = extract_raw(phi_right_sig, radar_msg.data);
+            double phi_right = raw_phi_right * phi_right_sig.factor + phi_right_sig.offset;
+
+            uint32_t raw_dx_v = extract_raw(dx_v_sig, radar_msg.data);
+            double dx_v = raw_dx_v * dx_v_sig.factor + dx_v_sig.offset;
 
             if (dx_v > 0.0) {
                 //TODO: check if the bumper to sensor distance is not already included in the dx_v (I've seen values lower than 1.54 from the radar)
@@ -201,11 +232,16 @@ BasicSensorReader::readerLoop() {
 
 bool BasicSensorReader::startReader() {
     std::cout << "Starting sensor reader on interface " << m_interface << std::endl;
-    struct can_filter canfilter[4]; // We need to filter for 4 CAN IDs (standard format)
+    // Currently, m_can_db_sensor_info.size() = 4 - we currently need to filter for 4 CAN IDs (standard format)
+    std::vector<struct can_filter> canfilter(m_can_db_sensor_info.size());
 
     struct sockaddr_can addr;
     struct ifreq ifr;
 
+    if(!m_can_db_info_set) {
+        fprintf(stderr,"Error: trying to start the sensor reader with no CAN db information set.\n");
+        return false;
+    }
 
     // Open a new CAN Bus socket
     m_can_socket=socket(PF_CAN,SOCK_RAW,CAN_RAW);
@@ -229,20 +265,14 @@ bool BasicSensorReader::startReader() {
 
     // Prepare a CAN ID filter
     // Filter only for the messages of interest
-    // The data of interest should be located inside "Video_Object_0x_B"
-    // Four messages are available containing the data of interest: 0x2C0, 0x320, 0x360, 0x3A0
-    canfilter[0].can_id=0x2C0;
-    canfilter[0].can_mask=CAN_SFF_MASK;
-    canfilter[1].can_id=0x320;
-    canfilter[1].can_mask=CAN_SFF_MASK;
-    canfilter[2].can_id=0x360;
-    canfilter[2].can_mask=CAN_SFF_MASK;
-    canfilter[3].can_id=0x3A0;
-    canfilter[3].can_mask=CAN_SFF_MASK;
-
+    // The data of interest should be located inside the messages matching the regex used to read the CAN database (default CAN message names: "Video_Object_0x_B")
+    for(int can_id_idx=0;can_id_idx<m_can_db_id_info.size();can_id_idx++) {
+        canfilter[can_id_idx].can_id=m_can_db_id_info[can_id_idx];
+        canfilter[can_id_idx].can_mask=CAN_SFF_MASK;
+    }
 
     // Set the CAN filter for receiving only the messages of interest
-    if(setsockopt(m_can_socket,SOL_CAN_RAW,CAN_RAW_FILTER,&canfilter,sizeof(canfilter))<0) {
+    if(setsockopt(m_can_socket,SOL_CAN_RAW,CAN_RAW_FILTER,canfilter.data(),canfilter.size()*sizeof(struct can_filter))<0) {
         fprintf(stderr,"Error: cannot create CAN ID filter. Details: %s\n",strerror(errno));
         close(m_can_socket);
         m_can_socket=-1;

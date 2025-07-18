@@ -37,6 +37,12 @@ OBJ_ASN1CPP_DIR=obj/asn1cpp
 SRC_CESERIAL_DIR=ceSerial
 OBJ_CESERIAL_DIR=obj/ceSerial
 
+SRC_INI_DIR=iniReader
+OBJ_INI_DIR=obj/iniReader
+
+SRC_INICLIB_DIR=iniLibraryC
+OBJ_INICLIB_DIR=obj/iniLibraryC
+
 SRC=$(wildcard $(SRC_DIR)/*.cpp)
 SRC_GEOLIB_PORT=$(wildcard $(SRC_GEOLIB_PORT_DIR)/*.c)
 SRC_VEHVIS=$(wildcard $(SRC_VEHVIS_DIR)/*.cc)
@@ -46,6 +52,8 @@ SRC_JSON11=$(wildcard $(SRC_JSON11_DIR)/*.cpp)
 SRC_GPSC=$(wildcard $(SRC_GPSC_DIR)/*.cpp)
 SRC_ASN1CPP=$(wildcard $(SRC_ASN1CPP_DIR)/*.cpp)
 SRC_CESERIAL=$(wildcard $(SRC_CESERIAL_DIR)/*.cpp)
+SRC_INI=$(wildcard $(SRC_INI_DIR)/*.cpp)
+SRC_INICLIB=$(wildcard $(SRC_INICLIB_DIR)/*.c)
 
 OBJ=$(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 OBJ_GEOLIB_PORT=$(SRC_GEOLIB_PORT:$(SRC_GEOLIB_PORT_DIR)/%.c=$(OBJ_GEOLIB_PORT_DIR)/%.o)
@@ -56,6 +64,8 @@ OBJ_JSON11=$(SRC_JSON11:$(SRC_JSON11_DIR)/%.cpp=$(OBJ_JSON11_DIR)/%.o)
 OBJ_GPSC=$(SRC_GPSC:$(SRC_GPSC_DIR)/%.cpp=$(OBJ_GPSC_DIR)/%.o)
 OBJ_ASN1CPP=$(SRC_ASN1CPP:$(SRC_ASN1CPP_DIR)/%.cpp=$(OBJ_ASN1CPP_DIR)/%.o)
 OBJ_CESERIAL=$(SRC_CESERIAL:$(SRC_CESERIAL_DIR)/%.cpp=$(OBJ_CESERIAL_DIR)/%.o)
+OBJ_INI=$(SRC_INI:$(SRC_INI_DIR)/%.cpp=$(OBJ_INI_DIR)/%.o)
+OBJ_INICLIB=$(SRC_INICLIB:$(SRC_INICLIB_DIR)/%.c=$(OBJ_INICLIB_DIR)/%.o)
 
 OBJ_CC=$(OBJ)
 OBJ_CC+=$(OBJ_GEOLIB_PORT)
@@ -65,8 +75,10 @@ OBJ_CC+=$(OBJ_ETSI)
 OBJ_CC+=$(OBJ_JSON11)
 OBJ_CC+=$(OBJ_ASN1CPP)
 OBJ_CC+=$(OBJ_CESERIAL)
+OBJ_CC+=$(OBJ_INI)
+OBJ_CC+=$(OBJ_INICLIB)
 
-CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial -I/usr/include/openssl -I/usr/include/libnl3
+CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial -I/usr/include/openssl -I/usr/include/libnl3 -IiniReader -IiniLibraryC
 CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include -Igeographiclib-port -I/usr/include/openssl
 LDLIBS += -lpthread -lm -lgps -latomic -lssl -lcrypto -lnl-3 -lnl-genl-3
 
@@ -131,6 +143,14 @@ $(OBJ_CESERIAL_DIR)/%.o: $(SRC_CESERIAL_DIR)/%.cpp
 	@ mkdir -p $(OBJ_CESERIAL_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+$(OBJ_INI_DIR)/%.o: $(SRC_INI_DIR)/%.cpp
+	@ mkdir -p $(OBJ_INI_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_INICLIB_DIR)/%.o: $(SRC_INICLIB_DIR)/%.c
+	@ mkdir -p $(OBJ_INICLIB_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 clean:
 	$(RM) $(OBJ_DIR)/*.o $(OBJ_ASN1_DIR)/*.o
 	-rm -rf $(OBJ_DIR)
@@ -142,6 +162,8 @@ clean:
 	-rm -rf $(OBJ_GPSC_DIR)
 	-rm -rf $(OBJ_ASN1CPP_DIR)
 	-rm -rf $(OBJ_CESERIAL_DIR)
+	-rm -rf $(OBJ_INI_DIR)
+	-rm -rf $(OBJ_INICLIB_DIR)
 	-rm -f cachefile.sldmc
 	
 fullclean: clean

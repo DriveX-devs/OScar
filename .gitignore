@@ -1,6 +1,10 @@
 # OScar binary
 OScar
 
+# Additional OScar binaries
+OScar-7.0
+OScar-7.1
+
 # Compiled source
 obj/*.o
 obj
@@ -13,3 +17,9 @@ log_3000
 
 # Python venv
 venv
+
+# Any CAN database file
+*.dbc
+
+# CAN db parsing test INI file
+PCAN.ini
