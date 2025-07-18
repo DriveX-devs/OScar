@@ -41,6 +41,8 @@
 
 #include "DCC.h"
 
+#include "MetricSupervisor.h"
+
 #define DB_CLEANER_INTERVAL_SECONDS 5
 #define DB_DELETE_OLDER_THAN_SECONDS 2 // This value should NEVER be set greater than (5-DB_CLEANER_INTERVAL_SECONDS/60) minutes or (300-DB_CLEANER_INTERVAL_SECONDS) seconds - doing so may break the database age check functionality!
 
@@ -845,6 +847,10 @@ int main (int argc, char *argv[]) {
     std::string modality_DCC = "";
     bool verbose_DCC = false;
 
+    bool enable_metric_supervisor = false;
+    uint64_t time_window_met_sup = 0;
+    std::string log_filename_met_sup = "";
+
 	// Parse the command line options with the TCLAP library
 	try {
 		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.3-development");
@@ -1007,14 +1013,14 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg EnableDCC("","enable-DCC","Activate the Decentralized Congestion Control (DCC) for the CAM, VAM and CPM messages. Remember to specify also the other DCC arguments to guarantee a correct usage of this feature.", false);
         cmd.add(EnableDCC);
         
-        std::string helpText =
+        std::string helpText_dcc =
             "Time window for DCC Channel State check (Channel Busy Ratio). "
             "It must be a strictly positive integer value, expressed in milliseconds, "
             "and it has to be lower than " + std::to_string(MAXIMUM_TIME_WINDOW_DCC) + "ms.";
 
         TCLAP::ValueArg<int> TimeWindowDCC(
             "", "time-window-DCC",
-            helpText,
+            helpText_dcc,
             false, 0, "integer");
 
         cmd.add(TimeWindowDCC);
@@ -1024,6 +1030,23 @@ int main (int argc, char *argv[]) {
 
         TCLAP::SwitchArg VerboseDCC("","verbose-DCC","If set to 1, this argument provides a verbose description of the Channel State during the DCC checks.", false);
         cmd.add(VerboseDCC);
+
+        TCLAP::SwitchArg EnableMetricSupervisor("","enable-Metric-Supervisor","Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.", false);
+        cmd.add(EnableMetricSupervisor);
+
+        std::string helpText_met_sup =
+            "Time window for Metric Supervisor check. "
+            "It must be a strictly positive integer value, expressed in milliseconds";
+
+        TCLAP::ValueArg<int> TimeWindowMetricSupervisor(
+            "", "time-window-Metric-Supervisor",
+            helpText_met_sup,
+            false, 0, "integer");
+
+        TCLAP::ValueArg<std::string> LogfileMetricSupervisor("z","log-file-Metric-Supervisor","Print on file the log for the Metric Supervisor measured metrics. Default: (disabled).",false,"","string");
+        cmd.add(LogfileMetricSupervisor);
+
+        cmd.add(TimeWindowMetricSupervisor);
 
 		cmd.parse(argc,argv);
 
@@ -1119,6 +1142,10 @@ int main (int argc, char *argv[]) {
         modality_DCC = ModalityDCC.getValue();
         verbose_DCC = VerboseDCC.getValue();
 
+        enable_metric_supervisor = EnableMetricSupervisor.getValue();
+        time_window_met_sup = TimeWindowMetricSupervisor.getValue();
+        log_filename_met_sup = LogfileMetricSupervisor.getValue();
+
         if(can_db=="") {
             if(can_db_param_ini!="dis" && can_db_param_ini!="") {
                 std::cerr << "[ERROR] Specified an INI file for CAN database parsing but no .dbc file was specified with --can-db!" << std::endl;
@@ -1167,7 +1194,24 @@ int main (int argc, char *argv[]) {
             std::cout << "[INFO] DCC enabled correctly in " << modality_DCC << " modality and with a time window of " << std::to_string(time_window_DCC) << std::endl;
         }
 
-		std::cout << "[INFO] CAM/VAM dissemination interface: " << dissem_vif << std::endl;
+        if (enable_metric_supervisor == true)
+        {
+            if (time_window_met_sup <= 0)
+            {
+                std::cerr << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0ms, please check the helper." << std::endl;
+                return 1;
+            }
+
+            if (log_filename_met_sup == "")
+            {
+                std::cerr << "[ERROR] Log filename for Metric Supervisor was not correctly set. Remember that it must be a non-empty string, please check the helper." << std::endl;
+                return 1;
+            }
+
+            std::cout << "[INFO] DCC enabled correctly in " << modality_DCC << " modality and with a time window of " << std::to_string(time_window_DCC) << std::endl;
+        }
+
+		std::cout << "[INFO] CAM/CPM/VAM dissemination interface: " << dissem_vif << std::endl;
 	} catch (TCLAP::ArgException &tclape) { 
 		std::cerr << "TCLAP error: " << tclape.error() << " for argument " << tclape.argId() << std::endl;
 
@@ -1392,7 +1436,7 @@ int main (int argc, char *argv[]) {
         }
     }
 
-    
+    SocketClient *mainRecvClient = nullptr;
 
     if(terminatorFlag) {
         goto exit_failure;
@@ -1493,15 +1537,15 @@ int main (int argc, char *argv[]) {
 
 		if(terminatorFlag==false) {
 			// Create the main SocketClient object for the reception of the V2X messages
-			SocketClient mainRecvClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity);
+            mainRecvClient = new SocketClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity);
 			
 			if(enable_DENM_decoding) {
-				mainRecvClient.enableDENMdecoding();
+				mainRecvClient->enableDENMdecoding();
 			}
 
 			// Set the "self" MAC address, so that all the messages coming from this address will be discarded
 			if(disable_selfMAC_check==false) {
-				mainRecvClient.setSelfMAC(srcmac);
+				mainRecvClient->setSelfMAC(srcmac);
 			}
 
 			// Create an additional VDP GPS Client object for logging the GNSS data
@@ -1512,7 +1556,7 @@ int main (int argc, char *argv[]) {
             }
 
 			logginggpsc.openConnection();
-			mainRecvClient.setLoggingGNSSClient(&logginggpsc);
+			mainRecvClient->setLoggingGNSSClient(&logginggpsc);
 
 			// Before starting the data reception, create a new JSONserver object for client to retrieve the DB data
 			JSONserver jsonsrv(db_ptr);
@@ -1526,12 +1570,18 @@ int main (int argc, char *argv[]) {
 			fprintf(stdout,"Reception is going to start very soon...\n");
 
 			// Start the reception of V2X messages
-			mainRecvClient.startReception();
+			mainRecvClient->startReception();
 
 			jsonsrv.stopServer();
 			logginggpsc.closeConnection();
 		}
 	}
+
+    if (enable_metric_supervisor)
+    {
+        MetricSupervisor* metric_supervisor = new MetricSupervisor(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, mainRecvClient);
+        metric_supervisor->start();
+    }
 	
 	exit_failure:
 

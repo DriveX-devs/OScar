@@ -499,7 +499,9 @@ CPBasicService::generateAndEncodeCPM()
     dataRequest.data = pktbuf;
     m_btp->sendBTP(dataRequest);
 
+    m_sent_mutex.lock();
     m_cpm_sent++;
+    m_sent_mutex.unlock();
 
     int64_t int_tstamp = 0;
     struct timespec tv;

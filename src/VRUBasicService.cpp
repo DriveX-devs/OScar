@@ -778,7 +778,9 @@ VRUBasicService::generateAndEncodeVam(){
   m_btp->sendBTP(dataRequest);
 
   // Update the VAM statistics
+  m_sent_mutex.lock();
   m_vam_sent++;
+  m_sent_mutex.unlock();
 
   int64_t int_tstamp = 0;
   struct timespec tv;

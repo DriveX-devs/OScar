@@ -86,6 +86,9 @@ public:
     
     const long T_GenVamMin_ms = 100;
     const long T_GenVamMax_ms = 5000;
+
+    uint64_t get_VAM_sent() {m_sent_mutex.lock(); uint64_t c = m_vam_sent; m_sent_mutex.unlock(); return c;};
+
 private:
     const size_t m_MaxPHLength = 23;
     
@@ -133,6 +136,7 @@ private:
     // Statistic: number of VAMs successfully sent since the VRU Basic Service has been started
     // The VRU Basic Service can count up to 18446744073709551615 (UINT64_MAX) VAMs
     uint64_t m_vam_sent;
+    std::mutex m_sent_mutex;
 
     // Statistics: number of VAMs sent per triggering conditions
     uint64_t m_pos_sent;

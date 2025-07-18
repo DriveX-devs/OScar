@@ -32,6 +32,10 @@ CBRUpdates cbrData;
 
 std::mutex cbrMutex;
 
+float currentRssiUtils = -1.0f;
+
+std::mutex rssiMutex;
+
 uint64_t get_timestamp_us(void) {
 	time_t seconds;
 	uint64_t microseconds;
@@ -371,6 +375,9 @@ double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info) {
     }
 
     // Return the RSSI value
+    rssiMutex.lock();
+    currentRssiUtils = static_cast<float>(nl_cb_args.signal_lv);
+    rssiMutex.unlock();
     return static_cast<double>(nl_cb_args.signal_lv);
 }
 
@@ -598,6 +605,22 @@ float get_current_cbr()
         cbr = cbrData.currentCBR;
         cbrMutex.unlock();
         return cbr;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+}
+
+float get_current_rssi()
+{
+    try
+    {
+        float rssi;
+        rssiMutex.lock();
+        rssi = currentRssiUtils;
+        rssiMutex.unlock();
+        return rssi;
     }
     catch(const std::exception& e)
     {

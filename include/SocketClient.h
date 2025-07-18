@@ -79,37 +79,30 @@ class SocketClient {
 
         // nl80211 socket info structure to retrieve RSSI values
         nl_sock_info_t m_nl_sock_info;
+
+		uint64_t m_received_msg = 0;
+		std::mutex m_received_mutex;
+
 	public:
-		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security):
-			m_raw_rx_sock(raw_rx_sock), m_opts_ptr(opts_ptr), m_db_ptr(db_ptr), m_logfile_name(logfile_name),m_decodeFrontend(enable_security, logfile_security),m_enable_security(enable_security), m_logfile_security(logfile_security) {
-				m_client_id="unset";
-				m_logfile_file=nullptr;
-				m_printMsg=false;
-				m_stopflg=false;
-				m_receptionInProgress=false;
-				m_unlock_pd_rd=-1;
-				m_unlock_pd_wr=-1;
-				m_self_mac_set=false;
-				memset(m_self_mac,0,6);
-				denm_decoding_enabled=false;
-				m_gpsc_ptr=nullptr;
-				// m_routeros_rssi={};
-				// m_terminate_routeros_rssi_flag=false;
-			}
+		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security);
+		
+		~SocketClient() = default;
 
-			void setPrintMsg(bool printMsgEnable) {m_printMsg = printMsgEnable;}
+		uint64_t get_received_messages() {m_received_mutex.lock(); uint64_t c = m_received_msg; m_received_mutex.unlock(); return c;}
 
-			void setClientID(std::string id) {m_client_id=id;}
+		void setPrintMsg(bool printMsgEnable) {m_printMsg = printMsgEnable;}
 
-			void setSelfMAC(uint8_t self_mac[6]) {memcpy(m_self_mac,self_mac,6); m_self_mac_set=true;}
+		void setClientID(std::string id) {m_client_id=id;}
 
-			void enableDENMdecoding() {denm_decoding_enabled=true;}
-			void disableDENMdecoding() {denm_decoding_enabled=false;}
+		void setSelfMAC(uint8_t self_mac[6]) {memcpy(m_self_mac,self_mac,6); m_self_mac_set=true;}
 
-			void startReception(void);
-			void stopReception(void);
+		void enableDENMdecoding() {denm_decoding_enabled=true;}
+		void disableDENMdecoding() {denm_decoding_enabled=false;}
 
-			void setLoggingGNSSClient(VDPGPSClient *gpsc_ptr) {m_gpsc_ptr=gpsc_ptr;}
+		void startReception(void);
+		void stopReception(void);
+
+		void setLoggingGNSSClient(VDPGPSClient *gpsc_ptr) {m_gpsc_ptr=gpsc_ptr;}
 };
 
 #endif // SOCKET_CLIENT_H

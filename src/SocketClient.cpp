@@ -52,6 +52,30 @@ inline bool compare_mac(uint8_t mac_a[6],uint8_t mac_b[6]) {
 		mac_a[5]==mac_b[5]);
 }
 
+SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security)
+{
+	m_raw_rx_sock = raw_rx_sock;
+	m_opts_ptr = opts_ptr;
+	m_db_ptr = db_ptr;
+	m_logfile_name = logfile_name;
+	m_decodeFrontend = enable_security;
+	m_enable_security = enable_security;
+	m_logfile_security = logfile_security;
+	m_client_id="unset";
+	m_logfile_file=nullptr;
+	m_printMsg=false;
+	m_stopflg=false;
+	m_receptionInProgress=false;
+	m_unlock_pd_rd=-1;
+	m_unlock_pd_wr=-1;
+	m_self_mac_set=false;
+	memset(m_self_mac,0,6);
+	denm_decoding_enabled=false;
+	m_gpsc_ptr=nullptr;
+	// m_routeros_rssi={};
+	// m_terminate_routeros_rssi_flag=false;
+}
+
 void
 SocketClient::rxThr(void) {
 	size_t msglen=-1;
@@ -99,6 +123,9 @@ SocketClient::rxThr(void) {
 					fprintf(stderr,"[ERROR] Unable to receive a message from the specified socket.\n");
 				} else {
 					// Process the received message, after removing the "Ethernet" header with the EtherType, and the source and destination MAC addresses
+					m_received_mutex.lock();
+					m_received_msg ++;
+					m_received_mutex.unlock();
 					manageMessage(msgbuf+sizeof(struct ether_header),msglen-sizeof(struct ether_header));
 				}
 			} else if(socketMon[1].revents>0) {

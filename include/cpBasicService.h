@@ -68,6 +68,7 @@ public:
     const long T_GenCpmMax_ms = 1000;
     const long m_T_AddSensorInformation = 1000;
 
+    uint64_t get_CPM_sent() {m_sent_mutex.lock(); uint64_t c = m_cpm_sent; m_sent_mutex.unlock(); return c;};
 
     private:
 
@@ -115,6 +116,7 @@ public:
     // Statistic: number of Cpms successfully sent since the CA Basic Service has been started
     // The CA Basic Service can count up to 18446744073709551615 (UINT64_MAX) Cpms
     uint64_t m_cpm_sent;
+    std::mutex m_sent_mutex;
 
     // Extra information which can be optionally disseminated through Enhanced CAMs
     std::string m_own_private_IP;

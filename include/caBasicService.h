@@ -76,6 +76,8 @@ public:
   const long T_GenCamMin_ms = 100;
   const long T_GenCamMax_ms = 1000;
 
+  uint64_t get_CAM_sent() {m_sent_mutex.lock(); uint64_t c = m_cam_sent; m_sent_mutex.unlock(); return c;};
+
 private:
   const size_t m_MaxPHLength = 23;
 
@@ -120,6 +122,7 @@ private:
   // Statistic: number of CAMs successfully sent since the CA Basic Service has been started
   // The CA Basic Service can count up to 18446744073709551615 (UINT64_MAX) CAMs
   uint64_t m_cam_sent;
+  std::mutex m_sent_mutex;
 
   //High frequency RSU container
   asn1cpp::Seq<RSUContainerHighFrequency> m_protectedCommunicationsZonesRSU;

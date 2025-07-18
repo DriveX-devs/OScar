@@ -771,7 +771,9 @@ CABasicService::generateAndEncodeCam()
     dataRequest.data = pktbuf;
     m_btp->sendBTP(dataRequest);
     /* Update the CAM statistics */
+    m_sent_mutex.lock();
     m_cam_sent++;
+    m_sent_mutex.unlock();
 
     int64_t int_tstamp = 0;
     struct timespec tv;

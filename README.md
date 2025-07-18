@@ -59,7 +59,7 @@ As the only pre-requisite, `libgps-dev` must be installed and available.
 
 To download and build the latest version of OScar, first, clone this repository:
 ```
-git clone https://github.com/francescoraves483/OScar
+git clone https://github.com/DriveX-devs/OScar
 ```
 Then, `cd` into the newly created directory:
 ```
