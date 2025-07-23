@@ -846,6 +846,7 @@ int main (int argc, char *argv[]) {
     int time_window_DCC = 0;
     std::string modality_DCC = "";
     bool verbose_DCC = false;
+    std::string log_filename_DCC = "";
 
     bool enable_metric_supervisor = false;
     uint64_t time_window_met_sup = 0;
@@ -1031,6 +1032,9 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg VerboseDCC("","verbose-DCC","If set to 1, this argument provides a verbose description of the Channel State during the DCC checks.", false);
         cmd.add(VerboseDCC);
 
+        TCLAP::ValueArg<std::string> LogfileDCC("","log-file-DCC","Print on file the log for the DCC metrics. Default: (disabled).",false,"","string");
+        cmd.add(LogfileDCC);
+
         TCLAP::SwitchArg EnableMetricSupervisor("","enable-metric-supervisor","Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.", false);
         cmd.add(EnableMetricSupervisor);
 
@@ -1043,10 +1047,10 @@ int main (int argc, char *argv[]) {
             helpText_met_sup,
             false, 0, "integer");
 
+        cmd.add(TimeWindowMetricSupervisor);
+
         TCLAP::ValueArg<std::string> LogfileMetricSupervisor("","log-file-metric-supervisor","Print on file the log for the Metric Supervisor measured metrics. Default: (disabled).",false,"","string");
         cmd.add(LogfileMetricSupervisor);
-
-        cmd.add(TimeWindowMetricSupervisor);
 
 		cmd.parse(argc,argv);
 
@@ -1141,6 +1145,7 @@ int main (int argc, char *argv[]) {
         time_window_DCC = TimeWindowDCC.getValue();
         modality_DCC = ModalityDCC.getValue();
         verbose_DCC = VerboseDCC.getValue();
+        log_filename_DCC = LogfileDCC.getValue();
 
         enable_metric_supervisor = EnableMetricSupervisor.getValue();
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
@@ -1425,7 +1430,7 @@ int main (int argc, char *argv[]) {
     DCC dcc;
     if (enable_DCC)
     {
-        dcc.setupDCC(time_window_DCC, dissem_vif, cabs_ptr, cpbs_ptr, vrubs_ptr, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, 0.01f, verbose_DCC);
+        dcc.setupDCC(time_window_DCC, dissem_vif, cabs_ptr, cpbs_ptr, vrubs_ptr, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, 0.01f, verbose_DCC, log_filename_DCC);
         if (modality_DCC == "reactive")
         {
             dcc.reactiveDCC();
@@ -1439,11 +1444,11 @@ int main (int argc, char *argv[]) {
     SocketClient *mainRecvClient = nullptr;
 
 
-    std::unique_ptr<MetricSupervisor> metric_supervisor;
+    MetricSupervisor metric_supervisor;
     if (enable_metric_supervisor)
     {
-        metric_supervisor = std::make_unique<MetricSupervisor>(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, &mainRecvClient);
-        metric_supervisor->start();
+        metric_supervisor.setupMetricSupervisor(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, &mainRecvClient);
+        metric_supervisor.start();
     }
 
     if(terminatorFlag) {

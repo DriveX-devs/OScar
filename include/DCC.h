@@ -27,7 +27,7 @@ typedef struct ReactiveParameters {
 DCC();
 ~DCC();
 
-void setupDCC(unsigned long long dcc_interval, std::string dissemination_interface, CABasicService* cabs, CPBasicService* cpbs, VRUBasicService* vrubs, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, float tolerance=0.01, bool verbose=false);
+void setupDCC(unsigned long long dcc_interval, std::string dissemination_interface, CABasicService* cabs, CPBasicService* cpbs, VRUBasicService* vrubs, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, float tolerance=0.01, bool verbose=false, std::string log_file="");
 void reactiveDCC();
 void functionReactive();
 void adaptiveDCC();
@@ -66,6 +66,8 @@ std::thread m_cbr_thread;
 bool m_cam_enabled;
 bool m_cpm_enabled;
 bool m_vam_enabled;
+
+std::string m_log_file;
 
 };
 

@@ -2,12 +2,18 @@
 #include "utils.h"
 #include <unistd.h>
 
-MetricSupervisor::MetricSupervisor()
+MetricSupervisor::MetricSupervisor() = default;
+
+MetricSupervisor::~MetricSupervisor()
 {
-    
+    std::cout << "Deleting Metric Supervisor object..." << std::endl;
+    if (m_thread.joinable())
+    {
+        m_thread.join();
+    }
 }
 
-MetricSupervisor::MetricSupervisor(std::string log_filename, uint64_t time_window, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient **sockClient)
+void MetricSupervisor::setupMetricSupervisor(std::string log_filename, uint64_t time_window, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient **sockClient)
 {
     m_log_filename = log_filename;
     m_time_window = time_window;
@@ -18,18 +24,6 @@ MetricSupervisor::MetricSupervisor(std::string log_filename, uint64_t time_windo
     m_cpbs = cpbs;
     m_vrubs = vrub;
     m_sock_client = sockClient;
-    std::ofstream file(m_log_filename, std::ios::trunc);
-    file << "Timestamp,RSSI,CBR,TX,RX\n";
-    file.close();
-}
-
-MetricSupervisor::~MetricSupervisor()
-{
-    std::cout << "Deleting Metric Supervisor object..." << std::endl;
-    if (m_thread.joinable())
-    {
-        m_thread.join();
-    }
 }
 
 void MetricSupervisor::writeLogFile()

@@ -28,7 +28,7 @@ DCC::~DCC()
     }
 }
 
-void DCC::setupDCC(unsigned long long dcc_interval, std::string dissemination_interface, CABasicService* cabs, CPBasicService* cpbs, VRUBasicService* vrubs, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, float tolerance, bool verbose)
+void DCC::setupDCC(unsigned long long dcc_interval, std::string dissemination_interface, CABasicService* cabs, CPBasicService* cpbs, VRUBasicService* vrubs, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, float tolerance, bool verbose, std::string log_file)
 {
     m_dcc_interval = dcc_interval;
     m_dissemination_interface = dissemination_interface;
@@ -40,10 +40,12 @@ void DCC::setupDCC(unsigned long long dcc_interval, std::string dissemination_in
     m_cam_enabled = enable_CAM_dissemination;
     m_cpm_enabled = enable_CPM_dissemination;
     m_vam_enabled = enable_VAM_dissemination;
+    m_log_file = log_file;
 }
 
 void DCC::functionReactive()
 {
+    uint64_t start = get_timestamp_us();
     if (m_dcc_interval == 0 || m_dissemination_interface == "")
     {
         throw std::runtime_error("DCC not set properly.");
@@ -96,6 +98,14 @@ void DCC::functionReactive()
                     {
                         std::cout << "Old State: " << m_current_state << ", New State: " << new_state << std::endl;
                     }
+
+                    if(m_log_file != "")
+                    {
+                        std::ofstream file;
+                        file.open(m_log_file, std::ios::app);
+                        file << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << new_state << "," << m_parameters_map[new_state].tx_power << "," << m_parameters_map[new_state].tx_inter_packet_time << "\n";
+                        file.close();
+                    }
                     
                     setNewTxPower(m_parameters_map[new_state].tx_power, m_dissemination_interface);
                     if (m_cam_enabled) m_caBasicService->setCheckCamGenMs(m_parameters_map[new_state].tx_inter_packet_time);
@@ -123,6 +133,13 @@ void DCC::reactiveDCC()
     {
         std::cout << "Reactive DCC thread started" << std::endl;
     }
+    if (m_log_file != "")
+    {
+        std::ofstream file;
+        file.open(m_log_file, std::ios::out);
+        file << "timestamp_relative_us,CBR,OldState,NewState,NextTx,NextIntPktT\n";
+        file.close();
+    }
 }
 
 void DCC::functionAdaptive()
@@ -135,6 +152,8 @@ void DCC::functionAdaptive()
     setup_cbr_structure(m_verbose);
 
     bool retry_flag = true;
+
+    uint64_t start = get_timestamp_us();
 
     do
     {
@@ -188,6 +207,14 @@ void DCC::functionAdaptive()
                 if (m_cam_enabled) m_caBasicService->toffUpdateAfterDeltaUpdate (m_delta);
                 if (m_cpm_enabled) m_cpBasicService->toffUpdateAfterDeltaUpdate (m_delta);
                 if (m_vam_enabled) m_vruBasicService->toffUpdateAfterDeltaUpdate (m_delta);
+
+                if(m_log_file != "")
+                {
+                    std::ofstream file;
+                    file.open(m_log_file, std::ios::app);
+                    file << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_delta << "\n";
+                    file.close();
+                }
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
         }
@@ -206,5 +233,12 @@ void DCC::adaptiveDCC()
     if (m_verbose)
     {
         std::cout << "Adaptive DCC thread started" << std::endl;
+    }
+    if (m_log_file != "")
+    {
+        std::ofstream file;
+        file.open(m_log_file, std::ios::out);
+        file << "timestamp_relative_us,CBR,NewDelta\n";
+        file.close();
     }
 }
