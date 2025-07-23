@@ -24,12 +24,12 @@ private:
     CPBasicService *m_cpbs;
     bool m_enable_VAM_dissemination;
     VRUBasicService *m_vrubs;
-    SocketClient *m_sock_client;
+    SocketClient **m_sock_client;
     std::string m_log_filename;
 public:
 
 MetricSupervisor();
-MetricSupervisor(std::string log_filename, uint64_t time_window_ms, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient *sockClient);
+MetricSupervisor(std::string log_filename, uint64_t time_window_ms, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient **sockClient);
 ~MetricSupervisor();
 void writeLogFile();
 void start();

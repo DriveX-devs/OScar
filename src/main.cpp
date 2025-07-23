@@ -1438,6 +1438,14 @@ int main (int argc, char *argv[]) {
 
     SocketClient *mainRecvClient = nullptr;
 
+
+    std::unique_ptr<MetricSupervisor> metric_supervisor;
+    if (enable_metric_supervisor)
+    {
+        metric_supervisor = std::make_unique<MetricSupervisor>(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, &mainRecvClient);
+        metric_supervisor->start();
+    }
+
     if(terminatorFlag) {
         goto exit_failure;
     }
@@ -1538,7 +1546,7 @@ int main (int argc, char *argv[]) {
 		if(terminatorFlag==false) {
 			// Create the main SocketClient object for the reception of the V2X messages
             mainRecvClient = new SocketClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity);
-			
+
 			if(enable_DENM_decoding) {
 				mainRecvClient->enableDENMdecoding();
 			}
@@ -1564,25 +1572,19 @@ int main (int argc, char *argv[]) {
 			if(jsonsrv.startServer()!=true) {
 				fprintf(stderr,"[ERROR] Critical error: cannot start the JSON server for the client data retrieval.\n");
 				terminatorFlag=true;
-				goto exit_failure;
 			}
 
-			fprintf(stdout,"Reception is going to start very soon...\n");
+            if(!terminatorFlag) {
+                fprintf(stdout, "Reception is going to start very soon...\n");
 
-			// Start the reception of V2X messages
-			mainRecvClient->startReception();
+                // Start the reception of V2X messages
+                mainRecvClient->startReception();
 
-			jsonsrv.stopServer();
-			logginggpsc.closeConnection();
+                jsonsrv.stopServer();
+                logginggpsc.closeConnection();
+            }
 		}
 	}
-
-    std::unique_ptr<MetricSupervisor> metric_supervisor;
-    if (enable_metric_supervisor)
-    {
-        metric_supervisor = std::make_unique<MetricSupervisor>(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, mainRecvClient);
-        metric_supervisor->start();
-    }
 	
 	exit_failure:
 

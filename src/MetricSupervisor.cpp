@@ -7,7 +7,7 @@ MetricSupervisor::MetricSupervisor()
     
 }
 
-MetricSupervisor::MetricSupervisor(std::string log_filename, uint64_t time_window, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient *sockClient)
+MetricSupervisor::MetricSupervisor(std::string log_filename, uint64_t time_window, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient **sockClient)
 {
     m_log_filename = log_filename;
     m_time_window = time_window;
@@ -37,6 +37,8 @@ void MetricSupervisor::writeLogFile()
     bool retry_flag = true;
     std::ofstream file;
     file.open(m_log_filename, std::ios::out);
+    uint64_t start = get_timestamp_us();
+    file << "timestamp_relative_us,rssi_dBm,CBR,num_TX,num_RX\n";
     do 
     {
         try
@@ -61,12 +63,12 @@ void MetricSupervisor::writeLogFile()
 
             int num_rx = 0;
 
-            if (m_sock_client != nullptr)
+            if (m_sock_client != nullptr && *m_sock_client != nullptr)
             {
-                num_rx += m_sock_client->get_received_messages();
+                num_rx += (*m_sock_client)->get_received_messages();
             }
 
-            file << get_timestamp_us() << rssi << "," << cbr << "," << num_tx << "," << num_rx << "\n";
+            file << static_cast<long int>(get_timestamp_us()-start) << "," << rssi << "," << cbr << "," << num_tx << "," << num_rx << "\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(m_time_window));
         }
         catch(const std::exception& e)
