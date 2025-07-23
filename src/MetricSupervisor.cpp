@@ -31,7 +31,7 @@ void MetricSupervisor::writeLogFile()
 {
     bool retry_flag = true;
     std::ofstream file;
-    file.open(m_log_filename, std::ios::app);
+    file.open(m_log_filename, std::ios::out);
     do 
     {
         try
