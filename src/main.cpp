@@ -1422,9 +1422,9 @@ int main (int argc, char *argv[]) {
     VRUBasicService vrubs;
     VRUBasicService* vrubs_ptr = &vrubs;
 
+    DCC dcc;
     if (enable_DCC)
     {
-        DCC dcc;
         dcc.setupDCC(time_window_DCC, dissem_vif, cabs_ptr, cpbs_ptr, vrubs_ptr, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, 0.01f, verbose_DCC);
         if (modality_DCC == "reactive")
         {
