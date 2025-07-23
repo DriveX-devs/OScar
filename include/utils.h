@@ -31,6 +31,9 @@ typedef struct CBRUpdates {
     unsigned long long startReceiveTime;
     unsigned long long startTransmitTime;
     float currentCBR = -1.0f;
+    float currentTxTime = -1.0f;
+    float currentRxTime = -1.0f;
+    float currentBusyTime = -1.0f;
 } CBRUpdates;
 
 extern CBRUpdates cbrData;
@@ -67,5 +70,8 @@ void start_reading_cbr(nl_sock_info_t m_nl_sock_info);
 void read_cbr_from_netlink(nl_sock_info_t nl_sock_info);
 float get_current_cbr();
 float get_current_rssi();
+float get_current_busy_time();
+float get_current_tx_time();
+float get_current_rx_time();
 void setNewTxPower(double txPower, std::string dissemination_interface);
 #endif // SLDM_UTILS_H

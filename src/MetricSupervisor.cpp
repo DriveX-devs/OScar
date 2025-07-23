@@ -32,7 +32,7 @@ void MetricSupervisor::writeLogFile()
     std::ofstream file;
     file.open(m_log_filename, std::ios::out);
     uint64_t start = get_timestamp_us();
-    file << "timestamp_relative_us,rssi_dBm,CBR,num_TX,num_RX\n";
+    file << "timestamp_relative_us,rssi_dBm,CBR,busy_time,tx_time,rx_time,num_tx,num_rx\n";
     do 
     {
         try
@@ -62,7 +62,7 @@ void MetricSupervisor::writeLogFile()
                 num_rx += (*m_sock_client)->get_received_messages();
             }
 
-            file << static_cast<long int>(get_timestamp_us()-start) << "," << rssi << "," << cbr << "," << num_tx << "," << num_rx << "\n";
+            file << static_cast<long int>(get_timestamp_us()-start) << "," << rssi << "," << cbr << "," << get_current_busy_time() << "," << get_current_tx_time() << "," << get_current_rx_time() << "," << num_tx << "," << num_rx << "\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(m_time_window));
         }
         catch(const std::exception& e)

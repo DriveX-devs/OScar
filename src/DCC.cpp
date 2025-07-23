@@ -98,14 +98,6 @@ void DCC::functionReactive()
                     {
                         std::cout << "Old State: " << m_current_state << ", New State: " << new_state << std::endl;
                     }
-
-                    if(m_log_file != "")
-                    {
-                        std::ofstream file;
-                        file.open(m_log_file, std::ios::app);
-                        file << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << new_state << "," << m_parameters_map[new_state].tx_power << "," << m_parameters_map[new_state].tx_inter_packet_time << "\n";
-                        file.close();
-                    }
                     
                     setNewTxPower(m_parameters_map[new_state].tx_power, m_dissemination_interface);
                     if (m_cam_enabled) m_caBasicService->setCheckCamGenMs(m_parameters_map[new_state].tx_inter_packet_time);
@@ -113,6 +105,14 @@ void DCC::functionReactive()
                     if (m_vam_enabled) m_vruBasicService->setCheckVamGenMs(m_parameters_map[new_state].tx_inter_packet_time);
                     m_current_state = new_state;
                     // TODO sensitivity through netlink if it is possible
+                }
+
+                if(m_log_file != "")
+                {
+                    std::ofstream file;
+                    file.open(m_log_file, std::ios::app);
+                    file << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << m_parameters_map[m_current_state].tx_power << "," << m_parameters_map[m_current_state].tx_inter_packet_time << "\n";
+                    file.close();
                 }
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
@@ -137,7 +137,7 @@ void DCC::reactiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_relative_us,CBR,OldState,NewState,NextTx,NextIntPktT\n";
+        file << "timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time\n";
         file.close();
     }
 }
@@ -238,7 +238,7 @@ void DCC::adaptiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_relative_us,CBR,NewDelta\n";
+        file << "timestamp_relative_us,CBR,new_delta\n";
         file.close();
     }
 }

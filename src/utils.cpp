@@ -554,6 +554,9 @@ int cbr_handler(struct nl_msg *msg, void *arg)
     cbrData.startBusyTime = busyTime;
     cbrData.startReceiveTime = rxTime;
     cbrData.startTransmitTime = txTime;
+    cbrData.currentBusyTime = deltaBusyTime;
+    cbrData.currentRxTime = deltaReceiveTime;
+    cbrData.currentTxTime = deltaTransmitTime;
     cbrMutex.unlock();
 
     return NL_SKIP;
@@ -604,6 +607,54 @@ float get_current_cbr()
         cbr = cbrData.currentCBR;
         cbrMutex.unlock();
         return cbr;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+}
+
+float get_current_busy_time()
+{
+    try
+    {
+        float cbt;
+        cbrMutex.lock();
+        cbt = cbrData.currentBusyTime;
+        cbrMutex.unlock();
+        return cbt;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+}
+
+float get_current_tx_time()
+{
+    try
+    {
+        float ctt;
+        cbrMutex.lock();
+        ctt = cbrData.currentBusyTime;
+        cbrMutex.unlock();
+        return ctt;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+}
+
+float get_current_rx_time()
+{
+    try
+    {
+        float crt;
+        cbrMutex.lock();
+        crt = cbrData.currentBusyTime;
+        cbrMutex.unlock();
+        return crt;
     }
     catch(const std::exception& e)
     {
