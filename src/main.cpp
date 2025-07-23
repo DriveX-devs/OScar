@@ -853,7 +853,7 @@ int main (int argc, char *argv[]) {
 
 	// Parse the command line options with the TCLAP library
 	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.3-development");
+		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.4-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -1031,7 +1031,7 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg VerboseDCC("","verbose-DCC","If set to 1, this argument provides a verbose description of the Channel State during the DCC checks.", false);
         cmd.add(VerboseDCC);
 
-        TCLAP::SwitchArg EnableMetricSupervisor("","enable-Metric-Supervisor","Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.", false);
+        TCLAP::SwitchArg EnableMetricSupervisor("","enable-metric-supervisor","Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.", false);
         cmd.add(EnableMetricSupervisor);
 
         std::string helpText_met_sup =
@@ -1039,11 +1039,11 @@ int main (int argc, char *argv[]) {
             "It must be a strictly positive integer value, expressed in milliseconds";
 
         TCLAP::ValueArg<int> TimeWindowMetricSupervisor(
-            "", "time-window-Metric-Supervisor",
+            "", "time-window-metric-supervisor",
             helpText_met_sup,
             false, 0, "integer");
 
-        TCLAP::ValueArg<std::string> LogfileMetricSupervisor("z","log-file-Metric-Supervisor","Print on file the log for the Metric Supervisor measured metrics. Default: (disabled).",false,"","string");
+        TCLAP::ValueArg<std::string> LogfileMetricSupervisor("","log-file-metric-supervisor","Print on file the log for the Metric Supervisor measured metrics. Default: (disabled).",false,"","string");
         cmd.add(LogfileMetricSupervisor);
 
         cmd.add(TimeWindowMetricSupervisor);
