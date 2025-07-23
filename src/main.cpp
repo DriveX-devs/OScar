@@ -1577,9 +1577,10 @@ int main (int argc, char *argv[]) {
 		}
 	}
 
+    std::unique_ptr<MetricSupervisor> metric_supervisor;
     if (enable_metric_supervisor)
     {
-        MetricSupervisor* metric_supervisor = new MetricSupervisor(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, mainRecvClient);
+        metric_supervisor = std::make_unique<MetricSupervisor>(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, mainRecvClient);
         metric_supervisor->start();
     }
 	

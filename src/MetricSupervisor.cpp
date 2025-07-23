@@ -2,6 +2,11 @@
 #include "utils.h"
 #include <unistd.h>
 
+MetricSupervisor::MetricSupervisor()
+{
+    
+}
+
 MetricSupervisor::MetricSupervisor(std::string log_filename, uint64_t time_window, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient *sockClient)
 {
     m_log_filename = log_filename;
