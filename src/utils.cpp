@@ -539,9 +539,8 @@ int cbr_handler(struct nl_msg *msg, void *arg)
     float cbr = -1.0f;
 
     if (deltaActiveTime > 0) {
-        long long usefulBusy = (long long) deltaBusyTime; // (long long)deltaBusyTime - ((long long)deltaTransmitTime /*+ (long long)deltaTransmitTime*/);
-        if (usefulBusy < 0) usefulBusy = 0;
-        cbr = static_cast<float>(usefulBusy) / deltaActiveTime;
+        if (deltaBusyTime < 0) deltaBusyTime = 0;
+        cbr = static_cast<float>(deltaBusyTime) / deltaActiveTime;
         if (cbr < 0.0f) cbr = 0.0f;
         if (cbr > 1.0f) cbr = 1.0f;
     }
