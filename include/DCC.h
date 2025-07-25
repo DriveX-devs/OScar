@@ -3,12 +3,23 @@
 #include "caBasicService.h"
 #include "cpBasicService.h"
 #include "VRUBasicService.h"
+#include "CBRReader.h"
 
 #ifndef OSCAR_DCC_H
 #define OSCAR_DCC_H
 
 class DCC {
 public:
+
+DCC();
+~DCC();
+
+void setupDCC(unsigned long long dcc_interval, std::string dissemination_interface, CABasicService* cabs, CPBasicService* cpbs, VRUBasicService* vrubs, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, float tolerance=0.01, bool verbose=false, std::string log_file="");
+void reactiveDCC();
+void adaptiveDCC();
+
+private:
+
 enum ReactiveState {
     Relaxed,
     Active1,
@@ -24,16 +35,8 @@ typedef struct ReactiveParameters {
     double sensitivity;
 } ReactiveParameters;
 
-DCC();
-~DCC();
-
-void setupDCC(unsigned long long dcc_interval, std::string dissemination_interface, CABasicService* cabs, CPBasicService* cpbs, VRUBasicService* vrubs, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, float tolerance=0.01, bool verbose=false, std::string log_file="");
-void reactiveDCC();
 void functionReactive();
-void adaptiveDCC();
 void functionAdaptive();
-
-private:
 
 unsigned long long m_dcc_interval = 0;
 std::string m_dissemination_interface;
@@ -62,13 +65,13 @@ float m_CBR_its = -1.0f;
 
 std::thread m_reactive_thread;
 std::thread m_adaptive_thread;
-std::thread m_cbr_thread;
 
 bool m_cam_enabled;
 bool m_cpm_enabled;
 bool m_vam_enabled;
 
 std::string m_log_file;
+CBRReader m_cbr_reader;
 
 };
 

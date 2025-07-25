@@ -1447,7 +1447,7 @@ int main (int argc, char *argv[]) {
     MetricSupervisor metric_supervisor;
     if (enable_metric_supervisor)
     {
-        metric_supervisor.setupMetricSupervisor(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, &mainRecvClient);
+        metric_supervisor.setupMetricSupervisor(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, &mainRecvClient, dissem_vif);
         metric_supervisor.start();
     }
 

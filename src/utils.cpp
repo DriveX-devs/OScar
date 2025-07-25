@@ -28,10 +28,6 @@
 // This is currently a bit oversized -> need to define a "more tight" size in the near future
 #define POPEN_IW_BUFF_SIZE 2000
 
-CBRUpdates cbrData;
-
-std::mutex cbrMutex;
-
 float currentRssiUtils = -1.0f;
 
 std::mutex rssiMutex;
@@ -437,247 +433,6 @@ double get_rssi_from_iw(uint8_t macaddr[6],std::string interface_name) {
 		return signal_lv;
 }
 
-int cbr_handler(struct nl_msg *msg, void *arg)
-{
-    struct nlattr *tb[NL80211_ATTR_MAX + 1];
-    struct genlmsghdr *gnlh = (struct genlmsghdr *) nlmsg_data(nlmsg_hdr(msg));
-    struct nlattr *sinfo[NL80211_SURVEY_INFO_MAX + 1];
-    char dev[20];
-
-    static struct nla_policy survey_policy[NL80211_SURVEY_INFO_MAX + 1] = {};
-    survey_policy[NL80211_SURVEY_INFO_FREQUENCY].type = NLA_U32;
-    survey_policy[NL80211_SURVEY_INFO_NOISE].type = NLA_U8;
-
-    nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
-
-    if (!tb[NL80211_ATTR_SURVEY_INFO]) {
-        fprintf(stderr, "Survey data missing!\n");
-        return NL_SKIP;
-    }
-
-    if (nla_parse_nested(sinfo, NL80211_SURVEY_INFO_MAX, tb[NL80211_ATTR_SURVEY_INFO], survey_policy)) {
-        fprintf(stderr, "Failed to parse nested survey attributes!\n");
-        return NL_SKIP;
-    }
-
-    unsigned long long activeTime = 0, busyTime = 0, rxTime = 0, txTime = 0;
-
-    if (!sinfo[NL80211_SURVEY_INFO_IN_USE])
-    {
-        return NL_SKIP;  // Not the active channel
-    }
-
-    cbrMutex.lock();
-    if (sinfo[NL80211_SURVEY_INFO_FREQUENCY] && cbrData.verbose && cbrData.firstTime)
-    {
-        printf("Frequency:\t\t\t%u MHz%s\n", nla_get_u32(sinfo[NL80211_SURVEY_INFO_FREQUENCY]),
-               sinfo[NL80211_SURVEY_INFO_IN_USE] ? " [in use]" : "");
-    }
-    cbrMutex.unlock();
-
-    if (sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME])
-        activeTime = nla_get_u64(sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME]);
-
-    if (sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME_BUSY])
-        busyTime = nla_get_u64(sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME_BUSY]);
-
-    if (sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME_RX])
-        rxTime = nla_get_u64(sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME_RX]);
-
-    if (sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME_TX])
-        txTime = nla_get_u64(sinfo[NL80211_SURVEY_INFO_CHANNEL_TIME_TX]);
-
-    cbrMutex.lock();
-    bool firstTime = cbrData.firstTime;
-    cbrMutex.unlock();
-
-    if (firstTime) {
-        cbrMutex.lock();
-        if (cbrData.verbose)
-        {
-            std::cout << "First Time for CBR Computing" << std::endl;
-        }
-        cbrData.firstTime = false;
-        cbrData.startActiveTime = activeTime;
-        cbrData.startBusyTime = busyTime;
-        cbrData.startReceiveTime = rxTime;
-        cbrData.startTransmitTime = txTime;
-        cbrData.currentCBR = -1.0f;
-        cbrMutex.unlock();
-        return NL_SKIP;
-    }
-
-    cbrMutex.lock();
-    // Check for counter reset or wraparound
-    if (activeTime < cbrData.startActiveTime || busyTime < cbrData.startBusyTime ||
-        rxTime < cbrData.startReceiveTime || txTime < cbrData.startTransmitTime) {
-        if (cbrData.verbose)
-        {
-            std::cerr << "Warning: time counters reset or wrapped. Skipping...\n";
-        }
-        cbrData.startActiveTime = activeTime;
-        cbrData.startBusyTime = busyTime;
-        cbrData.startReceiveTime = rxTime;
-        cbrData.startTransmitTime = txTime;
-        cbrMutex.unlock();
-        return NL_SKIP;
-    }
-
-    unsigned long long deltaActiveTime = activeTime - cbrData.startActiveTime;
-    unsigned long long deltaBusyTime = busyTime - cbrData.startBusyTime;
-    unsigned long long deltaReceiveTime = rxTime - cbrData.startReceiveTime;
-    unsigned long long deltaTransmitTime = txTime - cbrData.startTransmitTime;
-
-    if (cbrData.verbose)
-    {
-        std::cout << "Active: " << deltaActiveTime
-                  << " Busy: " << deltaBusyTime
-                  << " RX: " << deltaReceiveTime
-                  << " TX: " << deltaTransmitTime << std::endl;
-    }
-
-    float cbr = -1.0f;
-
-    if (deltaActiveTime > 0) {
-        if (deltaBusyTime < 0) deltaBusyTime = 0;
-        cbr = static_cast<float>(deltaBusyTime) / deltaActiveTime;
-        if (cbr < 0.0f) cbr = 0.0f;
-        if (cbr > 1.0f) cbr = 1.0f;
-    }
-
-    if (cbrData.verbose && cbr >= 0.0f)
-        std::cout << "Current Channel Busy Ratio: " << cbr << std::endl;
-
-    // Save new base values for next delta
-    cbrData.currentCBR = cbr;
-    cbrData.startActiveTime = activeTime;
-    cbrData.startBusyTime = busyTime;
-    cbrData.startReceiveTime = rxTime;
-    cbrData.startTransmitTime = txTime;
-    cbrData.currentBusyTime = deltaBusyTime;
-    cbrData.currentRxTime = deltaReceiveTime;
-    cbrData.currentTxTime = deltaTransmitTime;
-    cbrMutex.unlock();
-
-    return NL_SKIP;
-}
-
-
-void read_cbr_from_netlink(nl_sock_info_t nl_sock_info)
-{
-    struct nl_msg *nl_msg = nlmsg_alloc();
-
-	genlmsg_put(nl_msg,NL_AUTO_PORT,NL_AUTO_SEQ,nl_sock_info.nl80211_id,0,NLM_F_DUMP | NLM_F_REQUEST,NL80211_CMD_GET_SURVEY,0);
-	nla_put_u32(nl_msg,NL80211_ATTR_IFINDEX,nl_sock_info.ifindex);
-
-	nl_socket_modify_cb(nl_sock_info.nl_sock,NL_CB_VALID,NL_CB_CUSTOM,cbr_handler,nullptr);
-
-    nl_send_auto_complete(nl_sock_info.nl_sock, nl_msg);
-
-    int err = nl_recvmsgs_default(nl_sock_info.nl_sock);
-
-    free_nl_socket(nl_sock_info);
-}
-
-void setup_cbr_structure(bool verbose=false)
-{
-    cbrMutex.lock();
-    cbrData.verbose = verbose;
-    cbrMutex.unlock();
-}
-
-void start_reading_cbr(nl_sock_info_t m_nl_sock_info)
-{
-    if (m_nl_sock_info.sock_valid==true)
-    {
-        read_cbr_from_netlink(m_nl_sock_info);
-    }
-    else
-    {
-        throw std::runtime_error("Socket is invalid. Cannot read from netlink.");
-    }
-}
-
-float get_current_cbr()
-{
-    try
-    {
-        float cbr;
-        cbrMutex.lock();
-        cbr = cbrData.currentCBR;
-        cbrMutex.unlock();
-        return cbr;
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-}
-
-float get_current_busy_time()
-{
-    try
-    {
-        float cbt;
-        cbrMutex.lock();
-        cbt = cbrData.currentBusyTime;
-        cbrMutex.unlock();
-        return cbt;
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-}
-
-float get_current_tx_time()
-{
-    try
-    {
-        float ctt;
-        cbrMutex.lock();
-        ctt = cbrData.currentBusyTime;
-        cbrMutex.unlock();
-        return ctt;
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-}
-
-float get_current_rx_time()
-{
-    try
-    {
-        float crt;
-        cbrMutex.lock();
-        crt = cbrData.currentBusyTime;
-        cbrMutex.unlock();
-        return crt;
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-}
-
-float get_current_rssi()
-{
-    try
-    {
-        float rssi;
-        rssiMutex.lock();
-        rssi = currentRssiUtils;
-        rssiMutex.unlock();
-        return rssi;
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-}
-
 void setNewTxPower(double txPower, std::string dissemination_interface)
 {
     int mbm = static_cast<int> (txPower * 100);
@@ -714,5 +469,21 @@ void setNewTxPower(double txPower, std::string dissemination_interface)
     }
 
     free_nl_socket(nl_sock_info);
+}
+
+float get_current_rssi()
+{
+    try
+    {
+        float rssi;
+        rssiMutex.lock();
+        rssi = currentRssiUtils;
+        rssiMutex.unlock();
+        return rssi;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
 }
 

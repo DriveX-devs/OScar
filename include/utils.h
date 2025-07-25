@@ -23,23 +23,6 @@ typedef struct {
     bool sock_valid;
 } nl_sock_info_t;
 
-typedef struct CBRUpdates {
-    bool firstTime = true;
-    bool verbose;
-    unsigned long long startActiveTime;
-    unsigned long long startBusyTime;
-    unsigned long long startReceiveTime;
-    unsigned long long startTransmitTime;
-    float currentCBR = -1.0f;
-    float currentTxTime = -1.0f;
-    float currentRxTime = -1.0f;
-    float currentBusyTime = -1.0f;
-} CBRUpdates;
-
-extern CBRUpdates cbrData;
-
-extern std::mutex cbrMutex;
-
 extern float currentRssiUtils;
 
 extern std::mutex rssiMutex;
@@ -64,14 +47,6 @@ uint64_t get_timestamp_ms_cpm(void);
 nl_sock_info_t open_nl_socket(std::string interface_name);
 void free_nl_socket(nl_sock_info_t nl_sock_info);
 double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info);
-
-void setup_cbr_structure(bool verbose);
-void start_reading_cbr(nl_sock_info_t m_nl_sock_info);
-void read_cbr_from_netlink(nl_sock_info_t nl_sock_info);
-float get_current_cbr();
 float get_current_rssi();
-float get_current_busy_time();
-float get_current_tx_time();
-float get_current_rx_time();
 void setNewTxPower(double txPower, std::string dissemination_interface);
 #endif // SLDM_UTILS_H

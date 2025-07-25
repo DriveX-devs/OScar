@@ -14,10 +14,6 @@ DCC::DCC ()
 DCC::~DCC()
 {
     std::cout << "Deleting DCC object..." << std::endl;
-    if (m_cbr_thread.joinable())
-    {
-        m_cbr_thread.join();
-    }
     if (m_reactive_thread.joinable())
     {
         m_reactive_thread.join();
@@ -42,6 +38,7 @@ void DCC::setupDCC(unsigned long long dcc_interval, std::string dissemination_in
     m_cpm_enabled = enable_CPM_dissemination;
     m_vam_enabled = enable_VAM_dissemination;
     m_log_file = log_file;
+    m_cbr_reader.setupCBRReader(verbose, dissemination_interface);
 }
 
 void DCC::functionReactive()
@@ -51,8 +48,6 @@ void DCC::functionReactive()
     {
         throw std::runtime_error("DCC not set properly.");
     }
-
-    setup_cbr_structure(m_verbose);
 
     bool retry_flag = true;
     setNewTxPower(m_parameters_map[m_current_state].tx_power, m_dissemination_interface);
@@ -64,14 +59,8 @@ void DCC::functionReactive()
     {
         try
         {
-            nl_sock_info_t nl_sock_info = open_nl_socket(m_dissemination_interface);
-            m_cbr_thread = std::thread(start_reading_cbr, nl_sock_info);
-            if(m_cbr_thread.joinable())
-            {
-                m_cbr_thread.join();
-            }
-            // free_nl_socket(nl_sock_info);
-            double currentCbr = get_current_cbr();
+            m_cbr_reader.wrapper_start_reading_cbr();
+            double currentCbr = m_cbr_reader.get_current_cbr();
             if (currentCbr != -1.0f)
             {
                 ReactiveState new_state;
@@ -149,24 +138,16 @@ void DCC::functionAdaptive()
     {
         throw std::runtime_error("DCC not set properly.");
     }
-
-    setup_cbr_structure(m_verbose);
-
+    
     bool retry_flag = true;
-
     uint64_t start = get_timestamp_us();
 
     do
     {
         try
         {
-            nl_sock_info_t nl_sock_info = open_nl_socket(m_dissemination_interface);
-            m_cbr_thread = std::thread(start_reading_cbr, nl_sock_info);
-            if(m_cbr_thread.joinable())
-            {
-                m_cbr_thread.join();
-            }
-            double currentCbr = get_current_cbr();
+            m_cbr_reader.wrapper_start_reading_cbr();
+            double currentCbr = m_cbr_reader.get_current_cbr();
             if (m_time_to_compute == false && currentCbr != -1.0f)
             {
                 m_previous_cbr = currentCbr;

@@ -13,7 +13,7 @@ MetricSupervisor::~MetricSupervisor()
     }
 }
 
-void MetricSupervisor::setupMetricSupervisor(std::string log_filename, uint64_t time_window, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient **sockClient)
+void MetricSupervisor::setupMetricSupervisor(std::string log_filename, uint64_t time_window, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, CABasicService *cabs, CPBasicService *cpbs, VRUBasicService *vrub, SocketClient **sockClient, std::string dissemination_interface)
 {
     m_log_filename = log_filename;
     m_time_window = time_window;
@@ -24,6 +24,7 @@ void MetricSupervisor::setupMetricSupervisor(std::string log_filename, uint64_t 
     m_cpbs = cpbs;
     m_vrubs = vrub;
     m_sock_client = sockClient;
+    m_cbr_reader.setupCBRReader(false, dissemination_interface);
 }
 
 void MetricSupervisor::writeLogFile()
@@ -38,7 +39,8 @@ void MetricSupervisor::writeLogFile()
         try
         {
             float rssi = get_current_rssi();
-            float cbr = get_current_cbr();
+            m_cbr_reader.wrapper_start_reading_cbr();
+            float cbr = m_cbr_reader.get_current_cbr();
             uint64_t num_tx = 0;
             if (m_enable_CAM_dissemination)
             {
@@ -62,7 +64,7 @@ void MetricSupervisor::writeLogFile()
                 num_rx += (*m_sock_client)->get_received_messages();
             }
 
-            file << static_cast<long int>(get_timestamp_us()-start) << "," << rssi << "," << cbr << "," << get_current_busy_time() << "," << get_current_tx_time() << "," << get_current_rx_time() << "," << num_tx << "," << num_rx << "\n";
+            file << static_cast<long int>(get_timestamp_us()-start) << "," << rssi << "," << cbr << "," << m_cbr_reader.get_current_busy_time() << "," << m_cbr_reader.get_current_tx_time() << "," << m_cbr_reader.get_current_rx_time() << "," << num_tx << "," << num_rx << "\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(m_time_window));
         }
         catch(const std::exception& e)
