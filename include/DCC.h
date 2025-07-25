@@ -51,6 +51,7 @@ double m_delta_min = 0.0006;
 double m_Gmax = 0.0005;
 double m_Gmin = -0.00025;
 double m_delta = 0;
+bool m_time_to_compute;
 
 std::unordered_map <ReactiveState, ReactiveParameters> m_parameters_map;
 

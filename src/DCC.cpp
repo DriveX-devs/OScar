@@ -31,6 +31,7 @@ DCC::~DCC()
 void DCC::setupDCC(unsigned long long dcc_interval, std::string dissemination_interface, CABasicService* cabs, CPBasicService* cpbs, VRUBasicService* vrubs, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, float tolerance, bool verbose, std::string log_file)
 {
     m_dcc_interval = dcc_interval;
+    m_time_to_compute = false;
     m_dissemination_interface = dissemination_interface;
     m_verbose = verbose;
     m_tolerance = tolerance;
@@ -166,7 +167,12 @@ void DCC::functionAdaptive()
                 m_cbr_thread.join();
             }
             double currentCbr = get_current_cbr();
-            if (currentCbr != -1.0f)
+            if (m_time_to_compute == false && currentCbr != -1.0f)
+            {
+                m_previous_cbr = currentCbr;
+                m_time_to_compute = true;
+            }
+            else if (m_time_to_compute == true && currentCbr != -1.0f)
             {
                 // Step 1
                 if (m_CBR_its != -1.0f)
@@ -212,9 +218,10 @@ void DCC::functionAdaptive()
                 {
                     std::ofstream file;
                     file.open(m_log_file, std::ios::app);
-                    file << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_delta << "\n";
+                    file << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << m_delta << "\n";
                     file.close();
                 }
+                m_time_to_compute = false;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
         }
@@ -229,6 +236,7 @@ void DCC::functionAdaptive()
 
 void DCC::adaptiveDCC()
 {
+    m_dcc_interval = (long) m_dcc_interval / 2;
     m_adaptive_thread = std::thread(&DCC::functionAdaptive, this);
     if (m_verbose)
     {
@@ -238,7 +246,7 @@ void DCC::adaptiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_relative_us,CBR,new_delta\n";
+        file << "timestamp_relative_us,currentCBR,CBRITS,new_delta\n";
         file.close();
     }
 }
