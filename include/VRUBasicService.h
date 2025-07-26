@@ -7,6 +7,7 @@
 #include "asn1cpp/Setter.hpp"
 #include "asn1cpp/SequenceOf.hpp"
 #include "btp.h"
+#include "MetricSupervisor.h"
 #include <functional>
 #include <atomic>
 #include <thread>
@@ -66,6 +67,7 @@ public:
     void setLDM(ldmmap::LDMMap* LDM){m_LDM = LDM;}
     void setBTP(btp* btp){m_btp = btp;}
     void setVRUdp(VDPGPSClient* VRUdp) {m_VRUdp=VRUdp;}
+    void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
     void setPositionThreshold(double pos_th) {m_pos_th=pos_th;}
     void setSpeedThreshold(double speed_th) {m_speed_th=speed_th;}
     void setHeadingThreshold(double head_th) {m_head_th=head_th;}
@@ -87,7 +89,7 @@ public:
     const long T_GenVamMin_ms = 100;
     const long T_GenVamMax_ms = 5000;
 
-    uint64_t get_VAM_sent() {m_sent_mutex.lock(); uint64_t c = m_vam_sent; m_sent_mutex.unlock(); return c;};
+    uint64_t get_VAM_sent() {return m_vam_sent;};
 
 private:
     const size_t m_MaxPHLength = 23;
@@ -136,7 +138,6 @@ private:
     // Statistic: number of VAMs successfully sent since the VRU Basic Service has been started
     // The VRU Basic Service can count up to 18446744073709551615 (UINT64_MAX) VAMs
     uint64_t m_vam_sent;
-    std::mutex m_sent_mutex;
 
     // Statistics: number of VAMs sent per triggering conditions
     uint64_t m_pos_sent;
@@ -165,6 +166,9 @@ private:
     double m_last_delta = 0;
 
     std::mutex m_vam_gen_mutex;
+
+    // Metric Supervisor pointer
+    MetricSupervisor *m_met_sup_ptr = nullptr;
 };
 
 #endif /* VRUBasicService_h */

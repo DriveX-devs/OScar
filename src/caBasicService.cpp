@@ -78,6 +78,8 @@ CABasicService::CABasicService()
   m_own_public_IP="0.0.0.0";
 
   m_force_20Hz_freq=false;
+
+  m_met_sup_ptr = nullptr;
 }
 
 // This function contains the code for generating a new CAM with all the standard containers
@@ -771,9 +773,10 @@ CABasicService::generateAndEncodeCam()
     dataRequest.data = pktbuf;
     m_btp->sendBTP(dataRequest);
     /* Update the CAM statistics */
-    m_sent_mutex.lock();
     m_cam_sent++;
-    m_sent_mutex.unlock();
+    if(m_met_sup_ptr!=nullptr) {
+        m_met_sup_ptr->signalSentPacket(MessageId_cam);
+    }
 
     int64_t int_tstamp = 0;
     struct timespec tv;

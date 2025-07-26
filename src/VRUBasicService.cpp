@@ -79,6 +79,8 @@ VRUBasicService::VRUBasicService(){
   
   // The log file and .csv file are disabled by default
   m_log_filename = "dis";
+
+  m_met_sup_ptr = nullptr;
 }
 
 // TODO: fix this function as seems to create a "ghost" vehicle that makes OScar always trigger the safe_distance VAM transmission
@@ -778,9 +780,10 @@ VRUBasicService::generateAndEncodeVam(){
   m_btp->sendBTP(dataRequest);
 
   // Update the VAM statistics
-  m_sent_mutex.lock();
   m_vam_sent++;
-  m_sent_mutex.unlock();
+  if(m_met_sup_ptr!=nullptr) {
+      m_met_sup_ptr->signalSentPacket(MessageId_vam);
+  }
 
   int64_t int_tstamp = 0;
   struct timespec tv;

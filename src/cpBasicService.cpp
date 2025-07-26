@@ -72,6 +72,8 @@ CPBasicService::CPBasicService()
 
     m_acceleration_threshold = 17.0;
     m_verbose = false;
+
+    m_met_sup_ptr = nullptr;
 }
 
 void
@@ -499,9 +501,10 @@ CPBasicService::generateAndEncodeCPM()
     dataRequest.data = pktbuf;
     m_btp->sendBTP(dataRequest);
 
-    m_sent_mutex.lock();
     m_cpm_sent++;
-    m_sent_mutex.unlock();
+    if(m_met_sup_ptr!=nullptr) {
+        m_met_sup_ptr->signalSentPacket(MessageId_cpm);
+    }
 
     int64_t int_tstamp = 0;
     struct timespec tv;

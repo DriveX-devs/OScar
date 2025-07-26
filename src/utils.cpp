@@ -37,7 +37,7 @@ uint64_t get_timestamp_us(void) {
 	struct timespec now;
 
 	if(clock_gettime(CLOCK_MONOTONIC, &now) == -1) {
-		perror("Cannot get the current microseconds UTC timestamp");
+		perror("Cannot get the current microseconds monotonic timestamp");
 		return -1;
 	}
 
@@ -51,6 +51,28 @@ uint64_t get_timestamp_us(void) {
 	}
 
 	return seconds*1000000+microseconds;
+}
+
+uint64_t get_timestamp_us_realtime(void) {
+    time_t seconds;
+    uint64_t microseconds;
+    struct timespec now;
+
+    if(clock_gettime(CLOCK_REALTIME, &now) == -1) {
+        perror("Cannot get the current microseconds UTC timestamp");
+        return -1;
+    }
+
+    seconds=now.tv_sec;
+    microseconds=round(now.tv_nsec/1e3);
+
+    // milliseconds, due to the rounding operation, shall not exceed 999999
+    if(microseconds > 999999) {
+        seconds++;
+        microseconds=0;
+    }
+
+    return seconds*1000000+microseconds;
 }
 
 uint64_t get_timestamp_ns(void) {
@@ -377,11 +399,96 @@ double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info) {
     }
 
     // Return the RSSI value
-    float rssi = static_cast<float>(nl_cb_args.signal_lv);
-    rssiMutex.lock();
-    currentRssiUtils[macaddr_str] = rssi;
-    rssiMutex.unlock();
     return static_cast<double>(nl_cb_args.signal_lv);
+}
+
+std::unordered_map<std::string,double> get_all_rssi_from_netlink(nl_sock_info_t nl_sock_info) {
+    std::unordered_map<std::string,double> rssi_map{}; // Retrieved RSSI map (key = STA MAC, value = RSSI)
+
+    // Avoid doing any operation and return an empty map if the Netlink socket passed as second argument
+    // is not valid or could not be opened
+    if(!nl_sock_info.sock_valid || nl_sock_info.ifindex==0) {
+        return rssi_map;
+    }
+
+    // Allocate a new netlink message
+    struct nl_msg *nl_msg=nlmsg_alloc();
+
+    // If allocation is not successful, leave the map as empty and do not perform any further operation
+    // If it is successful, prepare a netlink message to request station information with genlmsg_put() and nla_put_u32()
+    if(nl_msg) {
+        genlmsg_put(nl_msg,NL_AUTO_PORT,NL_AUTO_SEQ,nl_sock_info.nl80211_id,0,NLM_F_DUMP,NL80211_CMD_GET_STATION,0);
+        nla_put_u32(nl_msg,NL80211_ATTR_IFINDEX,nl_sock_info.ifindex);
+
+        // Set a custom callback handler (NL_CB_CUSTOM) to process the response from the kernel, when a valid message is received (NL_CB_VALID)
+        // Instead of defining a callback and passing the pointer to the callback as fourth argument, we define it as a lambda without any capture
+        // Pass as arguments a pointer to the rssi_map
+        nl_socket_modify_cb(nl_sock_info.nl_sock,NL_CB_VALID,NL_CB_CUSTOM,
+                            [] (struct nl_msg *msg, void *arg) -> int {
+                                // Get the arguments casting again to struct nl_cb_args * from void *
+                                auto *rssi_map_ptr= static_cast<std::unordered_map<std::string,double> *>(arg);
+
+                                // Extract the header and attributes from the netlink message
+                                struct nlattr *attrs[NL80211_ATTR_MAX + 1];
+                                // nlmsg_hdr() returns the actual netlink message casted to the type of the netlink message header
+                                // nlmsg_data() returns a pointer to the payload of the netlink message given the message header
+                                struct genlmsghdr *gnlh = (struct genlmsghdr *) nlmsg_data(nlmsg_hdr(msg));
+
+                                // This function Iterates over the stream of attributes received via Netlink and stores a pointer to each
+                                // attribute in the index array specified as first argument (attrs) using the attribute type as index to the array
+                                // genlmsg_attrdata() returns a pointer to the message attributes, while genlmsg_attrlen() returns the length of message attributes
+                                // The second argument of both functions is the length of user headers, that are not present here
+                                // With genlmsg_attrdata(gnlh, 0) we get therefore the head of the head of the attribute stream, and with
+                                // genlmsg_attrlen(gnlh, 0) the length of the attribute stream
+                                // The last argument is a possible policy for validating the attributes, that is not set here
+                                // Tip about nla_parse: attributes with a type greater than the maximum type specified will be silently
+                                // ignored in order to maintain backwards compatibility
+                                nla_parse(attrs,NL80211_ATTR_MAX,genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), nullptr);
+
+                                // Check if the MAC and signal level (RSSI) attributes are available
+                                if(attrs[NL80211_ATTR_STA_INFO] && attrs[NL80211_ATTR_MAC]) {
+                                    // Try to get the current RSSI
+                                    struct nlattr *sinfo[NL80211_STA_INFO_MAX + 1];
+                                    nla_parse(sinfo,NL80211_STA_INFO_MAX,(struct nlattr *) nla_data(attrs[NL80211_ATTR_STA_INFO]),nla_len(attrs[NL80211_ATTR_STA_INFO]),nullptr);
+
+                                    if(sinfo[NL80211_STA_INFO_SIGNAL]) {
+                                        // We get here some bytes that represent an 8-bit signed integer: we therefore need to convert the result of nla_get_u8() to int8_t
+                                        // If we can get the RSSI, get the current MAC address
+                                        uint8_t *rssi_mac = static_cast<uint8_t *>(nla_data(attrs[NL80211_ATTR_MAC]));
+
+                                        // Convert MAC to string
+                                        char rssi_mac_chars[18];
+                                        std::snprintf(rssi_mac_chars,18,"%02X:%02X:%02X:%02X:%02X:%02X",
+                                                      rssi_mac[0],
+                                                      rssi_mac[1],
+                                                      rssi_mac[2],
+                                                      rssi_mac[3],
+                                                      rssi_mac[4],
+                                                      rssi_mac[5]);
+                                        std::string rssi_mac_string(rssi_mac_chars);
+
+                                        int rssi = static_cast<int>(static_cast<int8_t>(nla_get_u8(sinfo[NL80211_STA_INFO_SIGNAL])));
+
+                                        // Store the current MAC:RSSI into the rssi_map
+                                        (*rssi_map_ptr)[rssi_mac_string] = rssi;
+                                    }
+                                }
+                                return NL_SKIP;
+                            },
+                            static_cast<void *>(&rssi_map));
+
+        // Finalize and send the netlink message to the kernel
+        nl_send_auto_complete(nl_sock_info.nl_sock, nl_msg);
+
+        // Receive the response from the ntlink socket using the callback handler in nl_sock, as previously set
+        // As per official documentation, nl_recvmsgs_default() will call nl_recvmsgs()
+        // nl_recvmsgs() repeatedly calls nl_recv() and parses the received data as netlink messages;
+        // it stops reading if one of the callbacks returns NL_STOP or nl_recv() returns either 0 or a negative error code.
+        nl_recvmsgs_default(nl_sock_info.nl_sock);
+    }
+
+    // Return the rssi_map
+    return rssi_map;
 }
 
 double get_rssi_from_iw(uint8_t macaddr[6],std::string interface_name) {

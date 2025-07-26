@@ -123,9 +123,7 @@ SocketClient::rxThr(void) {
 					fprintf(stderr,"[ERROR] Unable to receive a message from the specified socket.\n");
 				} else {
 					// Process the received message, after removing the "Ethernet" header with the EtherType, and the source and destination MAC addresses
-					m_received_mutex.lock();
-					m_received_msg ++;
-					m_received_mutex.unlock();
+					m_received_msg++;
 					manageMessage(msgbuf+sizeof(struct ether_header),msglen-sizeof(struct ether_header));
 				}
 			} else if(socketMon[1].revents>0) {
@@ -244,6 +242,11 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 		double lat, lon;
 		uint64_t stationID;
+
+        // Signal to the Metric Supervisor that a CAM has been received
+        if(m_met_sup_ptr!=nullptr) {
+            m_met_sup_ptr->signalReceivedPacket(MessageId_cam);
+        }
 		
 		lat = decoded_cam->cam.camParameters.basicContainer.referencePosition.latitude/10000000.0;
 		lon = decoded_cam->cam.camParameters.basicContainer.referencePosition.longitude/10000000.0;
@@ -431,6 +434,11 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		uint8_t sender_mac[6];
 
 		if(decoded_denm!=nullptr) {
+            // Signal to the Metric Supervisor that a DENM has been received
+            if(m_met_sup_ptr!=nullptr) {
+                m_met_sup_ptr->signalReceivedPacket(MessageId_denm);
+            }
+
 			// Get the stationID from the DENM
 			long stationID = decoded_denm->header.stationId;
 
@@ -490,6 +498,11 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 		double lat, lon;
 		uint64_t stationID;
+
+        // Signal to the Metric Supervisor that a VAM has been received
+        if(m_met_sup_ptr!=nullptr) {
+            m_met_sup_ptr->signalReceivedPacket(MessageId_vam);
+        }
 		
 		lat = decoded_vam->vam.vamParameters.basicContainer.referencePosition.latitude/10000000.0;
 		lon = decoded_vam->vam.vamParameters.basicContainer.referencePosition.longitude/10000000.0;
@@ -611,6 +624,11 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		ASN_STRUCT_FREE(asn_DEF_VAM,decoded_vam);
 	} else if(decodedData.type == etsiDecoder::ETSI_DECODED_CPM || decodedData.type == etsiDecoder::ETSI_DECODED_CPM_NOGN)   {
         uint64_t fromStationID;
+
+        // Signal to the Metric Supervisor that a CPM has been received
+        if(m_met_sup_ptr!=nullptr) {
+            m_met_sup_ptr->signalReceivedPacket(MessageId_cpm);
+        }
 
         double fromLat = asn1cpp::getField (decodedData.decoded_cpm->payload.managementContainer.referencePosition.latitude, double) / 10000000.0;
         double fromLon = asn1cpp::getField (decodedData.decoded_cpm->payload.managementContainer.referencePosition.longitude, double) / 10000000.0;
@@ -798,14 +816,13 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
                     db_retval=m_db_ptr->insert(PO_data);
 
                     if(db_retval!=ldmmap::LDMMap::LDMMAP_OK && db_retval!=ldmmap::LDMMap::LDMMAP_UPDATED) {
-                        std::cerr << "Warning! Insert on the database for Perceived Object " << (int) PO_data.stationID << "failed!" << std::endl;
+                        std::cerr << "[WARN] Warning! Insert on the database for Perceived Object " << (int) PO_data.stationID << "failed!" << std::endl;
                     }
                 }
             }
         }
-
     } else {
-		std::cerr << "Warning! Only CAM, CPM and VAM messages (and, optionally, DENMs) are supported for the time being!" << std::endl;
+		std::cerr << "[WARN] Warning! Only CAM, CPM and VAM messages (and, optionally, DENMs) are supported for the time being!" << std::endl;
 		return;
 	}
 }

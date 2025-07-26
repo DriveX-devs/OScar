@@ -11,6 +11,7 @@
 #include "etsiDecoderFrontend.h"
 #include "LDMmap.h"
 #include "utils.h"
+#include "MetricSupervisor.h"
 
 #include "gpsc.h"
 
@@ -80,15 +81,18 @@ class SocketClient {
         // nl80211 socket info structure to retrieve RSSI values
         nl_sock_info_t m_nl_sock_info;
 
+        // Statistic: total number of received messages
 		uint64_t m_received_msg = 0;
-		std::mutex m_received_mutex;
+
+        // Metric Supervisor pointer
+        MetricSupervisor *m_met_sup_ptr = nullptr;
 
 	public:
 		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security);
 		
 		~SocketClient() = default;
 
-		uint64_t get_received_messages() {m_received_mutex.lock(); uint64_t c = m_received_msg; m_received_mutex.unlock(); return c;}
+		uint64_t get_received_messages() {return m_received_msg;}
 
 		void setPrintMsg(bool printMsgEnable) {m_printMsg = printMsgEnable;}
 
@@ -103,6 +107,8 @@ class SocketClient {
 		void stopReception(void);
 
 		void setLoggingGNSSClient(VDPGPSClient *gpsc_ptr) {m_gpsc_ptr=gpsc_ptr;}
+
+        void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
 };
 
 #endif // SOCKET_CLIENT_H

@@ -7,6 +7,7 @@
 #include "asn1cpp/SequenceOf.hpp"
 #include "btp.h"
 #include "LDMmap.h"
+#include "MetricSupervisor.h"
 #include <functional>
 #include <atomic>
 #include <thread>
@@ -40,6 +41,7 @@ public:
     void setVDP(VDPGPSClient* vdp) {m_vdp=vdp;}
     void setLDM(ldmmap::LDMMap* LDM) {m_LDM=LDM;}
     void setBTP(btp *btp){m_btp = btp;}
+    void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
 
     void changeNGenCpmMax(int16_t N_GenCpmMax) {m_N_GenCpmMax=N_GenCpmMax;}
     void setRealTime(bool real_time){m_real_time=real_time;}
@@ -57,7 +59,7 @@ public:
 
     void initDissemination();
 
-    void setCheckCpmGenMs(long nextCPM) {m_cpm_gen_mutex.lock(); m_N_GenCpm=nextCPM; m_cpm_gen_mutex.unlock();};
+    void setCheckCpmGenMs(long nextCPM) {m_cpm_gen_mutex.lock(); m_N_GenCpm=nextCPM; m_cpm_gen_mutex.unlock();}
 
     void toffUpdateAfterDeltaUpdate(double delta);
 
@@ -68,7 +70,7 @@ public:
     const long T_GenCpmMax_ms = 1000;
     const long m_T_AddSensorInformation = 1000;
 
-    uint64_t get_CPM_sent() {m_sent_mutex.lock(); uint64_t c = m_cpm_sent; m_sent_mutex.unlock(); return c;};
+    uint64_t get_CPM_sent() {return m_cpm_sent;}
 
     private:
 
@@ -113,10 +115,9 @@ public:
     double m_prev_speed;
     std::vector<long> m_lastCPM_POs;
 
-    // Statistic: number of Cpms successfully sent since the CA Basic Service has been started
-    // The CA Basic Service can count up to 18446744073709551615 (UINT64_MAX) Cpms
+    // Statistic: number of Cpms successfully sent since the CP Service has been started
+    // The CP Service can count up to 18446744073709551615 (UINT64_MAX) Cpms
     uint64_t m_cpm_sent;
-    std::mutex m_sent_mutex;
 
     // Extra information which can be optionally disseminated through Enhanced CAMs
     std::string m_own_private_IP;
@@ -131,6 +132,9 @@ public:
     double m_last_delta = 0;
 
     std::mutex m_cpm_gen_mutex;
+
+    // Metric Supervisor pointer
+    MetricSupervisor *m_met_sup_ptr = nullptr;
 };
 
 

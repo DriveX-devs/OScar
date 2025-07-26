@@ -60,8 +60,6 @@
 
 #define MAXIMUM_TIME_WINDOW_DCC 2000
 
-#define STANDARD_TX_POWER 24
-
 // Global atomic flag to terminate all the threads in case of errors
 std::atomic<bool> terminatorFlag;
 
@@ -760,12 +758,12 @@ void vehdataTxThread(std::string udp_sock_addr,
 
 
 int main (int argc, char *argv[]) {
-	std::string dissem_vif = "wlan0";
+    std::string dissem_vif = "wlan0";
 
-	std::string log_filename_CAM = "dis";
+    std::string log_filename_CAM = "dis";
     std::string log_filename_GNsecurity = "dis";
-	std::string log_filename_VAM = "dis";
-	std::string log_filename_rcv = "dis";
+    std::string log_filename_VAM = "dis";
+    std::string log_filename_rcv = "dis";
     std::string log_filename_CPM = "cps_dis";
 
     // CAN database file name for CPM transmission
@@ -775,52 +773,52 @@ int main (int argc, char *argv[]) {
     std::string can_db_param_ini = "dis";
 
     // gpsd options
-	std::string gnss_device = "localhost";
-	long gnss_port = 3000; // Using 3000 as default port, in our case
+    std::string gnss_device = "localhost";
+    long gnss_port = 3000; // Using 3000 as default port, in our case
 
     // serial parser options
     std::string serial_device = "/dev/ttyACM0";
     int serial_device_baudrate = 115200;
     double serial_device_validity_thr = 1;
 
-	unsigned long vehicleID = 0; // Vehicle ID
-	unsigned long VRUID = 0; // VRU ID
-	bool enable_CAM_dissemination = false;
-	bool enable_VAM_dissemination = false;
+    unsigned long vehicleID = 0; // Vehicle ID
+    unsigned long VRUID = 0; // VRU ID
+    bool enable_CAM_dissemination = false;
+    bool enable_VAM_dissemination = false;
     bool enable_CPM_dissemination = false;
-	bool enable_DENM_decoding = false;
-	bool enable_reception = false;
-	bool disable_selfMAC_check = false;
+    bool enable_DENM_decoding = false;
+    bool enable_reception = false;
+    bool disable_selfMAC_check = false;
     bool enable_sensor_classification = false;
     bool verbose = false;
 
-	int json_over_tcp_port = 49000;
+    int json_over_tcp_port = 49000;
     bool enable_security = false;
 
     double check_faulty_object_acceleration = 0.0;
     bool disable_cpm_speed_triggering = false;
 
-	std::string udp_sock_addr = "dis";
-	std::string udp_bind_ip = "0.0.0.0";
-	bool extra_position_udp = false;
+    std::string udp_sock_addr = "dis";
+    std::string udp_bind_ip = "0.0.0.0";
+    bool extra_position_udp = false;
 
-	// VAM triggering conditions thresholds
-	double pos_th = -1;
-	double speed_th = -1;
-	double head_th = -1;
+    // VAM triggering conditions thresholds
+    double pos_th = -1;
+    double speed_th = -1;
+    double head_th = -1;
 
-	// Options structure for the receiver thread
-	options_t rx_opts;
+    // Options structure for the receiver thread
+    options_t rx_opts;
 
-	terminatorFlag = false;
+    terminatorFlag = false;
 
-	// DB cleaner thread ID
-	pthread_t dbcleaner_tid;
-	// Vehicle visualizer update thread ID
-	pthread_t vehviz_tid;
+    // DB cleaner thread ID
+    pthread_t dbcleaner_tid;
+    // Vehicle visualizer update thread ID
+    pthread_t vehviz_tid;
 
-	// Vehicle Visualizer options
-	vizOptions_t vizOpts;
+    // Vehicle Visualizer options
+    vizOptions_t vizOpts;
 
     // Wrong input threshold
     long wrong_input_threshold = 1000;
@@ -830,7 +828,7 @@ int main (int argc, char *argv[]) {
     // true if gpsd is used to gather positioning data, false if the internal NMEA+UBX parser is used
     bool use_gpsd = false;
 
-    int debug_age_info_rate_ms=0;
+    int debug_age_info_rate_ms = 0;
 
     bool force_20Hz_freq = false;
 
@@ -856,273 +854,355 @@ int main (int argc, char *argv[]) {
 
     bool reset_tx_power = false;
 
-	// Parse the command line options with the TCLAP library
-	try {
-		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.6-development");
+    // Parse the command line options with the TCLAP library
+    try {
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.7-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
-        TCLAP::ValueArg<int> SerialDeviceBaudrate("b","serial-device-baudrate","[Considered only if -g is not specified] Serial device baudrate for the GNSS receiver. Default: 115200",false,115200,"positive integer");
+        TCLAP::ValueArg<int> SerialDeviceBaudrate("b", "serial-device-baudrate",
+                                                  "[Considered only if -g is not specified] Serial device baudrate for the GNSS receiver. Default: 115200",
+                                                  false, 115200, "positive integer");
         cmd.add(SerialDeviceBaudrate);
 
-        TCLAP::ValueArg<std::string> CANDeviceArg("c","can-device","Optional CAN interface: CAN device to be used (i.e., where can-utils is currently running). Default: none (CAN bus interface disabled).",false,"none","string");
+        TCLAP::ValueArg<std::string> CANDeviceArg("c", "can-device",
+                                                  "Optional CAN interface: CAN device to be used (i.e., where can-utils is currently running). Default: none (CAN bus interface disabled).",
+                                                  false, "none", "string");
         cmd.add(CANDeviceArg);
 
-        TCLAP::SwitchArg CAMsDissArg("C","enable-CAMs-dissemination","Enable the dissemination of standard CAMs",false);
+        TCLAP::SwitchArg CAMsDissArg("C", "enable-CAMs-dissemination", "Enable the dissemination of standard CAMs",
+                                     false);
         cmd.add(CAMsDissArg);
 
-        TCLAP::SwitchArg DENMsDecArg("d","enable-DENMs-decoding","Enable the decoding of DENMs",false);
+        TCLAP::SwitchArg DENMsDecArg("d", "enable-DENMs-decoding", "Enable the decoding of DENMs", false);
         cmd.add(DENMsDecArg);
 
-        TCLAP::ValueArg<std::string> GNSSDevArg("D","gnss-device","[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",false,"localhost","string");
+        TCLAP::ValueArg<std::string> GNSSDevArg("D", "gnss-device",
+                                                "[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",
+                                                false, "localhost", "string");
         cmd.add(GNSSDevArg);
 
-        TCLAP::ValueArg<double> HEAD_threshold("e","Heading-threshold","VAM heading triggering condition threshold",false,-1,"double");
+        TCLAP::ValueArg<double> HEAD_threshold("e", "Heading-threshold", "VAM heading triggering condition threshold",
+                                               false, -1, "double");
         cmd.add(HEAD_threshold);
 
-        TCLAP::ValueArg<std::string> LogfileGNsecurity("f","log-file-GNsecurity","Print on file the log for the GN security checks. Default: (disabled).",false,"dis","string");
+        TCLAP::ValueArg<std::string> LogfileGNsecurity("f", "log-file-GNsecurity",
+                                                       "Print on file the log for the GN security checks. Default: (disabled).",
+                                                       false, "dis", "string");
         cmd.add(LogfileGNsecurity);
 
-        TCLAP::ValueArg<std::string> LogfileVAM("F","log-file-VAM","[Considered only if security is enabled] Print on file the log for the VAM condition checks. Default: (disabled).",false,"dis","string");
+        TCLAP::ValueArg<std::string> LogfileVAM("F", "log-file-VAM",
+                                                "[Considered only if security is enabled] Print on file the log for the VAM condition checks. Default: (disabled).",
+                                                false, "dis", "string");
         cmd.add(LogfileVAM);
 
-        TCLAP::SwitchArg UseGPSD("g","use-gpsd","Use GPSD instead of the serial NMEA+UBX parser that is normally used by default.",false);
+        TCLAP::SwitchArg UseGPSD("g", "use-gpsd",
+                                 "Use GPSD instead of the serial NMEA+UBX parser that is normally used by default.",
+                                 false);
         cmd.add(UseGPSD);
 
         // -h / --help is reserved for the help and should not be added as an option
 
-		TCLAP::ValueArg<std::string> vifName("I","interface","Broadcast dissemination interface. Default: wlan0.",false,"wlan0","string");
-		cmd.add(vifName);
+        TCLAP::ValueArg<std::string> vifName("I", "interface", "Broadcast dissemination interface. Default: wlan0.",
+                                             false, "wlan0", "string");
+        cmd.add(vifName);
 
-        TCLAP::ValueArg<long> JSONserverPortArg("j","ldm-json-server-port","Set the port for on-demand JSON-over-TCP requests to the LDM.",false,DEFAULT_JSON_OVER_TCP_PORT,"integer");
+        TCLAP::ValueArg<long> JSONserverPortArg("j", "ldm-json-server-port",
+                                                "Set the port for on-demand JSON-over-TCP requests to the LDM.", false,
+                                                DEFAULT_JSON_OVER_TCP_PORT, "integer");
         cmd.add(JSONserverPortArg);
-		
-		TCLAP::ValueArg<std::string> LogfileCAM("L","log-file-CAM","Print on file the log for the CAM condition checks. Default: (disabled).",false,"dis","string");
-		cmd.add(LogfileCAM);
 
-        TCLAP::SwitchArg EnableHMIArg("m","enable-HMI","Enable the OScar HMI",false);
+        TCLAP::ValueArg<std::string> LogfileCAM("L", "log-file-CAM",
+                                                "Print on file the log for the CAM condition checks. Default: (disabled).",
+                                                false, "dis", "string");
+        cmd.add(LogfileCAM);
+
+        TCLAP::SwitchArg EnableHMIArg("m", "enable-HMI", "Enable the OScar HMI", false);
         cmd.add(EnableHMIArg);
 
-        TCLAP::SwitchArg CPMsDissArg("M","enable-CPMs-dissemination","Enable the dissemination of CPMs",false);
+        TCLAP::SwitchArg CPMsDissArg("M", "enable-CPMs-dissemination", "Enable the dissemination of CPMs", false);
         cmd.add(CPMsDissArg);
 
-        TCLAP::ValueArg<double> POS_threshold("p","Position-threshold","VAM position triggering condition threshold",false,-1,"double");
+        TCLAP::ValueArg<double> POS_threshold("p", "Position-threshold", "VAM position triggering condition threshold",
+                                              false, -1, "double");
         cmd.add(POS_threshold);
 
-        TCLAP::ValueArg<long> GNSSPortArg("P","gnss-port","[Considered only if -g is specified] Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OCABS is 3000.",false,GNSS_DEFAULT_PORT,"integer");
+        TCLAP::ValueArg<long> GNSSPortArg("P", "gnss-port",
+                                          "[Considered only if -g is specified] Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OCABS is 3000.",
+                                          false, GNSS_DEFAULT_PORT, "integer");
         cmd.add(GNSSPortArg);
 
-        TCLAP::ValueArg<unsigned long> VRUIDArg("r","VRU-id","VRU Basic Service Station ID",false,1000,"unsigned integer");
+        TCLAP::ValueArg<unsigned long> VRUIDArg("r", "VRU-id", "VRU Basic Service Station ID", false, 1000,
+                                                "unsigned integer");
         cmd.add(VRUIDArg);
 
-        TCLAP::ValueArg<std::string> LogfileReception("R","log-file-Reception","Print on file the data retrieved from CAM/VAM/DENM reception. Default: (disabled).",false,"dis","string");
-		cmd.add(LogfileReception);
+        TCLAP::ValueArg<std::string> LogfileReception("R", "log-file-Reception",
+                                                      "Print on file the data retrieved from CAM/VAM/DENM reception. Default: (disabled).",
+                                                      false, "dis", "string");
+        cmd.add(LogfileReception);
 
-        TCLAP::ValueArg<std::string> SerialDevice("s","serial-device","[Considered only if -g is not specified] Serial device path for the GNSS receiver. Default: /dev/ttyACM0",false,"/dev/ttyACM0","string");
+        TCLAP::ValueArg<std::string> SerialDevice("s", "serial-device",
+                                                  "[Considered only if -g is not specified] Serial device path for the GNSS receiver. Default: /dev/ttyACM0",
+                                                  false, "/dev/ttyACM0", "string");
         cmd.add(SerialDevice);
 
-        TCLAP::ValueArg<double> SPEED_threshold("S","Speed-threshold","VAM speed triggering condition threshold",false,-1,"double");
+        TCLAP::ValueArg<double> SPEED_threshold("S", "Speed-threshold", "VAM speed triggering condition threshold",
+                                                false, -1, "double");
         cmd.add(SPEED_threshold);
 
-        TCLAP::SwitchArg DisableSelfMACArg("T","disable-self-MAC-check","Debugging option: disable the self MAC check: if this option is set, "
-                                                                        "OScar will likely receive also the messages sent by itself (i.e., it will receive messages with a MAC address equal to its own too). Useful for debugging.",false);
+        TCLAP::SwitchArg DisableSelfMACArg("T", "disable-self-MAC-check",
+                                           "Debugging option: disable the self MAC check: if this option is set, "
+                                           "OScar will likely receive also the messages sent by itself (i.e., it will receive messages with a MAC address equal to its own too). Useful for debugging.",
+                                           false);
         cmd.add(DisableSelfMACArg);
 
-        TCLAP::ValueArg<std::string> UDPSockAddrArg("u","udp-sock-addr","If specified, OCABS, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",false,"dis","string");
+        TCLAP::ValueArg<std::string> UDPSockAddrArg("u", "udp-sock-addr",
+                                                    "If specified, OCABS, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",
+                                                    false, "dis", "string");
         cmd.add(UDPSockAddrArg);
 
-        TCLAP::ValueArg<std::string> UDPBindIPArg("U","udp-bind-ip","This options is valid only if --udp-sock-addr/-u has been specified. It can be used to set an interface/address to bind the UDP socket to. By default, no specific address is used for binding (i.e., binding to any address/interface).",false,"0.0.0.0","string");
+        TCLAP::ValueArg<std::string> UDPBindIPArg("U", "udp-bind-ip",
+                                                  "This options is valid only if --udp-sock-addr/-u has been specified. It can be used to set an interface/address to bind the UDP socket to. By default, no specific address is used for binding (i.e., binding to any address/interface).",
+                                                  false, "0.0.0.0", "string");
         cmd.add(UDPBindIPArg);
 
-		TCLAP::ValueArg<unsigned long> VehicleIDArg("v","vehicle-id","CA Basic Service Station ID",false,0,"unsigned integer");
-		cmd.add(VehicleIDArg);
-		
-		TCLAP::SwitchArg VAMsDissArg("V","enable-VAMs-dissemination","Enable the dissemination of VAMs",false);
-		cmd.add(VAMsDissArg);
+        TCLAP::ValueArg<unsigned long> VehicleIDArg("v", "vehicle-id", "CA Basic Service Station ID", false, 0,
+                                                    "unsigned integer");
+        cmd.add(VehicleIDArg);
 
-        TCLAP::SwitchArg SecurityArg("w","enable-security","Enable the the transmission and reception of secured messages (tested on CAMs and CPMs)",false);
+        TCLAP::SwitchArg VAMsDissArg("V", "enable-VAMs-dissemination", "Enable the dissemination of VAMs", false);
+        cmd.add(VAMsDissArg);
+
+        TCLAP::SwitchArg SecurityArg("w", "enable-security",
+                                     "Enable the the transmission and reception of secured messages (tested on CAMs and CPMs)",
+                                     false);
         cmd.add(SecurityArg);
 
-        TCLAP::SwitchArg EnableRxArg("x","enable-reception","Enable the reception of messages and the LDM",false);
+        TCLAP::SwitchArg EnableRxArg("x", "enable-reception", "Enable the reception of messages and the LDM", false);
         cmd.add(EnableRxArg);
 
-		TCLAP::SwitchArg ExtraPosUDPArg("X","add-extra-position-udp","This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",false);
-		cmd.add(ExtraPosUDPArg);
+        TCLAP::SwitchArg ExtraPosUDPArg("X", "add-extra-position-udp",
+                                        "This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",
+                                        false);
+        cmd.add(ExtraPosUDPArg);
 
-        TCLAP::ValueArg<double> SerialDeviceValidityThr("y","serial-device-validity-threshold","[Considered only if -g is not specified] Advanced options (set only if you know what you are doing): serial device data validity time threshold for the GNSS receiver. Default: 1 sec",false,1,"positive double");
+        TCLAP::ValueArg<double> SerialDeviceValidityThr("y", "serial-device-validity-threshold",
+                                                        "[Considered only if -g is not specified] Advanced options (set only if you know what you are doing): serial device data validity time threshold for the GNSS receiver. Default: 1 sec",
+                                                        false, 1, "positive double");
         cmd.add(SerialDeviceValidityThr);
 
-        TCLAP::SwitchArg Force20HzFreq("Y","force-CAM-20Hz","Advanced options: force the CAM transmission frequency to a fixed 20 Hz (in line with the 5G-CARMEN project experimentation)",false);
+        TCLAP::SwitchArg Force20HzFreq("Y", "force-CAM-20Hz",
+                                       "Advanced options: force the CAM transmission frequency to a fixed 20 Hz (in line with the 5G-CARMEN project experimentation)",
+                                       false);
         cmd.add(Force20HzFreq);
 
-        TCLAP::ValueArg<std::string> LogfileCPM("z","log-file-CPM","Print on file the log for the CPM condition checks. Default: (disabled).",false,"cps_dis","string");
+        TCLAP::ValueArg<std::string> LogfileCPM("z", "log-file-CPM",
+                                                "Print on file the log for the CPM condition checks. Default: (disabled).",
+                                                false, "cps_dis", "string");
         cmd.add(LogfileCPM);
 
         // Vehicle Visualizer options
-		TCLAP::ValueArg<long> VV_NodejsPortArg("1","vehviz-nodejs-port","Advanced option: set the port number for the UDP connection to the Vehicle Visualizer Node.js server",false,DEFAULT_VEHVIZ_NODEJS_UDP_PORT,"integer");
-		cmd.add(VV_NodejsPortArg);
+        TCLAP::ValueArg<long> VV_NodejsPortArg("1", "vehviz-nodejs-port",
+                                               "Advanced option: set the port number for the UDP connection to the Vehicle Visualizer Node.js server",
+                                               false, DEFAULT_VEHVIZ_NODEJS_UDP_PORT, "integer");
+        cmd.add(VV_NodejsPortArg);
 
-		TCLAP::ValueArg<long> VV_WebInterfacePortArg("2","vehviz-web-interface-port","set the port at which the web interface of the Vehicle Visualizer will be available",false,DEFAULT_VEHVIZ_WEB_PORT,"integer");
-		cmd.add(VV_WebInterfacePortArg);
+        TCLAP::ValueArg<long> VV_WebInterfacePortArg("2", "vehviz-web-interface-port",
+                                                     "set the port at which the web interface of the Vehicle Visualizer will be available",
+                                                     false, DEFAULT_VEHVIZ_WEB_PORT, "integer");
+        cmd.add(VV_WebInterfacePortArg);
 
-		TCLAP::ValueArg<double> VV_UpdateIntervalArg("3","vehviz-update-interval-sec",
-			"Advanced option: this option can be used to modify the update rate of the web-based GUI. "
-			"Warning: decreasing too much this value will affect the LDM database performance!"
-			"This value cannot be less than 0.05 s and more than 1 s.",
-			false,DEFAULT_VEHVIZ_UPDATE_INTERVAL_SECONDS,"double");
-		cmd.add(VV_UpdateIntervalArg);
+        TCLAP::ValueArg<double> VV_UpdateIntervalArg("3", "vehviz-update-interval-sec",
+                                                     "Advanced option: this option can be used to modify the update rate of the web-based GUI. "
+                                                     "Warning: decreasing too much this value will affect the LDM database performance!"
+                                                     "This value cannot be less than 0.05 s and more than 1 s.",
+                                                     false, DEFAULT_VEHVIZ_UPDATE_INTERVAL_SECONDS, "double");
+        cmd.add(VV_UpdateIntervalArg);
 
-		TCLAP::ValueArg<std::string> VV_NodejsAddrArg("4","vehviz-nodejs-addr",
-			"Advanced option: set the IPv4 address for the UDP connection to the Vehicle Visualizer Node.js server (excluding the port number). "
-			"This is the address without port number.",
-			false,DEFAULT_VEHVIZ_NODEJS_UDP_ADDR,"IPv4 address string");
-		cmd.add(VV_NodejsAddrArg);
+        TCLAP::ValueArg<std::string> VV_NodejsAddrArg("4", "vehviz-nodejs-addr",
+                                                      "Advanced option: set the IPv4 address for the UDP connection to the Vehicle Visualizer Node.js server (excluding the port number). "
+                                                      "This is the address without port number.",
+                                                      false, DEFAULT_VEHVIZ_NODEJS_UDP_ADDR, "IPv4 address string");
+        cmd.add(VV_NodejsAddrArg);
 
-        TCLAP::ValueArg<long> WrongInputTsholdArg("5","set-wrong-input-threshold","[Considered only if -g is not specified] Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",false,1000,"integer");
+        TCLAP::ValueArg<long> WrongInputTsholdArg("5", "set-wrong-input-threshold",
+                                                  "[Considered only if -g is not specified] Advanced option: set the number of unrecognized bytes after which the parser should stop its execution and return an error.",
+                                                  false, 1000, "integer");
         cmd.add(WrongInputTsholdArg);
 
-        TCLAP::ValueArg<double> CheckFaultyObjectAcceleration("6","faulty-object-acceleration-threshold","Advanced option: enable the check of faulty acceleration values of the objects in the CPMs by setting a custom threshold.",false,0.0,"double");
+        TCLAP::ValueArg<double> CheckFaultyObjectAcceleration("6", "faulty-object-acceleration-threshold",
+                                                              "Advanced option: enable the check of faulty acceleration values of the objects in the CPMs by setting a custom threshold.",
+                                                              false, 0.0, "double");
         cmd.add(CheckFaultyObjectAcceleration);
 
-        TCLAP::SwitchArg DisableCPMSpeedTriggering("7","disable-cpm-speed-triggering","Advanced option: disable the triggering of the CPMs based on speed variation.",false);
+        TCLAP::SwitchArg DisableCPMSpeedTriggering("7", "disable-cpm-speed-triggering",
+                                                   "Advanced option: disable the triggering of the CPMs based on speed variation.",
+                                                   false);
         cmd.add(DisableCPMSpeedTriggering);
 
-        TCLAP::SwitchArg EnableSensorClassification("8","classification","Advanced option: enable the usage of sensor output classification.",false);
+        TCLAP::SwitchArg EnableSensorClassification("8", "classification",
+                                                    "Advanced option: enable the usage of sensor output classification.",
+                                                    false);
         cmd.add(EnableSensorClassification);
 
-        TCLAP::SwitchArg EnableVerbose("9","vv","Enable verbose output.",false);
+        TCLAP::SwitchArg EnableVerbose("9", "vv", "Enable verbose output.", false);
         cmd.add(EnableVerbose);
 
-        TCLAP::ValueArg<std::string> CANdb("","can-db","CAN database file for CPM dissemination. A CAN db telling OSCar how to parse data about sensed objects is mandatory for the dissemination of CPMs.",false,"","string");
+        TCLAP::ValueArg<std::string> CANdb("", "can-db",
+                                           "CAN database file for CPM dissemination. A CAN db telling OSCar how to parse data about sensed objects is mandatory for the dissemination of CPMs.",
+                                           false, "", "string");
         cmd.add(CANdb);
 
-        TCLAP::ValueArg<std::string> CANdbParamINI("","can-db-param-file","INI file for specifying which CAN messages should be considered for the parsing of the sensor data for CPM dissemination, and the names of the CAN signals corresponding to object classification (classification), "
-                                                                  "angle between the sensor and the left-most edge of the object (phi_left), angle between the sensor and the right-most edge of the object (phi_right), distance between sensor and object (distance). "
-                                                                  "The name of the CAN messages containing such signals (sensor_message_regex in the INI file) should be specified through a regular expression, in case more than one message should be parsed (e.g., if different CAN frames carry information about "
-                                                                  "different sensed objects at the same time). In any case, OScar assumes that all the CAN messages matching the regular expression contain the same signals related to detected objects. "
-                                                                  "If this option is not specified, default values will be used, i.e., a CAN message name regex equal to \"^Video_Object_\\d{2}_B$\", and signal names set to, respectively, \"classification\", \"phi_left\", \"phi_right\" and \"dx_v\".",false,"dis","string");
+        TCLAP::ValueArg<std::string> CANdbParamINI("", "can-db-param-file",
+                                                   "INI file for specifying which CAN messages should be considered for the parsing of the sensor data for CPM dissemination, and the names of the CAN signals corresponding to object classification (classification), "
+                                                   "angle between the sensor and the left-most edge of the object (phi_left), angle between the sensor and the right-most edge of the object (phi_right), distance between sensor and object (distance). "
+                                                   "The name of the CAN messages containing such signals (sensor_message_regex in the INI file) should be specified through a regular expression, in case more than one message should be parsed (e.g., if different CAN frames carry information about "
+                                                   "different sensed objects at the same time). In any case, OScar assumes that all the CAN messages matching the regular expression contain the same signals related to detected objects. "
+                                                   "If this option is not specified, default values will be used, i.e., a CAN message name regex equal to \"^Video_Object_\\d{2}_B$\", and signal names set to, respectively, \"classification\", \"phi_left\", \"phi_right\" and \"dx_v\".",
+                                                   false, "dis", "string");
         cmd.add(CANdbParamINI);
 
-        TCLAP::ValueArg<int> ShowDebugAgeInfo("","show-live-data","[Considered only if -g is not specified] When activated, OScar will show, while it is running, the live data obtained from the GNSS system, together with the age of each piece of information (how old it is with respect to when it was last retrieved). After the option, an update interval in milliseconds should be specified. This will be the frequency at which the live data will be displayed.", false, 0, "integer");
+        TCLAP::ValueArg<int> ShowDebugAgeInfo("", "show-live-data",
+                                              "[Considered only if -g is not specified] When activated, OScar will show, while it is running, the live data obtained from the GNSS system, together with the age of each piece of information (how old it is with respect to when it was last retrieved). After the option, an update interval in milliseconds should be specified. This will be the frequency at which the live data will be displayed.",
+                                              false, 0, "integer");
         cmd.add(ShowDebugAgeInfo);
 
-        TCLAP::SwitchArg UseJsonTrace("","use-tracenx-json-trace","[Considered only if -g is not specified] Instead of reading from a real serial device, when the serial parser is used, use a JSON pre-recorded trace for the provision of positioning data. The path to the .json file should be specified after -s as if it was the path to a serial device. OScar supports JSON trace files recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X).",false);
+        TCLAP::SwitchArg UseJsonTrace("", "use-tracenx-json-trace",
+                                      "[Considered only if -g is not specified] Instead of reading from a real serial device, when the serial parser is used, use a JSON pre-recorded trace for the provision of positioning data. The path to the .json file should be specified after -s as if it was the path to a serial device. OScar supports JSON trace files recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X).",
+                                      false);
         cmd.add(UseJsonTrace);
 
-        TCLAP::ValueArg<std::string> SendVehdataSocket("","send-vehdata-socket","Send vehicle data to external applications via a dedicated UDP socket. After this option, the IP and port of the external application should be specified in the format <IP>:<port>.",false,"dis","string");
+        TCLAP::ValueArg<std::string> SendVehdataSocket("", "send-vehdata-socket",
+                                                       "Send vehicle data to external applications via a dedicated UDP socket. After this option, the IP and port of the external application should be specified in the format <IP>:<port>.",
+                                                       false, "dis", "string");
         cmd.add(SendVehdataSocket);
 
-        TCLAP::ValueArg<double> SendVehdataPeriod("","send-vehdata-period","Periodicity, in seconds, for sending the vehicle data to external applications. Can be specified only if --send-vehdata-socket has been specified too. Default: 1 second.",false,1.0,"double");
+        TCLAP::ValueArg<double> SendVehdataPeriod("", "send-vehdata-period",
+                                                  "Periodicity, in seconds, for sending the vehicle data to external applications. Can be specified only if --send-vehdata-socket has been specified too. Default: 1 second.",
+                                                  false, 1.0, "double");
         cmd.add(SendVehdataPeriod);
 
-        TCLAP::SwitchArg EnableDCC("","enable-DCC","Activate the Decentralized Congestion Control (DCC) for the CAM, VAM and CPM messages. Remember to specify also the other DCC arguments to guarantee a correct usage of this feature.", false);
+        TCLAP::SwitchArg EnableDCC("", "enable-DCC",
+                                   "Activate the Decentralized Congestion Control (DCC) for the CAM, VAM and CPM messages. Remember to specify also the other DCC arguments to guarantee a correct usage of this feature.",
+                                   false);
         cmd.add(EnableDCC);
-        
+
         std::string helpText_dcc =
-            "Time window for DCC Channel State check (Channel Busy Ratio). "
-            "It must be a strictly positive integer value, expressed in milliseconds, "
-            "and it has to be lower than " + std::to_string(MAXIMUM_TIME_WINDOW_DCC) + "ms.";
+                "Time window for DCC Channel State check (Channel Busy Ratio). "
+                "It must be a strictly positive integer value, expressed in milliseconds, "
+                "and it has to be lower than " + std::to_string(MAXIMUM_TIME_WINDOW_DCC) + "ms.";
 
         TCLAP::ValueArg<int> TimeWindowDCC(
-            "", "time-window-DCC",
-            helpText_dcc,
-            false, 0, "integer");
+                "", "time-window-DCC",
+                helpText_dcc,
+                false, 0, "integer");
 
         cmd.add(TimeWindowDCC);
 
-        TCLAP::ValueArg<std::string> ModalityDCC("","modality-DCC","Select the DCC modality, it could be Reactive or Adaptive. The strings to be used to indicate the modality are: ['reactive', 'adaptive'].", false, "", "string");
+        TCLAP::ValueArg<std::string> ModalityDCC("", "modality-DCC",
+                                                 "Select the DCC modality, it could be Reactive or Adaptive. The strings to be used to indicate the modality are: ['reactive', 'adaptive'].",
+                                                 false, "", "string");
         cmd.add(ModalityDCC);
 
-        TCLAP::SwitchArg VerboseDCC("","verbose-DCC","If set to 1, this argument provides a verbose description of the Channel State during the DCC checks.", false);
+        TCLAP::SwitchArg VerboseDCC("", "verbose-DCC",
+                                    "If set to 1, this argument provides a verbose description of the Channel State during the DCC checks.",
+                                    false);
         cmd.add(VerboseDCC);
 
-        TCLAP::ValueArg<std::string> LogfileDCC("","log-file-DCC","Print on file the log for the DCC metrics. Default: (disabled).",false,"","string");
+        TCLAP::ValueArg<std::string> LogfileDCC("", "log-file-DCC",
+                                                "Print on file the log for the DCC metrics. Default: (disabled).",
+                                                false, "", "string");
         cmd.add(LogfileDCC);
 
-        TCLAP::SwitchArg EnableMetricSupervisor("","enable-metric-supervisor","Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.", false);
+        TCLAP::SwitchArg EnableMetricSupervisor("", "enable-metric-supervisor",
+                                                "Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.",
+                                                false);
         cmd.add(EnableMetricSupervisor);
 
         std::string helpText_met_sup =
-            "Time window for Metric Supervisor check. "
-            "It must be a strictly positive integer value, expressed in milliseconds";
+                "Time window for Metric Supervisor check. "
+                "It must be a strictly positive integer value, expressed in milliseconds";
 
         TCLAP::ValueArg<int> TimeWindowMetricSupervisor(
-            "", "time-window-metric-supervisor",
-            helpText_met_sup,
-            false, 0, "integer");
+                "", "time-window-metric-supervisor",
+                helpText_met_sup,
+                false, 0, "integer");
 
         cmd.add(TimeWindowMetricSupervisor);
 
-        TCLAP::ValueArg<std::string> LogfileMetricSupervisor("","log-file-metric-supervisor","Print on file the log for the Metric Supervisor measured metrics. Default: (disabled).",false,"","string");
+        TCLAP::ValueArg<std::string> LogfileMetricSupervisor("", "log-file-metric-supervisor",
+                                                             "Print on file the log for the Metric Supervisor measured metrics. Default: (disabled).",
+                                                             false, "", "string");
         cmd.add(LogfileMetricSupervisor);
 
-        TCLAP::SwitchArg ResetTxPower("","reset-tx-power","Before launching the V2X message disseminations, set the TX Power to the default value of 24 dBm.", false);
-        cmd.add(ResetTxPower);
+        cmd.parse(argc, argv);
 
-		cmd.parse(argc,argv);
+        dissem_vif = vifName.getValue();
 
-		dissem_vif=vifName.getValue();
-		
-		log_filename_CAM=LogfileCAM.getValue();
-        log_filename_GNsecurity=LogfileGNsecurity.getValue();
-		log_filename_VAM=LogfileVAM.getValue();
-		log_filename_rcv=LogfileReception.getValue();
-        log_filename_CPM=LogfileCPM.getValue();
+        log_filename_CAM = LogfileCAM.getValue();
+        log_filename_GNsecurity = LogfileGNsecurity.getValue();
+        log_filename_VAM = LogfileVAM.getValue();
+        log_filename_rcv = LogfileReception.getValue();
+        log_filename_CPM = LogfileCPM.getValue();
 
-        can_db=CANdb.getValue();
-        can_db_param_ini=CANdbParamINI.getValue();
+        can_db = CANdb.getValue();
+        can_db_param_ini = CANdbParamINI.getValue();
 
-		gnss_device=GNSSDevArg.getValue();
-		gnss_port=GNSSPortArg.getValue();
+        gnss_device = GNSSDevArg.getValue();
+        gnss_port = GNSSPortArg.getValue();
 
-		vehicleID=VehicleIDArg.getValue();
-		VRUID=VRUIDArg.getValue();
+        vehicleID = VehicleIDArg.getValue();
+        VRUID = VRUIDArg.getValue();
 
-		enable_CAM_dissemination=CAMsDissArg.getValue();
-		enable_VAM_dissemination=VAMsDissArg.getValue();
-        enable_CPM_dissemination=CPMsDissArg.getValue();
-		enable_DENM_decoding=DENMsDecArg.getValue();
-        enable_security=SecurityArg.getValue();
+        enable_CAM_dissemination = CAMsDissArg.getValue();
+        enable_VAM_dissemination = VAMsDissArg.getValue();
+        enable_CPM_dissemination = CPMsDissArg.getValue();
+        enable_DENM_decoding = DENMsDecArg.getValue();
+        enable_security = SecurityArg.getValue();
 
-        check_faulty_object_acceleration=CheckFaultyObjectAcceleration.getValue();
-        disable_cpm_speed_triggering=DisableCPMSpeedTriggering.getValue();
+        check_faulty_object_acceleration = CheckFaultyObjectAcceleration.getValue();
+        disable_cpm_speed_triggering = DisableCPMSpeedTriggering.getValue();
 
-        enable_sensor_classification=EnableSensorClassification.getValue();
-        verbose=EnableVerbose.getValue();
+        enable_sensor_classification = EnableSensorClassification.getValue();
+        verbose = EnableVerbose.getValue();
 
-		udp_sock_addr=UDPSockAddrArg.getValue();
-		udp_bind_ip=UDPBindIPArg.getValue();
-		extra_position_udp=ExtraPosUDPArg.getValue();
-		
-		rx_opts.gnss_device = gnss_device;
-		rx_opts.dissemination_device = dissem_vif;
+        udp_sock_addr = UDPSockAddrArg.getValue();
+        udp_bind_ip = UDPBindIPArg.getValue();
+        extra_position_udp = ExtraPosUDPArg.getValue();
 
-		pos_th = POS_threshold.getValue();
-		speed_th = SPEED_threshold.getValue();
-		head_th = HEAD_threshold.getValue();
+        rx_opts.gnss_device = gnss_device;
+        rx_opts.dissemination_device = dissem_vif;
 
-		enable_reception = EnableRxArg.getValue();
+        pos_th = POS_threshold.getValue();
+        speed_th = SPEED_threshold.getValue();
+        head_th = HEAD_threshold.getValue();
 
-		vizOpts.vehviz_nodejs_port=VV_NodejsPortArg.getValue();
-		vizOpts.vehviz_web_interface_port=VV_WebInterfacePortArg.getValue();
-		vizOpts.vehviz_update_interval_sec=VV_UpdateIntervalArg.getValue();
-		vizOpts.vehviz_nodejs_addr=VV_NodejsAddrArg.getValue();
+        enable_reception = EnableRxArg.getValue();
 
-        veh_data_sock_addr=SendVehdataSocket.getValue();
-        veh_data_periodicity_s=SendVehdataPeriod.getValue();
+        vizOpts.vehviz_nodejs_port = VV_NodejsPortArg.getValue();
+        vizOpts.vehviz_web_interface_port = VV_WebInterfacePortArg.getValue();
+        vizOpts.vehviz_update_interval_sec = VV_UpdateIntervalArg.getValue();
+        vizOpts.vehviz_nodejs_addr = VV_NodejsAddrArg.getValue();
 
-		if(vizOpts.vehviz_update_interval_sec<0.05 || vizOpts.vehviz_update_interval_sec>1) {
-			std::cerr << "[ERROR] The Vehicle Visualizer update interval cannot be lower than 0.05 s or grater than 1 second." << std::endl;
-			return 1;
-		}
+        veh_data_sock_addr = SendVehdataSocket.getValue();
+        veh_data_periodicity_s = SendVehdataPeriod.getValue();
 
-        if(veh_data_periodicity_s<0.01 || veh_data_periodicity_s>60.0) {
-            std::cerr << "[ERROR] The vehicle data transmission periodicity cannot be lower than 100 ms or greater than 60 seconds." << std::endl;
+        if (vizOpts.vehviz_update_interval_sec < 0.05 || vizOpts.vehviz_update_interval_sec > 1) {
+            std::cerr
+                    << "[ERROR] The Vehicle Visualizer update interval cannot be lower than 0.05 s or grater than 1 second."
+                    << std::endl;
+            return 1;
+        }
+
+        if (veh_data_periodicity_s < 0.01 || veh_data_periodicity_s > 60.0) {
+            std::cerr
+                    << "[ERROR] The vehicle data transmission periodicity cannot be lower than 100 ms or greater than 60 seconds."
+                    << std::endl;
             return 1;
         }
 
         // Set the ego station type -> if CAMs are enabled, set it to passenger car, otherwise to pedestrian
-        if(enable_CAM_dissemination) {
+        if (enable_CAM_dissemination) {
             ego_station_type = StationType_passengerCar;
         } else {
             ego_station_type = StationType_pedestrian;
@@ -1130,9 +1210,9 @@ int main (int argc, char *argv[]) {
 
         vizOpts.ego_station_type = ego_station_type;
 
-        enable_hmi=EnableHMIArg.getValue();
-		disable_selfMAC_check=DisableSelfMACArg.getValue();
-		json_over_tcp_port=JSONserverPortArg.getValue();
+        enable_hmi = EnableHMIArg.getValue();
+        disable_selfMAC_check = DisableSelfMACArg.getValue();
+        json_over_tcp_port = JSONserverPortArg.getValue();
 
         can_device = CANDeviceArg.getValue();
 
@@ -1158,107 +1238,121 @@ int main (int argc, char *argv[]) {
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
         log_filename_met_sup = LogfileMetricSupervisor.getValue();
 
-        reset_tx_power = ResetTxPower.getValue();
-
-        if (reset_tx_power)
-        {
-            setNewTxPower(STANDARD_TX_POWER, dissem_vif);
-        }
-
-        if(can_db=="") {
-            if(can_db_param_ini!="dis" && can_db_param_ini!="") {
-                std::cerr << "[ERROR] Specified an INI file for CAN database parsing but no .dbc file was specified with --can-db!" << std::endl;
+        if (can_db == "") {
+            if (can_db_param_ini != "dis" && can_db_param_ini != "") {
+                std::cerr
+                        << "[ERROR] Specified an INI file for CAN database parsing but no .dbc file was specified with --can-db!"
+                        << std::endl;
                 return 1;
             }
         }
 
-        if(enable_CPM_dissemination==true && can_db=="") {
-            std::cerr << "[ERROR] A CAN database file must be specified with --can-db when CPM dissemination is enabled." << std::endl;
+        if (enable_CPM_dissemination == true && can_db == "") {
+            std::cerr
+                    << "[ERROR] A CAN database file must be specified with --can-db when CPM dissemination is enabled."
+                    << std::endl;
             return 1;
         }
 
-        if(enable_CPM_dissemination==false && can_db!="") {
-            std::cerr << "[WARN] A CAN databae file was specified even if CPM dissemination is disabled. The --can-db option will be ignored." << std::endl;
+        if (enable_CPM_dissemination == false && can_db != "") {
+            std::cerr
+                    << "[WARN] A CAN databae file was specified even if CPM dissemination is disabled. The --can-db option will be ignored."
+                    << std::endl;
         }
 
-        if(use_gpsd==true && use_json_trace==true) {
-            std::cerr << "[ERROR] --use-tracenx-json-trace can only be used when --use-gpsd is not specified and the serial parser is used." << std::endl;
+        if (use_gpsd == true && use_json_trace == true) {
+            std::cerr
+                    << "[ERROR] --use-tracenx-json-trace can only be used when --use-gpsd is not specified and the serial parser is used."
+                    << std::endl;
             return 1;
         }
 
-		if(enable_reception==false && enable_hmi==true) {
+        if (enable_reception == false && enable_hmi == true) {
             // TODO: support the usage of the HMI just to show the ego vehicle/road user, letting the user enable the HMI without reception
-			std::cerr << "[ERROR] Reception must be enabled to use the HMI, for the time being. This limitation is going to be solved in the future." << std::endl;
-			return 1;
-		}
-
-        if(enable_reception==true && enable_hmi==false) {
-            std::cerr << "[WARN] Enabling reception without HMI is not recommended! However, it is possible and everything should just work." << std::endl;
+            std::cerr
+                    << "[ERROR] Reception must be enabled to use the HMI, for the time being. This limitation is going to be solved in the future."
+                    << std::endl;
+            return 1;
         }
 
-        if (enable_DCC == true)
-        {
-            if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC)
-            {
-                std::cerr << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0 and lower than " << MAXIMUM_TIME_WINDOW_DCC <<"ms, please check the helper." << std::endl;
-                return 1;
-            }
-
-            if (modality_DCC != "reactive" && modality_DCC != "adaptive")
-            {
-                std::cerr << "[ERROR] Modality for DCC was not correctly set. Remember that it must be a string of value 'reactive' or 'adaptive', please check the helper." << std::endl;
-                return 1;
-            }
-
-            std::cout << "[INFO] DCC enabled correctly in " << modality_DCC << " modality and with a time window of " << std::to_string(time_window_DCC) << std::endl;
+        if (enable_reception == true && enable_hmi == false) {
+            std::cerr
+                    << "[WARN] Enabling reception without HMI is not recommended! However, it is possible and everything should just work."
+                    << std::endl;
         }
 
-        if (enable_metric_supervisor == true)
-        {
-            if (time_window_met_sup <= 0)
-            {
-                std::cerr << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0ms, please check the helper." << std::endl;
+        if (enable_DCC == true) {
+            if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC) {
+                std::cerr
+                        << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0 and lower than "
+                        << MAXIMUM_TIME_WINDOW_DCC << "ms, please check the helper." << std::endl;
                 return 1;
             }
 
-            if (log_filename_met_sup == "")
-            {
-                std::cerr << "[ERROR] Log filename for Metric Supervisor was not correctly set. Remember that it must be a non-empty string, please check the helper." << std::endl;
+            if (modality_DCC != "reactive" && modality_DCC != "adaptive") {
+                std::cerr
+                        << "[ERROR] Modality for DCC was not correctly set. Remember that it must be a string of value 'reactive' or 'adaptive', please check the helper."
+                        << std::endl;
                 return 1;
             }
 
-            std::cout << "[INFO] DCC enabled correctly in " << modality_DCC << " modality and with a time window of " << std::to_string(time_window_DCC) << std::endl;
+            std::cout << "[INFO] DCC enabled correctly in " << modality_DCC << " modality and with a time window of "
+                      << std::to_string(time_window_DCC) << std::endl;
         }
 
-		std::cout << "[INFO] CAM/CPM/VAM dissemination interface: " << dissem_vif << std::endl;
-	} catch (TCLAP::ArgException &tclape) { 
-		std::cerr << "TCLAP error: " << tclape.error() << " for argument " << tclape.argId() << std::endl;
+        if (enable_metric_supervisor == true) {
+            if (time_window_met_sup <= 0) {
+                std::cerr
+                        << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0ms, please check the helper."
+                        << std::endl;
+                return 1;
+            }
 
-		return 1;
-	}
+            if (log_filename_met_sup == "") {
+                std::cerr
+                        << "[ERROR] Log filename for Metric Supervisor was not correctly set. Remember that it must be a non-empty string, please check the helper."
+                        << std::endl;
+                return 1;
+            }
 
-	if(udp_bind_ip!="0.0.0.0" && udp_sock_addr=="dis") {
-		std::cerr << "Error. --udp-bind-ip/-U can only be specified when --udp-sock-addr/-u is specified too." << std::endl;
+            std::cout << "[INFO] DCC enabled correctly in " << modality_DCC << " modality and with a time window of "
+                      << std::to_string(time_window_DCC) << std::endl;
+        }
 
-		return 1;
-	}
+        std::cout << "[INFO] CAM/CPM/VAM dissemination interface: " << dissem_vif << std::endl;
+    } catch (TCLAP::ArgException &tclape) {
+        std::cerr << "TCLAP error: " << tclape.error() << " for argument " << tclape.argId() << std::endl;
 
-	if(extra_position_udp==true && udp_sock_addr=="dis") {
-		std::cerr << "Error. --add-extra-position-udp/-X can only be specified when --udp-sock-addr/-u is specified too." << std::endl;
+        return 1;
+    }
 
-		return 1;
-	}
+    if (udp_bind_ip != "0.0.0.0" && udp_sock_addr == "dis") {
+        std::cerr << "Error. --udp-bind-ip/-U can only be specified when --udp-sock-addr/-u is specified too."
+                  << std::endl;
+
+        return 1;
+    }
+
+    if (extra_position_udp == true && udp_sock_addr == "dis") {
+        std::cerr
+                << "Error. --add-extra-position-udp/-X can only be specified when --udp-sock-addr/-u is specified too."
+                << std::endl;
+
+        return 1;
+    }
 
     // Read the CAN db if CPM dissemination is enabled
     std::vector<uint32_t> CPM_CAN_ids;
     CAN_SENSOR_SIGNAL_INFO_t CPM_CAN_signals;
 
-    if(can_db!="" && enable_CPM_dissemination==true) {
+    if (can_db != "" && enable_CPM_dissemination == true) {
         dbcReader dbr;
 
-        if(can_db_param_ini!="dis") {
-            if(!dbr.setUserParamsIni(can_db_param_ini)) {
-                std::cerr << "[ERROR] Cannot open the INI file with the parameters for parsing the CAN database. CPM dissemination will be disabled." << std::endl;
+        if (can_db_param_ini != "dis") {
+            if (!dbr.setUserParamsIni(can_db_param_ini)) {
+                std::cerr
+                        << "[ERROR] Cannot open the INI file with the parameters for parsing the CAN database. CPM dissemination will be disabled."
+                        << std::endl;
                 enable_CPM_dissemination = false;
                 // Disable also the basic sensor reader
                 can_device = "none";
@@ -1266,9 +1360,10 @@ int main (int argc, char *argv[]) {
         }
 
         // If no error occurred, the CPM dissemination should be still enabled at this point
-        if(enable_CPM_dissemination==true) {
-            if(!dbr.parseDBC(can_db)) {
-                std::cerr << "[ERROR] Cannot parse the specified CAN database file: " << can_db << ". CPM dissemination will be disabled." << std::endl;
+        if (enable_CPM_dissemination == true) {
+            if (!dbr.parseDBC(can_db)) {
+                std::cerr << "[ERROR] Cannot parse the specified CAN database file: " << can_db
+                          << ". CPM dissemination will be disabled." << std::endl;
                 enable_CPM_dissemination = false;
                 // Disable also the basic sensor reader
                 can_device = "none";
@@ -1302,64 +1397,67 @@ int main (int argc, char *argv[]) {
         }
     }
 
-	// Create the raw socket for the transmission of CAMs/VAMs, encapsulated inside GeoNetworking and BTP (in user space) 
-	int sockfd=-1;
-	sockfd=socket(AF_PACKET,SOCK_RAW,htons(ETH_P_ALL));
+    // Create the raw socket for the transmission of CAMs/VAMs, encapsulated inside GeoNetworking and BTP (in user space)
+    int sockfd = -1;
+    sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 
-	if(sockfd<0) {
-		std::cerr << "Critical error: cannot open raw socket for CAM dissemination. Details: " << strerror(errno) << "\n" << std::endl;
-		exit(EXIT_FAILURE);
-	}
+    if (sockfd < 0) {
+        std::cerr << "Critical error: cannot open raw socket for CAM dissemination. Details: " << strerror(errno)
+                  << "\n" << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
-	// Get the index of the dissemination interface
-	int ifindex=if_nametoindex(dissem_vif.c_str());
-	if(ifindex<1) {
-		std::cerr << "Critical error: cannot find an interface index for interface: " << dissem_vif << std::endl;
-		exit(EXIT_FAILURE);
-	}
+    // Get the index of the dissemination interface
+    int ifindex = if_nametoindex(dissem_vif.c_str());
+    if (ifindex < 1) {
+        std::cerr << "Critical error: cannot find an interface index for interface: " << dissem_vif << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
-	// Get the MAC address of the dissemination interface and store it inside "srcmac"
-	uint8_t srcmac[6]={0};
-	struct ifreq ifreq;
+    // Get the MAC address of the dissemination interface and store it inside "srcmac"
+    uint8_t srcmac[6] = {0};
+    struct ifreq ifreq;
 
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wstringop-truncation"
-	strncpy(ifreq.ifr_name,dissem_vif.c_str(),IFNAMSIZ);
-    #pragma GCC diagnostic pop
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+    strncpy(ifreq.ifr_name, dissem_vif.c_str(), IFNAMSIZ);
+#pragma GCC diagnostic pop
 
-	if(ioctl(sockfd,SIOCGIFHWADDR,&ifreq)!=-1) {
-		memcpy(srcmac,ifreq.ifr_hwaddr.sa_data,6);
-	} else {
-		std::cerr << "Critical error: cannot find a MAC address for interface: " << dissem_vif << std::endl;
-		exit(EXIT_FAILURE);
-	}
+    if (ioctl(sockfd, SIOCGIFHWADDR, &ifreq) != -1) {
+        memcpy(srcmac, ifreq.ifr_hwaddr.sa_data, 6);
+    } else {
+        std::cerr << "Critical error: cannot find a MAC address for interface: " << dissem_vif << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
-	// Enable broadcast on the socket (is it really needed? To be double-checked!)
-	int enableBcast=1;
-	if(setsockopt(sockfd,SOL_SOCKET,SO_BROADCAST,&enableBcast,sizeof(enableBcast))<0) {
-		std::cerr << "Critical error: cannot set broadcast permission on UDP socket for CAM dissemination.\n" << std::endl;
-		exit(EXIT_FAILURE);
-	}
+    // Enable broadcast on the socket (is it really needed? To be double-checked!)
+    int enableBcast = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &enableBcast, sizeof(enableBcast)) < 0) {
+        std::cerr << "Critical error: cannot set broadcast permission on UDP socket for CAM dissemination.\n"
+                  << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
-	// Bind raw socket
-	struct sockaddr_ll addrll;
-	memset(&addrll,0,sizeof(addrll));
-	addrll.sll_ifindex=ifindex;
-	addrll.sll_family=AF_PACKET;
-	addrll.sll_protocol=htons(ETH_P_ALL);
+    // Bind raw socket
+    struct sockaddr_ll addrll;
+    memset(&addrll, 0, sizeof(addrll));
+    addrll.sll_ifindex = ifindex;
+    addrll.sll_family = AF_PACKET;
+    addrll.sll_protocol = htons(ETH_P_ALL);
 
-	errno=0;
-	if(bind(sockfd,(struct sockaddr *) &addrll,sizeof(addrll))<0) {
-		std::cerr << "Critical error: cannot bind the raw socket to the '" << dissem_vif << "' interface. Ifindex: " << ifindex << "." << std::endl
-			<< "Socket: " << sockfd << ". Error: " << strerror(errno) << "." << std::endl;
-		exit(EXIT_FAILURE);
-	}
-	
-	// Create a new DB object
-	ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
-    if(ego_station_type==StationType_passengerCar) {
+    errno = 0;
+    if (bind(sockfd, (struct sockaddr *) &addrll, sizeof(addrll)) < 0) {
+        std::cerr << "Critical error: cannot bind the raw socket to the '" << dissem_vif << "' interface. Ifindex: "
+                  << ifindex << "." << std::endl
+                  << "Socket: " << sockfd << ". Error: " << strerror(errno) << "." << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // Create a new DB object
+    ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
+    if (ego_station_type == StationType_passengerCar) {
         db_ptr->setStationID(vehicleID);
-    } else if (ego_station_type==StationType_pedestrian) {
+    } else if (ego_station_type == StationType_pedestrian) {
         db_ptr->setStationID(VRUID);
     } else {
         // For the time being, use the vehicle ID as a fallback in case an unexpected station type is encountered
@@ -1367,102 +1465,119 @@ int main (int argc, char *argv[]) {
     }
 
     // Configure the global serial parser if gpsd is not used
-    if(!use_gpsd) {
+    if (!use_gpsd) {
         serialParser.setValidityThreshold(serial_device_validity_thr);
         serialParser.setWrongInputThreshold(wrong_input_threshold);
-        if (debug_age_info_rate_ms){
+        if (debug_age_info_rate_ms) {
             serialParser.setDebugAgeInfo(debug_age_info_rate_ms);
         }
-        serialParser.startUBXNMEAParser(serial_device,serial_device_baudrate,8,'N',1,&terminatorFlag,use_json_trace);
+        serialParser.startUBXNMEAParser(serial_device, serial_device_baudrate, 8, 'N', 1, &terminatorFlag,
+                                        use_json_trace);
     }
 
     // Create a new VDP GPS Client object for the LDM
-    VDPGPSClient ldmgpsc(gnss_device,gnss_port);
+    VDPGPSClient ldmgpsc(gnss_device, gnss_port);
     ldmgpsc.selectGPSD(use_gpsd);
-    if(!use_gpsd) {
+    if (!use_gpsd) {
         ldmgpsc.setSerialParser(&serialParser);
     }
     ldmgpsc.openConnection();
     db_ptr->setLoggingGNSSClient(&ldmgpsc);
 
     // Take the current position (if available) from the positioning provider (either gpsd or serial parser)
-    int pos_avail_cnt=0;
+    int pos_avail_cnt = 0;
     double test_lat, test_lon;
-    while(!terminatorFlag) {
-        std::pair<double,double> curr_pos = ldmgpsc.getCurrentPositionDbl();
+    while (!terminatorFlag) {
+        std::pair<double, double> curr_pos = ldmgpsc.getCurrentPositionDbl();
         test_lat = curr_pos.first;
         test_lon = curr_pos.second;
 
-        if(test_lat>=-90.0 && test_lat<=90.0 && test_lon>=-180.0 && test_lon<=180.0) {
-            std::cout << "[INFO] Position available after roughly " << pos_avail_cnt << " seconds: latitude: " << test_lat << " - longitude: " << test_lon << std::endl;
+        if (test_lat >= -90.0 && test_lat <= 90.0 && test_lon >= -180.0 && test_lon <= 180.0) {
+            std::cout << "[INFO] Position available after roughly " << pos_avail_cnt << " seconds: latitude: "
+                      << test_lat << " - longitude: " << test_lon << std::endl;
             break;
         } else {
             std::cout << "[INFO] Position not yet available. Waiting 1 second and trying again..." << std::endl;
         }
 
-        std::cout << "[INFO] Waiting for the positioning provider to provide the position (a fix may not be yet available)..." << std::endl;
+        std::cout
+                << "[INFO] Waiting for the positioning provider to provide the position (a fix may not be yet available)..."
+                << std::endl;
 
         sleep(1);
         pos_avail_cnt++;
 
-        if(pos_avail_cnt>20) {
-            std::cerr << "[WARN] Position not available after 20 seconds. Using default position for the LDM and GUI." << std::endl;
+        if (pos_avail_cnt > 20) {
+            std::cerr << "[WARN] Position not available after 20 seconds. Using default position for the LDM and GUI."
+                      << std::endl;
             break;
         }
     }
 
-    if(pos_avail_cnt>20) {
+    if (pos_avail_cnt > 20) {
         db_ptr->setCentralLatLon(45.014570, 7.568314); // Sample default lat and lon values, centered near Turin, Italy
     } else {
-        db_ptr->setCentralLatLon(test_lat,test_lon);
+        db_ptr->setCentralLatLon(test_lat, test_lon);
     }
-	
-	// We have to create a thread reading periodically (e.g. every 5 s) the database through the pointer "db_ptr" and "cleaning" the entries
-	// which are too old
-	pthread_create(&dbcleaner_tid,NULL,DBcleaner_callback,(void *) db_ptr);
 
-	if(enable_hmi==true) {
-		// If the HMI has been enabled, we should also start here a second parallel thread, reading periodically the database (e.g. every 500 ms) and sending the vehicle data to
-		// the vehicleVisualizer
-		// pthread_attr_init(&tattr);
-		// pthread_attr_setdetachstate(&tattr,PTHREAD_CREATE_DETACHED);
-		vizOpts.db_ptr=db_ptr;
-		pthread_create(&vehviz_tid,NULL,VehVizUpdater_callback,(void *) &vizOpts);
-		// pthread_attr_destroy(&tattr);
-	}
+    // We have to create a thread reading periodically (e.g. every 5 s) the database through the pointer "db_ptr" and "cleaning" the entries
+    // which are too old
+    pthread_create(&dbcleaner_tid, NULL, DBcleaner_callback, (void *) db_ptr);
+
+    if (enable_hmi == true) {
+        // If the HMI has been enabled, we should also start here a second parallel thread, reading periodically the database (e.g. every 500 ms) and sending the vehicle data to
+        // the vehicleVisualizer
+        // pthread_attr_init(&tattr);
+        // pthread_attr_setdetachstate(&tattr,PTHREAD_CREATE_DETACHED);
+        vizOpts.db_ptr = db_ptr;
+        pthread_create(&vehviz_tid, NULL, VehVizUpdater_callback, (void *) &vizOpts);
+        // pthread_attr_destroy(&tattr);
+    }
 
     // Transmission threads creation
     std::vector<std::thread> txThreads;
 
+    // Create a new Metric Supervisor and configure it if enabled
+    MetricSupervisor metric_supervisor;
+    if (enable_metric_supervisor) {
+        metric_supervisor.setupMetricSupervisor(log_filename_met_sup, time_window_met_sup, dissem_vif);
+        metric_supervisor.start();
+    }
+
     CABasicService cabs;
-    CABasicService* cabs_ptr = &cabs;
+    CABasicService *cabs_ptr = &cabs;
+    if (enable_metric_supervisor) {
+        cabs_ptr->setMetricSupervisor(&metric_supervisor);
+    }
+
     CPBasicService cpbs;
-    CPBasicService* cpbs_ptr = &cpbs;
+    CPBasicService *cpbs_ptr = &cpbs;
+    if (enable_metric_supervisor) {
+        cpbs_ptr->setMetricSupervisor(&metric_supervisor);
+    }
+
     VRUBasicService vrubs;
     VRUBasicService* vrubs_ptr = &vrubs;
+    if(enable_metric_supervisor) {
+        vrubs_ptr->setMetricSupervisor(&metric_supervisor);
+    }
 
     DCC dcc;
     if (enable_DCC)
     {
         dcc.setupDCC(time_window_DCC, dissem_vif, cabs_ptr, cpbs_ptr, vrubs_ptr, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, 0.01f, verbose_DCC, log_filename_DCC);
-        if (modality_DCC == "reactive")
-        {
+        if (modality_DCC == "reactive") {
             dcc.reactiveDCC();
-        }
-        else
-        {
+        } else if(modality_DCC == "adaptive") {
             dcc.adaptiveDCC();
+        } else {
+            std::cerr << "[ERROR] " << modality_DCC << " is not a valid ETSI DCC mode!" << std::endl;
+            terminatorFlag = true;
         }
     }
 
+    // This must be defined here, otherwise the goto will jump over its definition
     SocketClient *mainRecvClient = nullptr;
-
-    MetricSupervisor metric_supervisor;
-    if (enable_metric_supervisor)
-    {
-        metric_supervisor.setupMetricSupervisor(log_filename_met_sup, time_window_met_sup, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, cabs_ptr, cpbs_ptr, vrubs_ptr, &mainRecvClient, dissem_vif);
-        metric_supervisor.start();
-    }
 
     if(terminatorFlag) {
         goto exit_failure;
@@ -1570,6 +1685,10 @@ int main (int argc, char *argv[]) {
 			if(enable_DENM_decoding) {
 				mainRecvClient->enableDENMdecoding();
 			}
+
+            if(enable_metric_supervisor) {
+                mainRecvClient->setMetricSupervisor(&metric_supervisor);
+            }
 
 			// Set the "self" MAC address, so that all the messages coming from this address will be discarded
 			if(disable_selfMAC_check==false) {

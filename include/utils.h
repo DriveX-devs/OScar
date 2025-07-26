@@ -1,5 +1,5 @@
-#ifndef SLDM_UTILS_H
-#define SLDM_UTILS_H
+#ifndef OSCAR_UTILS_H
+#define OSCAR_UTILS_H
 
 #include <cinttypes>
 #include <ctime>
@@ -24,11 +24,8 @@ typedef struct {
     bool sock_valid;
 } nl_sock_info_t;
 
-extern std::unordered_map<std::string,float> currentRssiUtils;
-
-extern std::mutex rssiMutex;
-
 uint64_t get_timestamp_us(void);
+uint64_t get_timestamp_us_realtime(void);
 uint64_t get_timestamp_ns(void);
 uint64_t get_timestamp_ms_gn(void);
 uint64_t get_timestamp_ms_cam(void);
@@ -48,6 +45,6 @@ uint64_t get_timestamp_ms_cpm(void);
 nl_sock_info_t open_nl_socket(std::string interface_name);
 void free_nl_socket(nl_sock_info_t nl_sock_info);
 double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info);
-std::unordered_map<std::string,float> get_current_rssi();
+std::unordered_map<std::string,double> get_all_rssi_from_netlink(nl_sock_info_t nl_sock_info);
 void setNewTxPower(double txPower, std::string dissemination_interface);
-#endif // SLDM_UTILS_H
+#endif // OSCAR_UTILS_H

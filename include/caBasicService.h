@@ -6,6 +6,7 @@
 #include "asn1cpp/Setter.hpp"
 #include "asn1cpp/SequenceOf.hpp"
 #include "btp.h"
+#include "MetricSupervisor.h"
 #include "LDMmap.h"
 #include <functional>
 #include <atomic>
@@ -41,6 +42,7 @@ public:
   void setRSU() {m_vehicle=false;}
   void setVDP(VDPGPSClient* vdp) {m_vdp=vdp;}
   void setLDM(ldmmap::LDMMap* LDM) {m_LDM=LDM;}
+  void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
 
   void force20HzFreq() {m_force_20Hz_freq=true;}
   void disable20HzFreq() {m_force_20Hz_freq=false;}
@@ -63,7 +65,7 @@ public:
 
   uint64_t terminateDissemination();
 
-  void setCheckCamGenMs(long nextCAM) {m_cam_gen_mutex.lock(); m_T_CheckCamGen_ms = nextCAM; m_cam_gen_mutex.unlock();};
+  void setCheckCamGenMs(long nextCAM) {m_cam_gen_mutex.lock(); m_T_CheckCamGen_ms = nextCAM; m_cam_gen_mutex.unlock();}
 
   void toffUpdateAfterDeltaUpdate(double delta);
   void toffUpdateAfterTransmission();
@@ -76,7 +78,7 @@ public:
   const long T_GenCamMin_ms = 100;
   const long T_GenCamMax_ms = 1000;
 
-  uint64_t get_CAM_sent() {m_sent_mutex.lock(); uint64_t c = m_cam_sent; m_sent_mutex.unlock(); return c;};
+  uint64_t get_CAM_sent() {return m_cam_sent;}
 
 private:
   const size_t m_MaxPHLength = 23;
@@ -122,7 +124,6 @@ private:
   // Statistic: number of CAMs successfully sent since the CA Basic Service has been started
   // The CA Basic Service can count up to 18446744073709551615 (UINT64_MAX) CAMs
   uint64_t m_cam_sent;
-  std::mutex m_sent_mutex;
 
   //High frequency RSU container
   asn1cpp::Seq<RSUContainerHighFrequency> m_protectedCommunicationsZonesRSU;
@@ -149,6 +150,9 @@ private:
   double m_last_delta = 0;
 
   std::mutex m_cam_gen_mutex;
+
+  // Metric Supervisor pointer
+  MetricSupervisor *m_met_sup_ptr = nullptr;
 };
 
 #endif // CABASICSERVICE_H
