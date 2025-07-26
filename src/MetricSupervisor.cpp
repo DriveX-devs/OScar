@@ -37,7 +37,7 @@ void MetricSupervisor::writeLogFile()
     uint64_t start = get_timestamp_us();
     file1 << "timestamp_relative_us,CBR,busy_time,tx_time,rx_time,num_tx,num_rx\n";
     file2 << "timestamp_relative_us,mac_address,last_rssi\n";
-    do 
+    do
     {
         try
         {

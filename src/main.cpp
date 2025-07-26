@@ -1457,7 +1457,6 @@ int main (int argc, char *argv[]) {
 
     SocketClient *mainRecvClient = nullptr;
 
-
     MetricSupervisor metric_supervisor;
     if (enable_metric_supervisor)
     {
@@ -1556,7 +1555,9 @@ int main (int argc, char *argv[]) {
     }
 
 	// Enable debug age of information, if option has been specified
-    if (serialParser.getDebugAgeInfo()) serialParser.showDebugAgeInfo();
+    if (serialParser.getDebugAgeInfo()) {
+        serialParser.showDebugAgeInfo();
+    }
 
 	// Reception loop (using the main thread)
 	if(enable_reception==true) {
