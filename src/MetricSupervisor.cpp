@@ -30,15 +30,18 @@ void MetricSupervisor::setupMetricSupervisor(std::string log_filename, uint64_t 
 void MetricSupervisor::writeLogFile()
 {
     bool retry_flag = true;
-    std::ofstream file;
-    file.open(m_log_filename, std::ios::out);
+    std::ofstream file1;
+    std::ofstream file2;
+    file1.open(m_log_filename + "_station_info.csv", std::ios::out);
+    file2.open(m_log_filename + "_rssi_info.csv", std::ios::out);
     uint64_t start = get_timestamp_us();
-    file << "timestamp_relative_us,rssi_dBm,CBR,busy_time,tx_time,rx_time,num_tx,num_rx\n";
+    file1 << "timestamp_relative_us,CBR,busy_time,tx_time,rx_time,num_tx,num_rx\n";
+    file2 << "timestamp_relative_us,mac_address,last_rssi\n";
     do 
     {
         try
         {
-            float rssi = get_current_rssi();
+            std::unordered_map<std::string, float> map = get_current_rssi();
             m_cbr_reader.wrapper_start_reading_cbr();
             float cbr = m_cbr_reader.get_current_cbr();
             uint64_t num_tx = 0;
@@ -64,14 +67,21 @@ void MetricSupervisor::writeLogFile()
                 num_rx += (*m_sock_client)->get_received_messages();
             }
 
-            file << static_cast<long int>(get_timestamp_us()-start) << "," << rssi << "," << cbr << "," << m_cbr_reader.get_current_busy_time() << "," << m_cbr_reader.get_current_tx_time() << "," << m_cbr_reader.get_current_rx_time() << "," << num_tx << "," << num_rx << "\n";
+            auto now = static_cast<long int>(get_timestamp_us()-start); 
+            file1 << now << "," << cbr << "," << m_cbr_reader.get_current_busy_time() << "," << m_cbr_reader.get_current_tx_time() << "," << m_cbr_reader.get_current_rx_time() << "," << num_tx << "," << num_rx << "\n";
+            for (auto it = map.begin(); it != map.end(); ++it)
+            {
+                file2 << now << "," << it->first << "," << it->second << "\n";
+            }
+            
             std::this_thread::sleep_for(std::chrono::milliseconds(m_time_window));
         }
         catch(const std::exception& e)
         {
             std::cerr << "Error in Metric Supervisor: " << e.what() << std::endl;
             sleep(5);
-            file.close();
+            file1.close();
+            file2.close();
             retry_flag = false;
         }
         

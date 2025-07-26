@@ -60,6 +60,8 @@
 
 #define MAXIMUM_TIME_WINDOW_DCC 2000
 
+#define STANDARD_TX_POWER 24
+
 // Global atomic flag to terminate all the threads in case of errors
 std::atomic<bool> terminatorFlag;
 
@@ -852,6 +854,8 @@ int main (int argc, char *argv[]) {
     uint64_t time_window_met_sup = 0;
     std::string log_filename_met_sup = "";
 
+    bool reset_tx_power = false;
+
 	// Parse the command line options with the TCLAP library
 	try {
 		TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.6-development");
@@ -1052,6 +1056,9 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<std::string> LogfileMetricSupervisor("","log-file-metric-supervisor","Print on file the log for the Metric Supervisor measured metrics. Default: (disabled).",false,"","string");
         cmd.add(LogfileMetricSupervisor);
 
+        TCLAP::SwitchArg ResetTxPower("","reset-tx-power","Before launching the V2X message disseminations, set the TX Power to the default value of 24 dBm.", false);
+        cmd.add(ResetTxPower);
+
 		cmd.parse(argc,argv);
 
 		dissem_vif=vifName.getValue();
@@ -1150,6 +1157,13 @@ int main (int argc, char *argv[]) {
         enable_metric_supervisor = EnableMetricSupervisor.getValue();
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
         log_filename_met_sup = LogfileMetricSupervisor.getValue();
+
+        reset_tx_power = ResetTxPower.getValue();
+
+        if (reset_tx_power)
+        {
+            setNewTxPower(STANDARD_TX_POWER, dissem_vif);
+        }
 
         if(can_db=="") {
             if(can_db_param_ini!="dis" && can_db_param_ini!="") {

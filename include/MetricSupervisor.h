@@ -8,6 +8,7 @@
 #include "SocketClient.h"
 #include "utils.h"
 #include "CBRReader.h"
+#include <unordered_map>
 
 #ifndef OSCAR_METRICSUPERVISOR_H
 #define OSCAR_METRICSUPERVISOR_H

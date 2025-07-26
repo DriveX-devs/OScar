@@ -12,6 +12,7 @@
 #include <shared_mutex>
 #include <chrono>
 #include <thread>
+#include <unordered_map>
 
 #define POLL_DEFINE_JUNK_VARIABLE() long int junk
 #define POLL_CLEAR_EVENT(clockFd) junk=read(clockFd,&junk,sizeof(junk))
@@ -23,7 +24,7 @@ typedef struct {
     bool sock_valid;
 } nl_sock_info_t;
 
-extern float currentRssiUtils;
+extern std::unordered_map<std::string,float> currentRssiUtils;
 
 extern std::mutex rssiMutex;
 
@@ -47,6 +48,6 @@ uint64_t get_timestamp_ms_cpm(void);
 nl_sock_info_t open_nl_socket(std::string interface_name);
 void free_nl_socket(nl_sock_info_t nl_sock_info);
 double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info);
-float get_current_rssi();
+std::unordered_map<std::string,float> get_current_rssi();
 void setNewTxPower(double txPower, std::string dissemination_interface);
 #endif // SLDM_UTILS_H

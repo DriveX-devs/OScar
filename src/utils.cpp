@@ -15,7 +15,6 @@
 #include <netlink/genl/family.h>
 #include <netlink/msg.h>
 #include <netlink/attr.h>
-
 #include <linux/nl80211.h>
 
 // Epoch time at 2004-01-01 (in ms)
@@ -28,7 +27,7 @@
 // This is currently a bit oversized -> need to define a "more tight" size in the near future
 #define POPEN_IW_BUFF_SIZE 2000
 
-float currentRssiUtils = -1.0f;
+std::unordered_map<std::string, float> currentRssiUtils;
 
 std::mutex rssiMutex;
 
@@ -263,6 +262,13 @@ double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info) {
         return nl_cb_args.signal_lv;
     }
 
+    char buf[18];
+    std::snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+                  macaddr[0], macaddr[1], macaddr[2],
+                  macaddr[3], macaddr[4], macaddr[5]);
+
+    std::string macaddr_str = std::string(buf);
+
     // Allocate a new netlink message
     struct nl_msg *nl_msg=nlmsg_alloc();
 
@@ -371,8 +377,9 @@ double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info) {
     }
 
     // Return the RSSI value
+    float rssi = static_cast<float>(nl_cb_args.signal_lv);
     rssiMutex.lock();
-    currentRssiUtils = static_cast<float>(nl_cb_args.signal_lv);
+    currentRssiUtils[macaddr_str] = rssi;
     rssiMutex.unlock();
     return static_cast<double>(nl_cb_args.signal_lv);
 }
@@ -471,15 +478,12 @@ void setNewTxPower(double txPower, std::string dissemination_interface)
     free_nl_socket(nl_sock_info);
 }
 
-float get_current_rssi()
+std::unordered_map<std::string,float> get_current_rssi()
 {
     try
     {
-        float rssi;
-        rssiMutex.lock();
-        rssi = currentRssiUtils;
-        rssiMutex.unlock();
-        return rssi;
+        std::lock_guard<std::mutex> lock(rssiMutex);
+        return currentRssiUtils;
     }
     catch(const std::exception& e)
     {
