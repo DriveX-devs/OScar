@@ -2,9 +2,10 @@
 #include <vector>
 #include <fstream>
 #include <mutex>
+#include <unordered_map>
+#include <atomic>
 #include "utils.h"
 #include "CBRReader.h"
-#include <unordered_map>
 
 extern "C" {
     #include "MessageId.h"
