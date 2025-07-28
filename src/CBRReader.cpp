@@ -157,10 +157,10 @@ int cbr_handler(struct nl_msg *msg, void *arg)
 
     if (reader->m_cbr_data.verbose)
     {
-        std::cout << "Active: " << deltaActiveTime
-                  << " Busy: " << deltaBusyTime
-                  << " RX: " << deltaReceiveTime
-                  << " TX: " << deltaTransmitTime << std::endl;
+        std::cout << "Active-time: " << deltaActiveTime
+                  << " Busy-time: " << deltaBusyTime
+                  << " RX-time: " << deltaReceiveTime
+                  << " TX-time: " << deltaTransmitTime << std::endl;
     }
 
     float cbr = -1.0f;

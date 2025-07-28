@@ -101,7 +101,10 @@ void DCC::functionReactive()
                 {
                     std::ofstream file;
                     file.open(m_log_file, std::ios::app);
-                    file << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << m_parameters_map[m_current_state].tx_power << "," << m_parameters_map[m_current_state].tx_inter_packet_time << "\n";
+
+                    auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << m_parameters_map[m_current_state].tx_power << "," << m_parameters_map[m_current_state].tx_inter_packet_time << "\n";
                     file.close();
                 }
             }
@@ -127,7 +130,7 @@ void DCC::reactiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time\n";
+        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time\n";
         file.close();
     }
 }
@@ -199,7 +202,10 @@ void DCC::functionAdaptive()
                 {
                     std::ofstream file;
                     file.open(m_log_file, std::ios::app);
-                    file << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << m_delta << "\n";
+
+                    auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << m_delta << "\n";
                     file.close();
                 }
                 m_time_to_compute = false;
@@ -227,7 +233,7 @@ void DCC::adaptiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_relative_us,currentCBR,CBRITS,new_delta\n";
+        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta\n";
         file.close();
     }
 }

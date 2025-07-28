@@ -96,10 +96,10 @@ void MetricSupervisor::writeLogFile()
 
             auto now = static_cast<long int>(get_timestamp_us()-start);
             auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
-            file_sta_info << now_unix << "," << now << "," << cbr << "," << m_cbr_reader.get_current_busy_time() << "," << m_cbr_reader.get_current_tx_time() << "," << m_cbr_reader.get_current_rx_time() << "," << m_tx_total << "," << m_rx_total << "\n";
+            file_sta_info << std::fixed << now_unix << "," << now << "," << cbr << "," << m_cbr_reader.get_current_busy_time() << "," << m_cbr_reader.get_current_tx_time() << "," << m_cbr_reader.get_current_rx_time() << "," << m_tx_total << "," << m_rx_total << "\n";
             for (auto it = rssi_map.begin(); it != rssi_map.end(); ++it)
             {
-                file_rssi_info << now_unix << "," << now << "," << it->first << "," << it->second << "\n";
+                file_rssi_info << std::fixed << now_unix << "," << now << "," << it->first << "," << it->second << "\n";
             }
             
             std::this_thread::sleep_for(std::chrono::milliseconds(m_time_window));

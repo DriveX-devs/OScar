@@ -1315,8 +1315,8 @@ int main (int argc, char *argv[]) {
                 return 1;
             }
 
-            std::cout << "[INFO] DCC enabled correctly in " << modality_DCC << " modality and with a time window of "
-                      << std::to_string(time_window_DCC) << std::endl;
+            std::cout << "[INFO] Metric Supervisor enabled with a time window of "
+                      << std::to_string(time_window_met_sup) << std::endl;
         }
 
         std::cout << "[INFO] CAM/CPM/VAM dissemination interface: " << dissem_vif << std::endl;
