@@ -856,7 +856,7 @@ int main (int argc, char *argv[]) {
 
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.7-development");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.8-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -1282,6 +1282,9 @@ int main (int argc, char *argv[]) {
         }
 
         if (enable_DCC == true) {
+            std::cerr << "[ERROR] DCC implementation is not yet fully tested, and cannot be enabled yet. Try again without DCC. It will be released soon anyway, so, stay updated!" << std::endl;
+            exit(EXIT_FAILURE);
+
             if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC) {
                 std::cerr
                         << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0 and lower than "
