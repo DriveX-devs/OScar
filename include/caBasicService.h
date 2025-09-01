@@ -31,6 +31,14 @@ class CABasicService
 public:
   CABasicService();
 
+  /**
+     * @brief Set the future time to send a CAM
+     * @param nextCAM The next time to send CAM
+     */
+  void setNextCAMDCC(long nextCAM) {m_T_next_dcc = nextCAM;};
+  void setAdaptiveDCC() {m_use_adaptive_dcc = true;};
+  double getTon() {return m_Ton_pp;};
+
   // This function sets the station properties for the CA Basic Service only
   // The GeoNetworking station properties shall be set separately on the GeoNetworking object
   void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
@@ -64,8 +72,6 @@ public:
   void setProtectedCommunicationsZonesRSU(asn1cpp::Seq<RSUContainerHighFrequency> sequence) {m_protectedCommunicationsZonesRSU = sequence;}
 
   uint64_t terminateDissemination();
-
-  void setCheckCamGenMs(long nextCAM) {m_cam_gen_mutex.lock(); m_T_CheckCamGen_ms = nextCAM; m_cam_gen_mutex.unlock();}
 
   void toffUpdateAfterDeltaUpdate(double delta);
   void toffUpdateAfterTransmission();
@@ -153,6 +159,9 @@ private:
 
   // Metric Supervisor pointer
   MetricSupervisor *m_met_sup_ptr = nullptr;
+
+  long m_T_next_dcc = -1;
+  bool m_use_adaptive_dcc = false;
 };
 
 #endif // CABASICSERVICE_H

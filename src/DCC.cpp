@@ -2,14 +2,7 @@
 #include <stdexcept>
 
 
-DCC::DCC ()
-{
-    m_parameters_map[ReactiveState::Relaxed] = {0.20, 24.0, 100, -95.0};
-    m_parameters_map[ReactiveState::Active1] = {0.30, 18.0, 200, -95.0};
-    m_parameters_map[ReactiveState::Active2] = {0.40, 12.0, 400, -95.0};
-    m_parameters_map[ReactiveState::Active3] = {0.50, 6.0, 500, -95.0};
-    m_parameters_map[ReactiveState::Restrictive] = {1.0, 2.0, 1000, -65.0};
-}
+DCC::DCC () = default;
 
 DCC::~DCC()
 {
@@ -22,38 +15,117 @@ DCC::~DCC()
     {
         m_adaptive_thread.join();
     }
+    if (m_check_cbr_thread.joinable())
+    {
+        m_check_cbr_thread.join();
+    }
 }
 
-void DCC::setupDCC(unsigned long long dcc_interval, std::string dissemination_interface, CABasicService* cabs, CPBasicService* cpbs, VRUBasicService* vrubs, bool enable_CAM_dissemination, bool enable_CPM_dissemination, bool enable_VAM_dissemination, float tolerance, bool verbose, std::string log_file)
+void DCC::addCaBasicService(CABasicService* caBasicService)
 {
+    m_caBasicService = caBasicService;
+    m_cam_enabled = true;
+}
+
+void DCC::addCpBasicService(CPBasicService* cpBasicService)
+{
+    m_cpBasicService = cpBasicService;
+    m_cpm_enabled = true;
+}
+
+void DCC::addVruBasicService(VRUBasicService* vruBasicService)
+{
+    m_vruBasicService = vruBasicService;
+    m_vam_enabled = true;
+}
+
+std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> DCC::getConfiguration(double Ton, double currentCBR)
+{
+    std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> map;
+    if (Ton < 0.5)
+      {
+        map = m_reactive_parameters_Ton_500_us;
+      }
+    else if (Ton < 1)
+      {
+        map = m_reactive_parameters_Ton_1ms;
+      }
+    else
+      {
+        // Default
+        map = m_reactive_parameters_Ton_1ms;
+      }
+    ReactiveState old_state = m_current_state;
+    if (currentCBR >= map[m_current_state].cbr_threshold && m_current_state != ReactiveState::Restrictive)
+    {
+      m_current_state = static_cast<ReactiveState>(m_current_state + 1);
+    }
+    else
+    {
+      if (m_current_state != ReactiveState::Relaxed)
+      {
+        ReactiveState prev_state = static_cast<ReactiveState> (m_current_state - 1);
+        if (currentCBR <= map[prev_state].cbr_threshold)
+        {
+          m_current_state = static_cast<ReactiveState>(m_current_state - 1);
+        }
+      }
+    }
+    if (old_state == m_current_state)
+    {
+      map.clear();
+    }
+    else
+      {
+        // if (m_current_state > 1) std::cout << "State changed from: " << old_state << "; to: " << m_current_state << std::endl;
+      }
+    return map;
+}
+
+void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float tolerance, bool verbose, std::string log_file)
+{
+    assert(dcc_interval > 0 && dcc_interval <= MAXIMUM_TIME_WINDOW_DCC);
+    assert(modality == "reactive" || modality == "adaptive");
     m_dcc_interval = dcc_interval;
-    m_time_to_compute = false;
     m_dissemination_interface = dissemination_interface;
     m_verbose = verbose;
     m_tolerance = tolerance;
-    m_caBasicService = cabs;
-    m_cpBasicService = cpbs;
-    m_vruBasicService = vrubs;
-    m_cam_enabled = enable_CAM_dissemination;
-    m_cpm_enabled = enable_CPM_dissemination;
-    m_vam_enabled = enable_VAM_dissemination;
     m_log_file = log_file;
+    m_modality = modality;
     m_cbr_reader.setupCBRReader(verbose, dissemination_interface);
+}
+
+void DCC::startDCC()
+{
+  if (m_modality == "adaptive")
+  {
+    if (m_cam_enabled) m_caBasicService->setAdaptiveDCC();
+    if (m_cpm_enabled) m_cpBasicService->setAdaptiveDCC();
+    if (m_vam_enabled) m_vruBasicService->setAdaptiveDCC();
+    adaptiveDCC();
+  }
+  else
+  {
+    reactiveDCC();
+  }
 }
 
 void DCC::functionReactive()
 {
-    uint64_t start = get_timestamp_us();
     if (m_dcc_interval == 0 || m_dissemination_interface == "")
     {
         throw std::runtime_error("DCC not set properly.");
     }
 
     bool retry_flag = true;
+    uint64_t start = get_timestamp_us();
+    std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
+    /*
     setNewTxPower(m_parameters_map[m_current_state].tx_power, m_dissemination_interface);
-    if (m_cam_enabled) m_caBasicService->setCheckCamGenMs(m_parameters_map[m_current_state].tx_inter_packet_time);
-    if (m_cpm_enabled) m_cpBasicService->setCheckCpmGenMs(m_parameters_map[m_current_state].tx_inter_packet_time);
-    if (m_vam_enabled) m_vruBasicService->setCheckVamGenMs(m_parameters_map[m_current_state].tx_inter_packet_time);
+    if (m_cam_enabled) m_caBasicService->setNextCAMDCC(m_parameters_map[m_current_state].tx_inter_packet_time);
+    if (m_cpm_enabled) m_cpBasicService->setNextCAMDCC(m_parameters_map[m_current_state].tx_inter_packet_time);
+    if (m_vam_enabled) m_vruBasicService->setNextCAMDCC(m_parameters_map[m_current_state].tx_inter_packet_time);
+    */
 
     do
     {
@@ -63,38 +135,45 @@ void DCC::functionReactive()
             double currentCbr = m_cbr_reader.get_current_cbr();
             if (currentCbr != -1.0f)
             {
-                ReactiveState new_state;
-                bool relaxed_flag = true ? m_current_state == ReactiveState::Relaxed : false;
-                if (currentCbr > m_parameters_map[m_current_state].cbr_threshold + m_tolerance)
+                double tx_power = -1;
+                long int_pkt_time = -1;
+                if (m_cam_enabled)
                 {
-                    new_state = static_cast<ReactiveState> (m_current_state + 1);
-                }
-                else if (relaxed_flag)
-                {
-                    new_state = ReactiveState::Relaxed;
-                }
-                else if (currentCbr < m_parameters_map[static_cast<ReactiveState> (m_current_state - 1)].cbr_threshold - m_tolerance)
-                {
-                    new_state = static_cast<ReactiveState> (m_current_state - 1);
-                }
-                else
-                {
-                    new_state = m_current_state;
-                }
-                
-                if (m_current_state != new_state)
-                {
-                    if (m_verbose)
+                    double Ton = m_caBasicService->getTon(); // Milliseconds
+                    std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
+                    if (!map.empty())
                     {
-                        std::cout << "Old State: " << m_current_state << ", New State: " << new_state << std::endl;
+                        tx_power = map[m_current_state].tx_power;
+                        int_pkt_time = map[m_current_state].tx_inter_packet_time;
+                        setNewTxPower(map[m_current_state].tx_power, m_dissemination_interface);
+                        m_caBasicService->setNextCAMDCC(map[m_current_state].tx_inter_packet_time);
                     }
-                    
-                    setNewTxPower(m_parameters_map[new_state].tx_power, m_dissemination_interface);
-                    if (m_cam_enabled) m_caBasicService->setCheckCamGenMs(m_parameters_map[new_state].tx_inter_packet_time);
-                    if (m_cpm_enabled) m_cpBasicService->setCheckCpmGenMs(m_parameters_map[new_state].tx_inter_packet_time);
-                    if (m_vam_enabled) m_vruBasicService->setCheckVamGenMs(m_parameters_map[new_state].tx_inter_packet_time);
-                    m_current_state = new_state;
-                    // TODO sensitivity through netlink if it is possible
+                }
+
+                if (m_cpm_enabled)
+                {
+                    double Ton = m_cpBasicService->getTon(); // Milliseconds
+                    std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
+                    if (!map.empty())
+                    {
+                        tx_power = map[m_current_state].tx_power;
+                        int_pkt_time = map[m_current_state].tx_inter_packet_time;
+                        setNewTxPower(map[m_current_state].tx_power, m_dissemination_interface);
+                        m_cpBasicService->setNextCPMDCC (map[m_current_state].tx_inter_packet_time);
+                    }
+                }
+
+                if (m_vam_enabled)
+                {
+                    double Ton = m_vruBasicService->getTon(); // Milliseconds
+                    std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
+                    if (!map.empty())
+                    {
+                        tx_power = map[m_current_state].tx_power;
+                        int_pkt_time = map[m_current_state].tx_inter_packet_time;
+                        setNewTxPower(map[m_current_state].tx_power, m_dissemination_interface);
+                        m_vruBasicService->setNextVAMDCC (map[m_current_state].tx_inter_packet_time);
+                    }
                 }
 
                 if(m_log_file != "")
@@ -104,7 +183,7 @@ void DCC::functionReactive()
 
                     auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << m_parameters_map[m_current_state].tx_power << "," << m_parameters_map[m_current_state].tx_inter_packet_time << "\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "\n";
                     file.close();
                 }
             }
@@ -113,7 +192,7 @@ void DCC::functionReactive()
         catch(const std::exception& e)
         {
             std::cerr << "Error in managing DCC: " << e.what() << std::endl;
-            sleep(5);
+            sleep(2);
             retry_flag = false;
         }
     } while (retry_flag);
@@ -135,6 +214,31 @@ void DCC::reactiveDCC()
     }
 }
 
+void DCC::adaptiveDCCCheckCBR()
+{
+    bool retry_flag = true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(m_T_CBR));
+    do
+    {
+        try
+        {
+            m_cbr_reader.wrapper_start_reading_cbr();
+            m_previous_cbr_mutex.lock();
+            m_previous_cbr = m_cbr_reader.get_current_cbr();
+            if (m_previous_cbr == -1) m_previous_cbr = 0;
+            m_previous_cbr_mutex.unlock();
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_T_CBR));
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << "Error in managing DCC: " << e.what() << std::endl;
+            sleep(2);
+            retry_flag = false;
+        }
+    }
+    while(retry_flag);
+}
+
 void DCC::functionAdaptive()
 {
     if (m_dcc_interval == 0 || m_dissemination_interface == "")
@@ -144,6 +248,7 @@ void DCC::functionAdaptive()
     
     bool retry_flag = true;
     uint64_t start = get_timestamp_us();
+    std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
 
     do
     {
@@ -151,14 +256,10 @@ void DCC::functionAdaptive()
         {
             m_cbr_reader.wrapper_start_reading_cbr();
             double currentCbr = m_cbr_reader.get_current_cbr();
-            if (m_time_to_compute == false && currentCbr != -1.0f)
-            {
-                m_previous_cbr = currentCbr;
-                m_time_to_compute = true;
-            }
-            else if (m_time_to_compute == true && currentCbr != -1.0f)
+            if (currentCbr != -1.0f)
             {
                 // Step 1
+                m_previous_cbr_mutex.lock();
                 if (m_CBR_its != -1.0f)
                 {
                     m_CBR_its = 0.5 * m_CBR_its + 0.25 * ((currentCbr + m_previous_cbr) / 2);
@@ -167,6 +268,7 @@ void DCC::functionAdaptive()
                 {
                     m_CBR_its = (0.5 * currentCbr + 0.25 * m_previous_cbr) / 2;
                 }
+                m_previous_cbr_mutex.unlock();
 
                 // Step 2
                 float delta_offset;
@@ -208,14 +310,13 @@ void DCC::functionAdaptive()
                     file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << m_delta << "\n";
                     file.close();
                 }
-                m_time_to_compute = false;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
         }
         catch(const std::exception& e)
         {
             std::cerr << "Error in managing DCC: " << e.what() << std::endl;
-            sleep(5);
+            sleep(2);
             retry_flag = false;
         }
     } while (retry_flag);
@@ -225,6 +326,7 @@ void DCC::adaptiveDCC()
 {
     m_dcc_interval = (long) m_dcc_interval / 2;
     m_adaptive_thread = std::thread(&DCC::functionAdaptive, this);
+    m_check_cbr_thread = std::thread(&DCC::adaptiveDCCCheckCBR, this);
     if (m_verbose)
     {
         std::cout << "Adaptive DCC thread started" << std::endl;

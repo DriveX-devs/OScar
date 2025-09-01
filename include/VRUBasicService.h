@@ -57,6 +57,14 @@ class VRUBasicService
 {
 public:
     VRUBasicService();
+
+    /**
+     * @brief Set the future time to send a VAM
+     * @param nextVAM The next time to send VAM
+     */
+    void setNextVAMDCC(long nextVAM) {m_T_next_dcc = nextVAM;};
+    void setAdaptiveDCC() {m_use_adaptive_dcc = true;};
+    double getTon() {return m_Ton_pp;};
     
     void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
     void setLogfile(std::string filename) {m_log_filename=filename;}
@@ -78,8 +86,6 @@ public:
     void startVamDissemination(int desync_ms);
 
     uint64_t terminateDissemination();
-
-    void setCheckVamGenMs(long nextVAM) {m_vam_gen_mutex.lock(); m_T_CheckVamGen_ms = nextVAM; m_vam_gen_mutex.unlock();};
 
     void toffUpdateAfterDeltaUpdate(double delta);
 
@@ -169,6 +175,9 @@ private:
 
     // Metric Supervisor pointer
     MetricSupervisor *m_met_sup_ptr = nullptr;
+
+    bool m_use_adaptive_dcc = false;
+    long m_T_next_dcc = -1;
 };
 
 #endif /* VRUBasicService_h */

@@ -34,6 +34,14 @@ class CPBasicService
 {
 public:
     CPBasicService();
+    /**
+     * @brief Set the future time to send a CPM
+     * @param nextCPM The next time to send CPM
+     */
+    void setNextCPMDCC(long nextCPM) {m_T_next_dcc = nextCPM;};
+    void setAdaptiveDCC() {m_use_adaptive_dcc = true;};
+    double getTon() {return m_Ton_pp;};
+
     void setStationID(unsigned long fixed_stationid);
     void setStationType(long fixed_stationtype);
     void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
@@ -58,8 +66,6 @@ public:
     void setVerbose(bool value) {m_verbose = value;}
 
     void initDissemination();
-
-    void setCheckCpmGenMs(long nextCPM) {m_cpm_gen_mutex.lock(); m_N_GenCpm=nextCPM; m_cpm_gen_mutex.unlock();}
 
     void toffUpdateAfterDeltaUpdate(double delta);
 
@@ -135,6 +141,9 @@ public:
 
     // Metric Supervisor pointer
     MetricSupervisor *m_met_sup_ptr = nullptr;
+
+    long m_T_next_dcc = -1;
+    bool m_use_adaptive_dcc = false;
 };
 
 

@@ -706,7 +706,7 @@ void
     aux = std::max (aux, 25.0);
     double new_gen_time = std::min (aux, 1000.0);
     m_cpm_gen_mutex.unlock();
-    setCheckCpmGenMs ((long) new_gen_time);
+    setNextCPMDCC ((long) new_gen_time);
     m_cpm_gen_mutex.lock();
     m_last_delta = delta;
     m_cpm_gen_mutex.unlock();
@@ -715,17 +715,20 @@ void
   void
   CPBasicService::toffUpdateAfterTransmission()
   {
-    m_cpm_gen_mutex.lock();
-    if (m_last_delta == 0)
+    if (m_use_adaptive_dcc)
     {
+        m_cpm_gen_mutex.lock();
+        if (m_last_delta == 0)
+        {
+            m_cpm_gen_mutex.unlock();
+            return;
+        }
+        double aux = m_Ton_pp / m_last_delta;
+        double new_gen_time = std::max(aux, 25.0);
+        new_gen_time = std::min(new_gen_time, 1000.0);
         m_cpm_gen_mutex.unlock();
-        return;
+        setNextCPMDCC ((long) new_gen_time);
     }
-    double aux = m_Ton_pp / m_last_delta;
-    double new_gen_time = std::max(aux, 25.0);
-    new_gen_time = std::min(new_gen_time, 1000.0);
-    m_cpm_gen_mutex.unlock();
-    setCheckCpmGenMs ((long) new_gen_time);
   }
 
 

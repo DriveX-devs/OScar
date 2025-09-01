@@ -1282,8 +1282,10 @@ int main (int argc, char *argv[]) {
         }
 
         if (enable_DCC == true) {
+            
             std::cerr << "[ERROR] DCC implementation is not yet fully tested, and cannot be enabled yet. Try again without DCC. It will be released soon anyway, so, stay updated!" << std::endl;
             exit(EXIT_FAILURE);
+            
 
             if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC) {
                 std::cerr
@@ -1568,14 +1570,18 @@ int main (int argc, char *argv[]) {
     DCC dcc;
     if (enable_DCC)
     {
-        dcc.setupDCC(time_window_DCC, dissem_vif, cabs_ptr, cpbs_ptr, vrubs_ptr, enable_CAM_dissemination, enable_CPM_dissemination, enable_VAM_dissemination, 0.01f, verbose_DCC, log_filename_DCC);
-        if (modality_DCC == "reactive") {
-            dcc.reactiveDCC();
-        } else if(modality_DCC == "adaptive") {
-            dcc.adaptiveDCC();
-        } else {
-            std::cerr << "[ERROR] " << modality_DCC << " is not a valid ETSI DCC mode!" << std::endl;
-            terminatorFlag = true;
+        dcc.setupDCC(time_window_DCC, modality_DCC, dissem_vif, 0.01f, verbose_DCC, log_filename_DCC);
+        if (enable_CAM_dissemination)
+        {
+            dcc.addCaBasicService(cabs_ptr);
+        }
+        if (enable_CPM_dissemination)
+        {
+            dcc.addCpBasicService(cpbs_ptr);
+        }
+        if (enable_VAM_dissemination)
+        {
+            dcc.addVruBasicService(vrubs_ptr);
         }
     }
 
@@ -1727,6 +1733,11 @@ int main (int argc, char *argv[]) {
             }
 		}
 	}
+
+    if(enable_DCC)
+    {
+        dcc.startDCC();
+    }
 	
 	exit_failure:
 

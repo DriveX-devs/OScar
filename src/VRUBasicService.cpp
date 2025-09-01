@@ -358,16 +358,19 @@ void VRUBasicService::checkVamConditions(){
   			if (head_diff > m_head_th || head_diff < -m_head_th)
     		{
       		if(!redundancy_mitigation && (m_N_GenVam_red==0 || m_N_GenVam_red==m_N_GenVam_max_red)){
-          	m_N_GenVam_red = 0;
-
-          	m_trigg_cond = HEADING_CHANGE;
-          	vam_error = generateAndEncodeVam ();
-         		if(vam_error==VAM_NO_ERROR)
+            if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc)
             {
-              condition_verified = true;
-              m_head_sent++;
-            } else {
-              std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+              m_N_GenVam_red = 0;
+
+              m_trigg_cond = HEADING_CHANGE;
+              vam_error = generateAndEncodeVam ();
+              if(vam_error==VAM_NO_ERROR)
+              {
+                condition_verified = true;
+                m_head_sent++;
+              } else {
+                std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+              }
             }
         	} else{
           	m_N_GenVam_red++;
@@ -396,16 +399,19 @@ void VRUBasicService::checkVamConditions(){
       		
       if (!condition_verified && !vamredmit_verified && (pos_diff > m_pos_th || pos_diff < -m_pos_th)){
         if(!redundancy_mitigation && (m_N_GenVam_red==0 || m_N_GenVam_red==m_N_GenVam_max_red)){
-          m_N_GenVam_red = 0;
-
-          m_trigg_cond = POSITION_CHANGE;
-          vam_error = generateAndEncodeVam ();
-          if(vam_error==VAM_NO_ERROR)
+          if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc)
           {
-            condition_verified = true;
-            m_pos_sent++;
-          } else {
-            std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+            m_N_GenVam_red = 0;
+
+            m_trigg_cond = POSITION_CHANGE;
+            vam_error = generateAndEncodeVam ();
+            if(vam_error==VAM_NO_ERROR)
+            {
+              condition_verified = true;
+              m_pos_sent++;
+            } else {
+              std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+            }
           }
         } else{
           m_N_GenVam_red++;
@@ -428,16 +434,19 @@ void VRUBasicService::checkVamConditions(){
   			if (!condition_verified && !vamredmit_verified && (speed_diff > m_speed_th || speed_diff < -m_speed_th))
     		{
       		if(!redundancy_mitigation && (m_N_GenVam_red==0 || m_N_GenVam_red==m_N_GenVam_max_red)){
-          	m_N_GenVam_red = 0;
-
-          	m_trigg_cond = SPEED_CHANGE;
-         		vam_error = generateAndEncodeVam ();
-          	if(vam_error==VAM_NO_ERROR)
+            if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc)
             {
-              condition_verified = true;
-              m_speed_sent++;
-            } else {
-             	std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+              m_N_GenVam_red = 0;
+
+              m_trigg_cond = SPEED_CHANGE;
+              vam_error = generateAndEncodeVam ();
+              if(vam_error==VAM_NO_ERROR)
+              {
+                condition_verified = true;
+                m_speed_sent++;
+              } else {
+                std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+              }
             }
         	} else{
           	m_N_GenVam_red++;
@@ -518,16 +527,19 @@ void VRUBasicService::checkVamConditions(){
       if(!condition_verified && !vamredmit_verified && (now-lastVamGen>=m_T_GenVam_ms))
       {
       	if(!redundancy_mitigation && (m_N_GenVam_red==0 || m_N_GenVam_red==m_N_GenVam_max_red)){
-          m_N_GenVam_red = 0;
-
-          m_trigg_cond = MAX_TIME_ELAPSED;
-          vam_error = generateAndEncodeVam ();
-          if(vam_error==VAM_NO_ERROR)
+          if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc)
           {
-            condition_verified = true;
-            m_time_sent++;
-          } else {
-            std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+            m_N_GenVam_red = 0;
+
+            m_trigg_cond = MAX_TIME_ELAPSED;
+            vam_error = generateAndEncodeVam ();
+            if(vam_error==VAM_NO_ERROR)
+            {
+              condition_verified = true;
+              m_time_sent++;
+            } else {
+              std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+            }
           }
         } else{
           m_N_GenVam_red++;
@@ -855,7 +867,7 @@ VRUBasicService::toffUpdateAfterDeltaUpdate(double delta)
   aux = std::max (aux, 25.0);
   double new_gen_time = std::min (aux, 1000.0);
   m_vam_gen_mutex.unlock();
-  setCheckVamGenMs ((long) new_gen_time);
+  setNextVAMDCC ((long) new_gen_time);
   m_vam_gen_mutex.lock();
   m_last_delta = delta;
   m_vam_gen_mutex.unlock();
@@ -864,15 +876,18 @@ VRUBasicService::toffUpdateAfterDeltaUpdate(double delta)
 void
 VRUBasicService::toffUpdateAfterTransmission()
 {
-  m_vam_gen_mutex.lock();
-  if (m_last_delta == 0)
+  if (m_use_adaptive_dcc)
   {
+    m_vam_gen_mutex.lock();
+    if (m_last_delta == 0)
+    {
+      m_vam_gen_mutex.unlock();
+      return;
+    }
+    double aux = m_Ton_pp / m_last_delta;
+    double new_gen_time = std::max(aux, 25.0);
+    new_gen_time = std::min(new_gen_time, 1000.0);
     m_vam_gen_mutex.unlock();
-    return;
+    setNextVAMDCC ((long) new_gen_time);
   }
-  double aux = m_Ton_pp / m_last_delta;
-  double new_gen_time = std::max(aux, 25.0);
-  new_gen_time = std::min(new_gen_time, 1000.0);
-  m_vam_gen_mutex.unlock();
-  setCheckVamGenMs ((long) new_gen_time);
 }

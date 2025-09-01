@@ -105,7 +105,7 @@ void MetricSupervisor::writeLogFile()
             std::this_thread::sleep_for(std::chrono::milliseconds(m_time_window));
         } catch(const std::exception& e) {
             std::cerr << "[ERROR] Error in Metric Supervisor: " << e.what() << std::endl;
-            sleep(5);
+            sleep(2);
             file_sta_info.close();
             file_rssi_info.close();
             retry_flag = false;

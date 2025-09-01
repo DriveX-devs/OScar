@@ -438,15 +438,18 @@ CABasicService::checkCamConditions()
           // If the heading difference with the previous CAM sent is more than 4°, then generate the CAM
         if (head_diff > 4.0 || head_diff < -4.0)
         {
-          cam_error=generateAndEncodeCam();
-          if(cam_error == CAM_NO_ERROR)
+          if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
           {
-            m_N_GenCam=0;
-            condition_verified=true;
-            dyn_cond_verified=true;
+            cam_error=generateAndEncodeCam();
+            if(cam_error == CAM_NO_ERROR)
+            {
+              m_N_GenCam=0;
+              condition_verified=true;
+              dyn_cond_verified=true;
 
-          } else {
-            std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+            } else {
+              std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+            }
           }
         }
       }
@@ -490,15 +493,18 @@ CABasicService::checkCamConditions()
       // If the position difference with the previous CAM sent is more than 4m, then generate the CAM
       if (!condition_verified && (pos_diff > 4.0 || pos_diff < -4.0))
       {
-        cam_error=generateAndEncodeCam ();
-        if(cam_error==CAM_NO_ERROR)
+        if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
         {
-          m_N_GenCam=0;
-          condition_verified=true;
-          dyn_cond_verified=true;
+          cam_error=generateAndEncodeCam ();
+          if(cam_error==CAM_NO_ERROR)
+          {
+            m_N_GenCam=0;
+            condition_verified=true;
+            dyn_cond_verified=true;
 
-        } else {
-          std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+          } else {
+            std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+          }
         }
       }
 
@@ -526,15 +532,18 @@ CABasicService::checkCamConditions()
         // If the speed difference with the previous CAM sent is more than 0.5 m/s, then generate the CAM
         if (!condition_verified && (speed_diff > 0.5 || speed_diff < -0.5))
         {
-          cam_error=generateAndEncodeCam();
-          if(cam_error==CAM_NO_ERROR)
+          if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
           {
-            m_N_GenCam=0;
-            condition_verified=true;
-            dyn_cond_verified=true;
+            cam_error=generateAndEncodeCam();
+            if(cam_error==CAM_NO_ERROR)
+            {
+              m_N_GenCam=0;
+              condition_verified=true;
+              dyn_cond_verified=true;
 
-          } else {
-            std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+            } else {
+              std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
+            }
           }
         }
       }
@@ -564,24 +573,27 @@ CABasicService::checkCamConditions()
       // If the time difference with the previous CAM sent is more than T_GenCam or the timeout expired for more than m_N_GenCamMax times, then generate the CAM
       if(!condition_verified && (abs(time_difference - m_T_GenCam_ms) <= 10 || (m_T_GenCam_ms - time_difference) <= 0))
       {
-        cam_error=generateAndEncodeCam();
-        if(cam_error==CAM_NO_ERROR)
+        if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
         {
-
-          condition_verified=true;
-
-          if(dyn_cond_verified==true)
+          cam_error=generateAndEncodeCam();
+          if(cam_error==CAM_NO_ERROR)
           {
-            m_N_GenCam++;
-            if(m_N_GenCam>=m_N_GenCamMax)
+
+            condition_verified=true;
+
+            if(dyn_cond_verified==true)
             {
-              m_N_GenCam=0;
-              m_T_GenCam_ms=T_GenCamMax_ms;
-              dyn_cond_verified=false;
+              m_N_GenCam++;
+              if(m_N_GenCam>=m_N_GenCamMax)
+              {
+                m_N_GenCam=0;
+                m_T_GenCam_ms=T_GenCamMax_ms;
+                dyn_cond_verified=false;
+              }
             }
+          } else {
+            std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
           }
-        } else {
-          std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
         }
       }
 
@@ -852,7 +864,7 @@ CABasicService::toffUpdateAfterDeltaUpdate(double delta)
   aux = std::max (aux, 25.0);
   double new_gen_time = std::min (aux, 1000.0);
   m_cam_gen_mutex.unlock();
-  setCheckCamGenMs ((long) new_gen_time);
+  setNextCAMDCC ((long) new_gen_time);
   m_cam_gen_mutex.lock();
   m_last_delta = delta;
   m_cam_gen_mutex.unlock();
@@ -861,16 +873,19 @@ CABasicService::toffUpdateAfterDeltaUpdate(double delta)
 void
 CABasicService::toffUpdateAfterTransmission()
 {
-  m_cam_gen_mutex.lock();
-  if (m_last_delta == 0)
+  if (m_use_adaptive_dcc)
   {
-    m_cam_gen_mutex.unlock();
-    return;
-  }
+    m_cam_gen_mutex.lock();
+    if (m_last_delta == 0)
+    {
+      m_cam_gen_mutex.unlock();
+      return;
+    }
 
-  double aux = m_Ton_pp / m_last_delta;
-  double new_gen_time = std::max(aux, 25.0);
-  new_gen_time = std::min(new_gen_time, 1000.0);
-  m_cam_gen_mutex.unlock();
-  setCheckCamGenMs ((long) new_gen_time);
+    double aux = m_Ton_pp / m_last_delta;
+    double new_gen_time = std::max(aux, 25.0);
+    new_gen_time = std::min(new_gen_time, 1000.0);
+    m_cam_gen_mutex.unlock();
+    setNextCAMDCC ((long) new_gen_time);
+  }
 }
