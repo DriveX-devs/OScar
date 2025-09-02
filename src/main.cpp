@@ -852,11 +852,9 @@ int main (int argc, char *argv[]) {
     uint64_t time_window_met_sup = 0;
     std::string log_filename_met_sup = "";
 
-    bool reset_tx_power = false;
-
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.8-development");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.9-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -1282,11 +1280,6 @@ int main (int argc, char *argv[]) {
         }
 
         if (enable_DCC == true) {
-            
-            std::cerr << "[ERROR] DCC implementation is not yet fully tested, and cannot be enabled yet. Try again without DCC. It will be released soon anyway, so, stay updated!" << std::endl;
-            exit(EXIT_FAILURE);
-            
-
             if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC) {
                 std::cerr
                         << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0 and lower than "
@@ -1683,6 +1676,11 @@ int main (int argc, char *argv[]) {
         serialParser.showDebugAgeInfo();
     }
 
+    if(enable_DCC)
+    {
+        dcc.startDCC();
+    }
+
 	// Reception loop (using the main thread)
 	if(enable_reception==true) {
 		fprintf(stdout,"Configuring socket for reception. Descriptor: %d\n",sockfd);
@@ -1733,11 +1731,6 @@ int main (int argc, char *argv[]) {
             }
 		}
 	}
-
-    if(enable_DCC)
-    {
-        dcc.startDCC();
-    }
 	
 	exit_failure:
 
