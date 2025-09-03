@@ -83,7 +83,7 @@ double m_Gmax = 0.0005;
 double m_Gmin = -0.00025;
 double m_delta = 0;
 uint32_t m_T_CBR = 100; // Check the CBR value each 100 ms for Adaptive DCC from standard suggestion
-std::mutex m_previous_cbr_mutex;
+std::mutex m_cbr_mutex;
 double m_previous_cbr = -1.0f;
 
 ReactiveState m_current_state = ReactiveState::Relaxed;
@@ -99,7 +99,8 @@ bool m_cpm_enabled;
 bool m_vam_enabled;
 
 std::string m_log_file;
-CBRReader m_cbr_reader;
+CBRReader m_main_cbr_reader;
+CBRReader m_second_cbr_reader;
 
 };
 

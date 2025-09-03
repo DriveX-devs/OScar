@@ -92,7 +92,11 @@ void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::s
     m_tolerance = tolerance;
     m_log_file = log_file;
     m_modality = modality;
-    m_cbr_reader.setupCBRReader(verbose, dissemination_interface);
+    m_main_cbr_reader.setupCBRReader(verbose, dissemination_interface);
+    if (m_modality == "adaptive")
+    {
+        m_second_cbr_reader.setupCBRReader(verbose, dissemination_interface);
+    }
 }
 
 void DCC::startDCC()
@@ -131,8 +135,8 @@ void DCC::functionReactive()
     {
         try
         {
-            m_cbr_reader.wrapper_start_reading_cbr();
-            double currentCbr = m_cbr_reader.get_current_cbr();
+            m_main_cbr_reader.wrapper_start_reading_cbr();
+            double currentCbr = m_main_cbr_reader.get_current_cbr();
             if (currentCbr != -1.0f)
             {
                 double tx_power = -1;
@@ -222,11 +226,11 @@ void DCC::adaptiveDCCCheckCBR()
     {
         try
         {
-            m_cbr_reader.wrapper_start_reading_cbr();
-            m_previous_cbr_mutex.lock();
-            m_previous_cbr = m_cbr_reader.get_current_cbr();
+            m_cbr_mutex.lock();
+            m_second_cbr_reader.wrapper_start_reading_cbr();
+            m_previous_cbr = m_second_cbr_reader.get_current_cbr();
             if (m_previous_cbr == -1) m_previous_cbr = 0;
-            m_previous_cbr_mutex.unlock();
+            m_cbr_mutex.unlock();
             std::this_thread::sleep_for(std::chrono::milliseconds(m_T_CBR));
         }
         catch(const std::exception& e)
@@ -249,17 +253,16 @@ void DCC::functionAdaptive()
     bool retry_flag = true;
     uint64_t start = get_timestamp_us();
     std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
-
     do
     {
         try
         {
-            m_cbr_reader.wrapper_start_reading_cbr();
-            double currentCbr = m_cbr_reader.get_current_cbr();
+            m_cbr_mutex.lock();
+            m_main_cbr_reader.wrapper_start_reading_cbr();
+            double currentCbr = m_main_cbr_reader.get_current_cbr();
             if (currentCbr != -1.0f)
             {
                 // Step 1
-                m_previous_cbr_mutex.lock();
                 if (m_CBR_its != -1.0f)
                 {
                     m_CBR_its = 0.5 * m_CBR_its + 0.25 * ((currentCbr + m_previous_cbr) / 2);
@@ -268,8 +271,8 @@ void DCC::functionAdaptive()
                 {
                     m_CBR_its = (0.5 * currentCbr + 0.25 * m_previous_cbr) / 2;
                 }
-                m_previous_cbr_mutex.unlock();
-
+                m_cbr_mutex.unlock();
+                std::cout << currentCbr << " " << m_previous_cbr << " " << m_CBR_its << std::endl;
                 // Step 2
                 float delta_offset;
                 if ((m_CBR_target - m_CBR_its) > 0)
@@ -311,6 +314,10 @@ void DCC::functionAdaptive()
                     file.close();
                 }
             }
+            else
+            {
+                m_cbr_mutex.unlock();
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
         }
         catch(const std::exception& e)
@@ -325,8 +332,9 @@ void DCC::functionAdaptive()
 void DCC::adaptiveDCC()
 {
     m_dcc_interval = (long) m_dcc_interval / 2;
-    m_adaptive_thread = std::thread(&DCC::functionAdaptive, this);
     m_check_cbr_thread = std::thread(&DCC::adaptiveDCCCheckCBR, this);
+    m_adaptive_thread = std::thread(&DCC::functionAdaptive, this);
+
     if (m_verbose)
     {
         std::cout << "Adaptive DCC thread started" << std::endl;

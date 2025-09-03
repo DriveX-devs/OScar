@@ -178,6 +178,7 @@ private:
 
     bool m_use_adaptive_dcc = false;
     long m_T_next_dcc = -1;
+    double m_bitrate_bps = 3e6;
 };
 
 #endif /* VRUBasicService_h */

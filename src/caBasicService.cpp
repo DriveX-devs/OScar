@@ -414,6 +414,7 @@ CABasicService::checkCamConditions()
 
           goto goto_print;
       }
+      std::cout << "Next CAM in: " << m_T_next_dcc << std::endl;
       /* 1a)
        * The absolute difference between the current heading of the originating
        * ITS-S and the heading included in the CAM previously transmitted by the
@@ -796,12 +797,17 @@ CABasicService::generateAndEncodeCam()
     int_tstamp = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
     m_cam_gen_mutex.lock();
     m_last_transmission = int_tstamp;
-    uint32_t packetSize = static_cast<unsigned int>(encode_result.size());
-    auto bits = packetSize * 8;
+    double packetSize = static_cast<double>(encode_result.size());
+    double bits = packetSize * 8;
+    double tx_duration_s = static_cast<double>(bits) / m_bitrate_bps;
+    double total_duration_s = tx_duration_s + (68e-6); // 68 µs extra
+    m_Ton_pp = total_duration_s * 1000.0; // convert to ms
+    /*
     auto tx_duration_ns = static_cast<long> (bits * 166.66) * 1e9;
     auto extra_delay = 68 / 1e9;
     auto total_duration = tx_duration_ns + extra_delay;
     m_Ton_pp = total_duration / 1e6;
+    */
     m_cam_gen_mutex.unlock();
 
     toffUpdateAfterTransmission();

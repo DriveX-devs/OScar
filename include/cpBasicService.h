@@ -144,6 +144,7 @@ public:
 
     long m_T_next_dcc = -1;
     bool m_use_adaptive_dcc = false;
+    double m_bitrate_bps = 3e6;
 };
 
 
