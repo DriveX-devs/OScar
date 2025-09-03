@@ -272,7 +272,6 @@ void DCC::functionAdaptive()
                     m_CBR_its = (0.5 * currentCbr + 0.25 * m_previous_cbr) / 2;
                 }
                 m_cbr_mutex.unlock();
-                std::cout << currentCbr << " " << m_previous_cbr << " " << m_CBR_its << std::endl;
                 // Step 2
                 float delta_offset;
                 if ((m_CBR_target - m_CBR_its) > 0)

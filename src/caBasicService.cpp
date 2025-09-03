@@ -414,7 +414,7 @@ CABasicService::checkCamConditions()
 
           goto goto_print;
       }
-      std::cout << "Next CAM in: " << m_T_next_dcc << std::endl;
+      // std::cout << "Next CAM in: " << m_T_next_dcc << std::endl;
       /* 1a)
        * The absolute difference between the current heading of the originating
        * ITS-S and the heading included in the CAM previously transmitted by the
