@@ -16,6 +16,7 @@
 #include "commonHeader.h"
 #include "shbHeader.h"
 #include "gbcHeader.h"
+#include "GateKeeper.h"
 
 
 
@@ -42,6 +43,7 @@ class GeoNet {
 		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp=false);
 		void closeUDPsocket();
         void setSecurity(bool security){enableSecurity = security;  m_security = Security();}
+		void setGateKeeper(GateKeeper *gk) {m_gate_keeper = gk;}
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;
@@ -128,6 +130,9 @@ class GeoNet {
 		// This extra information is represented by 64 additional bits, containing respectively the current
 		// latitude (32 bits) and longitude (32 bits) of the vehicle, as degrees*1e7 and in network byte order
 		bool m_extra_position_udp = false;
+
+		GateKeeper *m_gate_keeper = nullptr;
+		// CBRReader m_cbr_reader;
 };
 
 #endif // OCABS_GEONET_H

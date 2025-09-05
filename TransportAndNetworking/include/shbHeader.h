@@ -24,11 +24,20 @@ class shbHeader {
 		//Setters
 		void SetLongPositionV(GNlpv_t longPositionVector) {m_sourcePV = longPositionVector;}
 
+		void SetLocalCBR(uint8_t cbr) {m_local_CBR = cbr;}
+
+		void SetMaxNeighbouringCBR(uint8_t cbr) {m_max_CBR_neighbouring = cbr;}
+
+		void SetOutputPower(uint8_t tx_power);
+
 		static void printTSBPheader(packetBuffer &packet,std::string filename);
 	private:
 		GNlpv_t m_sourcePV;  //! Source long position vector
 		uint8_t m_reserved; //! Aux variable for reserved fields
 		uint32_t m_reserved32; //! Aux variable for reserved fields
+		uint8_t m_local_CBR;
+		uint8_t m_max_CBR_neighbouring;
+		uint8_t m_tx_power_reserved;
 
 };
 

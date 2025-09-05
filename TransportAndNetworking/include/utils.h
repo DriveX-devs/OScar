@@ -79,7 +79,8 @@ typedef enum {
     UNSUPPORTED_TRA_CLASS = 4,
     MAX_GEOAREA_EXCEEDED = 5,
     UNSPECIFIED_ERROR =6,
-    UNSUPPORTED_GN_REP=7
+    UNSUPPORTED_GN_REP=7,
+	BLOCKED_BY_GK = 8,
 } GNDataConfirm_t;
 
 typedef struct dataIndication {

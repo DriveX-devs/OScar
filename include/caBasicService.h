@@ -36,8 +36,6 @@ public:
      * @param nextCAM The next time to send CAM
      */
   void setNextCAMDCC(long nextCAM) {m_T_next_dcc = nextCAM;};
-  void setAdaptiveDCC() {m_use_adaptive_dcc = true;};
-  double getTon() {return m_Ton_pp;};
 
   // This function sets the station properties for the CA Basic Service only
   // The GeoNetworking station properties shall be set separately on the GeoNetworking object
@@ -72,9 +70,6 @@ public:
   void setProtectedCommunicationsZonesRSU(asn1cpp::Seq<RSUContainerHighFrequency> sequence) {m_protectedCommunicationsZonesRSU = sequence;}
 
   uint64_t terminateDissemination();
-
-  void toffUpdateAfterDeltaUpdate(double delta);
-  void toffUpdateAfterTransmission();
 
   void setOwnPrivateIP(std::string own_private_IP) {m_own_private_IP=own_private_IP;}
   void setOwnPublicIP(std::string own_public_IP) {m_own_public_IP=own_public_IP;}
@@ -151,18 +146,10 @@ private:
 
   bool m_force_20Hz_freq=false;
 
-  int64_t m_last_transmission = 0;
-  double m_Ton_pp = 0;
-  double m_last_delta = 0;
-
-  std::mutex m_cam_gen_mutex;
-
   // Metric Supervisor pointer
   MetricSupervisor *m_met_sup_ptr = nullptr;
 
   long m_T_next_dcc = -1;
-  bool m_use_adaptive_dcc = false;
-  double m_bitrate_bps = 3e6;
 };
 
 #endif // CABASICSERVICE_H

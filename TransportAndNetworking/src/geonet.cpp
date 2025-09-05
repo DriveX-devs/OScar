@@ -14,6 +14,11 @@
 #include "functional"
 #include "geonet.h"
 
+#define IEEE80211_DATA_PKT_HDR_LEN 24
+#ifndef IEEE80211_FCS_LEN 
+#define IEEE80211_FCS_LEN 4
+#endif
+
 #define SN_MAX 65536
 
 // This funciton fills the out_addr 8-byte array with a GN address, starting from the local MAC address specified as "addr", and from the current stationType
@@ -256,13 +261,35 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 		longPV.heading = (uint16_t) m_vdp->getHeadingValueDbl()*DECI;// [degrees] to [0.1 degrees]
 	}
 
-	switch(dataRequest.GNType) {
+	bool use_adaptive_dcc = m_gate_keeper->getAdaptiveDCC();
+	struct timespec tv;
+	clock_gettime (CLOCK_MONOTONIC, &tv);
+	int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+	bool gate_open = false;
+	if (use_adaptive_dcc)
+	{
+		gate_open = m_gate_keeper->checkGateOpen(now);
+		if (gate_open == false)
+		{
+			// std::cout << "BLOCKED!!!" << std::endl;
+			return BLOCKED_BY_GK;
+		}
+	}
+
+	if (use_adaptive_dcc)
+	{
+		m_gate_keeper->updateTgoAfterTransmission();
+
+	}
+
+	switch(dataRequest.GNType)
+	{
 		case GBC:
 			dataConfirm = sendGBC (dataRequest,commonHeader,basicHeader,longPV);
 			break;
 
 		case TSB:
-			if(commonHeader.GetHeaderSubType ()==0) dataConfirm = sendSHB (dataRequest,commonHeader,basicHeader,longPV);
+			if(commonHeader.GetHeaderSubType () == 0) dataConfirm = sendSHB (dataRequest,commonHeader,basicHeader,longPV);
 			break;
 
 		default:
@@ -381,6 +408,17 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	//c) SHB extended header
 	header.SetLongPositionV (longPV);
 
+	uint32_t tx_power = getTxPower();
+	header.SetOutputPower(static_cast<uint8_t>(tx_power));
+
+	// m_cbr_reader.wrapper_start_reading_cbr();
+    // double currentCbr = m_cbr_reader.get_current_cbr() * 100;
+	// TODO understand how to read the CBR
+	header.SetLocalCBR(static_cast<uint8_t>(0));
+
+	// TODO check the meaning of this parameter
+	header.SetMaxNeighbouringCBR((uint8_t) 0);
+	
 	// Serialize the headers
 	packetBuffer shbHeaderSerialized;
 	header.serializeInto(shbHeaderSerialized);
@@ -506,6 +544,9 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 		}
 	}
 
+	size_t pktSize = finalPktSize - sizeof(struct ether_header) + IEEE80211_DATA_PKT_HDR_LEN + IEEE80211_FCS_LEN + 8; // 8 = bytes layer LLC
+	m_gate_keeper->updateTonpp(pktSize);
+
 	delete []finalPktBuffer;
 
 	if(m_extra_position_udp && finalPktBufferUDP!=nullptr) {
@@ -611,6 +652,9 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 			std::cerr << "Cannot send GBC GN packet via UDP. Error details: " << strerror(errno) << std::endl;
 		}
 	}
+
+	size_t pktSize = finalPktSize - sizeof(struct ether_header) + IEEE80211_DATA_PKT_HDR_LEN + IEEE80211_FCS_LEN + 8; // 8 = bytes layer LLC
+	m_gate_keeper->updateTonpp(pktSize);
 
 	delete []finalPktBuffer;
 

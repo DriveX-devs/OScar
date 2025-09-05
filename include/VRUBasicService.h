@@ -63,8 +63,6 @@ public:
      * @param nextVAM The next time to send VAM
      */
     void setNextVAMDCC(long nextVAM) {m_T_next_dcc = nextVAM;};
-    void setAdaptiveDCC() {m_use_adaptive_dcc = true;};
-    double getTon() {return m_Ton_pp;};
     
     void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
     void setLogfile(std::string filename) {m_log_filename=filename;}
@@ -86,11 +84,6 @@ public:
     void startVamDissemination(int desync_ms);
 
     uint64_t terminateDissemination();
-
-    void toffUpdateAfterDeltaUpdate(double delta);
-
-    void toffUpdateAfterTransmission();
-
     
     const long T_GenVamMin_ms = 100;
     const long T_GenVamMax_ms = 5000;
@@ -167,18 +160,12 @@ private:
     
     std::atomic<bool> m_terminateFlag;
 
-    int64_t m_last_transmission = 0;
-    double m_Ton_pp = 0;
-    double m_last_delta = 0;
-
     std::mutex m_vam_gen_mutex;
 
     // Metric Supervisor pointer
     MetricSupervisor *m_met_sup_ptr = nullptr;
 
-    bool m_use_adaptive_dcc = false;
     long m_T_next_dcc = -1;
-    double m_bitrate_bps = 3e6;
 };
 
 #endif /* VRUBasicService_h */

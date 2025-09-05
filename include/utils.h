@@ -47,4 +47,5 @@ void free_nl_socket(nl_sock_info_t nl_sock_info);
 double get_rssi_from_netlink(uint8_t macaddr[6],nl_sock_info_t nl_sock_info);
 std::unordered_map<std::string,double> get_all_rssi_from_netlink(nl_sock_info_t nl_sock_info);
 void setNewTxPower(double txPower, std::string dissemination_interface);
+uint32_t getTxPower();
 #endif // OSCAR_UTILS_H

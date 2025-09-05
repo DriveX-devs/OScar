@@ -43,6 +43,8 @@
 
 #include "MetricSupervisor.h"
 
+#include "GateKeeper.h"
+
 #define DB_CLEANER_INTERVAL_SECONDS 5
 #define DB_DELETE_OLDER_THAN_SECONDS 2 // This value should NEVER be set greater than (5-DB_CLEANER_INTERVAL_SECONDS/60) minutes or (300-DB_CLEANER_INTERVAL_SECONDS) seconds - doing so may break the database age check functionality!
 
@@ -59,6 +61,8 @@
 #define DEFAULT_JSON_OVER_TCP_PORT 49000
 
 #define MAXIMUM_TIME_WINDOW_DCC 2000
+
+#define BITRATE 3e6
 
 // Global atomic flag to terminate all the threads in case of errors
 std::atomic<bool> terminatorFlag;
@@ -248,7 +252,8 @@ void CAMtxThr(std::string gnss_device,
         bool use_gpsd,
         bool enable_security,
         bool force_20Hz_freq,
-        CABasicService* cabs
+        CABasicService* cabs,
+        GateKeeper *gk
     ) {
     bool m_retry_flag=false;
 
@@ -282,6 +287,7 @@ void CAMtxThr(std::string gnss_device,
             if(log_filename_GNsecurity != "dis" && log_filename_GNsecurity != ""){
                 GN.setLogFile2(log_filename_GNsecurity);
             }
+            GN.setGateKeeper(gk);
             BTP.setGeoNet(&GN);
             
             while (true) {
@@ -369,7 +375,9 @@ void CPMtxThr(std::string gnss_device,
             bool disable_cpm_speed_triggering,
             bool verbose,
             bool enable_security,
-            CPBasicService* cpbs) {
+            CPBasicService* cpbs,
+            GateKeeper *gk
+        ) {
     bool m_retry_flag=false;
 
     VDPGPSClient vdpgpsc(gnss_device,gnss_port);
@@ -394,6 +402,7 @@ void CPMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
+            GN.setGateKeeper(gk);
             BTP.setGeoNet(&GN);
 
 
@@ -456,7 +465,9 @@ void VAMtxThr(std::string gnss_device,
             double speed_th,
             double head_th,
             bool use_gpsd,
-            VRUBasicService* vrubs) {
+            VRUBasicService* vrubs,
+            GateKeeper *gk
+        ) {
     bool m_retry_flag=false;
 
     VDPGPSClient vrudp(gnss_device,gnss_port);
@@ -496,6 +507,7 @@ void VAMtxThr(std::string gnss_device,
             GN.setVRUdp(&vrudp);
             GN.setSocketTx(sockfd,ifindex,srcmac);
             GN.setStationProperties(VRUID,StationType_pedestrian);
+            GN.setGateKeeper(gk);
 
             if(udp_sock_addr!="dis") {
                 int rval;
@@ -839,6 +851,8 @@ int main (int argc, char *argv[]) {
     // instead of reading from a real serial device, when the serial parser is used to get positioning+IMU data via NMEA+UBX
     bool use_json_trace = false;
 
+    int bitrate;
+
     std::string veh_data_sock_addr = "dis"; // Address for the vehicle data socket, used to send the vehicle data to a remote server (e.g., for data analysis purposes)
     double veh_data_periodicity_s = 1.0; // Periodicity of the vehicle data transmission, in seconds
 
@@ -851,6 +865,7 @@ int main (int argc, char *argv[]) {
     bool enable_metric_supervisor = false;
     uint64_t time_window_met_sup = 0;
     std::string log_filename_met_sup = "";
+    float cbr_target;
 
     // Parse the command line options with the TCLAP library
     try {
@@ -1080,6 +1095,10 @@ int main (int argc, char *argv[]) {
                                                   false, 1.0, "double");
         cmd.add(SendVehdataPeriod);
 
+        TCLAP::ValueArg<int> Bitrate("", "bitrate", "Bitrate used in Mbit/s. Default: 3Mb/s", false, 3, "int");
+
+        cmd.add(Bitrate);
+
         TCLAP::SwitchArg EnableDCC("", "enable-DCC",
                                    "Activate the Decentralized Congestion Control (DCC) for the CAM, VAM and CPM messages. Remember to specify also the other DCC arguments to guarantee a correct usage of this feature.",
                                    false);
@@ -1100,7 +1119,14 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<std::string> ModalityDCC("", "modality-DCC",
                                                  "Select the DCC modality, it could be Reactive or Adaptive. The strings to be used to indicate the modality are: ['reactive', 'adaptive'].",
                                                  false, "", "string");
+        
         cmd.add(ModalityDCC);
+        
+        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.5",
+                false, 0.5, "float");
+
+        cmd.add(CBRTarget);
+
 
         TCLAP::SwitchArg VerboseDCC("", "verbose-DCC",
                                     "If set to 1, this argument provides a verbose description of the Channel State during the DCC checks.",
@@ -1226,11 +1252,14 @@ int main (int argc, char *argv[]) {
 
         use_json_trace = UseJsonTrace.getValue();
 
+        bitrate = Bitrate.getValue();
+
         enable_DCC = EnableDCC.getValue();
         time_window_DCC = TimeWindowDCC.getValue();
         modality_DCC = ModalityDCC.getValue();
         verbose_DCC = VerboseDCC.getValue();
         log_filename_DCC = LogfileDCC.getValue();
+        cbr_target = CBRTarget.getValue();
 
         enable_metric_supervisor = EnableMetricSupervisor.getValue();
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
@@ -1561,9 +1590,16 @@ int main (int argc, char *argv[]) {
     }
 
     DCC dcc;
+    GateKeeper *gk = new GateKeeper();
+    gk->setBitRate(bitrate * 1e6);
+    dcc.setGateKeeper(gk);
     if (enable_DCC)
     {
-        dcc.setupDCC(time_window_DCC, modality_DCC, dissem_vif, 0.01f, verbose_DCC, log_filename_DCC);
+        dcc.setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, log_filename_DCC);
+        if (modality_DCC == "adaptive")
+        {
+            dcc.setAdaptiveDCCGK();
+        }
         if (enable_CAM_dissemination)
         {
             dcc.addCaBasicService(cabs_ptr);
@@ -1606,7 +1642,9 @@ int main (int argc, char *argv[]) {
                                         use_gpsd,
                                         enable_security,
                                         force_20Hz_freq,
-                                        cabs_ptr);
+                                        cabs_ptr,
+                                        gk
+                                    );
     }
     if(enable_VAM_dissemination) {
         txThreads.emplace_back(VAMtxThr,
@@ -1625,7 +1663,9 @@ int main (int argc, char *argv[]) {
                                         speed_th,
                                         head_th,
                                         use_gpsd,
-                                        vrubs_ptr);
+                                        vrubs_ptr,
+                                        gk
+                                    );
     }
     if(enable_CPM_dissemination) {
         txThreads.emplace_back(CPMtxThr,
@@ -1645,7 +1685,9 @@ int main (int argc, char *argv[]) {
                                         disable_cpm_speed_triggering,
                                         verbose,
                                         enable_security,
-                                        cpbs_ptr);
+                                        cpbs_ptr,
+                                        gk
+                                    );
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,

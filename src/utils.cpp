@@ -598,3 +598,9 @@ std::unordered_map<std::string,float> get_current_rssi()
     }
 }
 
+uint32_t getTxPower()
+{
+    // TODO: enhancement with netlink
+    return 24;
+}
+

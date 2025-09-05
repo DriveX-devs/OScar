@@ -10,7 +10,7 @@ btp::btp() = default;
 
 btp::~btp() = default;
 
-void
+GNDataConfirm_t
 btp::sendBTP(BTPDataRequest_t dataRequest) {
 	GNDataConfirm_t dataConfirm;
 	GNDataRequest_t GnDataRequest = {};
@@ -50,6 +50,7 @@ btp::sendBTP(BTPDataRequest_t dataRequest) {
 	if(dataConfirm != ACCEPTED) {
 		std::cerr << "Error! GeoNetworking could not send any packet." << std::endl;
 	}
+	return dataConfirm;
 }
 
 btpError_e

@@ -39,7 +39,8 @@ void DCC::addVruBasicService(VRUBasicService* vruBasicService)
     m_vam_enabled = true;
 }
 
-std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> DCC::getConfiguration(double Ton, double currentCBR)
+std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters>
+DCC::getConfiguration(double Ton, double currentCBR)
 {
     std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> map;
     if (Ton < 0.5)
@@ -82,7 +83,7 @@ std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> DCC::getConfigur
     return map;
 }
 
-void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float tolerance, bool verbose, std::string log_file)
+void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance, bool verbose, std::string log_file)
 {
     assert(dcc_interval > 0 && dcc_interval <= MAXIMUM_TIME_WINDOW_DCC);
     assert(modality == "reactive" || modality == "adaptive");
@@ -92,6 +93,7 @@ void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::s
     m_tolerance = tolerance;
     m_log_file = log_file;
     m_modality = modality;
+    m_CBR_target = cbr_target;
     m_main_cbr_reader.setupCBRReader(verbose, dissemination_interface);
     if (m_modality == "adaptive")
     {
@@ -103,9 +105,6 @@ void DCC::startDCC()
 {
   if (m_modality == "adaptive")
   {
-    if (m_cam_enabled) m_caBasicService->setAdaptiveDCC();
-    if (m_cpm_enabled) m_cpBasicService->setAdaptiveDCC();
-    if (m_vam_enabled) m_vruBasicService->setAdaptiveDCC();
     adaptiveDCC();
   }
   else
@@ -141,9 +140,9 @@ void DCC::functionReactive()
             {
                 double tx_power = -1;
                 long int_pkt_time = -1;
+                float Ton = m_gate_keeper->getTonpp(); // Milliseconds
                 if (m_cam_enabled)
                 {
-                    double Ton = m_caBasicService->getTon(); // Milliseconds
                     std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
                     if (!map.empty())
                     {
@@ -156,7 +155,6 @@ void DCC::functionReactive()
 
                 if (m_cpm_enabled)
                 {
-                    double Ton = m_cpBasicService->getTon(); // Milliseconds
                     std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
                     if (!map.empty())
                     {
@@ -169,7 +167,6 @@ void DCC::functionReactive()
 
                 if (m_vam_enabled)
                 {
-                    double Ton = m_vruBasicService->getTon(); // Milliseconds
                     std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
                     if (!map.empty())
                     {
@@ -245,7 +242,7 @@ void DCC::adaptiveDCCCheckCBR()
 
 void DCC::functionAdaptive()
 {
-    if (m_dcc_interval == 0 || m_dissemination_interface == "")
+    if (m_dcc_interval == 0 || m_dissemination_interface == "" || m_gate_keeper == nullptr)
     {
         throw std::runtime_error("DCC not set properly.");
     }
@@ -284,23 +281,23 @@ void DCC::functionAdaptive()
                 }
 
                  // Step 3
-                m_delta = (1 - m_alpha) * m_delta + delta_offset;
+                float old_delta = m_gate_keeper->getDelta();
+                float new_delta = (1 - m_alpha) * old_delta + delta_offset;
 
                 // Step 4
-                if (m_delta > m_delta_max)
+                if (new_delta > m_delta_max)
                 {
-                    m_delta = m_delta_max;
+                    new_delta = m_delta_max;
                 }
 
                 // Step 5
-                if (m_delta < m_delta_min)
+                if (new_delta < m_delta_min)
                 {
-                    m_delta = m_delta_min;
+                    new_delta = m_delta_min;
                 }
 
-                if (m_cam_enabled) m_caBasicService->toffUpdateAfterDeltaUpdate (m_delta);
-                if (m_cpm_enabled) m_cpBasicService->toffUpdateAfterDeltaUpdate (m_delta);
-                if (m_vam_enabled) m_vruBasicService->toffUpdateAfterDeltaUpdate (m_delta);
+                m_gate_keeper->updateDelta(new_delta);
+                m_gate_keeper->updateTgoAfterDeltaUpdate();
 
                 if(m_log_file != "")
                 {
@@ -309,7 +306,7 @@ void DCC::functionAdaptive()
 
                     auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << m_delta << "\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "\n";
                     file.close();
                 }
             }

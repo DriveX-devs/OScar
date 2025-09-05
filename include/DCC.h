@@ -4,6 +4,7 @@
 #include "cpBasicService.h"
 #include "VRUBasicService.h"
 #include "CBRReader.h"
+#include "GateKeeper.h"
 
 #ifndef OSCAR_DCC_H
 #define OSCAR_DCC_H
@@ -16,13 +17,15 @@ public:
 DCC();
 ~DCC();
 
-void setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float tolerance=0.01, bool verbose=false, std::string log_file="");
+void setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance=0.01, bool verbose=false, std::string log_file="");
 void startDCC();
 void addCaBasicService(CABasicService* caBasicService);
 void addCpBasicService(CPBasicService* cpBasicService);
 void addVruBasicService(VRUBasicService* vruBasicService);
 void reactiveDCC();
 void adaptiveDCC();
+void setGateKeeper(GateKeeper *gk) {m_gate_keeper = gk;}
+void setAdaptiveDCCGK() {m_gate_keeper->setAdaptiveDCC();}
 
 private:
 
@@ -76,12 +79,13 @@ VRUBasicService* m_vruBasicService = nullptr;
 
 double m_alpha = 0.016;
 double m_beta = 0.0012;
-double m_CBR_target = 0.68;
+//double m_CBR_target = 0.68;
+// double m_CBR_target = 0.2;
+double m_CBR_target;
 double m_delta_max = 0.03;
 double m_delta_min = 0.0006;
 double m_Gmax = 0.0005;
 double m_Gmin = -0.00025;
-double m_delta = 0;
 uint32_t m_T_CBR = 100; // Check the CBR value each 100 ms for Adaptive DCC from standard suggestion
 std::mutex m_cbr_mutex;
 double m_previous_cbr = -1.0f;
@@ -101,6 +105,8 @@ bool m_vam_enabled;
 std::string m_log_file;
 CBRReader m_main_cbr_reader;
 CBRReader m_second_cbr_reader;
+
+GateKeeper *m_gate_keeper = nullptr;
 
 };
 

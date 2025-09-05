@@ -12,6 +12,9 @@ shbHeader::shbHeader() {
 	m_sourcePV = {};  //!Source long position vector
 	m_reserved = 0; //! aux variable for reading reserved fields
 	m_reserved32 = 0;
+	m_local_CBR = 0;
+	m_max_CBR_neighbouring = 0;
+	m_tx_power_reserved = 0;
 }
 
 shbHeader::~shbHeader() = default;
@@ -32,7 +35,17 @@ shbHeader::serializeInto(packetBuffer &packet) {
 	packet.addHtonU16(pai_speed);
 	packet.addHtonU16(m_sourcePV.heading);
 	//Reserved
-	packet.addHtonU32(0x00000000);
+	packet.addU8(m_local_CBR);
+	packet.addU8(m_max_CBR_neighbouring);
+	packet.addU8(m_tx_power_reserved);
+	packet.addU8(m_reserved);
+	// packet.addHtonU32(0x00000000);
+}
+
+void 
+shbHeader::SetOutputPower(uint8_t tx_power)
+{
+	m_tx_power_reserved = (tx_power & 0x1F) << 3;
 }
 
 void 
