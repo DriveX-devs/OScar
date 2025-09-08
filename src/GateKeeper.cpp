@@ -18,14 +18,12 @@ void GateKeeper::updateTgoAfterTransmission()
     {
         aux = 25;
     }
-    // std::cout << "AUX 1: " << aux << ", " << m_Ton_pp << ", " << m_delta << std::endl;
     m_gate_mutex.unlock();
 
     if (aux > 1000)
     {
         aux = 1000;
     }
-    // TODO check the update of times
     m_gate_mutex.lock();
     m_Tpg_ms = static_cast<float>(now);
     // Compute next time gate will be open
@@ -56,7 +54,6 @@ void GateKeeper::updateTgoAfterDeltaUpdate()
     {
         aux = 1000;
     }
-    // std::cout << "AUX 2: " << aux << ", " << m_Ton_pp << ", " << m_delta << std::endl;
     m_gate_mutex.lock();
     m_Tgo_ms = m_Tpg_ms + aux;
     m_gate_mutex.unlock();

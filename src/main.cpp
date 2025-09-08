@@ -1109,10 +1109,7 @@ int main (int argc, char *argv[]) {
                 "It must be a strictly positive integer value, expressed in milliseconds, "
                 "and it has to be lower than " + std::to_string(MAXIMUM_TIME_WINDOW_DCC) + "ms.";
 
-        TCLAP::ValueArg<int> TimeWindowDCC(
-                "", "time-window-DCC",
-                helpText_dcc,
-                false, 0, "integer");
+        TCLAP::ValueArg<int> TimeWindowDCC("", "time-window-DCC", helpText_dcc, false, 0, "integer");
 
         cmd.add(TimeWindowDCC);
 
@@ -1122,8 +1119,7 @@ int main (int argc, char *argv[]) {
         
         cmd.add(ModalityDCC);
         
-        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.5",
-                false, 0.5, "float");
+        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.5", false, 0.5, "float");
 
         cmd.add(CBRTarget);
 

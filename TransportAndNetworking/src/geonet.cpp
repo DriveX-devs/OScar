@@ -271,7 +271,6 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 		gate_open = m_gate_keeper->checkGateOpen(now);
 		if (gate_open == false)
 		{
-			// std::cout << "BLOCKED!!!" << std::endl;
 			return BLOCKED_BY_GK;
 		}
 	}
