@@ -47,7 +47,7 @@ btp::sendBTP(BTPDataRequest_t dataRequest) {
 	GnDataRequest.lenght = dataRequest.lenght + 4;
 
 	dataConfirm = m_geonet->sendGN(GnDataRequest);
-	if(dataConfirm != ACCEPTED) {
+	if(dataConfirm != ACCEPTED && dataConfirm != BLOCKED_BY_GK) {
 		std::cerr << "Error! GeoNetworking could not send any packet." << std::endl;
 	}
 	return dataConfirm;
