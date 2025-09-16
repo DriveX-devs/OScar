@@ -1,5 +1,7 @@
 #include "DCC.h"
+#include <cassert>
 #include <stdexcept>
+#include <algorithm>
 
 
 DCC::DCC () = default;
@@ -19,24 +21,6 @@ DCC::~DCC()
     {
         m_check_cbr_thread.join();
     }
-}
-
-void DCC::addCaBasicService(CABasicService* caBasicService)
-{
-    m_caBasicService = caBasicService;
-    m_cam_enabled = true;
-}
-
-void DCC::addCpBasicService(CPBasicService* cpBasicService)
-{
-    m_cpBasicService = cpBasicService;
-    m_cpm_enabled = true;
-}
-
-void DCC::addVruBasicService(VRUBasicService* vruBasicService)
-{
-    m_vruBasicService = vruBasicService;
-    m_vam_enabled = true;
 }
 
 std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters>
@@ -72,18 +56,10 @@ DCC::getConfiguration(double Ton, double currentCBR)
         }
       }
     }
-    if (old_state == m_current_state)
-    {
-      map.clear();
-    }
-    else
-      {
-        // if (m_current_state > 1) std::cout << "State changed from: " << old_state << "; to: " << m_current_state << std::endl;
-      }
     return map;
 }
 
-void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance, bool verbose, std::string log_file)
+void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance, bool verbose, int queue_lenght, int max_lifetime, std::string log_file)
 {
     assert(dcc_interval > 0 && dcc_interval <= MAXIMUM_TIME_WINDOW_DCC);
     assert(modality == "reactive" || modality == "adaptive");
@@ -94,6 +70,8 @@ void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::s
     m_log_file = log_file;
     m_modality = modality;
     m_CBR_target = cbr_target;
+    m_queue_lenght = queue_lenght;
+    m_lifetime = max_lifetime;
     m_main_cbr_reader.setupCBRReader(verbose, dissemination_interface);
     if (m_modality == "adaptive")
     {
@@ -123,12 +101,6 @@ void DCC::functionReactive()
     bool retry_flag = true;
     uint64_t start = get_timestamp_us();
     std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
-    /*
-    setNewTxPower(m_parameters_map[m_current_state].tx_power, m_dissemination_interface);
-    if (m_cam_enabled) m_caBasicService->setNextCAMDCC(m_parameters_map[m_current_state].tx_inter_packet_time);
-    if (m_cpm_enabled) m_cpBasicService->setNextCAMDCC(m_parameters_map[m_current_state].tx_inter_packet_time);
-    if (m_vam_enabled) m_vruBasicService->setNextCAMDCC(m_parameters_map[m_current_state].tx_inter_packet_time);
-    */
 
     do
     {
@@ -138,44 +110,12 @@ void DCC::functionReactive()
             double currentCbr = m_main_cbr_reader.get_current_cbr();
             if (currentCbr != -1.0f)
             {
-                double tx_power = -1;
-                long int_pkt_time = -1;
-                float Ton = m_gate_keeper->getTonpp(); // Milliseconds
-                if (m_cam_enabled)
-                {
-                    std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
-                    if (!map.empty())
-                    {
-                        tx_power = map[m_current_state].tx_power;
-                        int_pkt_time = map[m_current_state].tx_inter_packet_time;
-                        setNewTxPower(map[m_current_state].tx_power, m_dissemination_interface);
-                        m_caBasicService->setNextCAMDCC(map[m_current_state].tx_inter_packet_time);
-                    }
-                }
-
-                if (m_cpm_enabled)
-                {
-                    std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
-                    if (!map.empty())
-                    {
-                        tx_power = map[m_current_state].tx_power;
-                        int_pkt_time = map[m_current_state].tx_inter_packet_time;
-                        setNewTxPower(map[m_current_state].tx_power, m_dissemination_interface);
-                        m_cpBasicService->setNextCPMDCC (map[m_current_state].tx_inter_packet_time);
-                    }
-                }
-
-                if (m_vam_enabled)
-                {
-                    std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
-                    if (!map.empty())
-                    {
-                        tx_power = map[m_current_state].tx_power;
-                        int_pkt_time = map[m_current_state].tx_inter_packet_time;
-                        setNewTxPower(map[m_current_state].tx_power, m_dissemination_interface);
-                        m_vruBasicService->setNextVAMDCC (map[m_current_state].tx_inter_packet_time);
-                    }
-                }
+                float Ton = getTonpp(); // Milliseconds
+                std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
+                long tx_power = map[m_current_state].tx_power;
+                long int_pkt_time = map[m_current_state].tx_inter_packet_time;
+                setNewTxPower(map[m_current_state].tx_power, m_dissemination_interface);
+                updateTgoAfterStateCheck(map[m_current_state].tx_inter_packet_time);
 
                 if(m_log_file != "")
                 {
@@ -242,7 +182,7 @@ void DCC::adaptiveDCCCheckCBR()
 
 void DCC::functionAdaptive()
 {
-    if (m_dcc_interval == 0 || m_dissemination_interface == "" || m_gate_keeper == nullptr)
+    if (m_dcc_interval == 0 || m_dissemination_interface == "")
     {
         throw std::runtime_error("DCC not set properly.");
     }
@@ -281,7 +221,7 @@ void DCC::functionAdaptive()
                 }
 
                  // Step 3
-                float old_delta = m_gate_keeper->getDelta();
+                float old_delta = getDelta();
                 float new_delta = (1 - m_alpha) * old_delta + delta_offset;
 
                 // Step 4
@@ -296,8 +236,8 @@ void DCC::functionAdaptive()
                     new_delta = m_delta_min;
                 }
 
-                m_gate_keeper->updateDelta(new_delta);
-                m_gate_keeper->updateTgoAfterDeltaUpdate();
+                updateDelta(new_delta);
+                updateTgoAfterDeltaUpdate();
 
                 if(m_log_file != "")
                 {
@@ -327,7 +267,6 @@ void DCC::functionAdaptive()
 
 void DCC::adaptiveDCC()
 {
-    m_dcc_interval = (long) m_dcc_interval / 2;
     m_check_cbr_thread = std::thread(&DCC::adaptiveDCCCheckCBR, this);
     m_adaptive_thread = std::thread(&DCC::functionAdaptive, this);
 
@@ -342,4 +281,244 @@ void DCC::adaptiveDCC()
         file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta\n";
         file.close();
     }
+}
+
+void DCC::updateTgoAfterTransmission()
+{
+    struct timespec tv;
+    clock_gettime (CLOCK_MONOTONIC, &tv);
+    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    float aux;
+    m_gate_mutex.lock();
+    if (m_Ton_pp / m_delta > 25)
+    {
+        aux = m_Ton_pp / m_delta;
+    }
+    else
+    {
+        aux = 25;
+    }
+    m_gate_mutex.unlock();
+
+    if (aux > 1000)
+    {
+        aux = 1000;
+    }
+    m_gate_mutex.lock();
+    m_Tpg_ms = static_cast<float>(now);
+    // Compute next time gate will be open
+    m_Tgo_ms = m_Tpg_ms + aux;
+    m_Toff_ms = aux;
+    m_gate_mutex.unlock();
+}
+
+void DCC::updateTgoAfterDeltaUpdate()
+{
+    struct timespec tv;
+    clock_gettime (CLOCK_MONOTONIC, &tv);
+    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    if (checkGateOpen(now))
+    {
+        // Update just if the gate is currently closed, otherwise return
+        return;
+    }
+    m_gate_mutex.lock();
+    float aux = m_Ton_pp / m_delta;
+    aux = aux * ((m_Tgo_ms - now) / (m_Tgo_ms - m_Tpg_ms));
+    aux = aux + (now - m_Tpg_ms);
+    m_gate_mutex.unlock();
+    if (aux < 25)
+    {
+        aux = 25;
+    }
+    if (aux > 1000)
+    {
+        aux = 1000;
+    }
+    m_gate_mutex.lock();
+    m_Tgo_ms = m_Tpg_ms + aux;
+    m_Toff_ms = aux;
+    m_gate_mutex.unlock();
+}
+
+bool DCC::checkGateOpen(int64_t now)
+{
+    m_gate_mutex.lock();
+    // Return true if the gate is open now
+    bool ret = now - m_last_tx >= m_Toff_ms;
+    m_gate_mutex.unlock();
+    return ret;
+}
+
+void DCC::updateTonpp(ssize_t pktSize)
+{
+    double bits = pktSize * 8;
+    double tx_duration_s = static_cast<double>(bits) / m_bitrate_bps;
+    double total_duration_s = tx_duration_s + (68e-6); // 68 µs extra
+    m_gate_mutex.lock();
+    m_Ton_pp = total_duration_s * 1000.0;
+    m_gate_mutex.unlock();
+}
+
+float DCC::getTonpp()
+{
+    m_gate_mutex.lock();
+    float ret = m_Ton_pp;
+    m_gate_mutex.unlock();
+    return ret;
+}
+
+void DCC::updateTgoAfterStateCheck(uint32_t Toff)
+{
+    struct timespec tv;
+    clock_gettime (CLOCK_MONOTONIC, &tv);
+    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    m_gate_mutex.lock();
+    m_Tgo_ms = now + Toff;
+    m_Toff_ms = Toff;
+    m_gate_mutex.unlock();
+}
+
+void 
+DCC::cleanQueues(int now)
+{
+    m_gate_mutex.lock();
+    std::vector<int> to_delete;
+    int counter = 0;
+    
+    for(auto it = m_dcc_queue_dp0.begin(); it != m_dcc_queue_dp0.end(); ++it)
+    {
+        if (now > (*it).time + m_lifetime)
+        {
+            to_delete.push_back(counter);
+        }
+        counter ++;
+    }
+    for(int i = 0; i < to_delete.size(); i++)
+    {
+        m_dcc_queue_dp0.erase(m_dcc_queue_dp0.begin() + to_delete[i]);
+    }
+
+    to_delete.clear();
+    counter = 0;
+    for(auto it = m_dcc_queue_dp1.begin(); it != m_dcc_queue_dp1.end(); ++it)
+    {
+        if (now > (*it).time + m_lifetime)
+        {
+            to_delete.push_back(counter);
+        }
+        counter ++;
+    }
+    for(int i = 0; i < to_delete.size(); i++)
+    {
+        m_dcc_queue_dp1.erase(m_dcc_queue_dp1.begin() + to_delete[i]);
+    }
+    
+    to_delete.clear();
+    counter = 0;
+    for(auto it = m_dcc_queue_dp2.begin(); it != m_dcc_queue_dp2.end(); ++it)
+    {
+        if (now > (*it).time + m_lifetime)
+        {
+            to_delete.push_back(counter);
+        }
+        counter ++;
+    }
+    for(int i = 0; i < to_delete.size(); i++)
+    {
+        m_dcc_queue_dp2.erase(m_dcc_queue_dp2.begin() + to_delete[i]);
+    }
+    
+    to_delete.clear();
+    counter = 0;
+    for(auto it = m_dcc_queue_dp3.begin(); it != m_dcc_queue_dp3.end(); ++it)
+    {
+        if (now > (*it).time + m_lifetime)
+        {
+            to_delete.push_back(counter);
+        }
+        counter ++;
+    }
+    for(int i = 0; i < to_delete.size(); i++)
+    {
+        m_dcc_queue_dp3.erase(m_dcc_queue_dp3.begin() + to_delete[i]);
+    }
+    
+    m_gate_mutex.unlock();
+}
+
+void 
+DCC::enqueue(int now, int priority, Packet p)
+{
+    cleanQueues(now);
+    m_gate_mutex.lock();
+    switch(priority)
+    {
+        case 0:
+        m_dcc_queue_dp0.push_back(p);
+        if (m_dcc_queue_dp0.size() > m_queue_lenght)
+        {
+            std::cout << "DP0 Queue lenght exceeding" << std::endl;
+            m_dcc_queue_dp0.pop_back();
+        }
+        break;
+        case 1:
+        m_dcc_queue_dp1.push_back(p);
+        if (m_dcc_queue_dp1.size() > m_queue_lenght)
+        {
+            std::cout << "DP1 Queue lenght exceeding" << std::endl;
+            m_dcc_queue_dp1.pop_back();
+        }
+        break;
+        case 2:
+        m_dcc_queue_dp2.push_back(p);
+        if (m_dcc_queue_dp2.size() > m_queue_lenght)
+        {
+            std::cout << "DP2 Queue lenght exceeding" << std::endl;
+            m_dcc_queue_dp2.pop_back();
+        }
+        break;
+        case 3:
+        m_dcc_queue_dp3.push_back(p);
+        if (m_dcc_queue_dp3.size() > m_queue_lenght)
+        {
+            std::cout << "DP3 Queue lenght exceeding" << std::endl;
+            m_dcc_queue_dp3.pop_back();
+        }
+        break;
+    }
+    m_gate_mutex.unlock();
+}
+
+std::tuple<bool, Packet>
+DCC::dequeue(int now, int priority)
+{
+    cleanQueues(now);
+    Packet pkt;
+    bool found = false;
+    m_gate_mutex.lock();
+    if (m_dcc_queue_dp0.size() > 0 && priority >= 0)
+    {
+        pkt = *m_dcc_queue_dp0.begin();
+        m_dcc_queue_dp0.erase(m_dcc_queue_dp0.begin());
+        found = true;
+    } else if (m_dcc_queue_dp1.size() > 0 && priority >= 1)
+    {
+        pkt = *m_dcc_queue_dp1.begin();
+        m_dcc_queue_dp1.erase(m_dcc_queue_dp1.begin());
+        found = true;
+    } else if (m_dcc_queue_dp2.size() > 0 && priority >= 2)
+    {
+        pkt = *m_dcc_queue_dp2.begin();
+        m_dcc_queue_dp2.erase(m_dcc_queue_dp2.begin());
+        found = true;
+    } else if (m_dcc_queue_dp3.size() > 0 && priority >= 3)
+    {
+        pkt = *m_dcc_queue_dp3.begin();
+        m_dcc_queue_dp3.erase(m_dcc_queue_dp3.begin());
+        found = true;
+    }
+    
+    m_gate_mutex.unlock();
+    return std::tuple<bool, Packet> (found, pkt);
 }

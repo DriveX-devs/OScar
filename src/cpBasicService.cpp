@@ -496,7 +496,7 @@ CPBasicService::generateAndEncodeCPM()
     /* Create the packet and the BTP header */
     packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size()));
     dataRequest.data = pktbuf;
-    GNDataConfirm_t dataConfirm = m_btp->sendBTP(dataRequest);
+    GNDataConfirm_t dataConfirm = m_btp->sendBTP(dataRequest, 0);
 
     if(m_met_sup_ptr!=nullptr && dataConfirm == ACCEPTED) {
         m_cpm_sent++;

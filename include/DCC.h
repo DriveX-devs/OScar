@@ -1,15 +1,31 @@
 #include <string>
-#include "utils.h"
-#include "caBasicService.h"
-#include "cpBasicService.h"
-#include "VRUBasicService.h"
+#include <vector>
+#include <fstream>
+#include <iostream>
 #include "CBRReader.h"
-#include "GateKeeper.h"
+#include "utils.h"
+#include "basicHeader.h"
+#include "commonHeader.h"
 
 #ifndef OSCAR_DCC_H
 #define OSCAR_DCC_H
 
 #define MAXIMUM_TIME_WINDOW_DCC 2000
+
+enum DCCProfiles{
+    DP0,
+    DP1,
+    DP2,
+    DP3
+};
+
+typedef struct Packet {
+    int time;
+    basicHeader bh;
+    commonHeader ch;
+    GNlpv_t long_PV;
+    GNDataRequest_t dataRequest;
+} Packet;
 
 class DCC {
 public:
@@ -17,15 +33,24 @@ public:
 DCC();
 ~DCC();
 
-void setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance=0.01, bool verbose=false, std::string log_file="");
+void setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance=0.01, bool verbose=false, int queue_lenght=3, int max_lifetime=100, std::string log_file="");
 void startDCC();
-void addCaBasicService(CABasicService* caBasicService);
-void addCpBasicService(CPBasicService* cpBasicService);
-void addVruBasicService(VRUBasicService* vruBasicService);
 void reactiveDCC();
 void adaptiveDCC();
-void setGateKeeper(GateKeeper *gk) {m_gate_keeper = gk;}
-void setAdaptiveDCCGK() {m_gate_keeper->setAdaptiveDCC();}
+float getTonpp();
+void updateTgoAfterStateCheck(uint32_t Toff);
+void updateTonpp(ssize_t pktSize);
+bool checkGateOpen(int64_t now);
+void updateTgoAfterDeltaUpdate();
+void updateTgoAfterTransmission();
+std::string getModality() {return m_modality;}
+void setBitRate(long bitrate) {m_bitrate_bps = bitrate;}
+void updateDelta(float delta) {m_gate_mutex.lock(); m_delta = delta; m_gate_mutex.unlock();}
+float getDelta() {float delta; m_gate_mutex.lock(); delta = m_delta; m_gate_mutex.unlock(); return delta;}
+void cleanQueues(int now);
+void enqueue(int now, int priority, Packet p);
+std::tuple<bool, Packet> dequeue(int now, int priority);
+void setLastTx(float t) {m_gate_mutex.lock(); m_last_tx = t; m_gate_mutex.unlock();}
 
 private:
 
@@ -48,19 +73,19 @@ typedef struct ReactiveParameters {
 const std::unordered_map<ReactiveState, ReactiveParameters> m_reactive_parameters_Ton_1ms = 
 {
 {Relaxed,     {0.3, 24.0, -1, 100, -95.0}},
-{Active1,     {0.4, 18.0, -1, 200,  -95.0}},
-{Active2,     {0.5, 12.0, -1, 400, -95.0}},
-{Active3,     {0.6, 6.0, -1, 500, -95.0}},
-{Restrictive, {1.0, 2.0, -1, 1000, -65.0}}
+{Active1,     {0.4, 24.0, -1, 200,  -95.0}},
+{Active2,     {0.5, 24.0, -1, 400, -95.0}},
+{Active3,     {0.6, 24.0, -1, 500, -95.0}},
+{Restrictive, {1.0, 10.0, -1, 1000, -65.0}}
 };
 
 const std::unordered_map<ReactiveState, ReactiveParameters> m_reactive_parameters_Ton_500_us = 
 {
 {Relaxed,     {0.3, 24.0, -1, 50, -95.0}},
-{Active1,     {0.4, 18.0, -1, 100,  -95.0}},
-{Active2,     {0.5, 12.0, -1, 200, -95.0}},
-{Active3,     {0.65, 6.0, -1, 250, -95.0}},
-{Restrictive, {1.0, 2.0, -1, 1000, -65.0}}
+{Active1,     {0.4, 24.0, -1, 100,  -95.0}},
+{Active2,     {0.5, 24.0, -1, 200, -95.0}},
+{Active3,     {0.65, 10.0, -1, 250, -95.0}},
+{Restrictive, {1.0, 5.0, -1, 1000, -65.0}}
 };
 
 void functionReactive();
@@ -72,10 +97,7 @@ unsigned long long m_dcc_interval = 0;
 std::string m_dissemination_interface;
 bool m_verbose;
 float m_tolerance;
-std::string m_modality;
-CABasicService* m_caBasicService = nullptr;
-CPBasicService* m_cpBasicService = nullptr;
-VRUBasicService* m_vruBasicService = nullptr;
+std::string m_modality = "";
 
 double m_alpha = 0.016;
 double m_beta = 0.0012;
@@ -106,7 +128,24 @@ std::string m_log_file;
 CBRReader m_main_cbr_reader;
 CBRReader m_second_cbr_reader;
 
-GateKeeper *m_gate_keeper = nullptr;
+std::mutex m_gate_mutex;
+float m_Tpg_ms = 0.0;
+float m_Tgo_ms = 0.0;
+float m_Ton_pp = 0.5;
+float m_Toff_ms = 0.0;
+float m_last_tx = 0.0;
+float m_delta = 0;
+long m_bitrate_bps;
+std::string m_dcc = "";
+float m_cbr = 0.0;
+uint8_t m_queue_lenght;
+long m_lifetime; // ms
+struct GNDataIndication_t; // forward declaration to avoid circular import with geonet.h
+
+std::vector<Packet> m_dcc_queue_dp0;
+std::vector<Packet> m_dcc_queue_dp1;
+std::vector<Packet> m_dcc_queue_dp2;
+std::vector<Packet> m_dcc_queue_dp3;
 
 };
 

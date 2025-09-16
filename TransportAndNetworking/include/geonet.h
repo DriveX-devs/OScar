@@ -16,7 +16,7 @@
 #include "commonHeader.h"
 #include "shbHeader.h"
 #include "gbcHeader.h"
-#include "GateKeeper.h"
+#include "DCC.h"
 
 
 
@@ -34,7 +34,7 @@ class GeoNet {
 		void setVDP(VDPGPSClient* vdp);
 		void setVRUdp(VDPGPSClient* vrudp);
 		void setSocketTx(int socket_tx_descr,int ifindex,uint8_t srcmac[6]);
-		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest);
+		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest, int priority);
 		
 		gnError_e decodeGN(unsigned char * packet, GNDataIndication_t* dataIndication);
 
@@ -43,7 +43,7 @@ class GeoNet {
 		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp=false);
 		void closeUDPsocket();
         void setSecurity(bool security){enableSecurity = security;  m_security = Security();}
-		void setGateKeeper(GateKeeper *gk) {m_gate_keeper = gk;}
+		void setDCC(DCC *dcc) {m_dcc = dcc;}
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;
@@ -131,7 +131,7 @@ class GeoNet {
 		// latitude (32 bits) and longitude (32 bits) of the vehicle, as degrees*1e7 and in network byte order
 		bool m_extra_position_udp = false;
 
-		GateKeeper *m_gate_keeper = nullptr;
+		DCC *m_dcc = nullptr;
 		// CBRReader m_cbr_reader;
 };
 

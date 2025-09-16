@@ -43,8 +43,6 @@
 
 #include "MetricSupervisor.h"
 
-#include "GateKeeper.h"
-
 #define DB_CLEANER_INTERVAL_SECONDS 5
 #define DB_DELETE_OLDER_THAN_SECONDS 2 // This value should NEVER be set greater than (5-DB_CLEANER_INTERVAL_SECONDS/60) minutes or (300-DB_CLEANER_INTERVAL_SECONDS) seconds - doing so may break the database age check functionality!
 
@@ -253,7 +251,7 @@ void CAMtxThr(std::string gnss_device,
         bool enable_security,
         bool force_20Hz_freq,
         CABasicService* cabs,
-        GateKeeper *gk
+        DCC *dcc
     ) {
     bool m_retry_flag=false;
 
@@ -287,7 +285,7 @@ void CAMtxThr(std::string gnss_device,
             if(log_filename_GNsecurity != "dis" && log_filename_GNsecurity != ""){
                 GN.setLogFile2(log_filename_GNsecurity);
             }
-            GN.setGateKeeper(gk);
+            GN.setDCC(dcc);
             BTP.setGeoNet(&GN);
             
             while (true) {
@@ -376,7 +374,7 @@ void CPMtxThr(std::string gnss_device,
             bool verbose,
             bool enable_security,
             CPBasicService* cpbs,
-            GateKeeper *gk
+            DCC *dcc
         ) {
     bool m_retry_flag=false;
 
@@ -402,7 +400,7 @@ void CPMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
-            GN.setGateKeeper(gk);
+            GN.setDCC(dcc);
             BTP.setGeoNet(&GN);
 
 
@@ -466,7 +464,7 @@ void VAMtxThr(std::string gnss_device,
             double head_th,
             bool use_gpsd,
             VRUBasicService* vrubs,
-            GateKeeper *gk
+            DCC *dcc
         ) {
     bool m_retry_flag=false;
 
@@ -507,7 +505,7 @@ void VAMtxThr(std::string gnss_device,
             GN.setVRUdp(&vrudp);
             GN.setSocketTx(sockfd,ifindex,srcmac);
             GN.setStationProperties(VRUID,StationType_pedestrian);
-            GN.setGateKeeper(gk);
+            GN.setDCC(dcc);
 
             if(udp_sock_addr!="dis") {
                 int rval;
@@ -866,6 +864,8 @@ int main (int argc, char *argv[]) {
     uint64_t time_window_met_sup = 0;
     std::string log_filename_met_sup = "";
     float cbr_target;
+    int queue_length;
+    int queue_lifetime;
 
     // Parse the command line options with the TCLAP library
     try {
@@ -1119,7 +1119,7 @@ int main (int argc, char *argv[]) {
         
         cmd.add(ModalityDCC);
         
-        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.5", false, 0.5, "float");
+        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.68", false, 0.68, "float");
 
         cmd.add(CBRTarget);
 
@@ -1133,6 +1133,16 @@ int main (int argc, char *argv[]) {
                                                 "Print on file the log for the DCC metrics. Default: (disabled).",
                                                 false, "", "string");
         cmd.add(LogfileDCC);
+
+        TCLAP::ValueArg<int> QueueLenghtDCC("", "queue-lenght-DCC",
+                                                "Lenght of the queue for DCC. Default: 3.",
+                                                false, 3, "int");
+        cmd.add(QueueLenghtDCC);
+
+        TCLAP::ValueArg<int> QueueLifetimeDCC("", "queue-lifetime-DCC",
+                                                "Lifetime for packet queued by DCC in ms. Default: 100.",
+                                                false, 100, "int");
+        cmd.add(QueueLifetimeDCC);
 
         TCLAP::SwitchArg EnableMetricSupervisor("", "enable-metric-supervisor",
                                                 "Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.",
@@ -1256,6 +1266,8 @@ int main (int argc, char *argv[]) {
         verbose_DCC = VerboseDCC.getValue();
         log_filename_DCC = LogfileDCC.getValue();
         cbr_target = CBRTarget.getValue();
+        queue_length = QueueLenghtDCC.getValue();
+        queue_lifetime = QueueLifetimeDCC.getValue();
 
         enable_metric_supervisor = EnableMetricSupervisor.getValue();
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
@@ -1585,29 +1597,25 @@ int main (int argc, char *argv[]) {
         vrubs_ptr->setMetricSupervisor(&metric_supervisor);
     }
 
-    DCC dcc;
-    GateKeeper *gk = new GateKeeper();
-    gk->setBitRate(bitrate * 1e6);
-    dcc.setGateKeeper(gk);
+    DCC *dcc = new DCC();
+    dcc->setBitRate(bitrate * 1e6);
     if (enable_DCC)
     {
-        dcc.setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, log_filename_DCC);
-        if (modality_DCC == "adaptive")
-        {
-            dcc.setAdaptiveDCCGK();
-        }
+        dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC);
+        /*
         if (enable_CAM_dissemination)
         {
-            dcc.addCaBasicService(cabs_ptr);
+            dcc->addCaBasicService(cabs_ptr);
         }
         if (enable_CPM_dissemination)
         {
-            dcc.addCpBasicService(cpbs_ptr);
+            dcc->addCpBasicService(cpbs_ptr);
         }
         if (enable_VAM_dissemination)
         {
-            dcc.addVruBasicService(vrubs_ptr);
+            dcc->addVruBasicService(vrubs_ptr);
         }
+        */
     }
 
     // This must be defined here, otherwise the goto will jump over its definition
@@ -1639,7 +1647,7 @@ int main (int argc, char *argv[]) {
                                         enable_security,
                                         force_20Hz_freq,
                                         cabs_ptr,
-                                        gk
+                                        dcc
                                     );
     }
     if(enable_VAM_dissemination) {
@@ -1660,7 +1668,7 @@ int main (int argc, char *argv[]) {
                                         head_th,
                                         use_gpsd,
                                         vrubs_ptr,
-                                        gk
+                                        dcc
                                     );
     }
     if(enable_CPM_dissemination) {
@@ -1682,7 +1690,7 @@ int main (int argc, char *argv[]) {
                                         verbose,
                                         enable_security,
                                         cpbs_ptr,
-                                        gk
+                                        dcc
                                     );
     }
     if (can_device != "none") {
@@ -1716,7 +1724,7 @@ int main (int argc, char *argv[]) {
 
     if(enable_DCC)
     {
-        dcc.startDCC();
+        dcc->startDCC();
     }
 
 	// Reception loop (using the main thread)
