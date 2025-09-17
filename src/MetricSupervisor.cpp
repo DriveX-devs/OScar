@@ -15,6 +15,7 @@ MetricSupervisor::~MetricSupervisor()
 }
 
 void MetricSupervisor::signalSentPacket(MessageId_t messageId) {
+    m_mutex.lock();
     switch(messageId) {
         case MessageId_cam:
             m_tx_CAMs++;
@@ -29,11 +30,12 @@ void MetricSupervisor::signalSentPacket(MessageId_t messageId) {
             m_tx_others++;
             break;
     }
-
     m_tx_total++;
+    m_mutex.unlock();
 }
 
 void MetricSupervisor::signalReceivedPacket(MessageId_t messageId) {
+    m_mutex.lock();
     switch(messageId) {
         case MessageId_cam:
             m_rx_CAMs++;
@@ -48,11 +50,12 @@ void MetricSupervisor::signalReceivedPacket(MessageId_t messageId) {
             m_rx_others++;
             break;
     }
-
     m_rx_total++;
+    m_mutex.unlock();
 }
 
 void MetricSupervisor::clearTxRxMetrics() {
+    m_mutex.lock();
     // Reset tx counters
     m_tx_CAMs.store(0);
     m_tx_CPMs.store(0);
@@ -66,6 +69,7 @@ void MetricSupervisor::clearTxRxMetrics() {
     m_rx_VAMs.store(0);
     m_rx_others.store(0);
     m_rx_total.store(0);
+    m_mutex.unlock();
 }
 
 void MetricSupervisor::setupMetricSupervisor(std::string log_filename, uint64_t time_window, std::string dissemination_interface)
@@ -96,7 +100,9 @@ void MetricSupervisor::writeLogFile()
 
             auto now = static_cast<long int>(get_timestamp_us()-start);
             auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+            m_mutex.lock();
             file_sta_info << std::fixed << now_unix << "," << now << "," << cbr << "," << m_cbr_reader.get_current_busy_time() << "," << m_cbr_reader.get_current_tx_time() << "," << m_cbr_reader.get_current_rx_time() << "," << m_tx_total << "," << m_rx_total << "\n";
+            m_mutex.unlock();
             for (auto it = rssi_map.begin(); it != rssi_map.end(); ++it)
             {
                 file_rssi_info << std::fixed << now_unix << "," << now << "," << it->first << "," << it->second << "\n";

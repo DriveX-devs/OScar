@@ -2,11 +2,14 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <functional>
+#include <condition_variable>
 #include "CBRReader.h"
 #include "utils.h"
 #include "basicHeader.h"
 #include "commonHeader.h"
 #include "MessageId.h"
+#include "MetricSupervisor.h"
 
 #ifndef OSCAR_DCC_H
 #define OSCAR_DCC_H
@@ -43,9 +46,12 @@ void setBitRate(long bitrate) {m_bitrate_bps = bitrate;}
 void updateDelta(float delta) {m_gate_mutex.lock(); m_delta = delta; m_gate_mutex.unlock();}
 float getDelta() {float delta; m_gate_mutex.lock(); delta = m_delta; m_gate_mutex.unlock(); return delta;}
 void cleanQueues(int now);
-void enqueue(int now, int priority, Packet p);
-std::tuple<bool, Packet> dequeue(int now, int priority);
+void enqueue(int priority, Packet p);
+std::tuple<bool, Packet> dequeue(int priority);
 void setLastTx(float t) {m_gate_mutex.lock(); m_last_tx = t; m_gate_mutex.unlock();}
+void setSendCallback(std::function<void(const Packet&)> cb);
+void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
+void metricSupervisorSignalSentPacket(MessageId_t message_id) {m_met_sup_ptr->signalSentPacket(message_id);}
 
 private:
 
@@ -87,6 +93,7 @@ void functionReactive();
 void functionAdaptive();
 std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> getConfiguration(double Ton, double currentCBR);
 void adaptiveDCCCheckCBR();
+void checkQueue();
 
 unsigned long long m_dcc_interval = 0;
 std::string m_dissemination_interface;
@@ -141,6 +148,14 @@ std::vector<Packet> m_dcc_queue_dp0;
 std::vector<Packet> m_dcc_queue_dp1;
 std::vector<Packet> m_dcc_queue_dp2;
 std::vector<Packet> m_dcc_queue_dp3;
+
+bool m_first_send = true;
+bool m_stop_thread = false;
+std::thread m_check_queue_thread;
+std::mutex m_check_queue_mutex;
+std::condition_variable m_check_queue_cv;
+std::function<void(const Packet&)> m_send_callback;
+MetricSupervisor *m_met_sup_ptr = nullptr;
 
 };
 

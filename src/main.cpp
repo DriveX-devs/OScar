@@ -286,6 +286,7 @@ void CAMtxThr(std::string gnss_device,
                 GN.setLogFile2(log_filename_GNsecurity);
             }
             GN.setDCC(dcc);
+            GN.attachDCC();
             BTP.setGeoNet(&GN);
             
             while (true) {
@@ -401,6 +402,7 @@ void CPMtxThr(std::string gnss_device,
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
             GN.setDCC(dcc);
+            GN.attachDCC();
             BTP.setGeoNet(&GN);
 
 
@@ -506,6 +508,7 @@ void VAMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd,ifindex,srcmac);
             GN.setStationProperties(VRUID,StationType_pedestrian);
             GN.setDCC(dcc);
+            GN.attachDCC();
 
             if(udp_sock_addr!="dis") {
                 int rval;
@@ -1602,20 +1605,7 @@ int main (int argc, char *argv[]) {
     if (enable_DCC)
     {
         dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC);
-        /*
-        if (enable_CAM_dissemination)
-        {
-            dcc->addCaBasicService(cabs_ptr);
-        }
-        if (enable_CPM_dissemination)
-        {
-            dcc->addCpBasicService(cpbs_ptr);
-        }
-        if (enable_VAM_dissemination)
-        {
-            dcc->addVruBasicService(vrubs_ptr);
-        }
-        */
+        dcc->setMetricSupervisor(&metric_supervisor);
     }
 
     // This must be defined here, otherwise the goto will jump over its definition

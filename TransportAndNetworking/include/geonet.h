@@ -44,6 +44,7 @@ class GeoNet {
 		void closeUDPsocket();
         void setSecurity(bool security){enableSecurity = security;  m_security = Security();}
 		void setDCC(DCC *dcc) {m_dcc = dcc;}
+		void attachDCC();
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;

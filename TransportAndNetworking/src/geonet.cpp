@@ -273,18 +273,18 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		if (gate_open == false)
 		{
 			// Gate is closed
-			m_dcc->enqueue(now, priority, pkt);
+			m_dcc->enqueue(priority, pkt);
 			// std::cout << "[ENQUEUE]" << std::endl;
 			return std::tuple<GNDataConfirm_t, MessageId_t>(BLOCKED_BY_GK, message_id);
 		}
 		else
 		{
 			// Gate is opened
-			std::tuple<bool, Packet> value = m_dcc->dequeue(now, priority);
+			std::tuple<bool, Packet> value = m_dcc->dequeue(priority);
 			if (std::get<0>(value) == true)
 			{
 				// Found a packet in queue with higher priority
-				m_dcc->enqueue(now, priority, pkt);
+				m_dcc->enqueue(priority, pkt);
 				Packet pkt_to_send = std::get<1>(value);
 				basicHeader = pkt_to_send.bh;
 				commonHeader = pkt_to_send.ch;
@@ -297,6 +297,8 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 			{
 				// std::cout << "[ORIGINAL]" << std::endl;
 			}
+			clock_gettime (CLOCK_MONOTONIC, &tv);
+			now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
 			m_dcc->setLastTx(now);
 		}
 	}
@@ -326,6 +328,44 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 	}
 
 	return std::tuple<GNDataConfirm_t, MessageId_t>(dataConfirm, message_id);
+}
+
+void GeoNet::attachDCC()
+{
+	if (m_dcc == nullptr) return;
+    m_dcc->setSendCallback([this](const Packet& pkt) {
+        // replicate the previous sending logic here; GeoNet has access to sendGBC/sendSHB
+        basicHeader bh = pkt.bh;
+        commonHeader ch = pkt.ch;
+        GNlpv_t longPV = pkt.long_PV;
+        GNDataRequest_t dataRequest = pkt.dataRequest;
+        MessageId_t message_id = pkt.message_id;
+
+		GNDataConfirm_t dataConfirm;
+
+		struct timespec tv;
+		clock_gettime (CLOCK_MONOTONIC, &tv);
+		int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+		m_dcc->setLastTx(now);
+
+        // set last tx etc. is handled by DCC; here we just call the appropriate send
+        switch(dataRequest.GNType)
+        {
+            case GBC:
+                dataConfirm = this->sendGBC(dataRequest, ch, bh, longPV);
+                break;
+            case TSB:
+                if(ch.GetHeaderSubType () == 0) dataConfirm = this->sendSHB(dataRequest, ch, bh, longPV);
+                break;
+            default:
+                std::cerr << "GeoNet: unsupported GNType in DCC callback." << std::endl;
+        }
+
+		if (dataConfirm == ACCEPTED)
+		{
+			m_dcc->metricSupervisorSignalSentPacket(message_id);
+		}
+    });
 }
 
 gnError_e

@@ -21,6 +21,10 @@ DCC::~DCC()
     {
         m_check_cbr_thread.join();
     }
+    if (m_check_queue_thread.joinable())
+    {
+        m_check_queue_thread.join();
+    }
 }
 
 std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters>
@@ -88,6 +92,10 @@ void DCC::startDCC()
   else
   {
     reactiveDCC();
+  }
+  if (m_queue_lenght > 0)
+  {
+    m_check_queue_thread = std::thread(&DCC::checkQueue, this);
   }
 }
 
@@ -310,6 +318,7 @@ void DCC::updateTgoAfterTransmission()
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
     m_gate_mutex.unlock();
+    m_check_queue_cv.notify_all();
 }
 
 void DCC::updateTgoAfterDeltaUpdate()
@@ -339,6 +348,7 @@ void DCC::updateTgoAfterDeltaUpdate()
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
     m_gate_mutex.unlock();
+    m_check_queue_cv.notify_all();
 }
 
 bool DCC::checkGateOpen(int64_t now)
@@ -377,6 +387,7 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
     m_Tgo_ms = now + Toff;
     m_Toff_ms = Toff;
     m_gate_mutex.unlock();
+    m_check_queue_cv.notify_all();
 }
 
 void 
@@ -385,7 +396,6 @@ DCC::cleanQueues(int now)
     std::vector<int> to_delete;
     int counter = 0;
     
-    m_gate_mutex.lock();
     for(auto it = m_dcc_queue_dp0.begin(); it != m_dcc_queue_dp0.end(); ++it)
     {
         if (now > (*it).time + m_lifetime)
@@ -444,14 +454,17 @@ DCC::cleanQueues(int now)
         m_dcc_queue_dp3.erase(m_dcc_queue_dp3.begin() + to_delete[i]);
     }
     
-    m_gate_mutex.unlock();
 }
 
 void 
-DCC::enqueue(int now, int priority, Packet p)
+DCC::enqueue(int priority, Packet p)
 {
-    cleanQueues(now);
+    bool inserted = false;
+    struct timespec tv;
+    clock_gettime (CLOCK_MONOTONIC, &tv);
+    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
     m_gate_mutex.lock();
+    cleanQueues(now);
     switch(priority)
     {
         case 0:
@@ -459,38 +472,49 @@ DCC::enqueue(int now, int priority, Packet p)
         {
             // The queue is not full, we can accept a new packet
             m_dcc_queue_dp0.push_back(p);
+            inserted = true;
         }
         break;
         case 1:
         if (m_dcc_queue_dp1.size()< m_queue_lenght)
         {
             m_dcc_queue_dp1.push_back(p);
+            inserted = true;
         }
         break;
         case 2:
         if (m_dcc_queue_dp2.size() < m_queue_lenght)
         {
             m_dcc_queue_dp2.push_back(p);
+            inserted = true;
         }
         break;
         case 3:
         if (m_dcc_queue_dp3.size() < m_queue_lenght)
         {
             m_dcc_queue_dp3.push_back(p);
+            inserted = true;
         }
         break;
     }
     m_gate_mutex.unlock();
+    if (inserted)
+    {
+        m_check_queue_cv.notify_all();
+    }
 }
 
 std::tuple<bool, Packet>
-DCC::dequeue(int now, int priority)
+DCC::dequeue(int priority)
 {
+    struct timespec tv;
+    clock_gettime (CLOCK_MONOTONIC, &tv);
+    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    m_gate_mutex.lock();
     cleanQueues(now);
     Packet pkt;
     bool found = false;
 
-    m_gate_mutex.lock();
     if (m_dcc_queue_dp0.size() > 0 && priority >= 0)
     {
         pkt = *m_dcc_queue_dp0.begin();
@@ -515,4 +539,62 @@ DCC::dequeue(int now, int priority)
     
     m_gate_mutex.unlock();
     return std::tuple<bool, Packet> (found, pkt);
+}
+
+void DCC::checkQueue()
+{
+    std::unique_lock<std::mutex> lock(m_check_queue_mutex);
+
+    while (!m_stop_thread)
+    {
+        struct timespec tv;
+        clock_gettime (CLOCK_MONOTONIC, &tv);
+        int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+
+        m_gate_mutex.lock();
+
+        int64_t elapsed = now - m_last_tx;
+        int64_t wait_time = (m_Toff_ms >= elapsed) ? (m_Toff_ms - elapsed) : 0;
+
+        bool queues_have_packets = !(m_dcc_queue_dp0.empty() && m_dcc_queue_dp1.empty() && m_dcc_queue_dp2.empty() && m_dcc_queue_dp3.empty());
+        
+        if (elapsed >= m_Toff_ms && queues_have_packets)
+        {
+            // Clock is off, perform actions
+            lock.unlock();
+
+            // Gate is opened
+            // Set priority = 4 (maximum is 3) so that the dequeue will check all the priority queues
+            m_gate_mutex.unlock();
+            std::tuple<bool, Packet> value = this->dequeue(4);
+            bool status = std::get<0>(value);
+			if (status)
+			{
+				Packet pkt_to_send = std::get<1>(value);
+				m_send_callback(pkt_to_send);
+			}
+            else
+            {
+            }
+            lock.lock();
+        } 
+        else 
+        {
+            // Wait until Toff expires or Toff changes
+            m_gate_mutex.unlock();
+            m_check_queue_cv.wait_for(lock, std::chrono::milliseconds(wait_time), [&]{
+                std::lock_guard<std::mutex> gate_lock(m_gate_mutex);
+                clock_gettime(CLOCK_MONOTONIC, &tv);
+                now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+                elapsed = now - m_last_tx;
+                bool are_queues_empty = m_dcc_queue_dp0.empty() && m_dcc_queue_dp1.empty() && m_dcc_queue_dp2.empty() && m_dcc_queue_dp3.empty();
+                return (elapsed >= m_Toff_ms && !are_queues_empty) || m_stop_thread;
+            });
+        }
+    }
+}
+
+void DCC::setSendCallback(std::function<void(const Packet&)> cb)
+{
+    m_send_callback = std::move(cb);
 }
