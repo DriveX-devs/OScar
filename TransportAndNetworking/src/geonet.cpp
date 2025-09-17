@@ -274,7 +274,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		{
 			// Gate is closed
 			m_dcc->enqueue(now, priority, pkt);
-			std::cout << "[ENQUEUE]" << std::endl;
+			// std::cout << "[ENQUEUE]" << std::endl;
 			return std::tuple<GNDataConfirm_t, MessageId_t>(BLOCKED_BY_GK, message_id);
 		}
 		else
@@ -291,18 +291,18 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 				longPV = pkt_to_send.long_PV;
 				dataRequest = pkt_to_send.dataRequest;
 				message_id = pkt.message_id;
-				std::cout << "[DEQUEUE]" << std::endl;
+				// std::cout << "[DEQUEUE]" << std::endl;
 			}
 			else
 			{
-				std::cout << "[ORIGINAL]" << std::endl;
+				// std::cout << "[ORIGINAL]" << std::endl;
 			}
 			m_dcc->setLastTx(now);
 		}
 	}
 	else
 	{
-		std::cout << "[NO DCC]" << std::endl;
+		// std::cout << "[ORIGINAL NO DCC]" << std::endl;
 	}
 
 	if (use_dcc == "adaptive")

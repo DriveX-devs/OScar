@@ -1135,13 +1135,13 @@ int main (int argc, char *argv[]) {
         cmd.add(LogfileDCC);
 
         TCLAP::ValueArg<int> QueueLenghtDCC("", "queue-lenght-DCC",
-                                                "Lenght of the queue for DCC. Default: 3.",
-                                                false, 3, "int");
+                                                "Lenght of the priority queue for DCC. Default: 0 (no queue).",
+                                                false, 0, "int");
         cmd.add(QueueLenghtDCC);
 
         TCLAP::ValueArg<int> QueueLifetimeDCC("", "queue-lifetime-DCC",
-                                                "Lifetime for packet queued by DCC in ms. Default: 100.",
-                                                false, 100, "int");
+                                                "Lifetime for packet queued by DCC in ms. Default: 300.",
+                                                false, 300, "int");
         cmd.add(QueueLifetimeDCC);
 
         TCLAP::SwitchArg EnableMetricSupervisor("", "enable-metric-supervisor",
