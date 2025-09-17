@@ -489,7 +489,7 @@ DCC::dequeue(int now, int priority)
     cleanQueues(now);
     Packet pkt;
     bool found = false;
-    
+
     m_gate_mutex.lock();
     if (m_dcc_queue_dp0.size() > 0 && priority >= 0)
     {
