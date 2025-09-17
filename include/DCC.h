@@ -6,18 +6,12 @@
 #include "utils.h"
 #include "basicHeader.h"
 #include "commonHeader.h"
+#include "MessageId.h"
 
 #ifndef OSCAR_DCC_H
 #define OSCAR_DCC_H
 
 #define MAXIMUM_TIME_WINDOW_DCC 2000
-
-enum DCCProfiles{
-    DP0,
-    DP1,
-    DP2,
-    DP3
-};
 
 typedef struct Packet {
     int time;
@@ -25,6 +19,7 @@ typedef struct Packet {
     commonHeader ch;
     GNlpv_t long_PV;
     GNDataRequest_t dataRequest;
+    MessageId_t message_id;
 } Packet;
 
 class DCC {

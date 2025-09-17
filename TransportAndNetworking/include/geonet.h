@@ -34,7 +34,7 @@ class GeoNet {
 		void setVDP(VDPGPSClient* vdp);
 		void setVRUdp(VDPGPSClient* vrudp);
 		void setSocketTx(int socket_tx_descr,int ifindex,uint8_t srcmac[6]);
-		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest, int priority);
+		std::tuple<GNDataConfirm_t, MessageId_t> sendGN(GNDataRequest_t dataRequest, int priority, MessageId_t message_id);
 		
 		gnError_e decodeGN(unsigned char * packet, GNDataIndication_t* dataIndication);
 

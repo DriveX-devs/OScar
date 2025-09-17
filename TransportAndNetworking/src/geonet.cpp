@@ -161,8 +161,8 @@ bool GeoNet::decodeLT (uint8_t lifeTime, double*seconds)
         return true;
 }
 
-GNDataConfirm_t
-GeoNet::sendGN (GNDataRequest_t dataRequest, int priority) {
+std::tuple<GNDataConfirm_t, MessageId_t>
+GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_id) {
 	GNDataConfirm_t dataConfirm = ACCEPTED;
 	basicHeader basicHeader;
 	commonHeader commonHeader;
@@ -179,20 +179,20 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority) {
 		)
 	) {
 		std::cerr << "GeoNetworking error: either no socket, no interface index or no source MAC address are available. Initialize them first before calling sendGN()!" << std::endl;
-		return UNSPECIFIED_ERROR;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(UNSPECIFIED_ERROR, message_id);
 	}
 
 	if(m_stationtype==StationType_roadSideUnit && m_RSU_epv_set==false)	{
 		std::cerr << "GeoNetworking error: no position has been set for an RSU object. Please use setFixedPositionRSU() on the Facilities Layer object." << std::endl;
-		return UNSPECIFIED_ERROR;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(UNSPECIFIED_ERROR, message_id);
 	}
 
 	if(dataRequest.lenght > m_GnMaxSduSize) {
-		return MAX_LENGHT_EXCEEDED;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(MAX_LENGHT_EXCEEDED, message_id);
 	} else if(dataRequest.GNMaxLife > m_GNMaxPacketLifetime) {
-		return MAX_LIFE_EXCEEDED;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(MAX_LIFE_EXCEEDED, message_id);
 	} else if(dataRequest.GNRepInt != 0 && dataRequest.GNRepInt < m_GNMinPacketRepetitionInterval) {
-		return REP_INTERVAL_LOW;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(REP_INTERVAL_LOW, message_id);
 	}
 
     //Basic Header field setting according to ETSI EN 302 636-4-1 [10.3.2]
@@ -266,7 +266,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority) {
 	clock_gettime (CLOCK_MONOTONIC, &tv);
 	int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
 	bool gate_open = false;
-	Packet pkt = {now, basicHeader, commonHeader, longPV, dataRequest};
+	Packet pkt = {now, basicHeader, commonHeader, longPV, dataRequest, message_id};
 	if (use_dcc != "")
 	{
 		gate_open = m_dcc->checkGateOpen(now);
@@ -274,7 +274,8 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority) {
 		{
 			// Gate is closed
 			m_dcc->enqueue(now, priority, pkt);
-			return BLOCKED_BY_GK;
+			std::cout << "[ENQUEUE]" << std::endl;
+			return std::tuple<GNDataConfirm_t, MessageId_t>(BLOCKED_BY_GK, message_id);
 		}
 		else
 		{
@@ -289,13 +290,19 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority) {
 				commonHeader = pkt_to_send.ch;
 				longPV = pkt_to_send.long_PV;
 				dataRequest = pkt_to_send.dataRequest;
+				message_id = pkt.message_id;
+				std::cout << "[DEQUEUE]" << std::endl;
 			}
 			else
 			{
-				// std::cout << "No other packets in the queues, we can directly send" << std::endl;
+				std::cout << "[ORIGINAL]" << std::endl;
 			}
 			m_dcc->setLastTx(now);
 		}
+	}
+	else
+	{
+		std::cout << "[NO DCC]" << std::endl;
 	}
 
 	if (use_dcc == "adaptive")
@@ -318,7 +325,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority) {
 			dataConfirm = UNSPECIFIED_ERROR;
 	}
 
-	return dataConfirm;
+	return std::tuple<GNDataConfirm_t, MessageId_t>(dataConfirm, message_id);
 }
 
 gnError_e

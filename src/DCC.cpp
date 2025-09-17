@@ -382,10 +382,10 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
 void 
 DCC::cleanQueues(int now)
 {
-    m_gate_mutex.lock();
     std::vector<int> to_delete;
     int counter = 0;
     
+    m_gate_mutex.lock();
     for(auto it = m_dcc_queue_dp0.begin(); it != m_dcc_queue_dp0.end(); ++it)
     {
         if (now > (*it).time + m_lifetime)
@@ -455,35 +455,28 @@ DCC::enqueue(int now, int priority, Packet p)
     switch(priority)
     {
         case 0:
-        m_dcc_queue_dp0.push_back(p);
-        if (m_dcc_queue_dp0.size() > m_queue_lenght)
+        if (m_dcc_queue_dp0.size() < m_queue_lenght)
         {
-            std::cout << "DP0 Queue lenght exceeding" << std::endl;
-            m_dcc_queue_dp0.pop_back();
+            // The queue is not full, we can accept a new packet
+            m_dcc_queue_dp0.push_back(p);
         }
         break;
         case 1:
-        m_dcc_queue_dp1.push_back(p);
-        if (m_dcc_queue_dp1.size() > m_queue_lenght)
+        if (m_dcc_queue_dp1.size()< m_queue_lenght)
         {
-            std::cout << "DP1 Queue lenght exceeding" << std::endl;
-            m_dcc_queue_dp1.pop_back();
+            m_dcc_queue_dp1.push_back(p);
         }
         break;
         case 2:
-        m_dcc_queue_dp2.push_back(p);
-        if (m_dcc_queue_dp2.size() > m_queue_lenght)
+        if (m_dcc_queue_dp2.size() < m_queue_lenght)
         {
-            std::cout << "DP2 Queue lenght exceeding" << std::endl;
-            m_dcc_queue_dp2.pop_back();
+            m_dcc_queue_dp2.push_back(p);
         }
         break;
         case 3:
-        m_dcc_queue_dp3.push_back(p);
-        if (m_dcc_queue_dp3.size() > m_queue_lenght)
+        if (m_dcc_queue_dp3.size() < m_queue_lenght)
         {
-            std::cout << "DP3 Queue lenght exceeding" << std::endl;
-            m_dcc_queue_dp3.pop_back();
+            m_dcc_queue_dp3.push_back(p);
         }
         break;
     }
@@ -496,6 +489,7 @@ DCC::dequeue(int now, int priority)
     cleanQueues(now);
     Packet pkt;
     bool found = false;
+    
     m_gate_mutex.lock();
     if (m_dcc_queue_dp0.size() > 0 && priority >= 0)
     {

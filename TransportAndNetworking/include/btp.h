@@ -28,7 +28,7 @@ class btp {
         void setStationType(long fixed_stationtype) {m_geonet->setStationType(fixed_stationtype);}
         void setVDP(VDPGPSClient* vdp){m_geonet->setVDP(vdp);}
         void setVRUdp(VDPGPSClient* vrudp){m_geonet->setVRUdp(vrudp);}
-        GNDataConfirm_t sendBTP(BTPDataRequest_t dataRequest, int priority);
+        std::tuple<GNDataConfirm_t, MessageId_t> sendBTP(BTPDataRequest_t dataRequest, int priority, MessageId_t message_id);
         
         btpError_e decodeBTP(GNDataIndication_t dataIndication, BTPDataIndication_t* btpDataIndication);
 

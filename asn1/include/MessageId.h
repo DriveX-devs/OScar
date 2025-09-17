@@ -44,7 +44,7 @@ typedef enum MessageId {
 } e_MessageId;
 
 /* MessageId */
-typedef long	 MessageId_t;
+typedef long MessageId_t;
 
 /* Implementation */
 extern asn_per_constraints_t asn_PER_type_MessageId_constr_1;

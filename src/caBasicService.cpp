@@ -781,11 +781,13 @@ CABasicService::generateAndEncodeCam()
     /* Create the packet and the BTP header */
     packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size()));
     dataRequest.data = pktbuf;
-    GNDataConfirm_t dataConfirm = m_btp->sendBTP(dataRequest, 0);
+    std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_cam);
+    GNDataConfirm_t dataConfirm = std::get<0>(status);
+    MessageId_t message_id = std::get<1>(status);
     /* Update the CAM statistics */
     if(m_met_sup_ptr!=nullptr && dataConfirm == ACCEPTED) {
-        m_cam_sent++;
-        m_met_sup_ptr->signalSentPacket(MessageId_cam);
+      if (message_id == MessageId_cam) m_cam_sent++;
+      m_met_sup_ptr->signalSentPacket(message_id);
     }
 
     /* Store the time in which the last CAM (i.e. this one) has been generated and successfully sent */
