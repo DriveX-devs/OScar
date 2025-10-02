@@ -400,6 +400,7 @@ DCC::cleanQueues(int now)
     {
         if (now > (*it).time + m_lifetime)
         {
+            m_dropped_by_gate ++;
             to_delete.push_back(counter);
         }
         counter ++;
@@ -415,6 +416,7 @@ DCC::cleanQueues(int now)
     {
         if (now > (*it).time + m_lifetime)
         {
+            m_dropped_by_gate ++;
             to_delete.push_back(counter);
         }
         counter ++;
@@ -430,6 +432,7 @@ DCC::cleanQueues(int now)
     {
         if (now > (*it).time + m_lifetime)
         {
+            m_dropped_by_gate ++;
             to_delete.push_back(counter);
         }
         counter ++;
@@ -445,6 +448,7 @@ DCC::cleanQueues(int now)
     {
         if (now > (*it).time + m_lifetime)
         {
+            m_dropped_by_gate ++;
             to_delete.push_back(counter);
         }
         counter ++;
@@ -459,6 +463,11 @@ DCC::cleanQueues(int now)
 void 
 DCC::enqueue(int priority, Packet p)
 {
+    if (m_queue_lenght == 0)
+    {
+        m_dropped_by_gate ++;
+        return;
+    }
     bool inserted = false;
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);

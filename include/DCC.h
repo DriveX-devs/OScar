@@ -156,6 +156,7 @@ std::mutex m_check_queue_mutex;
 std::condition_variable m_check_queue_cv;
 std::function<void(const Packet&)> m_send_callback;
 MetricSupervisor *m_met_sup_ptr = nullptr;
+uint32_t m_dropped_by_gate = 0;
 
 };
 
