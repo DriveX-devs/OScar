@@ -25,6 +25,17 @@ DCC::~DCC()
     {
         m_check_queue_thread.join();
     }
+    if (m_log_file != "")
+    {
+        std::ofstream file;
+        file.open(m_log_file, std::ios::app);
+
+        auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+
+        file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()) << "," << m_dropped_by_gate << "\n";
+        file.close();
+    }
+
 }
 
 std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters>
