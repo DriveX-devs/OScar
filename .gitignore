@@ -24,3 +24,4 @@ venv
 
 # CAN db parsing test INI file
 PCAN.ini
+.idea/*
