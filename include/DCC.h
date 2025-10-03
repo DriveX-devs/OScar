@@ -31,7 +31,7 @@ public:
 DCC();
 ~DCC();
 
-void setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance=0.01, bool verbose=false, int queue_lenght=3, int max_lifetime=100, std::string log_file="");
+void setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance=0.01, bool verbose=false, int queue_length=0, int max_lifetime=100, std::string log_file="");
 void startDCC();
 void reactiveDCC();
 void adaptiveDCC();
@@ -140,7 +140,7 @@ float m_delta = 0;
 long m_bitrate_bps;
 std::string m_dcc = "";
 float m_cbr = 0.0;
-uint8_t m_queue_lenght;
+uint8_t m_queue_length;
 long m_lifetime; // ms
 struct GNDataIndication_t; // forward declaration to avoid circular import with geonet.h
 

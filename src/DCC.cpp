@@ -2,6 +2,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <algorithm>
+#include <sstream>
 
 
 DCC::DCC () = default;
@@ -27,12 +28,21 @@ DCC::~DCC()
     }
     if (m_log_file != "")
     {
-        std::ofstream file;
-        file.open(m_log_file, std::ios::app);
+        std::ostringstream filename;
+        filename << "TXDropped" << ".txt";
 
-        auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+        std::ofstream file(filename.str(), std::ios::out | std::ios::trunc);
+        if (!file.is_open()) {
+            std::cerr << "Failed to create log file!\n";
+            return;
+        }
 
-        file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()) << "," << m_dropped_by_gate << "\n";
+        auto now_unix = static_cast<double>(get_timestamp_us_realtime()) / 1000000.0;
+        file << std::fixed
+             << now_unix << ","
+             << static_cast<long int>(get_timestamp_us()) << ","
+             << m_dropped_by_gate << "\n";
+
         file.close();
     }
 
@@ -74,7 +84,7 @@ DCC::getConfiguration(double Ton, double currentCBR)
     return map;
 }
 
-void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance, bool verbose, int queue_lenght, int max_lifetime, std::string log_file)
+void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance, bool verbose, int queue_length, int max_lifetime, std::string log_file)
 {
     assert(dcc_interval > 0 && dcc_interval <= MAXIMUM_TIME_WINDOW_DCC);
     assert(modality == "reactive" || modality == "adaptive");
@@ -85,7 +95,7 @@ void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::s
     m_log_file = log_file;
     m_modality = modality;
     m_CBR_target = cbr_target;
-    m_queue_lenght = queue_lenght;
+    m_queue_length = queue_length;
     m_lifetime = max_lifetime;
     m_main_cbr_reader.setupCBRReader(verbose, dissemination_interface);
     if (m_modality == "adaptive")
@@ -104,7 +114,7 @@ void DCC::startDCC()
   {
     reactiveDCC();
   }
-  if (m_queue_lenght > 0)
+  if (m_queue_length > 0)
   {
     m_check_queue_thread = std::thread(&DCC::checkQueue, this);
   }
@@ -474,8 +484,9 @@ DCC::cleanQueues(int now)
 void 
 DCC::enqueue(int priority, Packet p)
 {
-    if (m_queue_lenght == 0)
+    if (m_queue_length == 0)
     {
+        // There is no queue, the pkt is directly discarded
         m_dropped_by_gate ++;
         return;
     }
@@ -488,7 +499,7 @@ DCC::enqueue(int priority, Packet p)
     switch(priority)
     {
         case 0:
-        if (m_dcc_queue_dp0.size() < m_queue_lenght)
+        if (m_dcc_queue_dp0.size() < m_queue_length)
         {
             // The queue is not full, we can accept a new packet
             m_dcc_queue_dp0.push_back(p);
@@ -496,21 +507,21 @@ DCC::enqueue(int priority, Packet p)
         }
         break;
         case 1:
-        if (m_dcc_queue_dp1.size()< m_queue_lenght)
+        if (m_dcc_queue_dp1.size()< m_queue_length)
         {
             m_dcc_queue_dp1.push_back(p);
             inserted = true;
         }
         break;
         case 2:
-        if (m_dcc_queue_dp2.size() < m_queue_lenght)
+        if (m_dcc_queue_dp2.size() < m_queue_length)
         {
             m_dcc_queue_dp2.push_back(p);
             inserted = true;
         }
         break;
         case 3:
-        if (m_dcc_queue_dp3.size() < m_queue_lenght)
+        if (m_dcc_queue_dp3.size() < m_queue_length)
         {
             m_dcc_queue_dp3.push_back(p);
             inserted = true;

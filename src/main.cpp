@@ -1137,10 +1137,10 @@ int main (int argc, char *argv[]) {
                                                 false, "", "string");
         cmd.add(LogfileDCC);
 
-        TCLAP::ValueArg<int> QueueLenghtDCC("", "queue-lenght-DCC",
-                                                "Lenght of the priority queue for DCC. Default: 0 (no queue).",
+        TCLAP::ValueArg<int> QueueLengthDCC("", "queue-length-DCC",
+                                                "Length of the priority queue for DCC. Default: 0 (no queue).",
                                                 false, 0, "int");
-        cmd.add(QueueLenghtDCC);
+        cmd.add(QueueLengthDCC);
 
         TCLAP::ValueArg<int> QueueLifetimeDCC("", "queue-lifetime-DCC",
                                                 "Lifetime for packet queued by DCC in ms. Default: 300.",
@@ -1269,7 +1269,7 @@ int main (int argc, char *argv[]) {
         verbose_DCC = VerboseDCC.getValue();
         log_filename_DCC = LogfileDCC.getValue();
         cbr_target = CBRTarget.getValue();
-        queue_length = QueueLenghtDCC.getValue();
+        queue_length = QueueLengthDCC.getValue();
         queue_lifetime = QueueLifetimeDCC.getValue();
 
         enable_metric_supervisor = EnableMetricSupervisor.getValue();
