@@ -1152,14 +1152,9 @@ int main (int argc, char *argv[]) {
                                                 false);
         cmd.add(EnableMetricSupervisor);
 
-        std::string helpText_met_sup =
-                "Time window for Metric Supervisor check. "
-                "It must be a strictly positive integer value, expressed in milliseconds";
+        std::string helpText_met_sup = "Time window for Metric Supervisor check. It must be a strictly positive integer value, expressed in milliseconds";
 
-        TCLAP::ValueArg<int> TimeWindowMetricSupervisor(
-                "", "time-window-metric-supervisor",
-                helpText_met_sup,
-                false, 0, "integer");
+        TCLAP::ValueArg<int> TimeWindowMetricSupervisor("", "time-window-metric-supervisor", helpText_met_sup, false, 0, "integer");
 
         cmd.add(TimeWindowMetricSupervisor);
 

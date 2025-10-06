@@ -26,26 +26,6 @@ DCC::~DCC()
     {
         m_check_queue_thread.join();
     }
-    if (m_log_file != "")
-    {
-        std::ostringstream filename;
-        filename << "TXDropped" << ".txt";
-
-        std::ofstream file(filename.str(), std::ios::out | std::ios::trunc);
-        if (!file.is_open()) {
-            std::cerr << "Failed to create log file!\n";
-            return;
-        }
-
-        auto now_unix = static_cast<double>(get_timestamp_us_realtime()) / 1000000.0;
-        file << std::fixed
-             << now_unix << ","
-             << static_cast<long int>(get_timestamp_us()) << ","
-             << m_dropped_by_gate << "\n";
-
-        file.close();
-    }
-
 }
 
 std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters>
@@ -152,8 +132,11 @@ void DCC::functionReactive()
                     file.open(m_log_file, std::ios::app);
 
                     auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+                    m_gate_mutex.lock();
+                    int dropped = m_dropped_by_gate;
+                    m_gate_mutex.unlock();
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped << "\n";
                     file.close();
                 }
             }
@@ -179,7 +162,7 @@ void DCC::reactiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time\n";
+        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time,#_dropped\n";
         file.close();
     }
 }
@@ -275,7 +258,11 @@ void DCC::functionAdaptive()
 
                     auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "\n";
+                    m_gate_mutex.lock();
+                    int dropped = m_dropped_by_gate;
+                    m_gate_mutex.unlock();
+
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << dropped << "\n";
                     file.close();
                 }
             }
@@ -307,7 +294,7 @@ void DCC::adaptiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta\n";
+        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,#_dropped\n";
         file.close();
     }
 }
@@ -487,7 +474,9 @@ DCC::enqueue(int priority, Packet p)
     if (m_queue_length == 0)
     {
         // There is no queue, the pkt is directly discarded
+        m_gate_mutex.lock();
         m_dropped_by_gate ++;
+        m_gate_mutex.unlock();
         return;
     }
     bool inserted = false;
