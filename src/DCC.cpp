@@ -522,6 +522,12 @@ DCC::enqueue(int priority, Packet p)
     {
         m_check_queue_cv.notify_all();
     }
+	else
+	{
+		m_gate_mutex.lock();
+		m_dropped_by_gate ++;
+		m_gate_mutex.unlock();
+	}
 }
 
 std::tuple<bool, Packet>
