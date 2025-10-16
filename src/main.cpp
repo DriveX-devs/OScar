@@ -21,6 +21,10 @@
 #include "SocketClient.h"
 // Sensor reader
 #include "basicSensorReader.h"
+
+// Certificate manager
+#include <ECManager.h>
+#include <ATManager.h>
 // CAN database reader
 #include "dbcReader.h"
 
@@ -241,14 +245,17 @@ void CAMtxThr(std::string gnss_device,
         std::string udp_bind_ip,
         bool extra_position_udp,
         std::string log_filename_CAM,
-        std::string log_filename_GNsecurity,
+        std::string log_filename_CAMsecurity,
         ldmmap::LDMMap *db_ptr,
+        ATManager *atManager,
+
         double pos_th,
         double speed_th,
         double head_th,
         bool rx_enabled,
         bool use_gpsd,
         bool enable_security,
+        int message_type
         bool force_20Hz_freq,
         CABasicService* cabs,
         DCC *dcc
@@ -282,9 +289,11 @@ void CAMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
-            if(log_filename_GNsecurity != "dis" && log_filename_GNsecurity != ""){
-                GN.setLogFile2(log_filename_GNsecurity);
-            }
+            message_type = 1;
+            GN.setMessageType(message_type);
+            GN.setATmanager(atManager);
+            if(log_filename_CAMsecurity != "dis" && log_filename_CAMsecurity != ""){
+                GN.setLogFile2(log_filename_CAMsecurity);
             GN.setDCC(dcc);
             GN.attachDCC();
             BTP.setGeoNet(&GN);
@@ -368,12 +377,15 @@ void CPMtxThr(std::string gnss_device,
             std::string udp_bind_ip,
             bool extra_position_udp,
             std::string log_filename_CPM,
+            std::string log_filename_CPMsecurity,
             ldmmap::LDMMap *db_ptr,
             bool use_gpsd,
             double check_faulty_object_acceleration,
             bool disable_cpm_speed_triggering,
             bool verbose,
             bool enable_security,
+            int message_type,
+            ATManager *atManager
             CPBasicService* cpbs,
             DCC *dcc
         ) {
@@ -401,7 +413,12 @@ void CPMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
-            GN.setDCC(dcc);
+            message_type = 2;
+            GN.setMessageType(message_type);
+            GN.setATmanager(atManager);
+            if(log_filename_CPM != "dis" && log_filename_CPM != ""){
+                GN.setLogFile2(log_filename_CPM);
+            }            GN.setDCC(dcc);
             GN.attachDCC();
             BTP.setGeoNet(&GN);
 
@@ -430,9 +447,8 @@ void CPMtxThr(std::string gnss_device,
             if (check_faulty_object_acceleration != 0.0)
                 cpbs->setFaultyAccelerationCheck(check_faulty_object_acceleration);
             cpbs->setSpeedTriggering(!disable_cpm_speed_triggering);
-            if (log_filename_CPM != "dis" && log_filename_CPM != "") {
-                cpbs->setLogfile(log_filename_CPM);
-            }
+            if (log_filename_CPMsecurity != "dis" && log_filename_CPMsecurity != "") {
+                CPBS.setLogfile(log_filename_CPMsecurity);
             // Start the CAM dissemination
             cpbs->initDissemination();
 
@@ -460,11 +476,15 @@ void VAMtxThr(std::string gnss_device,
             std::string udp_bind_ip,
             bool extra_position_udp,
             std::string log_filename_VAM,
+            std::string log_filename_VAMsecurity,
             ldmmap::LDMMap *db_ptr,
             double pos_th,
             double speed_th,
             double head_th,
             bool use_gpsd,
+            bool enable_security,
+            int message_type,
+            ATManager *atManager            
             VRUBasicService* vrubs,
             DCC *dcc
         ) {
@@ -507,6 +527,13 @@ void VAMtxThr(std::string gnss_device,
             GN.setVRUdp(&vrudp);
             GN.setSocketTx(sockfd,ifindex,srcmac);
             GN.setStationProperties(VRUID,StationType_pedestrian);
+            GN.setSecurity(enable_security);
+            message_type = 3;
+            GN.setMessageType(message_type);
+            GN.setATmanager(atManager);
+            if(log_filename_VAMsecurity!="dis" && log_filename_VAMsecurity!="") {
+                GN.setLogFile2(log_filename_VAMsecurity);
+            }
             GN.setDCC(dcc);
             GN.attachDCC();
 
@@ -774,10 +801,13 @@ int main (int argc, char *argv[]) {
     std::string dissem_vif = "wlan0";
 
     std::string log_filename_CAM = "dis";
-    std::string log_filename_GNsecurity = "dis";
+    std::string log_filename_CAMsecurity = "dis";
     std::string log_filename_VAM = "dis";
+    std::string log_filename_VAMsecurity = "dis";
     std::string log_filename_rcv = "dis";
     std::string log_filename_CPM = "cps_dis";
+    std::string log_filename_CPMsecurity = "dis";
+
 
     // CAN database file name for CPM transmission
     std::string can_db = "";
@@ -804,6 +834,7 @@ int main (int argc, char *argv[]) {
     bool disable_selfMAC_check = false;
     bool enable_sensor_classification = false;
     bool verbose = false;
+    int message_type = 0;
 
     int json_over_tcp_port = 49000;
     bool enable_security = false;
@@ -873,7 +904,6 @@ int main (int argc, char *argv[]) {
     // Parse the command line options with the TCLAP library
     try {
         TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.9-development");
-
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
         TCLAP::ValueArg<int> SerialDeviceBaudrate("b", "serial-device-baudrate",
@@ -902,10 +932,8 @@ int main (int argc, char *argv[]) {
                                                false, -1, "double");
         cmd.add(HEAD_threshold);
 
-        TCLAP::ValueArg<std::string> LogfileGNsecurity("f", "log-file-GNsecurity",
-                                                       "Print on file the log for the GN security checks. Default: (disabled).",
-                                                       false, "dis", "string");
-        cmd.add(LogfileGNsecurity);
+        TCLAP::ValueArg<std::string> LogfileCAMsecurity("f","log-file-CAMsecurity","Print on file the log for the GN security checks. Default: (disabled).",false,"dis","string");
+        cmd.add(LogfileCAMsecurity);
 
         TCLAP::ValueArg<std::string> LogfileVAM("F", "log-file-VAM",
                                                 "[Considered only if security is enabled] Print on file the log for the VAM condition checks. Default: (disabled).",
@@ -1168,7 +1196,7 @@ int main (int argc, char *argv[]) {
         dissem_vif = vifName.getValue();
 
         log_filename_CAM = LogfileCAM.getValue();
-        log_filename_GNsecurity = LogfileGNsecurity.getValue();
+        log_filename_CAMsecurity=LogfileCAMsecurity.getValue();
         log_filename_VAM = LogfileVAM.getValue();
         log_filename_rcv = LogfileReception.getValue();
         log_filename_CPM = LogfileCPM.getValue();
@@ -1486,6 +1514,23 @@ int main (int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+
+    // Manage certificates
+    ECManager ecManager;
+    ATManager atManager(&terminatorFlag);
+    if(enable_security) {
+        if(!ecManager.manageRequest()){
+            std::cerr << "Error in managing the EC request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        std::string ecBytes = ecManager.getECBytes();
+        atManager.setECHex(ecBytes);
+        if(!atManager.manageRequest()){
+            std::cerr << "Error in managing the AT request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+
     // Create a new DB object
     ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
     if (ego_station_type == StationType_passengerCar) {
@@ -1622,14 +1667,16 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_CAM,
-                                        log_filename_GNsecurity,
+                                        log_filename_CAMsecurity,
                                         db_ptr,
+                                        &atManager,
                                         pos_th,
                                         speed_th,
                                         head_th,
                                         enable_reception,
                                         use_gpsd,
                                         enable_security,
+                                        message_type
                                         force_20Hz_freq,
                                         cabs_ptr,
                                         dcc
@@ -1647,11 +1694,15 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_VAM,
+                                        log_filename_VAMsecurity,
                                         db_ptr,
                                         pos_th,
                                         speed_th,
                                         head_th,
                                         use_gpsd,
+                                        enable_security,
+                                        message_type,
+                                        &atManager
                                         vrubs_ptr,
                                         dcc
                                     );
@@ -1668,12 +1719,17 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_CPM,
+                                        log_filename_CPMsecurity,
                                         db_ptr,
                                         use_gpsd,
                                         check_faulty_object_acceleration,
                                         disable_cpm_speed_triggering,
                                         verbose,
                                         enable_security,
+                                        verbose,
+                                        enable_security,
+                                        message_type,
+                                        &atManager
                                         cpbs_ptr,
                                         dcc
                                     );
@@ -1718,8 +1774,7 @@ int main (int argc, char *argv[]) {
 
 		if(terminatorFlag==false) {
 			// Create the main SocketClient object for the reception of the V2X messages
-            mainRecvClient = new SocketClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity);
-
+            SocketClient mainRecvClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_CAMsecurity);
 			if(enable_DENM_decoding) {
 				mainRecvClient->enableDENMdecoding();
 			}
@@ -1778,6 +1833,12 @@ int main (int argc, char *argv[]) {
 	}
 
 	db_ptr->clear();
+
+    /* fix when will be used threads
+    if(enable_security) {
+        atManager.terminate();
+    }
+    */
 
 	// Close the socket
 	close(sockfd);

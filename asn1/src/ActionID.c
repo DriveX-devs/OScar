@@ -5,13 +5,13 @@
  * 	`asn1c -fcompound-names -fincludes-quoted -no-gen-example`
  */
 
-#include "ActionID.h"
+#include "ActionId.h"
 
-static asn_TYPE_member_t asn_MBR_ActionID_1[] = {
-	{ ATF_NOFLAGS, 0, offsetof(struct ActionID, originatingStationId),
+asn_TYPE_member_t asn_MBR_ActionId_1[] = {
+	{ ATF_NOFLAGS, 0, offsetof(struct ActionId, originatingStationId),
 		(ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_StationID,
+		&asn_DEF_StationId,
 		0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -25,7 +25,7 @@ static asn_TYPE_member_t asn_MBR_ActionID_1[] = {
 		0, 0, /* No default value */
 		"originatingStationId"
 		},
-	{ ATF_NOFLAGS, 0, offsetof(struct ActionID, sequenceNumber),
+	{ ATF_NOFLAGS, 0, offsetof(struct ActionId, sequenceNumber),
 		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		-1,	/* IMPLICIT tag at current level */
 		&asn_DEF_SequenceNumber,
@@ -43,31 +43,31 @@ static asn_TYPE_member_t asn_MBR_ActionID_1[] = {
 		"sequenceNumber"
 		},
 };
-static const ber_tlv_tag_t asn_DEF_ActionID_tags_1[] = {
+static const ber_tlv_tag_t asn_DEF_ActionId_tags_1[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
-static const asn_TYPE_tag2member_t asn_MAP_ActionID_tag2el_1[] = {
+static const asn_TYPE_tag2member_t asn_MAP_ActionId_tag2el_1[] = {
     { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* originatingStationId */
     { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 } /* sequenceNumber */
 };
-static asn_SEQUENCE_specifics_t asn_SPC_ActionID_specs_1 = {
-	sizeof(struct ActionID),
-	offsetof(struct ActionID, _asn_ctx),
-	asn_MAP_ActionID_tag2el_1,
+asn_SEQUENCE_specifics_t asn_SPC_ActionId_specs_1 = {
+	sizeof(struct ActionId),
+	offsetof(struct ActionId, _asn_ctx),
+	asn_MAP_ActionId_tag2el_1,
 	2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* First extension addition */
 };
-asn_TYPE_descriptor_t asn_DEF_ActionID = {
-	"ActionID",
-	"ActionID",
+asn_TYPE_descriptor_t asn_DEF_ActionId = {
+	"ActionId",
+	"ActionId",
 	&asn_OP_SEQUENCE,
-	asn_DEF_ActionID_tags_1,
-	sizeof(asn_DEF_ActionID_tags_1)
-		/sizeof(asn_DEF_ActionID_tags_1[0]), /* 1 */
-	asn_DEF_ActionID_tags_1,	/* Same as above */
-	sizeof(asn_DEF_ActionID_tags_1)
-		/sizeof(asn_DEF_ActionID_tags_1[0]), /* 1 */
+	asn_DEF_ActionId_tags_1,
+	sizeof(asn_DEF_ActionId_tags_1)
+		/sizeof(asn_DEF_ActionId_tags_1[0]), /* 1 */
+	asn_DEF_ActionId_tags_1,	/* Same as above */
+	sizeof(asn_DEF_ActionId_tags_1)
+		/sizeof(asn_DEF_ActionId_tags_1[0]), /* 1 */
 	{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
 		0,
@@ -77,8 +77,8 @@ asn_TYPE_descriptor_t asn_DEF_ActionID = {
 #endif  /* !defined(ASN_DISABLE_UPER_SUPPORT) || !defined(ASN_DISABLE_APER_SUPPORT) */
 		SEQUENCE_constraint
 	},
-	asn_MBR_ActionID_1,
+	asn_MBR_ActionId_1,
 	2,	/* Elements count */
-	&asn_SPC_ActionID_specs_1	/* Additional specs */
+	&asn_SPC_ActionId_specs_1	/* Additional specs */
 };
 
