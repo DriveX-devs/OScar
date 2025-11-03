@@ -588,6 +588,8 @@ Security::createSecurePacket (GNDataRequest_t dataRequest, bool &isCertificate)
         asn1cpp::setField (certificate->issuer.choice.sha256AndDigest, m_issuer);
         std::vector<unsigned char> issuer = hexStringToBytes ( to_hex(m_atmanager->getIssuer()));
         std::string m_issuer(issuer.begin(), issuer.end());
+        asn1cpp::setField (certificate->issuer.choice.sha256AndDigest, m_issuer);
+
         asn1cpp::setField (certificate->toBeSigned.id.present, CertificateId_PR_none);
         asn1cpp::setField (certificate->toBeSigned.id.choice.none, m_atmanager->getId_none());
         std::vector<unsigned char> craca = hexStringToBytes (to_hex(m_atmanager->getCracaId()));
