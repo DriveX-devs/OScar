@@ -5,7 +5,7 @@
  * 	`asn1c -fcompound-names -fincludes-quoted -no-gen-example`
  */
 
-#include "IntersectionReferenceId.h"
+#include "IntersectionReferenceID.h"
 
 asn_TYPE_member_t asn_MBR_IntersectionReferenceId_1[] = {
 	{ ATF_POINTER, 1, offsetof(struct IntersectionReferenceId, region),
@@ -83,4 +83,3 @@ asn_TYPE_descriptor_t asn_DEF_IntersectionReferenceId = {
 	2,	/* Elements count */
 	&asn_SPC_IntersectionReferenceId_specs_1	/* Additional specs */
 };
-

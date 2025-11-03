@@ -515,8 +515,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
         if (f_out != nullptr) {
             fprintf(f_out, "[ENCODE] Start time: %ld us, ", start_us);
         }
-		m_security.setATmanager(m_atmanager)
-		m_security.setATmanager(m_atmanager)
+		m_security.setATmanager(m_atmanager);
         dataRequest = m_security.createSecurePacket (dataRequest, isCertificate);
 
         long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();

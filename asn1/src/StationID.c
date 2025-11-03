@@ -5,7 +5,7 @@
  * 	`asn1c -fcompound-names -fincludes-quoted -no-gen-example`
  */
 
-#include "StationId.h"
+#include "StationID.h"
 
 int
 StationId_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
@@ -69,4 +69,3 @@ asn_TYPE_descriptor_t asn_DEF_StationId = {
 	0, 0,	/* No members */
 	&asn_SPC_StationId_specs_1	/* Additional specs */
 };
-

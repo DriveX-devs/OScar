@@ -29,7 +29,7 @@ struct RegionalExtension;
 /* SignalStatus */
 typedef struct SignalStatus {
 	MsgCount_t	 sequenceNumber;
-	IntersectionReferenceID_t	 id;
+	IntersectionReferenceId_t	 id;
 	SignalStatusPackageList_t	 sigStatus;
 	struct SignalStatus__regional {
 		A_SEQUENCE_OF(struct RegionalExtension) list;

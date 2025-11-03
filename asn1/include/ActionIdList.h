@@ -38,7 +38,7 @@ extern asn_TYPE_descriptor_t asn_DEF_ActionIdList;
 #endif
 
 /* Referred external types */
-#include "ActionId.h"
+#include "ActionID.h"
 
 #endif	/* _ActionIdList_H_ */
 #include "asn_internal.h"

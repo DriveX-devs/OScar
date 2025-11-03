@@ -14,7 +14,7 @@
 /* Including external dependencies */
 #include "OrdinalNumber1B.h"
 #include "MessageId.h"
-#include "StationId.h"
+#include "StationID.h"
 #include "constr_SEQUENCE.h"
 
 #ifdef __cplusplus

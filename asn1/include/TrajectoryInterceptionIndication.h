@@ -12,7 +12,7 @@
 #include "asn_application.h"
 
 /* Including external dependencies */
-#include "StationId.h"
+#include "StationID.h"
 #include "TrajectoryInterceptionProbability.h"
 #include "TrajectoryInterceptionConfidence.h"
 #include "constr_SEQUENCE.h"

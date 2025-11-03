@@ -5,7 +5,7 @@
  * 	`asn1c -fcompound-names -fincludes-quoted -no-gen-example`
  */
 
-#include "OriginatingRsuContainer.h"
+#include "OriginatingRSUContainer.h"
 
 asn_TYPE_member_t asn_MBR_OriginatingRsuContainer_1[] = {
 	{ ATF_POINTER, 1, offsetof(struct OriginatingRsuContainer, mapReference),
@@ -65,4 +65,3 @@ asn_TYPE_descriptor_t asn_DEF_OriginatingRsuContainer = {
 	1,	/* Elements count */
 	&asn_SPC_OriginatingRsuContainer_specs_1	/* Additional specs */
 };
-

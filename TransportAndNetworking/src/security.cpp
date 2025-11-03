@@ -585,10 +585,9 @@ Security::createSecurePacket (GNDataRequest_t dataRequest, bool &isCertificate)
         asn1cpp::setField (certificate->version, m_atmanager->getVersion());
         asn1cpp::setField (certificate->type, m_atmanager->getType());
         asn1cpp::setField (certificate->issuer.present, IssuerIdentifierSec_PR_sha256AndDigest);
-        asn1cpp::setField (certificate->issuer.choice.sha256AndDigest, m_issuer);
-        std::vector<unsigned char> issuer = hexStringToBytes ( to_hex(m_atmanager->getIssuer()));
-        std::string m_issuer(issuer.begin(), issuer.end());
-        asn1cpp::setField (certificate->issuer.choice.sha256AndDigest, m_issuer);
+        std::vector<unsigned char> issuerBytes = hexStringToBytes (to_hex(m_atmanager->getIssuer()));
+        std::string issuerString(issuerBytes.begin(), issuerBytes.end());
+        asn1cpp::setField (certificate->issuer.choice.sha256AndDigest, issuerString);
 
         asn1cpp::setField (certificate->toBeSigned.id.present, CertificateId_PR_none);
         asn1cpp::setField (certificate->toBeSigned.id.choice.none, m_atmanager->getId_none());

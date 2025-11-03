@@ -12,8 +12,8 @@
 #include "asn_application.h"
 
 /* Including external dependencies */
-#include "RoadSegmentReferenceId.h"
-#include "IntersectionReferenceId.h"
+#include "RoadSegmentReferenceID.h"
+#include "IntersectionReferenceID.h"
 #include "constr_CHOICE.h"
 
 #ifdef __cplusplus

@@ -99,7 +99,7 @@ asn_TYPE_member_t asn_MBR_SignalStatus_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct SignalStatus, id),
 		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_IntersectionReferenceID,
+		&asn_DEF_IntersectionReferenceId,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -158,4 +158,3 @@ asn_TYPE_descriptor_t asn_DEF_SignalStatus = {
 	4,	/* Elements count */
 	&asn_SPC_SignalStatus_specs_1	/* Additional specs */
 };
-
