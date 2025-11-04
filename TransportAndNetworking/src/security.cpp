@@ -260,13 +260,17 @@ void Security::recoverECKeyPair()
 {
     std::string private_key_file = "";
     std::string public_key_file = "";
-    private_key_file = "./pkiReqRes/ephSKEY2.pem";
-    public_key_file = "./pkiReqRes/ephPKEY2.pem";
+    private_key_file = "./pkiReqRes/ephSKEY.pem";
+    public_key_file = "./pkiReqRes/ephPKEY.pem";
     EC_KEY *ec_key = nullptr;
     ec_key = loadECKeyFromFile(private_key_file, public_key_file);
     if (!ec_key)
     {
-        print_openssl_error();
+        return;
+    }
+    if (m_ecKey)
+    {
+        EC_KEY_free(m_ecKey);
     }
     m_ecKey = EC_KEY_dup(ec_key);
 

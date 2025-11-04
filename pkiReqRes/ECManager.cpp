@@ -29,6 +29,7 @@
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 #include <openssl/kdf.h>
+#include <openssl/pkcs12.h>
 #include <fstream>
 #include <ECManager.h>
 #include <sys/stat.h>
@@ -533,10 +534,18 @@ EC_KEY* ECManager::loadECKeyFromRFC5480(const std::string &private_key_rfc, cons
   const unsigned char *priv_p = derSK.data();
 
   // Step 2: Parse private key DER (PKCS#8) to create EC_KEY
-  EVP_PKEY *pkey = d2i_PrivateKey(EVP_PKEY_EC, nullptr, &priv_p, derSK.size());
-  if (!pkey)
+  PKCS8_PRIV_KEY_INFO *p8info = d2i_PKCS8_PRIV_KEY_INFO(nullptr, &priv_p, derSK.size());
+  if (!p8info)
   {
     std::cerr << "Error loading private key from PKCS#8 format" << std::endl;
+    ERR_print_errors_fp(stderr);
+    return nullptr;
+  }
+  EVP_PKEY *pkey = EVP_PKCS82PKEY(p8info);
+  PKCS8_PRIV_KEY_INFO_free(p8info);
+  if (!pkey)
+  {
+    std::cerr << "Error converting PKCS#8 structure to EVP_PKEY" << std::endl;
     ERR_print_errors_fp(stderr);
     return nullptr;
   }
