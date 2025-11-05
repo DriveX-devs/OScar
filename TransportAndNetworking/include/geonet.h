@@ -44,7 +44,7 @@ class GeoNet {
 		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp=false);
 		void closeUDPsocket();
         void setSecurity(bool security){enableSecurity = security;  m_security = Security();}
-		        void setMessageType(int type){m_messageType = type;}
+        void setMessageType(int type){m_messageType = type; m_security.setMessageType(type);}
 				void setATmanager(ATManager *atm){m_atmanager = atm;};
 
 
