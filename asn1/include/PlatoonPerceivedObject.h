@@ -40,7 +40,7 @@ typedef struct PlatoonPerceivedObject {
 	Identifier_t	 objectID;
 	ReferencePosition_t	 referencePosition;
 	TimeOfMeasurement_t	 timeOfMeasurement;
-	StationID_t	 responsiblePM;
+	StationId_t	 responsiblePM;
 	PlatoonMembers_t	 associatedPMs;
 	Heading_t	 heading;
 	Speed_t	 speed;

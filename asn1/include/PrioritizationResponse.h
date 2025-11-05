@@ -23,7 +23,7 @@ extern "C" {
 
 /* PrioritizationResponse */
 typedef struct PrioritizationResponse {
-	StationID_t	 stationID;
+	StationId_t	 stationID;
 	PrioritizationResponseStatus_t	 priorState;
 	SignalGroupID_t	 signalGroup;
 	/*

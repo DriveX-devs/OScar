@@ -23,6 +23,9 @@
 #include "basicSensorReader.h"
 // CAN database reader
 #include "dbcReader.h"
+// Certificate manager
+#include <ECManager.h>
+#include <ATManager.h>
 
 // Linux net includes
 #include <sys/ioctl.h>
@@ -243,6 +246,7 @@ void CAMtxThr(std::string gnss_device,
         std::string log_filename_CAM,
         std::string log_filename_GNsecurity,
         ldmmap::LDMMap *db_ptr,
+        ATManager *atManager,
         double pos_th,
         double speed_th,
         double head_th,
@@ -282,7 +286,12 @@ void CAMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
-            if(log_filename_GNsecurity != "dis" && log_filename_GNsecurity != ""){
+            const int message_type = 1;
+            GN.setMessageType(message_type);
+            if (enable_security && atManager != nullptr) {
+                GN.setATmanager(atManager);
+            }
+            if(enable_security && log_filename_GNsecurity != "dis" && !log_filename_GNsecurity.empty()){
                 GN.setLogFile2(log_filename_GNsecurity);
             }
             GN.setDCC(dcc);
@@ -368,12 +377,14 @@ void CPMtxThr(std::string gnss_device,
             std::string udp_bind_ip,
             bool extra_position_udp,
             std::string log_filename_CPM,
+            std::string log_filename_GNsecurity,
             ldmmap::LDMMap *db_ptr,
             bool use_gpsd,
             double check_faulty_object_acceleration,
             bool disable_cpm_speed_triggering,
             bool verbose,
             bool enable_security,
+            ATManager *atManager,
             CPBasicService* cpbs,
             DCC *dcc
         ) {
@@ -401,6 +412,14 @@ void CPMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
+            const int message_type = 2;
+            GN.setMessageType(message_type);
+            if (enable_security && atManager != nullptr) {
+                GN.setATmanager(atManager);
+            }
+            if(enable_security && log_filename_GNsecurity != "dis" && !log_filename_GNsecurity.empty()){
+                GN.setLogFile2(log_filename_GNsecurity);
+            }
             GN.setDCC(dcc);
             GN.attachDCC();
             BTP.setGeoNet(&GN);
@@ -460,11 +479,14 @@ void VAMtxThr(std::string gnss_device,
             std::string udp_bind_ip,
             bool extra_position_udp,
             std::string log_filename_VAM,
+            std::string log_filename_GNsecurity,
             ldmmap::LDMMap *db_ptr,
             double pos_th,
             double speed_th,
             double head_th,
             bool use_gpsd,
+            bool enable_security,
+            ATManager *atManager,
             VRUBasicService* vrubs,
             DCC *dcc
         ) {
@@ -507,6 +529,15 @@ void VAMtxThr(std::string gnss_device,
             GN.setVRUdp(&vrudp);
             GN.setSocketTx(sockfd,ifindex,srcmac);
             GN.setStationProperties(VRUID,StationType_pedestrian);
+            GN.setSecurity(enable_security);
+            const int message_type = 3;
+            GN.setMessageType(message_type);
+            if (enable_security && atManager != nullptr) {
+                GN.setATmanager(atManager);
+            }
+            if(enable_security && log_filename_GNsecurity!="dis" && !log_filename_GNsecurity.empty()) {
+                GN.setLogFile2(log_filename_GNsecurity);
+            }
             GN.setDCC(dcc);
             GN.attachDCC();
 
@@ -1486,6 +1517,23 @@ int main (int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    ECManager ecManager;
+    ATManager atManager(&terminatorFlag);
+    ATManager *atManager_ptr = nullptr;
+    if (enable_security) {
+        if (!ecManager.manageRequest()) {
+            std::cerr << "Error in managing the EC request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        std::string ecBytes = ecManager.getECBytes();
+        atManager.setECHex(ecBytes);
+        if (!atManager.manageRequest()) {
+            std::cerr << "Error in managing the AT request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        atManager_ptr = &atManager;
+    }
+
     // Create a new DB object
     ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
     if (ego_station_type == StationType_passengerCar) {
@@ -1624,6 +1672,7 @@ int main (int argc, char *argv[]) {
                                         log_filename_CAM,
                                         log_filename_GNsecurity,
                                         db_ptr,
+                                        atManager_ptr,
                                         pos_th,
                                         speed_th,
                                         head_th,
@@ -1647,11 +1696,14 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_VAM,
+                                        log_filename_GNsecurity,
                                         db_ptr,
                                         pos_th,
                                         speed_th,
                                         head_th,
                                         use_gpsd,
+                                        enable_security,
+                                        atManager_ptr,
                                         vrubs_ptr,
                                         dcc
                                     );
@@ -1668,12 +1720,14 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_CPM,
+                                        log_filename_GNsecurity,
                                         db_ptr,
                                         use_gpsd,
                                         check_faulty_object_acceleration,
                                         disable_cpm_speed_triggering,
                                         verbose,
                                         enable_security,
+                                        atManager_ptr,
                                         cpbs_ptr,
                                         dcc
                                     );

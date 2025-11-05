@@ -16,7 +16,7 @@
 #include "ANY.h"
 #include "asn_ioc.h"
 #include "OriginatingVehicleContainer.h"
-#include "OriginatingRsuContainer.h"
+#include "OriginatingRSUContainer.h"
 #include "SensorInformationContainer.h"
 #include "PerceptionRegionContainer.h"
 #include "PerceivedObjectContainer.h"

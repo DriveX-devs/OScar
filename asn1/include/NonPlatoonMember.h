@@ -24,8 +24,8 @@ struct SubscribedPMs;
 
 /* NonPlatoonMember */
 typedef struct NonPlatoonMember {
-	StationID_t	 stationID;
-	StationID_t	 responsiblePM;
+	StationId_t	 stationID;
+	StationId_t	 responsiblePM;
 	struct SubscribedPMs	*subscribedPMs	/* OPTIONAL */;
 	/*
 	 * This type is extensible,
