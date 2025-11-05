@@ -260,8 +260,9 @@ void Security::recoverECKeyPair()
 {
     std::string private_key_file = "";
     std::string public_key_file = "";
-    private_key_file = "./pkiReqRes/ephSKEY.pem";
-    public_key_file = "./pkiReqRes/ephPKEY.pem";
+    // Use Authorization Ticket keypair so the signature matches the advertised verification key.
+    private_key_file = "./pkiReqRes/ephSKEY2.pem";
+    public_key_file = "./pkiReqRes/ephPKEY2.pem";
     EC_KEY *ec_key = nullptr;
     ec_key = loadECKeyFromFile(private_key_file, public_key_file);
     if (!ec_key)
