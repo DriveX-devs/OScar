@@ -465,6 +465,7 @@ void VAMtxThr(std::string gnss_device,
             double speed_th,
             double head_th,
             bool use_gpsd,
+            bool enable_security,
             VRUBasicService* vrubs,
             GateKeeper *gk
         ) {
@@ -508,6 +509,9 @@ void VAMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd,ifindex,srcmac);
             GN.setStationProperties(VRUID,StationType_pedestrian);
             GN.setGateKeeper(gk);
+            if(enable_security) {
+                GN.setSecurity(enable_security);
+            }
 
             if(udp_sock_addr!="dis") {
                 int rval;
@@ -869,7 +873,7 @@ int main (int argc, char *argv[]) {
 
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "7.9-development");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "8.0-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -1659,6 +1663,7 @@ int main (int argc, char *argv[]) {
                                         speed_th,
                                         head_th,
                                         use_gpsd,
+                                        enable_security,
                                         vrubs_ptr,
                                         gk
                                     );
