@@ -4,6 +4,8 @@ OScar
 # Additional OScar binaries
 OScar-7.0
 OScar-7.1
+OScar-8.0
+OScar-8.1
 OScar-DCC
 
 # Compiled source
@@ -24,4 +26,17 @@ venv
 
 # CAN db parsing test INI file
 PCAN.ini
-.idea/*
+
+# Miscellaneous files used for testing
+/OScar1
+/OScar2
+/MS_1_rssi_info.csv
+/MS_1_station_info.csv
+/MS_2_station_info.csv
+/MS_2_rssi_info.csv
+/A4_andata.json
+/OScar-DCC-New
+/PKI_info.ini
+
+# JetBrains IDE project files
+/.idea
