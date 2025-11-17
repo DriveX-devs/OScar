@@ -615,7 +615,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	}
 
 	size_t pktSize = finalPktSize - sizeof(struct ether_header) + IEEE80211_DATA_PKT_HDR_LEN + IEEE80211_FCS_LEN + 8; // 8 = bytes layer LLC
-	m_dcc->updateTonpp(pktSize);
+	if (m_dcc != nullptr) m_dcc->updateTonpp(pktSize);
 
 	delete []finalPktBuffer;
 
