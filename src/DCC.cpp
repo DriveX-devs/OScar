@@ -234,6 +234,10 @@ void DCC::functionAdaptive()
 
                  // Step 3
                 float old_delta = getDelta();
+				if (old_delta == 0)
+				{
+					old_delta = m_Ton_pp / 100.0 > 1e-3 ? m_Ton_pp / 100.0 : 1e-3;
+				}
                 float new_delta = (1 - m_alpha) * old_delta + delta_offset;
 
                 // Step 4
@@ -326,7 +330,7 @@ void DCC::updateTgoAfterTransmission()
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
     m_gate_mutex.unlock();
-    m_check_queue_cv.notify_all();
+    if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
 
 void DCC::updateTgoAfterDeltaUpdate()
@@ -356,7 +360,7 @@ void DCC::updateTgoAfterDeltaUpdate()
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
     m_gate_mutex.unlock();
-    m_check_queue_cv.notify_all();
+    if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
 
 bool DCC::checkGateOpen(int64_t now)
@@ -395,7 +399,7 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
     m_Tgo_ms = now + Toff;
     m_Toff_ms = Toff;
     m_gate_mutex.unlock();
-    m_check_queue_cv.notify_all();
+    if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
 
 void 
