@@ -22,7 +22,7 @@ extern "C" {
 
 /* ConnectedVehiclesIDs */
 typedef struct ConnectedVehiclesIDs {
-	A_SEQUENCE_OF(StationID_t) list;
+	A_SEQUENCE_OF(StationId_t) list;
 	
 	/* Context for parsing across buffer boundaries */
 	asn_struct_ctx_t _asn_ctx;

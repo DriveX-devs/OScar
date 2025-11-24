@@ -35,11 +35,13 @@ shbHeader::serializeInto(packetBuffer &packet) {
 	packet.addHtonU16(pai_speed);
 	packet.addHtonU16(m_sourcePV.heading);
 	//Reserved
+	/*
 	packet.addU8(m_local_CBR);
 	packet.addU8(m_max_CBR_neighbouring);
 	packet.addU8(m_tx_power_reserved);
 	packet.addU8(m_reserved);
-	// packet.addHtonU32(0x00000000);
+	*/
+	packet.addHtonU32(0x00000000);
 }
 
 void 

@@ -35,7 +35,7 @@ struct RegionalExtension;
 /* IntersectionState */
 typedef struct IntersectionState {
 	DescriptiveName_t	*name	/* OPTIONAL */;
-	IntersectionReferenceID_t	 id;
+	IntersectionReferenceId_t	 id;
 	MsgCount_t	 revision;
 	IntersectionStatusObject_t	 status;
 	MinuteOfTheYear_t	*moy	/* OPTIONAL */;

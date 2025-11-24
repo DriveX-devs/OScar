@@ -30,7 +30,7 @@ struct RegionalExtension;
 
 /* SignalRequest */
 typedef struct SignalRequest {
-	IntersectionReferenceID_t	 id;
+	IntersectionReferenceId_t	 id;
 	RequestID_t	 requestID;
 	PriorityRequestType_t	 requestType;
 	IntersectionAccessPoint_t	 inBoundLane;

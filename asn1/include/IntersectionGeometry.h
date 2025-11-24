@@ -34,7 +34,7 @@ struct RegionalExtension;
 /* IntersectionGeometry */
 typedef struct IntersectionGeometry {
 	DescriptiveName_t	*name	/* OPTIONAL */;
-	IntersectionReferenceID_t	 id;
+	IntersectionReferenceId_t	 id;
 	MsgCount_t	 revision;
 	Position3D_t	 refPoint;
 	LaneWidth_t	*laneWidth	/* OPTIONAL */;

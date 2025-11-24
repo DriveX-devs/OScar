@@ -23,7 +23,7 @@ asn_TYPE_member_t asn_MBR_OriginatingRSUContainerV1_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct OriginatingRSUContainerV1, choice.intersectionReferenceId),
 		(ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_IntersectionReferenceID,
+		&asn_DEF_IntersectionReferenceId,
 		0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -40,7 +40,7 @@ asn_TYPE_member_t asn_MBR_OriginatingRSUContainerV1_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct OriginatingRSUContainerV1, choice.roadSegmentReferenceId),
 		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_RoadSegmentReferenceID,
+		&asn_DEF_RoadSegmentReferenceId,
 		0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -90,4 +90,3 @@ asn_TYPE_descriptor_t asn_DEF_OriginatingRSUContainerV1 = {
 	2,	/* Elements count */
 	&asn_SPC_OriginatingRSUContainerV1_specs_1	/* Additional specs */
 };
-

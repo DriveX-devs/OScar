@@ -29,7 +29,7 @@ extern "C" {
 
 /* DENM-PDU-Descriptions_ManagementContainer */
 typedef struct DENM_PDU_Descriptions_ManagementContainer {
-	ActionID_t	 actionID;
+	ActionId_t	 actionID;
 	TimestampIts_t	 detectionTime;
 	TimestampIts_t	 referenceTime;
 	Termination_t	*termination;	/* OPTIONAL */

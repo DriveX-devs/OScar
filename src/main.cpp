@@ -23,6 +23,9 @@
 #include "basicSensorReader.h"
 // CAN database reader
 #include "dbcReader.h"
+// Certificate manager
+#include <ECManager.h>
+#include <ATManager.h>
 
 // Linux net includes
 #include <sys/ioctl.h>
@@ -42,8 +45,6 @@
 #include "DCC.h"
 
 #include "MetricSupervisor.h"
-
-#include "GateKeeper.h"
 
 #define DB_CLEANER_INTERVAL_SECONDS 5
 #define DB_DELETE_OLDER_THAN_SECONDS 2 // This value should NEVER be set greater than (5-DB_CLEANER_INTERVAL_SECONDS/60) minutes or (300-DB_CLEANER_INTERVAL_SECONDS) seconds - doing so may break the database age check functionality!
@@ -245,6 +246,7 @@ void CAMtxThr(std::string gnss_device,
         std::string log_filename_CAM,
         std::string log_filename_GNsecurity,
         ldmmap::LDMMap *db_ptr,
+        ATManager *atManager,
         double pos_th,
         double speed_th,
         double head_th,
@@ -253,7 +255,7 @@ void CAMtxThr(std::string gnss_device,
         bool enable_security,
         bool force_20Hz_freq,
         CABasicService* cabs,
-        GateKeeper *gk
+        DCC *dcc
     ) {
     bool m_retry_flag=false;
 
@@ -284,10 +286,16 @@ void CAMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
-            if(log_filename_GNsecurity != "dis" && log_filename_GNsecurity != ""){
+            const int message_type = 1;
+            GN.setMessageType(message_type);
+            if (enable_security && atManager != nullptr) {
+                GN.setATmanager(atManager);
+            }
+            if(enable_security && log_filename_GNsecurity != "dis" && !log_filename_GNsecurity.empty()){
                 GN.setLogFile2(log_filename_GNsecurity);
             }
-            GN.setGateKeeper(gk);
+            GN.setDCC(dcc);
+            GN.attachDCC();
             BTP.setGeoNet(&GN);
             
             while (true) {
@@ -369,14 +377,16 @@ void CPMtxThr(std::string gnss_device,
             std::string udp_bind_ip,
             bool extra_position_udp,
             std::string log_filename_CPM,
+            std::string log_filename_GNsecurity,
             ldmmap::LDMMap *db_ptr,
             bool use_gpsd,
             double check_faulty_object_acceleration,
             bool disable_cpm_speed_triggering,
             bool verbose,
             bool enable_security,
+            ATManager *atManager,
             CPBasicService* cpbs,
-            GateKeeper *gk
+            DCC *dcc
         ) {
     bool m_retry_flag=false;
 
@@ -402,7 +412,16 @@ void CPMtxThr(std::string gnss_device,
             GN.setSocketTx(sockfd, ifindex, srcmac);
             GN.setStationProperties(vehicleID, StationType_passengerCar);
             GN.setSecurity(enable_security);
-            GN.setGateKeeper(gk);
+            const int message_type = 2;
+            GN.setMessageType(message_type);
+            if (enable_security && atManager != nullptr) {
+                GN.setATmanager(atManager);
+            }
+            if(enable_security && log_filename_GNsecurity != "dis" && !log_filename_GNsecurity.empty()){
+                GN.setLogFile2(log_filename_GNsecurity);
+            }
+            GN.setDCC(dcc);
+            GN.attachDCC();
             BTP.setGeoNet(&GN);
 
 
@@ -460,14 +479,16 @@ void VAMtxThr(std::string gnss_device,
             std::string udp_bind_ip,
             bool extra_position_udp,
             std::string log_filename_VAM,
+            std::string log_filename_GNsecurity,
             ldmmap::LDMMap *db_ptr,
             double pos_th,
             double speed_th,
             double head_th,
             bool use_gpsd,
             bool enable_security,
+            ATManager *atManager,
             VRUBasicService* vrubs,
-            GateKeeper *gk
+            DCC *dcc
         ) {
     bool m_retry_flag=false;
 
@@ -508,10 +529,17 @@ void VAMtxThr(std::string gnss_device,
             GN.setVRUdp(&vrudp);
             GN.setSocketTx(sockfd,ifindex,srcmac);
             GN.setStationProperties(VRUID,StationType_pedestrian);
-            GN.setGateKeeper(gk);
-            if(enable_security) {
-                GN.setSecurity(enable_security);
+            GN.setSecurity(enable_security);
+            const int message_type = 3;
+            GN.setMessageType(message_type);
+            if (enable_security && atManager != nullptr) {
+                GN.setATmanager(atManager);
             }
+            if(enable_security && log_filename_GNsecurity!="dis" && !log_filename_GNsecurity.empty()) {
+                GN.setLogFile2(log_filename_GNsecurity);
+            }
+            GN.setDCC(dcc);
+            GN.attachDCC();
 
             if(udp_sock_addr!="dis") {
                 int rval;
@@ -870,10 +898,12 @@ int main (int argc, char *argv[]) {
     uint64_t time_window_met_sup = 0;
     std::string log_filename_met_sup = "";
     float cbr_target;
+    int queue_length;
+    int queue_lifetime;
 
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "8.0-development");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "8.1-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -1123,7 +1153,7 @@ int main (int argc, char *argv[]) {
         
         cmd.add(ModalityDCC);
         
-        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.5", false, 0.5, "float");
+        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.68", false, 0.68, "float");
 
         cmd.add(CBRTarget);
 
@@ -1138,19 +1168,24 @@ int main (int argc, char *argv[]) {
                                                 false, "", "string");
         cmd.add(LogfileDCC);
 
+        TCLAP::ValueArg<int> QueueLengthDCC("", "queue-length-DCC",
+                                                "Length of the priority queue for DCC. Default: 0 (no queue).",
+                                                false, 0, "int");
+        cmd.add(QueueLengthDCC);
+
+        TCLAP::ValueArg<int> QueueLifetimeDCC("", "queue-lifetime-DCC",
+                                                "Lifetime for packet queued by DCC in ms. Default: 300.",
+                                                false, 300, "int");
+        cmd.add(QueueLifetimeDCC);
+
         TCLAP::SwitchArg EnableMetricSupervisor("", "enable-metric-supervisor",
                                                 "Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.",
                                                 false);
         cmd.add(EnableMetricSupervisor);
 
-        std::string helpText_met_sup =
-                "Time window for Metric Supervisor check. "
-                "It must be a strictly positive integer value, expressed in milliseconds";
+        std::string helpText_met_sup = "Time window for Metric Supervisor check. It must be a strictly positive integer value, expressed in milliseconds";
 
-        TCLAP::ValueArg<int> TimeWindowMetricSupervisor(
-                "", "time-window-metric-supervisor",
-                helpText_met_sup,
-                false, 0, "integer");
+        TCLAP::ValueArg<int> TimeWindowMetricSupervisor("", "time-window-metric-supervisor", helpText_met_sup, false, 0, "integer");
 
         cmd.add(TimeWindowMetricSupervisor);
 
@@ -1260,6 +1295,8 @@ int main (int argc, char *argv[]) {
         verbose_DCC = VerboseDCC.getValue();
         log_filename_DCC = LogfileDCC.getValue();
         cbr_target = CBRTarget.getValue();
+        queue_length = QueueLengthDCC.getValue();
+        queue_lifetime = QueueLifetimeDCC.getValue();
 
         enable_metric_supervisor = EnableMetricSupervisor.getValue();
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
@@ -1480,6 +1517,23 @@ int main (int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    ECManager ecManager;
+    ATManager atManager(&terminatorFlag);
+    ATManager *atManager_ptr = nullptr;
+    if (enable_security) {
+        if (!ecManager.manageRequest()) {
+            std::cerr << "Error in managing the EC request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        std::string ecBytes = ecManager.getECBytes();
+        atManager.setECHex(ecBytes);
+        if (!atManager.manageRequest()) {
+            std::cerr << "Error in managing the AT request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        atManager_ptr = &atManager;
+    }
+
     // Create a new DB object
     ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
     if (ego_station_type == StationType_passengerCar) {
@@ -1589,29 +1643,12 @@ int main (int argc, char *argv[]) {
         vrubs_ptr->setMetricSupervisor(&metric_supervisor);
     }
 
-    DCC dcc;
-    GateKeeper *gk = new GateKeeper();
-    gk->setBitRate(bitrate * 1e6);
-    dcc.setGateKeeper(gk);
+    DCC *dcc = new DCC();
+    dcc->setBitRate(bitrate * 1e6);
     if (enable_DCC)
     {
-        dcc.setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, log_filename_DCC);
-        if (modality_DCC == "adaptive")
-        {
-            dcc.setAdaptiveDCCGK();
-        }
-        if (enable_CAM_dissemination)
-        {
-            dcc.addCaBasicService(cabs_ptr);
-        }
-        if (enable_CPM_dissemination)
-        {
-            dcc.addCpBasicService(cpbs_ptr);
-        }
-        if (enable_VAM_dissemination)
-        {
-            dcc.addVruBasicService(vrubs_ptr);
-        }
+        dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC);
+        dcc->setMetricSupervisor(&metric_supervisor);
     }
 
     // This must be defined here, otherwise the goto will jump over its definition
@@ -1635,6 +1672,7 @@ int main (int argc, char *argv[]) {
                                         log_filename_CAM,
                                         log_filename_GNsecurity,
                                         db_ptr,
+                                        atManager_ptr,
                                         pos_th,
                                         speed_th,
                                         head_th,
@@ -1643,7 +1681,7 @@ int main (int argc, char *argv[]) {
                                         enable_security,
                                         force_20Hz_freq,
                                         cabs_ptr,
-                                        gk
+                                        dcc
                                     );
     }
     if(enable_VAM_dissemination) {
@@ -1658,14 +1696,16 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_VAM,
+                                        log_filename_GNsecurity,
                                         db_ptr,
                                         pos_th,
                                         speed_th,
                                         head_th,
                                         use_gpsd,
                                         enable_security,
+                                        atManager_ptr,
                                         vrubs_ptr,
-                                        gk
+                                        dcc
                                     );
     }
     if(enable_CPM_dissemination) {
@@ -1680,14 +1720,16 @@ int main (int argc, char *argv[]) {
                                         udp_bind_ip,
                                         extra_position_udp,
                                         log_filename_CPM,
+                                        log_filename_GNsecurity,
                                         db_ptr,
                                         use_gpsd,
                                         check_faulty_object_acceleration,
                                         disable_cpm_speed_triggering,
                                         verbose,
                                         enable_security,
+                                        atManager_ptr,
                                         cpbs_ptr,
-                                        gk
+                                        dcc
                                     );
     }
     if (can_device != "none") {
@@ -1721,7 +1763,7 @@ int main (int argc, char *argv[]) {
 
     if(enable_DCC)
     {
-        dcc.startDCC();
+        dcc->startDCC();
     }
 
 	// Reception loop (using the main thread)

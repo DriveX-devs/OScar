@@ -785,12 +785,13 @@ VRUBasicService::generateAndEncodeVam(){
   // Create the packet and the BTP header
   packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size()));
   dataRequest.data = pktbuf;
-  GNDataConfirm_t dataConfirm = m_btp->sendBTP(dataRequest);
-
-  // Update the VAM statistics
+  std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_vam);
+  GNDataConfirm_t dataConfirm = std::get<0>(status);
+  MessageId_t message_id = std::get<1>(status);
+  /* Update the CAM statistics */
   if(m_met_sup_ptr!=nullptr && dataConfirm == ACCEPTED) {
-      m_vam_sent++;
-      m_met_sup_ptr->signalSentPacket(MessageId_vam);
+    if (message_id == MessageId_vam) m_vam_sent++;
+    m_met_sup_ptr->signalSentPacket(message_id);
   }
 
   // Compute the time in which the VAM has been sent

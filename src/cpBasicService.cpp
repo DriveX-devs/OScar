@@ -496,11 +496,13 @@ CPBasicService::generateAndEncodeCPM()
     /* Create the packet and the BTP header */
     packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size()));
     dataRequest.data = pktbuf;
-    GNDataConfirm_t dataConfirm = m_btp->sendBTP(dataRequest);
-
+    std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_cpm);
+    GNDataConfirm_t dataConfirm = std::get<0>(status);
+    MessageId_t message_id = std::get<1>(status);
+    /* Update the CPM statistics */
     if(m_met_sup_ptr!=nullptr && dataConfirm == ACCEPTED) {
-        m_cpm_sent++;
-        m_met_sup_ptr->signalSentPacket(MessageId_cpm);
+        if (message_id == MessageId_cpm) m_cpm_sent++;
+        m_met_sup_ptr->signalSentPacket(message_id);
     }
 
     // Store the time in which the last CPM (i.e. this one) has been generated and successfully sent
