@@ -34,7 +34,7 @@ typedef struct StationDataContainer {
 	StationDataContainer_PR present;
 	union StationDataContainer_u {
 		OriginatingVehicleContainer_t	 originatingVehicleContainer;
-		OriginatingRsuContainer_t	 originatingRSUContainer;
+		OriginatingRSUContainer_t	 originatingRSUContainer;
 		/*
 		 * This type is extensible,
 		 * possible extensions are below.

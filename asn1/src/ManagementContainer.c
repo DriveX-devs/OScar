@@ -33,7 +33,7 @@ asn_TYPE_member_t asn_MBR_ManagementContainer_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct ManagementContainer, actionID),
 		(ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_ActionId,
+		&asn_DEF_ActionID,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -162,3 +162,4 @@ asn_TYPE_descriptor_t asn_DEF_ManagementContainer = {
 	10,	/* Elements count */
 	&asn_SPC_ManagementContainer_specs_1	/* Additional specs */
 };
+

@@ -329,7 +329,6 @@ CABasicService::checkCamConditions()
       std::string data_pos = "";
       std::string data_speed = "";
       std::string data_time = "";
-      std::string data_gen_time = "";
 
       // Parser logging
       std::string parser_log_data = "[PARSER]";
@@ -399,16 +398,13 @@ CABasicService::checkCamConditions()
         */
 
       if(m_force_20Hz_freq) {
-          auto cam_result = generateAndEncodeCam();
-          cam_error = cam_result.error;
-
+          cam_error=generateAndEncodeCam();
           if(cam_error==CAM_NO_ERROR)
           {
               m_N_GenCam=0;
               condition_verified=true;
               dyn_cond_verified=true;
-              data_gen_time = "\n[GENERATION_TIME] CAMTimestamp=" + std::to_string(cam_result.generationDeltaTime);
-              data_gen_time += "\n[GENERATION_POSITION] CurrLat=" + (currPos.first == -DBL_MAX ? "Unavailable" : doubleToString(currPos.first))+" CurrLon="+(currPos.second == -DBL_MAX ? "Unavailable" : doubleToString(currPos.second));
+
           } else {
               std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
           }
@@ -442,15 +438,13 @@ CABasicService::checkCamConditions()
         {
           if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
           {
-            auto cam_result = generateAndEncodeCam();
-            cam_error = cam_result.error;
-
+            cam_error=generateAndEncodeCam();
             if(cam_error == CAM_NO_ERROR)
             {
               m_N_GenCam=0;
               condition_verified=true;
               dyn_cond_verified=true;
-              data_gen_time = "\n[GENERATION_TIME] CAMTimestamp=" + std::to_string(cam_result.generationDeltaTime);
+
             } else {
               std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
             }
@@ -484,7 +478,7 @@ CABasicService::checkCamConditions()
       }
 
       // Create the data for the log print
-      data_pos="[DISTANCE] PrevLat="+doubleToString(m_prev_pos.first)+" PrevLon="+doubleToString(m_prev_pos.second)+" CurrLat="+(currPos.first == -DBL_MAX ? "Unavailable" : doubleToString(currPos.first))+" CurrLon="+(currPos.second == -DBL_MAX ? "Unavailable" : doubleToString(currPos.second))+" PosDiff="+doubleToString(pos_diff)+"\n";
+      data_pos="[DISTANCE] PrevLat="+std::to_string(m_prev_pos.first)+" PrevLon="+std::to_string(m_prev_pos.second)+" CurrLat="+(currPos.first == -DBL_MAX ? "Unavailable" : std::to_string(currPos.first))+" CurrLon="+(currPos.second == -DBL_MAX ? "Unavailable" : std::to_string(currPos.second))+" PosDiff="+std::to_string(pos_diff)+"\n";
       if (m_vdp->getSerialParser() == true) {
           std::pair<double,double> pos_ubx = m_vdp->getParserPositionUbx();
           std::pair<double,double> pos_nmea = m_vdp->getParserPositionNmea();
@@ -499,15 +493,13 @@ CABasicService::checkCamConditions()
       {
         if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
         {
-          auto cam_result = generateAndEncodeCam();
-          cam_error = cam_result.error;
-
+          cam_error=generateAndEncodeCam ();
           if(cam_error==CAM_NO_ERROR)
           {
             m_N_GenCam=0;
             condition_verified=true;
             dyn_cond_verified=true;
-            data_gen_time = "\n[GENERATION_TIME] CAMTimestamp=" + std::to_string(cam_result.generationDeltaTime);
+
           } else {
             std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
           }
@@ -540,14 +532,13 @@ CABasicService::checkCamConditions()
         {
           if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
           {
-            auto cam_result = generateAndEncodeCam();
-            cam_error = cam_result.error;
+            cam_error=generateAndEncodeCam();
             if(cam_error==CAM_NO_ERROR)
             {
               m_N_GenCam=0;
               condition_verified=true;
               dyn_cond_verified=true;
-              data_gen_time = "\n[GENERATION_TIME] CAMTimestamp=" + std::to_string(cam_result.generationDeltaTime);
+
             } else {
               std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
             }
@@ -582,8 +573,7 @@ CABasicService::checkCamConditions()
       {
         if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
         {
-          auto cam_result = generateAndEncodeCam();
-          cam_error = cam_result.error;
+          cam_error=generateAndEncodeCam();
           if(cam_error==CAM_NO_ERROR)
           {
 
@@ -599,8 +589,6 @@ CABasicService::checkCamConditions()
                 dyn_cond_verified=false;
               }
             }
-
-            data_gen_time = "\n[GENERATION_TIME] CAMTimestamp=" + std::to_string(cam_result.generationDeltaTime);
           } else {
             std::cerr << "Cannot generate CAM. Error code: " << std::to_string(cam_error) << std::endl;
           }
@@ -691,13 +679,13 @@ CABasicService::checkCamConditions()
         // Create the data for the log print
         data+="[LOG] Timestamp="+std::to_string(time)+" CAMSend="+sent+" Motivation="+motivation+" HeadDiff="+std::to_string(head_diff)+" PosDiff="+std::to_string(pos_diff)+" SpeedDiff="+std::to_string(speed_diff)+" TimeDiff="+std::to_string(time_difference)+"\n";
         data=data+data_head+data_pos+data_speed+data_time;
-        if (m_vdp->getSerialParser() == false) data = data + data_gen_time + "\n";
+        if (m_vdp->getSerialParser() == false) data = data + "\n";
         else {
             parser_log_data = parser_log_data + data_fix + data_cog_ubx + data_cog_nmea
                     + data_lat_ubx + data_lon_ubx + data_lat_nmea + data_lon_nmea
                     + data_sog_ubx + data_sog_nmea + data_accs + data_att + data_longit_acc
                     + data_yaw_rate;
-            data = data + parser_log_data + data_gen_time + "\n\n";
+            data = data + parser_log_data + "\n\n";
         }
 
         // Print the data for the log
@@ -732,23 +720,21 @@ CABasicService::checkCamConditions()
 } // End of the checkCamConditions function
 
 // Function to generate, encode and send the CAM
-CAMGeneration_return_t
+CABasicService_error_t
 CABasicService::generateAndEncodeCam()
 {
   // Debug print: leave commented when releasing for testing or using for a use case
   //int64_t before=get_timestamp_us();
 
-  CAMGeneration_return_t retval;
-  retval.error = CAM_NO_ERROR;
-
   VDPGPSClient::CAM_mandatory_data_t cam_mandatory_data;
+  CABasicService_error_t errval=CAM_NO_ERROR;
 
   int64_t now;
 
   auto cam = asn1cpp::makeSeq(CAM);
 
-  // Function for filling the CAM fields
-    retval.error=fillInCam(cam,cam_mandatory_data);
+  // Macro call for filling the CAM fields
+  errval=fillInCam(cam,cam_mandatory_data);
 
     /* CAM print
      * Unused - kept here just for future reference (this comment will be removed in the final deployed version)
@@ -764,8 +750,6 @@ CABasicService::generateAndEncodeCam()
     }
     */
 
-    retval.generationDeltaTime=asn1cpp::getField(cam->cam.generationDeltaTime,int);
-
     // Encode and send the CAM
     std::string encode_result = asn1cpp::uper::encode(cam);
     /* In case of an encoding error, print some basic data which we just tried to encode into a CAM. This may help debugging the encoding issue */ \
@@ -778,8 +762,7 @@ CABasicService::generateAndEncodeCam()
           << " Speed: " << cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue
           << " Altitude: " << cam->cam.camParameters.basicContainer.referencePosition.altitude.altitudeValue
           << std::endl;
-        retval.error = CAM_ASN1_UPER_ENC_ERROR;
-        return retval;
+        return CAM_ASN1_UPER_ENC_ERROR;
     }
     
     /* Initialize parameters */
@@ -798,13 +781,11 @@ CABasicService::generateAndEncodeCam()
     /* Create the packet and the BTP header */
     packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size()));
     dataRequest.data = pktbuf;
-    std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_cam);
-    GNDataConfirm_t dataConfirm = std::get<0>(status);
-    MessageId_t message_id = std::get<1>(status);
+    GNDataConfirm_t dataConfirm = m_btp->sendBTP(dataRequest);
     /* Update the CAM statistics */
     if(m_met_sup_ptr!=nullptr && dataConfirm == ACCEPTED) {
-      if (message_id == MessageId_cam) m_cam_sent++;
-      m_met_sup_ptr->signalSentPacket(message_id);
+        m_cam_sent++;
+        m_met_sup_ptr->signalSentPacket(MessageId_cam);
     }
 
     /* Store the time in which the last CAM (i.e. this one) has been generated and successfully sent */
@@ -819,7 +800,7 @@ CABasicService::generateAndEncodeCam()
     /* Save the time of the CAM sent */
     lastCamGen = now;
 
-    return retval;
+    return errval;
 }
 
 uint64_t

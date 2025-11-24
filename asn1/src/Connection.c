@@ -20,7 +20,7 @@ asn_TYPE_member_t asn_MBR_Connection_1[] = {
 	{ ATF_POINTER, 4, offsetof(struct Connection, remoteIntersection),
 		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_IntersectionReferenceId,
+		&asn_DEF_IntersectionReferenceID,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -89,3 +89,4 @@ asn_TYPE_descriptor_t asn_DEF_Connection = {
 	5,	/* Elements count */
 	&asn_SPC_Connection_specs_1	/* Additional specs */
 };
+

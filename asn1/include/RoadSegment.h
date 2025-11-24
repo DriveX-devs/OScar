@@ -33,7 +33,7 @@ struct RegionalExtension;
 /* RoadSegment */
 typedef struct RoadSegment {
 	DescriptiveName_t	*name	/* OPTIONAL */;
-	RoadSegmentReferenceId_t	 id;
+	RoadSegmentReferenceID_t	 id;
 	MsgCount_t	 revision;
 	Position3D_t	 refPoint;
 	LaneWidth_t	*laneWidth	/* OPTIONAL */;

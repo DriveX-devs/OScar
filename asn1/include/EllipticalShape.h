@@ -13,7 +13,7 @@
 
 /* Including external dependencies */
 #include "StandardLength12b.h"
-#include "WGS84AngleValue.h"
+#include "Wgs84AngleValue.h"
 #include "constr_SEQUENCE.h"
 
 #ifdef __cplusplus

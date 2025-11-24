@@ -55,16 +55,7 @@ The OScar main help, with all the possibile options, can be displayed with `./OS
 
 OScar can be easily compiled on the same device in which it will be run using `make`.
 
-Before building, make sure the following development packages are installed:
-- `libgps-dev`
-- `libssl-dev`
-- `libnl-3-dev`
-- `libnl-genl-3-dev`
-
-On Debian/Ubuntu based systems you can install them with:
-```
-sudo apt-get install libgps-dev libssl-dev libnl-3-dev libnl-genl-3-dev
-```
+As the only pre-requisite, `libgps-dev` must be installed and available.
 
 To download and build the latest version of OScar, first, clone this repository:
 ```

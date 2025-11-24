@@ -99,7 +99,7 @@ asn_TYPE_member_t asn_MBR_IntersectionGeometry_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct IntersectionGeometry, id),
 		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_IntersectionReferenceId,
+		&asn_DEF_IntersectionReferenceID,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -208,3 +208,4 @@ asn_TYPE_descriptor_t asn_DEF_IntersectionGeometry = {
 	9,	/* Elements count */
 	&asn_SPC_IntersectionGeometry_specs_1	/* Additional specs */
 };
+

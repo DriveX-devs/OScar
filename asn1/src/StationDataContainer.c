@@ -40,7 +40,7 @@ asn_TYPE_member_t asn_MBR_StationDataContainer_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct StationDataContainer, choice.originatingRSUContainer),
 		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		+1,	/* EXPLICIT tag at current level */
-		&asn_DEF_OriginatingRsuContainer,
+		&asn_DEF_OriginatingRSUContainer,
 		0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -90,3 +90,4 @@ asn_TYPE_descriptor_t asn_DEF_StationDataContainer = {
 	2,	/* Elements count */
 	&asn_SPC_StationDataContainer_specs_1	/* Additional specs */
 };
+

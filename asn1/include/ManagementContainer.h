@@ -29,7 +29,7 @@ extern "C" {
 
 /* ManagementContainer */
 typedef struct ManagementContainer {
-	ActionId_t	 actionID;
+	ActionID_t	 actionID;
 	TimestampIts_t	 detectionTime;
 	TimestampIts_t	 referenceTime;
 	Termination_t	*termination	/* OPTIONAL */;

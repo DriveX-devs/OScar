@@ -16,8 +16,7 @@
 #include "commonHeader.h"
 #include "shbHeader.h"
 #include "gbcHeader.h"
-#include "DCC.h"
-#include "ATManager.h"
+#include "GateKeeper.h"
 
 
 
@@ -35,7 +34,7 @@ class GeoNet {
 		void setVDP(VDPGPSClient* vdp);
 		void setVRUdp(VDPGPSClient* vrudp);
 		void setSocketTx(int socket_tx_descr,int ifindex,uint8_t srcmac[6]);
-		std::tuple<GNDataConfirm_t, MessageId_t> sendGN(GNDataRequest_t dataRequest, int priority, MessageId_t message_id);
+		GNDataConfirm_t sendGN(GNDataRequest_t dataRequest);
 		
 		gnError_e decodeGN(unsigned char * packet, GNDataIndication_t* dataIndication);
 
@@ -44,12 +43,7 @@ class GeoNet {
 		int openUDPsocket(std::string udp_sock_addr,std::string interface_ip,bool extra_position_udp=false);
 		void closeUDPsocket();
         void setSecurity(bool security){enableSecurity = security;  m_security = Security();}
-        void setMessageType(int type){m_messageType = type; m_security.setMessageType(type);}
-				void setATmanager(ATManager *atm){m_atmanager = atm;};
-
-
-		void setDCC(DCC *dcc) {m_dcc = dcc;}
-		void attachDCC();
+		void setGateKeeper(GateKeeper *gk) {m_gate_keeper = gk;}
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;
@@ -73,12 +67,8 @@ class GeoNet {
 		int m_socket_tx=-1;
 
         Security m_security;
-		ATManager *m_atmanager;
-
         bool enableSecurity;
 		bool isCertificate;
-		int m_messageType;
-
 
         FILE* f_out = nullptr; // Log file pointer
         std::string m_log_filename2 = "dis";
@@ -141,7 +131,7 @@ class GeoNet {
 		// latitude (32 bits) and longitude (32 bits) of the vehicle, as degrees*1e7 and in network byte order
 		bool m_extra_position_udp = false;
 
-		DCC *m_dcc = nullptr;
+		GateKeeper *m_gate_keeper = nullptr;
 		// CBRReader m_cbr_reader;
 };
 

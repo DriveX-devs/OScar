@@ -166,7 +166,6 @@ private:
     MetricSupervisor *m_met_sup_ptr = nullptr;
 
     long m_T_next_dcc = -1;
-    uint8_t m_priority = 0;
 };
 
 #endif /* VRUBasicService_h */

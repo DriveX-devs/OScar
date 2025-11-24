@@ -11,7 +11,7 @@
 #include "asn_application.h"
 
 /* Including external dependencies */
-#include "WGS84AngleValue.h"
+#include "Wgs84AngleValue.h"
 #include "Wgs84AngleConfidence.h"
 #include "constr_SEQUENCE.h"
 

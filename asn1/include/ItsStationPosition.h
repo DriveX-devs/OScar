@@ -26,7 +26,7 @@ struct NodeOffsetPointXY;
 
 /* ItsStationPosition */
 typedef struct ItsStationPosition {
-	StationId_t	 stationID;
+	StationID_t	 stationID;
 	LaneID_t	*laneID	/* OPTIONAL */;
 	struct NodeOffsetPointXY	*nodeXY	/* OPTIONAL */;
 	TimeReference_t	*timeReference	/* OPTIONAL */;

@@ -99,7 +99,7 @@ asn_TYPE_member_t asn_MBR_RoadSegment_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct RoadSegment, id),
 		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_RoadSegmentReferenceId,
+		&asn_DEF_RoadSegmentReferenceID,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -198,3 +198,4 @@ asn_TYPE_descriptor_t asn_DEF_RoadSegment = {
 	8,	/* Elements count */
 	&asn_SPC_RoadSegment_specs_1	/* Additional specs */
 };
+

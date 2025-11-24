@@ -5,7 +5,7 @@
  * 	`asn1c -fcompound-names -fincludes-quoted -no-gen-example`
  */
 
-#include "WGS84AngleValue.h"
+#include "Wgs84AngleValue.h"
 
 int
 Wgs84AngleValue_constraint(const asn_TYPE_descriptor_t *td, const void *sptr,
@@ -73,3 +73,4 @@ asn_TYPE_descriptor_t asn_DEF_Wgs84AngleValue = {
 	0, 0,	/* Defined elsewhere */
 	0	/* No specifics */
 };
+

@@ -19,7 +19,7 @@ asn_TYPE_member_t asn_MBR_ConnectedDenms_1[] = {
 	{ ATF_POINTER, 0, 0,
 		(ASN_TAG_CLASS_UNIVERSAL | (16 << 2)),
 		0,
-		&asn_DEF_ActionId,
+		&asn_DEF_ActionID,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -49,3 +49,4 @@ asn_TYPE_descriptor_t asn_DEF_ConnectedDenms = {
 	1,	/* Single element */
 	&asn_SPC_ConnectedDenms_specs_1	/* Additional specs */
 };
+

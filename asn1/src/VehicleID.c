@@ -28,7 +28,7 @@ asn_TYPE_member_t asn_MBR_VehicleID_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct VehicleID, choice.stationID),
 		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_StationId,
+		&asn_DEF_StationID,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -62,3 +62,4 @@ asn_TYPE_descriptor_t asn_DEF_VehicleID = {
 	2,	/* Elements count */
 	&asn_SPC_VehicleID_specs_1	/* Additional specs */
 };
+

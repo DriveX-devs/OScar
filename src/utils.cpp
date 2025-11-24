@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <cmath>
 #include <cstdarg>
+#include <cfloat>
 #include <vehicleDataDef.h>
 #include <cstring>
 #include <netlink/netlink.h>
@@ -10,10 +11,11 @@
 #include <linux/nl80211.h>
 #include <iostream>
 #include <net/if.h>
+#include <errno.h>
+#include <netlink/genl/family.h>
 #include <netlink/msg.h>
 #include <netlink/attr.h>
-#include <sstream>
-#include <iomanip>
+#include <linux/nl80211.h>
 
 // Epoch time at 2004-01-01 (in ms)
 #define TIME_SHIFT_MILLI 1072915200000
@@ -600,11 +602,5 @@ uint32_t getTxPower()
 {
     // TODO: enhancement with netlink
     return 24;
-}
-
-std::string doubleToString(double value, int precision) {
-    std::ostringstream oss;
-    oss << std::fixed << std::setprecision(precision) << value;
-    return oss.str();
 }
 

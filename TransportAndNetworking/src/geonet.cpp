@@ -161,8 +161,8 @@ bool GeoNet::decodeLT (uint8_t lifeTime, double*seconds)
         return true;
 }
 
-std::tuple<GNDataConfirm_t, MessageId_t>
-GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_id) {
+GNDataConfirm_t
+GeoNet::sendGN (GNDataRequest_t dataRequest) {
 	GNDataConfirm_t dataConfirm = ACCEPTED;
 	basicHeader basicHeader;
 	commonHeader commonHeader;
@@ -179,20 +179,20 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		)
 	) {
 		std::cerr << "GeoNetworking error: either no socket, no interface index or no source MAC address are available. Initialize them first before calling sendGN()!" << std::endl;
-		return std::tuple<GNDataConfirm_t, MessageId_t>(UNSPECIFIED_ERROR, message_id);
+		return UNSPECIFIED_ERROR;
 	}
 
 	if(m_stationtype==StationType_roadSideUnit && m_RSU_epv_set==false)	{
 		std::cerr << "GeoNetworking error: no position has been set for an RSU object. Please use setFixedPositionRSU() on the Facilities Layer object." << std::endl;
-		return std::tuple<GNDataConfirm_t, MessageId_t>(UNSPECIFIED_ERROR, message_id);
+		return UNSPECIFIED_ERROR;
 	}
 
 	if(dataRequest.lenght > m_GnMaxSduSize) {
-		return std::tuple<GNDataConfirm_t, MessageId_t>(MAX_LENGHT_EXCEEDED, message_id);
+		return MAX_LENGHT_EXCEEDED;
 	} else if(dataRequest.GNMaxLife > m_GNMaxPacketLifetime) {
-		return std::tuple<GNDataConfirm_t, MessageId_t>(MAX_LIFE_EXCEEDED, message_id);
+		return MAX_LIFE_EXCEEDED;
 	} else if(dataRequest.GNRepInt != 0 && dataRequest.GNRepInt < m_GNMinPacketRepetitionInterval) {
-		return std::tuple<GNDataConfirm_t, MessageId_t>(REP_INTERVAL_LOW, message_id);
+		return REP_INTERVAL_LOW;
 	}
 
     //Basic Header field setting according to ETSI EN 302 636-4-1 [10.3.2]
@@ -261,55 +261,24 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		longPV.heading = (uint16_t) m_vdp->getHeadingValueDbl()*DECI;// [degrees] to [0.1 degrees]
 	}
 
-	std::string use_dcc = m_dcc->getModality();
+	bool use_adaptive_dcc = m_gate_keeper->getAdaptiveDCC();
 	struct timespec tv;
 	clock_gettime (CLOCK_MONOTONIC, &tv);
 	int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
 	bool gate_open = false;
-	Packet pkt = {now, basicHeader, commonHeader, longPV, dataRequest, message_id};
-	if (use_dcc != "")
+	if (use_adaptive_dcc)
 	{
-		gate_open = m_dcc->checkGateOpen(now);
+		gate_open = m_gate_keeper->checkGateOpen(now);
 		if (gate_open == false)
 		{
-			// Gate is closed
-			m_dcc->enqueue(priority, pkt);
-			// std::cout << "[ENQUEUE]" << std::endl;
-			return std::tuple<GNDataConfirm_t, MessageId_t>(BLOCKED_BY_GK, message_id);
+			return BLOCKED_BY_GK;
 		}
-		else
-		{
-			// Gate is opened
-			std::tuple<bool, Packet> value = m_dcc->dequeue(priority);
-			if (std::get<0>(value) == true)
-			{
-				// Found a packet in queue with higher priority
-				m_dcc->enqueue(priority, pkt);
-				Packet pkt_to_send = std::get<1>(value);
-				basicHeader = pkt_to_send.bh;
-				commonHeader = pkt_to_send.ch;
-				longPV = pkt_to_send.long_PV;
-				dataRequest = pkt_to_send.dataRequest;
-				message_id = pkt.message_id;
-				// std::cout << "[DEQUEUE]" << std::endl;
-			}
-			else
-			{
-				// std::cout << "[ORIGINAL]" << std::endl;
-			}
-			clock_gettime (CLOCK_MONOTONIC, &tv);
-			now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
-			m_dcc->setLastTx(now);
-		}
-	}
-	else
-	{
-		// std::cout << "[ORIGINAL NO DCC]" << std::endl;
 	}
 
-	if (use_dcc == "adaptive")
+	if (use_adaptive_dcc)
 	{
-		m_dcc->updateTgoAfterTransmission();
+		m_gate_keeper->updateTgoAfterTransmission();
+
 	}
 
 	switch(dataRequest.GNType)
@@ -327,45 +296,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 			dataConfirm = UNSPECIFIED_ERROR;
 	}
 
-	return std::tuple<GNDataConfirm_t, MessageId_t>(dataConfirm, message_id);
-}
-
-void GeoNet::attachDCC()
-{
-	if (m_dcc == nullptr) return;
-    m_dcc->setSendCallback([this](const Packet& pkt) {
-        // replicate the previous sending logic here; GeoNet has access to sendGBC/sendSHB
-        basicHeader bh = pkt.bh;
-        commonHeader ch = pkt.ch;
-        GNlpv_t longPV = pkt.long_PV;
-        GNDataRequest_t dataRequest = pkt.dataRequest;
-        MessageId_t message_id = pkt.message_id;
-
-		GNDataConfirm_t dataConfirm;
-
-		struct timespec tv;
-		clock_gettime (CLOCK_MONOTONIC, &tv);
-		int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
-		m_dcc->setLastTx(now);
-
-        // set last tx etc. is handled by DCC; here we just call the appropriate send
-        switch(dataRequest.GNType)
-        {
-            case GBC:
-                dataConfirm = this->sendGBC(dataRequest, ch, bh, longPV);
-                break;
-            case TSB:
-                if(ch.GetHeaderSubType () == 0) dataConfirm = this->sendSHB(dataRequest, ch, bh, longPV);
-                break;
-            default:
-                std::cerr << "GeoNet: unsupported GNType in DCC callback." << std::endl;
-        }
-
-		if (dataConfirm == ACCEPTED)
-		{
-			m_dcc->metricSupervisorSignalSentPacket(message_id);
-		}
-    });
+	return dataConfirm;
 }
 
 gnError_e
@@ -476,7 +407,6 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	//c) SHB extended header
 	header.SetLongPositionV (longPV);
 
-	/*
 	uint32_t tx_power = getTxPower();
 	header.SetOutputPower(static_cast<uint8_t>(tx_power));
 
@@ -487,7 +417,6 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 
 	// TODO check the meaning of this parameter
 	header.SetMaxNeighbouringCBR((uint8_t) 0);
-	*/
 	
 	// Serialize the headers
 	packetBuffer shbHeaderSerialized;
@@ -515,7 +444,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
         if (f_out != nullptr) {
             fprintf(f_out, "[ENCODE] Start time: %ld us, ", start_us);
         }
-		m_security.setATmanager(m_atmanager);
+
         dataRequest = m_security.createSecurePacket (dataRequest, isCertificate);
 
         long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
@@ -615,7 +544,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	}
 
 	size_t pktSize = finalPktSize - sizeof(struct ether_header) + IEEE80211_DATA_PKT_HDR_LEN + IEEE80211_FCS_LEN + 8; // 8 = bytes layer LLC
-	if (m_dcc != nullptr) m_dcc->updateTonpp(pktSize);
+	m_gate_keeper->updateTonpp(pktSize);
 
 	delete []finalPktBuffer;
 
@@ -724,7 +653,7 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 	}
 
 	size_t pktSize = finalPktSize - sizeof(struct ether_header) + IEEE80211_DATA_PKT_HDR_LEN + IEEE80211_FCS_LEN + 8; // 8 = bytes layer LLC
-	m_dcc->updateTonpp(pktSize);
+	m_gate_keeper->updateTonpp(pktSize);
 
 	delete []finalPktBuffer;
 

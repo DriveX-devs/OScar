@@ -59,7 +59,7 @@ extern struct asn_TYPE_descriptor_s asn_DEF_VruMovementControl;
 extern struct asn_TYPE_descriptor_s asn_DEF_VruSizeClass;
 extern struct asn_TYPE_descriptor_s asn_DEF_WheelBaseVehicle;
 extern struct asn_TYPE_descriptor_s asn_DEF_AccelerationChangeIndication;
-extern struct asn_TYPE_descriptor_s asn_DEF_ActionId;
+extern struct asn_TYPE_descriptor_s asn_DEF_ActionID;
 extern struct asn_TYPE_descriptor_s asn_DEF_ActionIdList;
 extern struct asn_TYPE_descriptor_s asn_DEF_BasicContainer;
 extern struct asn_TYPE_descriptor_s asn_DEF_CartesianAngularAccelerationComponent;
@@ -161,7 +161,7 @@ struct asn_TYPE_descriptor_s *asn_pdu_collection[] = {
 	&asn_DEF_VruSizeClass,	
 	&asn_DEF_WheelBaseVehicle,	
 	&asn_DEF_AccelerationChangeIndication,	
-	&asn_DEF_ActionId,	
+	&asn_DEF_ActionID,	
 	&asn_DEF_ActionIdList,	
 	&asn_DEF_BasicContainer,	
 	&asn_DEF_CartesianAngularAccelerationComponent,	
@@ -206,3 +206,4 @@ struct asn_TYPE_descriptor_s *asn_pdu_collection[] = {
 	&asn_DEF_EXTERNAL,	
 	0
 };
+

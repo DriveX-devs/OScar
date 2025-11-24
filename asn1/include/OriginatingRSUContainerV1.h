@@ -33,8 +33,8 @@ typedef enum OriginatingRSUContainerV1_PR {
 typedef struct OriginatingRSUContainerV1 {
 	OriginatingRSUContainerV1_PR present;
 	union OriginatingRSUContainerV1_u {
-		IntersectionReferenceId_t	 intersectionReferenceId;
-		RoadSegmentReferenceId_t	 roadSegmentReferenceId;
+		IntersectionReferenceID_t	 intersectionReferenceId;
+		RoadSegmentReferenceID_t	 roadSegmentReferenceId;
 		/*
 		 * This type is extensible,
 		 * possible extensions are below.

@@ -24,11 +24,6 @@ typedef enum {
   CAM_CANNOT_SEND=5
 } CABasicService_error_t;
 
-typedef struct CAMGenerationResult {
-    CABasicService_error_t error;
-    int generationDeltaTime;
-} CAMGeneration_return_t;
-
 
 // TODO: important future work: implement terminateDissemination(), which should also close m_edcp_sock if needed
 class CABasicService
@@ -93,7 +88,7 @@ private:
   void RSUDissemination();
   void checkCamConditions();
   // Main function to generate and send a new CAM
-  CAMGeneration_return_t generateAndEncodeCam();
+  CABasicService_error_t generateAndEncodeCam();
   int64_t computeTimestampUInt64();
 
   CABasicService_error_t fillInCam(asn1cpp::Seq<CAM> &msgstruct, VDPGPSClient::CAM_mandatory_data_t &cam_mandatory_data);
@@ -155,7 +150,6 @@ private:
   MetricSupervisor *m_met_sup_ptr = nullptr;
 
   long m_T_next_dcc = -1;
-  uint8_t m_priority = 0;
 };
 
 #endif // CABASICSERVICE_H

@@ -43,9 +43,6 @@ OBJ_INI_DIR=obj/iniReader
 SRC_INICLIB_DIR=iniLibraryC
 OBJ_INICLIB_DIR=obj/iniLibraryC
 
-SRC_PKIREQRES_DIR=pkiReqRes
-OBJ_PKIREQRES_DIR=obj/pkiReqRes
-
 SRC=$(wildcard $(SRC_DIR)/*.cpp)
 SRC_GEOLIB_PORT=$(wildcard $(SRC_GEOLIB_PORT_DIR)/*.c)
 SRC_VEHVIS=$(wildcard $(SRC_VEHVIS_DIR)/*.cc)
@@ -57,7 +54,6 @@ SRC_ASN1CPP=$(wildcard $(SRC_ASN1CPP_DIR)/*.cpp)
 SRC_CESERIAL=$(wildcard $(SRC_CESERIAL_DIR)/*.cpp)
 SRC_INI=$(wildcard $(SRC_INI_DIR)/*.cpp)
 SRC_INICLIB=$(wildcard $(SRC_INICLIB_DIR)/*.c)
-SRC_PKIREQRES=$(wildcard $(SRC_PKIREQRES_DIR)/*.cpp)
 
 OBJ=$(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 OBJ_GEOLIB_PORT=$(SRC_GEOLIB_PORT:$(SRC_GEOLIB_PORT_DIR)/%.c=$(OBJ_GEOLIB_PORT_DIR)/%.o)
@@ -70,7 +66,6 @@ OBJ_ASN1CPP=$(SRC_ASN1CPP:$(SRC_ASN1CPP_DIR)/%.cpp=$(OBJ_ASN1CPP_DIR)/%.o)
 OBJ_CESERIAL=$(SRC_CESERIAL:$(SRC_CESERIAL_DIR)/%.cpp=$(OBJ_CESERIAL_DIR)/%.o)
 OBJ_INI=$(SRC_INI:$(SRC_INI_DIR)/%.cpp=$(OBJ_INI_DIR)/%.o)
 OBJ_INICLIB=$(SRC_INICLIB:$(SRC_INICLIB_DIR)/%.c=$(OBJ_INICLIB_DIR)/%.o)
-OBJ_PKIREQRES=$(SRC_PKIREQRES:$(SRC_PKIREQRES_DIR)/%.cpp=$(OBJ_PKIREQRES_DIR)/%.o)
 
 OBJ_CC=$(OBJ)
 OBJ_CC+=$(OBJ_GEOLIB_PORT)
@@ -82,10 +77,9 @@ OBJ_CC+=$(OBJ_ASN1CPP)
 OBJ_CC+=$(OBJ_CESERIAL)
 OBJ_CC+=$(OBJ_INI)
 OBJ_CC+=$(OBJ_INICLIB)
-OBJ_CC+=$(OBJ_PKIREQRES)
 
-CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial -I/usr/include/openssl -I/usr/include/libnl3 -IiniReader -IiniLibraryC -IpkiReqRes -IhttpRest
-CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include -Igeographiclib-port -I/usr/include/openssl -IpkiReqRes -IhttpRest
+CXXFLAGS += -Wall -O3 -Iinclude -std=c++17 -Ivehicle-visualizer/include -Igeographiclib-port -Iasn1/include -I. -ITransportAndNetworking/include -Ijson11 -Iasn1cpp -IceSerial -I/usr/include/openssl -I/usr/include/libnl3 -IiniReader -IiniLibraryC
+CFLAGS += -Wall -O3 -Iinclude -Ioptions -Iasn1/include -Igeographiclib-port -I/usr/include/openssl
 LDLIBS += -lpthread -lm -lgps -latomic -lssl -lcrypto -lnl-3 -lnl-genl-3
 
 .PHONY: all clean
@@ -156,10 +150,6 @@ $(OBJ_INI_DIR)/%.o: $(SRC_INI_DIR)/%.cpp
 $(OBJ_INICLIB_DIR)/%.o: $(SRC_INICLIB_DIR)/%.c
 	@ mkdir -p $(OBJ_INICLIB_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ_PKIREQRES_DIR)/%.o: $(SRC_PKIREQRES_DIR)/%.cpp
-	@ mkdir -p $(OBJ_PKIREQRES_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	$(RM) $(OBJ_DIR)/*.o $(OBJ_ASN1_DIR)/*.o
