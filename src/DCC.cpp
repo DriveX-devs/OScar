@@ -28,6 +28,22 @@ DCC::~DCC()
     }
 }
 
+void DCC::setCBRG(double cbr_g)
+{
+    m_cbr_g_mutex.lock();
+    m_CBR_G[1] = m_CBR_G[0];
+    m_CBR_G[0] = cbr_g;
+    m_cbr_g_mutex.unlock();
+}
+
+void DCC::setNewCBRL0Hop(double cbr)
+{
+    m_cbr_g_mutex.lock();
+    m_CBR_L0_Hop[1] = m_CBR_L0_Hop[0];
+    m_CBR_L0_Hop[0] = cbr;
+    m_cbr_g_mutex.unlock();
+}
+
 std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters>
 DCC::getConfiguration(double Ton, double currentCBR)
 {
@@ -98,6 +114,28 @@ void DCC::startDCC()
   {
     m_check_queue_thread = std::thread(&DCC::checkQueue, this);
   }
+  m_cbr_g_thread = std::thread(&DCC::DCCcheckCBRG, this);
+}
+
+void DCC::DCCcheckCBRG()
+{
+    bool retry_flag = true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(m_T_DCC_NET_Trig));
+    do
+    {
+        try
+        {
+            m_cbr_g_callback();
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_T_DCC_NET_Trig));
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << "Error in managing DCC: " << e.what() << std::endl;
+            sleep(2);
+            retry_flag = false;
+        }
+    }
+    while(retry_flag);
 }
 
 void DCC::functionReactive()
@@ -115,8 +153,23 @@ void DCC::functionReactive()
     {
         try
         {
+            double currentCbr;
+            m_read_cbr_mutex.lock();
             m_main_cbr_reader.wrapper_start_reading_cbr();
-            double currentCbr = m_main_cbr_reader.get_current_cbr();
+            m_current_cbr = m_main_cbr_reader.get_current_cbr();
+            m_read_cbr_mutex.unlock();
+            setNewCBRL0Hop(m_current_cbr);
+            m_cbr_g_mutex.lock();
+            if (m_CBR_G[0] == -1 && m_CBR_G[1] == -1)
+            {
+               currentCbr = m_current_cbr;
+            }
+            else
+            {
+                currentCbr = 0.5 * (m_CBR_G[0] + m_CBR_G[1]);
+            }
+            m_cbr_g_mutex.unlock();
+
             if (currentCbr != -1.0f)
             {
                 float Ton = getTonpp(); // Milliseconds
@@ -175,11 +228,12 @@ void DCC::adaptiveDCCCheckCBR()
     {
         try
         {
-            m_cbr_mutex.lock();
+            m_read_cbr_mutex.lock();
             m_second_cbr_reader.wrapper_start_reading_cbr();
-            m_previous_cbr = m_second_cbr_reader.get_current_cbr();
-            if (m_previous_cbr == -1) m_previous_cbr = 0;
-            m_cbr_mutex.unlock();
+            double previous_cbr = m_second_cbr_reader.get_current_cbr();
+            m_read_cbr_mutex.unlock();
+            if (previous_cbr == -1) previous_cbr = 0;
+            setNewCBRL0Hop (previous_cbr);
             std::this_thread::sleep_for(std::chrono::milliseconds(m_T_CBR));
         }
         catch(const std::exception& e)
@@ -191,6 +245,7 @@ void DCC::adaptiveDCCCheckCBR()
     }
     while(retry_flag);
 }
+
 
 void DCC::functionAdaptive()
 {
@@ -206,21 +261,37 @@ void DCC::functionAdaptive()
     {
         try
         {
-            m_cbr_mutex.lock();
+            m_read_cbr_mutex.lock();
             m_main_cbr_reader.wrapper_start_reading_cbr();
             double currentCbr = m_main_cbr_reader.get_current_cbr();
+            m_read_cbr_mutex.unlock();
             if (currentCbr != -1.0f)
             {
                 // Step 1
-                if (m_CBR_its != -1.0f)
+                m_cbr_g_mutex.lock();
+                if (m_CBR_its != -1)
                 {
-                    m_CBR_its = 0.5 * m_CBR_its + 0.25 * ((currentCbr + m_previous_cbr) / 2);
+                    if (m_CBR_G[0] == -1 && m_CBR_G[1] == -1)
+                    {
+                        m_CBR_its = 0.5 * m_CBR_its + 0.25 * ((m_CBR_L0_Hop[0] + m_CBR_L0_Hop[1]) / 2);
+                    }
+                    else
+                    {
+                        m_CBR_its = 0.5 * m_CBR_its + 0.25 * ((m_CBR_G[0] + m_CBR_G[1]) / 2);
+                    }
                 }
                 else
                 {
-                    m_CBR_its = (0.5 * currentCbr + 0.25 * m_previous_cbr) / 2;
+                    if (m_CBR_G[0] == -1 && m_CBR_G[1] == -1)
+                    {
+                        m_CBR_its = (m_CBR_L0_Hop[0] + m_CBR_L0_Hop[1]) / 2;
+                    }
+                    else
+                    {
+                        m_CBR_its = (m_CBR_G[0] + m_CBR_G[1]) / 2;
+                    }
                 }
-                m_cbr_mutex.unlock();
+                m_cbr_g_mutex.unlock();
                 // Step 2
                 float delta_offset;
                 if ((m_CBR_target - m_CBR_its) > 0)
@@ -269,10 +340,6 @@ void DCC::functionAdaptive()
                     file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << dropped << "\n";
                     file.close();
                 }
-            }
-            else
-            {
-                m_cbr_mutex.unlock();
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(m_dcc_interval));
         }
@@ -627,4 +694,9 @@ void DCC::checkQueue()
 void DCC::setSendCallback(std::function<void(const Packet&)> cb)
 {
     m_send_callback = std::move(cb);
+}
+
+void DCC::setCBRGCallback (std::function<void()> cb)
+{
+    m_cbr_g_callback = std::move(cb);
 }

@@ -30,7 +30,8 @@ GeoNet::MakeManagedconfiguredAddress (uint8_t addr[6], uint8_t ITSType, uint8_t 
 	memcpy(out_addr + 2, addr, 6);
 }
 
-GeoNet::GeoNet() {
+GeoNet::GeoNet()
+{
 	m_socket_tx = -1;
 	m_station_id = ULONG_MAX;
 	m_stationtype = LONG_MAX;
@@ -330,7 +331,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 	return std::tuple<GNDataConfirm_t, MessageId_t>(dataConfirm, message_id);
 }
 
-void GeoNet::attachDCC()
+void GeoNet::attachSendFromDCCQueue()
 {
 	if (m_dcc == nullptr) return;
     m_dcc->setSendCallback([this](const Packet& pkt) {
@@ -737,12 +738,32 @@ GNDataIndication_t*
 GeoNet::processSHB (GNDataIndication_t* dataIndication)
 {
         shbHeader shbH;
-
-        shbH.removeHeader(dataIndication->data);
-        dataIndication->data += 28;
-        dataIndication->SourcePV = shbH.GetLongPositionV ();
+        double cbrr0, cbrr1;
+        if(dataIndication->GNType == BEACON)
+        {
+           // TODO
+        }
+        else
+        {
+            shbH.removeHeader(dataIndication->data);
+            dataIndication->data += 24;
+            dataIndication->SourcePV = shbH.GetLongPositionV ();
+            cbrr0 = shbH.GetCBRR0Hop();
+            cbrr1 = shbH.GetCBRR1Hop();
+        }
+        m_LocT_Mutex.lock ();
+        if (dataIndication->GNType != BEACON)
+        {
+            struct timespec tv;
+            clock_gettime (CLOCK_MONOTONIC, &tv);
+            int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+            uint64_t key;
+            std::memcpy(&key, dataIndication->SourcePV.GnAddress, 8);
+            m_GNLocT[key].cbr_extension.CBR_R0_Hop.push_back (std::make_tuple(now, cbrr0));
+            m_GNLocT[key].cbr_extension.CBR_R1_Hop.push_back (std::make_tuple(now, cbrr1));
+        }
+        m_LocT_Mutex.unlock ();
         dataIndication->GNType = TSB;
-
 
         //7) Pass the payload to the upper protocol entity
         return dataIndication;
@@ -863,4 +884,111 @@ GeoNet::closeUDPsocket() {
 		close(m_udp_sockfd);
 		m_udp_sockfd=-1;
 	}
+}
+
+void GeoNet::attachGlobalCBRCheck ()
+{
+    if (m_dcc == nullptr) return;
+    m_dcc->setCBRGCallback([this](){
+        struct timespec tv;
+        clock_gettime (CLOCK_MONOTONIC, &tv);
+        int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+        double mean_cbr_r0_hop = 0.0;
+        long tot_r0 = 0;
+        double max_cbr_r0, second_max_cbr_r0 = 0.0;
+        double mean_cbr_r1_hop = 0.0;
+        long tot_r1 = 0;
+        double max_cbr_r1, second_max_cbr_r1 = 0.0;
+        m_LocT_Mutex.lock ();
+        for(auto it = m_GNLocT.begin(); it != m_GNLocT.end(); ++it)
+        {
+            auto cbr_data = it->second.cbr_extension;
+            // Clean old data
+            size_t counter = 0;
+            std::vector<size_t> to_delete;
+            for (auto it2 = cbr_data.CBR_R0_Hop.begin(); it2 != cbr_data.CBR_R0_Hop.end(); ++it2)
+            {
+                if(now - m_GNLocTTimerCBR_ms > std::get<0>(*it2)) to_delete.push_back (counter);
+                counter ++;
+            }
+            std::sort(to_delete.begin(), to_delete.end(), std::greater<size_t>());
+            for (size_t idx : to_delete) {
+                if (idx < cbr_data.CBR_R0_Hop.size()) {
+                    cbr_data.CBR_R0_Hop.erase(cbr_data.CBR_R0_Hop.begin() + idx);
+                }
+            }
+
+            counter = 0;
+            to_delete.clear();
+            for (auto it2 = cbr_data.CBR_R1_Hop.begin(); it2 != cbr_data.CBR_R1_Hop.end(); ++it2)
+            {
+                if(now - m_GNLocTTimerCBR_ms > std::get<0>(*it2)) to_delete.push_back (counter);
+                counter ++;
+            }
+            std::sort(to_delete.begin(), to_delete.end(), std::greater<size_t>());
+            for (size_t idx : to_delete) {
+                if (idx < cbr_data.CBR_R1_Hop.size()) {
+                    cbr_data.CBR_R1_Hop.erase(cbr_data.CBR_R1_Hop.begin() + idx);
+                }
+            }
+
+            for (auto it2 = cbr_data.CBR_R0_Hop.begin(); it2 != cbr_data.CBR_R0_Hop.end(); ++it2)
+            {
+                double val = std::get<1>(*it2);
+                mean_cbr_r0_hop += val;
+
+                if (val > max_cbr_r0)
+                {
+                    second_max_cbr_r0 = max_cbr_r0;
+                    max_cbr_r0 = val;
+                }
+                else if (val < max_cbr_r0 && val > second_max_cbr_r0)
+                {
+                    second_max_cbr_r0 = val;
+                }
+            }
+            tot_r0 += cbr_data.CBR_R0_Hop.size();
+
+            for (auto it2 = cbr_data.CBR_R1_Hop.begin(); it2 != cbr_data.CBR_R1_Hop.end(); ++it2)
+            {
+                double val = std::get<1>(*it2);
+                mean_cbr_r1_hop += val;
+
+                if (val > max_cbr_r1)
+                {
+                    second_max_cbr_r1 = max_cbr_r1;
+                    max_cbr_r1 = val;
+                }
+                else if (val < max_cbr_r1 && val > second_max_cbr_r1)
+                {
+                    second_max_cbr_r1 = val;
+                }
+            }
+            tot_r1 += cbr_data.CBR_R1_Hop.size();
+        }
+        m_LocT_Mutex.unlock ();
+        mean_cbr_r0_hop /= tot_r0;
+        mean_cbr_r1_hop /= tot_r1;
+        double CBR_L1_Hop, CBR_L2_Hop;
+        if (mean_cbr_r0_hop > m_dcc->getCBRTarget())
+        {
+            CBR_L1_Hop = max_cbr_r0;
+        }
+        else
+        {
+            CBR_L1_Hop = second_max_cbr_r0;
+        }
+        if (mean_cbr_r1_hop > m_dcc->getCBRTarget())
+        {
+            CBR_L2_Hop = max_cbr_r1;
+        }
+        else
+        {
+            CBR_L2_Hop = second_max_cbr_r1;
+        }
+        double CBR_G = std::max(m_dcc->getCBRL0Prev(), CBR_L1_Hop);
+        CBR_G = std::max(CBR_G, CBR_L2_Hop);
+        m_dcc->setCBRG(CBR_G);
+        m_dcc->setCBRR1(CBR_L1_Hop);
+    });
 }

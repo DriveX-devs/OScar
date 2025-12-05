@@ -25,6 +25,40 @@
 
 class GeoNet {
 	public:
+
+        typedef struct LocationTableExtension{
+            std::vector<std::tuple<int64_t , double>> CBR_R0_Hop;
+            std::vector<std::tuple<int64_t , double>> CBR_R1_Hop;
+        } LocationTableExtension;
+
+        typedef struct _LocTableEntry {
+            /**
+            *   ETSI EN 302 636-4-1 [8.1.2]
+            */
+            char GN_ADDR [8];
+            char LL_ADDR [6];
+            uint8_t type;
+            uint8_t version;
+            GNlpv_t lpv; //! long position vector
+            bool LS_PENDING;
+            bool IS_NEIGHBOUR;
+            std::set<uint16_t> DPL; //! Duplicate packet list
+            long timestamp;
+            uint32_t PDR;
+            LocationTableExtension cbr_extension;
+        } GNLocTE;
+
+        typedef struct _egoPositionVector {
+            /**
+            *   ETSI EN 302 636-4-1 [8.2.2]
+            */
+            VDPGPSClient::VRU_position_latlon POS_EPV;
+            double S_EPV;
+            double H_EPV;
+            long TST_EPV;
+            uint32_t PAI_EPV;
+        }GNegoPV;
+
 		GeoNet();
 
 		~GeoNet();
@@ -48,8 +82,9 @@ class GeoNet {
 				void setATmanager(ATManager *atm){m_atmanager = atm;};
 
 
-		void setDCC(DCC *dcc) {m_dcc = dcc;}
-		void attachDCC();
+		void setDCC(DCC *dcc) {m_dcc = dcc; attachSendFromDCCQueue(); attachGlobalCBRCheck();}
+        void attachSendFromDCCQueue();
+        void attachGlobalCBRCheck();
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;
@@ -143,6 +178,10 @@ class GeoNet {
 
 		DCC *m_dcc = nullptr;
 		// CBRReader m_cbr_reader;
+        int64_t m_GNLocTTimerCBR_ms = 1000;
+
+        std::mutex m_LocT_Mutex;
+        std::map<uint64_t , GNLocTE> m_GNLocT;
 };
 
 #endif // OCABS_GEONET_H

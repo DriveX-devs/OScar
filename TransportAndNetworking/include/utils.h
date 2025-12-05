@@ -159,6 +159,12 @@ typedef struct _gndataRequest {
 	packetBuffer data; // Payload
 } GNDataRequest_t;
 
+inline uint16_t swap_8bit(uint8_t us)
+{
+    return (uint8_t)(((us & 0xFF) >> 4) |
+                      ((us & 0xFF) << 4));
+}
+
 inline uint16_t swap_16bit(uint16_t us)
 {
     return (uint16_t)(((us & 0xFF00) >> 8) |

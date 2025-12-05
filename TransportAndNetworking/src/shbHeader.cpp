@@ -34,14 +34,30 @@ shbHeader::serializeInto(packetBuffer &packet) {
 	packet.addHtonU32(m_sourcePV.longitude);
 	packet.addHtonU16(pai_speed);
 	packet.addHtonU16(m_sourcePV.heading);
-	//Reserved
-	/*
-	packet.addU8(m_local_CBR);
-	packet.addU8(m_max_CBR_neighbouring);
-	packet.addU8(m_tx_power_reserved);
-	packet.addU8(m_reserved);
-	*/
-	packet.addHtonU32(0x00000000);
+    if (m_dcc == nullptr)
+    {
+        //Reserved
+        packet.addHtonU32(0x00000000);
+    }
+    else
+    {
+        double cbr0 = m_dcc->getCBRR0();
+        if (cbr0 < 0.0f) cbr0 = 0.0f;
+        if (cbr0 > 1.0f) cbr0 = 1.0f;
+        uint8_t cbr0_enc = static_cast<uint8_t>(std::floor(cbr0 * 255.0f));
+        double cbr1 = m_dcc->getCBRR1();
+        uint8_t cbr1_enc = static_cast<uint8_t>(std::floor(cbr1 * 255.0f));
+        int tp = 0;
+        tp = getTxPower(); // 0..31
+        if (tp < 0)  tp = 0;
+        if (tp > 31) tp = 31;
+        uint8_t txp_byte = static_cast<uint8_t>(tp & 0x1F); // bits 0–4
+        uint8_t reserved = 0;
+        packet.addU8(cbr0_enc);  // Octet 40
+        packet.addU8(cbr1_enc);  // Octet 41
+        packet.addU8(txp_byte);  // Octet 42
+        packet.addU8(reserved);  // Octet 43
+    }
 }
 
 void 
@@ -159,4 +175,18 @@ void shbHeader::removeHeader(unsigned char *buffer) {
         memcpy(&m_sourcePV.heading, buffer, sizeof(uint16_t));
         buffer += 2;
         m_sourcePV.heading = swap_16bit(m_sourcePV.heading);
+
+        uint8_t cbr0_enc, cbr1_enc, txp_byte, reserved;
+        memcpy(&cbr0_enc, buffer, sizeof(uint8_t));
+        buffer += 1;
+        cbr0_enc = swap_8bit(cbr0_enc);
+        memcpy(&cbr1_enc, buffer, sizeof(uint8_t));
+        buffer += 1;
+        cbr1_enc = swap_8bit(cbr1_enc);
+        m_CBR_R0_Hop = static_cast<double>(cbr0_enc) / 255.0f;
+        m_CBR_R1_Hop = static_cast<double>(cbr1_enc) / 255.0f;
+        memcpy(&txp_byte, buffer, sizeof(uint8_t));
+        buffer += 1;
+        float txPower = static_cast<uint8_t>(txp_byte & 0x1F);
+        buffer += 1;
     }

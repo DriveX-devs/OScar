@@ -17,7 +17,7 @@
 #define MAXIMUM_TIME_WINDOW_DCC 2000
 
 typedef struct Packet {
-    int time;
+    int64_t time;
     basicHeader bh;
     commonHeader ch;
     GNlpv_t long_PV;
@@ -50,8 +50,16 @@ void enqueue(int priority, Packet p);
 std::tuple<bool, Packet> dequeue(int priority);
 void setLastTx(float t) {m_gate_mutex.lock(); m_last_tx = t; m_gate_mutex.unlock();}
 void setSendCallback(std::function<void(const Packet&)> cb);
+void setCBRGCallback(std::function<void()> cb);
 void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
 void metricSupervisorSignalSentPacket(MessageId_t message_id) {m_met_sup_ptr->signalSentPacket(message_id);}
+double getCBRTarget() const {return m_CBR_target;};
+void setCBRG(double cbr_g);
+void setNewCBRL0Hop (double cbr);
+double getCBRR0 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L0_Hop[0]; m_cbr_g_mutex.unlock(); return cbr;}
+double getCBRL0Prev () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L0_Hop[1]; m_cbr_g_mutex.unlock(); return cbr;}
+void setCBRR1 (double cbr_r1) {m_cbr_g_mutex.lock(); m_CBR_R1_Hop = cbr_r1; m_cbr_g_mutex.unlock();};
+double getCBRR1 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_R1_Hop; m_cbr_g_mutex.unlock(); return cbr;};
 
 private:
 
@@ -93,6 +101,7 @@ void functionReactive();
 void functionAdaptive();
 std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> getConfiguration(double Ton, double currentCBR);
 void adaptiveDCCCheckCBR();
+void DCCcheckCBRG();
 void checkQueue();
 
 unsigned long long m_dcc_interval = 0;
@@ -111,12 +120,11 @@ double m_delta_min = 0.0006;
 double m_Gmax = 0.0005;
 double m_Gmin = -0.00025;
 uint32_t m_T_CBR = 100; // Check the CBR value each 100 ms for Adaptive DCC from standard suggestion
-std::mutex m_cbr_mutex;
-double m_previous_cbr = -1.0f;
+std::mutex m_read_cbr_mutex;
 
 ReactiveState m_current_state = ReactiveState::Relaxed;
 
-float m_CBR_its = -1.0f;
+double m_CBR_its = -1.0f;
 
 std::thread m_reactive_thread;
 std::thread m_adaptive_thread;
@@ -155,8 +163,18 @@ std::thread m_check_queue_thread;
 std::mutex m_check_queue_mutex;
 std::condition_variable m_check_queue_cv;
 std::function<void(const Packet&)> m_send_callback;
+std::function<void()> m_cbr_g_callback;
 MetricSupervisor *m_met_sup_ptr = nullptr;
 uint32_t m_dropped_by_gate = 0;
+
+std::thread m_cbr_g_thread;
+std::mutex m_cbr_g_mutex;
+uint8_t m_T_DCC_NET_Trig = 100;
+std::vector<double> m_CBR_G = {-1, -1};
+std::vector<double> m_CBR_L0_Hop = {0, 0};
+double m_CBR_R1_Hop = 0.0;
+
+double m_current_cbr;
 
 };
 

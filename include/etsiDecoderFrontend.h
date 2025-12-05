@@ -77,6 +77,7 @@ namespace etsiDecoder {
 			decoderFrontend(bool enable_security = false, std::string logfile_security = "dis");
 			int decodeEtsi(uint8_t *buffer,size_t buflen,etsiDecodedData_t &decoded_data, msgType_e msgtype = MSGTYPE_ITS);
 			void setPrintPacket(bool print_pkt) {m_print_pkt=print_pkt;}
+            void setEnableSecurity(bool enable) {m_enable_security = enable;};
 
 		private:
 			bool m_print_pkt;

@@ -295,7 +295,6 @@ void CAMtxThr(std::string gnss_device,
                 GN.setLogFile2(log_filename_GNsecurity);
             }
             GN.setDCC(dcc);
-            GN.attachDCC();
             BTP.setGeoNet(&GN);
             
             while (true) {
@@ -421,7 +420,6 @@ void CPMtxThr(std::string gnss_device,
                 GN.setLogFile2(log_filename_GNsecurity);
             }
             GN.setDCC(dcc);
-            GN.attachDCC();
             BTP.setGeoNet(&GN);
 
 
@@ -539,7 +537,6 @@ void VAMtxThr(std::string gnss_device,
                 GN.setLogFile2(log_filename_GNsecurity);
             }
             GN.setDCC(dcc);
-            GN.attachDCC();
 
             if(udp_sock_addr!="dis") {
                 int rval;

@@ -58,8 +58,8 @@ SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::L
 	m_opts_ptr = opts_ptr;
 	m_db_ptr = db_ptr;
 	m_logfile_name = logfile_name;
-	m_decodeFrontend = enable_security;
-	m_enable_security = enable_security;
+    m_decodeFrontend.setEnableSecurity(enable_security);
+    m_enable_security = enable_security;
 	m_logfile_security = logfile_security;
 	m_client_id="unset";
 	m_logfile_file=nullptr;
