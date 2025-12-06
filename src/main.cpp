@@ -1647,6 +1647,10 @@ int main (int argc, char *argv[]) {
         dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC);
         dcc->setMetricSupervisor(&metric_supervisor);
     }
+    else
+    {
+	dcc = nullptr;
+    }
 
     // This must be defined here, otherwise the goto will jump over its definition
     SocketClient *mainRecvClient = nullptr;

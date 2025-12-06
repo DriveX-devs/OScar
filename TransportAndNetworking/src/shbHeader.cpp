@@ -34,6 +34,7 @@ shbHeader::serializeInto(packetBuffer &packet) {
 	packet.addHtonU32(m_sourcePV.longitude);
 	packet.addHtonU16(pai_speed);
 	packet.addHtonU16(m_sourcePV.heading);
+
     if (m_dcc == nullptr)
     {
         //Reserved

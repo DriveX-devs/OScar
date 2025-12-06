@@ -262,7 +262,9 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		longPV.heading = (uint16_t) m_vdp->getHeadingValueDbl()*DECI;// [degrees] to [0.1 degrees]
 	}
 
-	std::string use_dcc = m_dcc->getModality();
+	std::string use_dcc;
+	if (m_dcc != nullptr) use_dcc = m_dcc->getModality();
+	else use_dcc = "";
 	struct timespec tv;
 	clock_gettime (CLOCK_MONOTONIC, &tv);
 	int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
@@ -476,6 +478,8 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	//a) and b) already done
 	//c) SHB extended header
 	header.SetLongPositionV (longPV);
+
+	header.setDCC(m_dcc);
 
 	/*
 	uint32_t tx_power = getTxPower();
@@ -725,7 +729,7 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 	}
 
 	size_t pktSize = finalPktSize - sizeof(struct ether_header) + IEEE80211_DATA_PKT_HDR_LEN + IEEE80211_FCS_LEN + 8; // 8 = bytes layer LLC
-	m_dcc->updateTonpp(pktSize);
+	if (m_dcc != nullptr) m_dcc->updateTonpp(pktSize);
 
 	delete []finalPktBuffer;
 
