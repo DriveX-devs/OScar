@@ -180,7 +180,7 @@ class GeoNet {
 		// CBRReader m_cbr_reader;
         int64_t m_GNLocTTimerCBR_ms = 1000;
 
-        std::mutex m_LocT_Mutex;
+        std::shared_mutex m_LocT_Mutex;
         std::map<uint64_t , GNLocTE> m_GNLocT;
 };
 

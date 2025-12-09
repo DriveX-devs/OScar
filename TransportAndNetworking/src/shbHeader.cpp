@@ -54,17 +54,13 @@ shbHeader::serializeInto(packetBuffer &packet) {
         if (tp > 31) tp = 31;
         uint8_t txp_byte = static_cast<uint8_t>(tp & 0x1F); // bits 0–4
         uint8_t reserved = 0;
-        packet.addU8(cbr0_enc);  // Octet 40
-        packet.addU8(cbr1_enc);  // Octet 41
-        packet.addU8(txp_byte);  // Octet 42
-        packet.addU8(reserved);  // Octet 43
+        uint32_t field =
+                (uint32_t(cbr0_enc) << 24) |
+                (uint32_t(cbr1_enc) << 16) |
+                (uint32_t(txp_byte) <<  8) |
+                uint32_t(reserved);
+        packet.addHtonU32(field);
     }
-}
-
-void 
-shbHeader::SetOutputPower(uint8_t tx_power)
-{
-	m_tx_power_reserved = (tx_power & 0x1F) << 3;
 }
 
 void 

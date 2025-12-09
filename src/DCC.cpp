@@ -264,6 +264,7 @@ void DCC::functionAdaptive()
             m_read_cbr_mutex.lock();
             m_main_cbr_reader.wrapper_start_reading_cbr();
             double currentCbr = m_main_cbr_reader.get_current_cbr();
+            setNewCBRL0Hop (currentCbr);
             m_read_cbr_mutex.unlock();
             if (currentCbr != -1.0f)
             {

@@ -255,7 +255,9 @@ void CAMtxThr(std::string gnss_device,
         bool enable_security,
         bool force_20Hz_freq,
         CABasicService* cabs,
-        DCC *dcc
+        DCC *dcc,
+        GeoNet* GN,
+        btp* BTP
     ) {
     bool m_retry_flag=false;
 
@@ -272,9 +274,6 @@ void CAMtxThr(std::string gnss_device,
         vdpgpsc.setSerialParser(&serialParser);
     }
 
-    GeoNet GN;
-    btp BTP;
-
     double test_lat, test_lon;
 
     do {
@@ -282,20 +281,20 @@ void CAMtxThr(std::string gnss_device,
             std::cout << "[INFO] CAM VDP GPS Client: opening connection..." << std::endl;
             vdpgpsc.openConnection();
 
-            GN.setVDP(&vdpgpsc);
-            GN.setSocketTx(sockfd, ifindex, srcmac);
-            GN.setStationProperties(vehicleID, StationType_passengerCar);
-            GN.setSecurity(enable_security);
+            GN->setVDP(&vdpgpsc);
+            GN->setSocketTx(sockfd, ifindex, srcmac);
+            GN->setStationProperties(vehicleID, StationType_passengerCar);
+            GN->setSecurity(enable_security);
             const int message_type = 1;
-            GN.setMessageType(message_type);
+            GN->setMessageType(message_type);
             if (enable_security && atManager != nullptr) {
-                GN.setATmanager(atManager);
+                GN->setATmanager(atManager);
             }
             if(enable_security && log_filename_GNsecurity != "dis" && !log_filename_GNsecurity.empty()){
-                GN.setLogFile2(log_filename_GNsecurity);
+                GN->setLogFile2(log_filename_GNsecurity);
             }
-            GN.setDCC(dcc);
-            BTP.setGeoNet(&GN);
+            GN->setDCC(dcc);
+            BTP->setGeoNet(GN);
             
             while (true) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
@@ -324,7 +323,7 @@ void CAMtxThr(std::string gnss_device,
             if (udp_sock_addr != "dis") {
                 int rval;
 
-                rval = GN.openUDPsocket(udp_sock_addr, udp_bind_ip, extra_position_udp);
+                rval = GN->openUDPsocket(udp_sock_addr, udp_bind_ip, extra_position_udp);
 
                 if (rval < 0) {
                     std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: "
@@ -335,7 +334,7 @@ void CAMtxThr(std::string gnss_device,
                 }
             }
         
-            cabs->setBTP(&BTP);
+            cabs->setBTP(BTP);
             cabs->setStationProperties(vehicleID, StationType_passengerCar);
             cabs->setVDP(&vdpgpsc);
             cabs->setLDM(db_ptr);
@@ -1655,6 +1654,9 @@ int main (int argc, char *argv[]) {
     // This must be defined here, otherwise the goto will jump over its definition
     SocketClient *mainRecvClient = nullptr;
 
+    GeoNet gn;
+    btp btp_;
+
     if(terminatorFlag) {
         goto exit_failure;
     }
@@ -1682,7 +1684,9 @@ int main (int argc, char *argv[]) {
                                         enable_security,
                                         force_20Hz_freq,
                                         cabs_ptr,
-                                        dcc
+                                        dcc,
+                                        &gn,
+                                        &btp_
                                     );
     }
     if(enable_VAM_dissemination) {
@@ -1773,7 +1777,7 @@ int main (int argc, char *argv[]) {
 
 		if(terminatorFlag==false) {
 			// Create the main SocketClient object for the reception of the V2X messages
-            mainRecvClient = new SocketClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity);
+            mainRecvClient = new SocketClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity, &gn);
 
 			if(enable_DENM_decoding) {
 				mainRecvClient->enableDENMdecoding();

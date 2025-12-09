@@ -88,7 +88,7 @@ class SocketClient {
         MetricSupervisor *m_met_sup_ptr = nullptr;
 
 	public:
-		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security);
+		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn);
 		
 		~SocketClient() = default;
 

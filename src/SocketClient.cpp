@@ -52,13 +52,14 @@ inline bool compare_mac(uint8_t mac_a[6],uint8_t mac_b[6]) {
 		mac_a[5]==mac_b[5]);
 }
 
-SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security)
+SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn)
 {
 	m_raw_rx_sock = raw_rx_sock;
 	m_opts_ptr = opts_ptr;
 	m_db_ptr = db_ptr;
 	m_logfile_name = logfile_name;
     m_decodeFrontend.setEnableSecurity(enable_security);
+	m_decodeFrontend.setGeoNet(gn);
     m_enable_security = enable_security;
 	m_logfile_security = logfile_security;
 	m_client_id="unset";
