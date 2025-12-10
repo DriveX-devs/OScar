@@ -79,7 +79,7 @@ class GeoNet {
 		void closeUDPsocket();
         void setSecurity(bool security){enableSecurity = security;  m_security = Security();}
         void setMessageType(int type){m_messageType = type; m_security.setMessageType(type);}
-				void setATmanager(ATManager *atm){m_atmanager = atm;};
+		void setATmanager(ATManager *atm){m_atmanager = atm;};
 
 
 		void setDCC(DCC *dcc) {m_dcc = dcc; attachSendFromDCCQueue(); attachGlobalCBRCheck();}

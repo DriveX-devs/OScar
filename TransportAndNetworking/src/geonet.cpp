@@ -899,10 +899,10 @@ void GeoNet::attachGlobalCBRCheck ()
         int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
         double mean_cbr_r0_hop = 0.0;
         long tot_r0 = 0;
-        double max_cbr_r0, second_max_cbr_r0 = 0.0;
+        double max_cbr_r0 = 0.0, second_max_cbr_r0 = 0.0;
         double mean_cbr_r1_hop = 0.0;
         long tot_r1 = 0;
-        double max_cbr_r1, second_max_cbr_r1 = 0.0;
+        double max_cbr_r1 = 0.0, second_max_cbr_r1 = 0.0;
         m_LocT_Mutex.lock ();
         for(auto it = m_GNLocT.begin(); it != m_GNLocT.end(); ++it)
         {
@@ -971,8 +971,10 @@ void GeoNet::attachGlobalCBRCheck ()
             tot_r1 += cbr_data.CBR_R1_Hop.size();
         }
         m_LocT_Mutex.unlock ();
-        mean_cbr_r0_hop /= tot_r0;
-        mean_cbr_r1_hop /= tot_r1;
+		if (tot_r0 == 0) mean_cbr_r0_hop = 0;
+		else mean_cbr_r0_hop /= tot_r0;
+		if (tot_r1 == 0) mean_cbr_r1_hop = 0;
+		else mean_cbr_r1_hop /= tot_r1;
         double CBR_L1_Hop, CBR_L2_Hop;
         if (mean_cbr_r0_hop > m_dcc->getCBRTarget())
         {
@@ -982,6 +984,7 @@ void GeoNet::attachGlobalCBRCheck ()
         {
             CBR_L1_Hop = second_max_cbr_r0;
         }
+
         if (mean_cbr_r1_hop > m_dcc->getCBRTarget())
         {
             CBR_L2_Hop = max_cbr_r1;
@@ -993,6 +996,6 @@ void GeoNet::attachGlobalCBRCheck ()
         double CBR_G = std::max(m_dcc->getCBRL0Prev(), CBR_L1_Hop);
         CBR_G = std::max(CBR_G, CBR_L2_Hop);
         m_dcc->setCBRG(CBR_G);
-        m_dcc->setCBRR1(CBR_L1_Hop);
+        m_dcc->setCBRL1(CBR_L1_Hop);
     });
 }

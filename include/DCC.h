@@ -58,8 +58,10 @@ void setCBRG(double cbr_g);
 void setNewCBRL0Hop (double cbr);
 double getCBRR0 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L0_Hop[0]; m_cbr_g_mutex.unlock(); return cbr;}
 double getCBRL0Prev () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L0_Hop[1]; m_cbr_g_mutex.unlock(); return cbr;}
-void setCBRR1 (double cbr_r1) {m_cbr_g_mutex.lock(); m_CBR_R1_Hop = cbr_r1; m_cbr_g_mutex.unlock();};
-double getCBRR1 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_R1_Hop; m_cbr_g_mutex.unlock(); return cbr;};
+void setCBRL1 (double cbr_r1) {m_cbr_g_mutex.lock(); m_CBR_L1_Hop = cbr_r1; m_cbr_g_mutex.unlock();};
+void setCBRL2 (double cbr_r2) {m_cbr_g_mutex.lock(); m_CBR_L2_Hop = cbr_r2; m_cbr_g_mutex.unlock();};
+double getCBRR1 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L1_Hop; m_cbr_g_mutex.unlock(); return cbr;};
+double getCBRR2 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L2_Hop; m_cbr_g_mutex.unlock(); return cbr;};
 
 private:
 
@@ -172,7 +174,8 @@ std::mutex m_cbr_g_mutex;
 uint8_t m_T_DCC_NET_Trig = 100;
 std::vector<double> m_CBR_G = {-1, -1};
 std::vector<double> m_CBR_L0_Hop = {0, 0};
-double m_CBR_R1_Hop = 0.0;
+double m_CBR_L1_Hop = 0.0;
+double m_CBR_L2_Hop = 0.0;
 
 double m_current_cbr;
 
