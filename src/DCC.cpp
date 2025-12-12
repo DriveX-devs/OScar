@@ -48,11 +48,11 @@ std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters>
 DCC::getConfiguration(double Ton, double currentCBR)
 {
     std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> map;
-    if (Ton < 0.5)
+    if (Ton <= 0.5)
       {
         map = m_reactive_parameters_Ton_500_us;
       }
-    else if (Ton < 1)
+    else if (Ton > 0.5 && Ton <= 1)
       {
         map = m_reactive_parameters_Ton_1ms;
       }
@@ -80,7 +80,7 @@ DCC::getConfiguration(double Ton, double currentCBR)
     return map;
 }
 
-void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance, bool verbose, int queue_length, int max_lifetime, std::string log_file)
+void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance, bool verbose, int queue_length, int max_lifetime, std::string log_file, std::string profile_DCC)
 {
     assert(dcc_interval > 0 && dcc_interval <= MAXIMUM_TIME_WINDOW_DCC);
     assert(modality == "reactive" || modality == "adaptive");
@@ -93,6 +93,7 @@ void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::s
     m_CBR_target = cbr_target;
     m_queue_length = queue_length;
     m_lifetime = max_lifetime;
+    m_profile = profile_DCC;
     m_main_cbr_reader.setupCBRReader(verbose, dissemination_interface);
     if (m_modality == "adaptive")
     {
@@ -160,13 +161,14 @@ void DCC::functionReactive()
             m_read_cbr_mutex.unlock();
             setNewCBRL0Hop(m_current_cbr);
             m_cbr_g_mutex.lock();
-            if (m_CBR_G[0] == -1 && m_CBR_G[1] == -1)
+            // TODO
+            if (m_profile == "etsi")
             {
-               currentCbr = m_current_cbr;
+                currentCbr = m_CBR_L0_Hop[0];
             }
-            else
+            else if (m_profile == "c2c")
             {
-                currentCbr = 0.5 * (m_CBR_G[0] + m_CBR_G[1]);
+                currentCbr = 0.5 * (m_CBR_L0_Hop[0] + m_CBR_L0_Hop[1]);
             }
             m_cbr_g_mutex.unlock();
 

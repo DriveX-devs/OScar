@@ -709,6 +709,7 @@ int main (int argc, char *argv[]) {
     std::string modality_DCC = "";
     bool verbose_DCC = false;
     std::string log_filename_DCC = "";
+    std::string profile_DCC = "";
 
     bool enable_metric_supervisor = false;
     uint64_t time_window_met_sup = 0;
@@ -994,6 +995,11 @@ int main (int argc, char *argv[]) {
                                                 false, 300, "int");
         cmd.add(QueueLifetimeDCC);
 
+        TCLAP::ValueArg<std::string> ProfileDCC("", "profile-DCC",
+                                                "Profile for DCC features, it could be ETSI or C2C. The strings to be used to indicate the modality are: ['etsi', 'c2c'] Default: (etsi).",
+                                                false, "etsi", "string");
+        cmd.add(LogfileDCC);
+
         TCLAP::SwitchArg EnableMetricSupervisor("", "enable-metric-supervisor",
                                                 "Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.",
                                                 false);
@@ -1113,6 +1119,7 @@ int main (int argc, char *argv[]) {
         cbr_target = CBRTarget.getValue();
         queue_length = QueueLengthDCC.getValue();
         queue_lifetime = QueueLifetimeDCC.getValue();
+        profile_DCC = ProfileDCC.getValue();
 
         enable_metric_supervisor = EnableMetricSupervisor.getValue();
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
@@ -1463,7 +1470,7 @@ int main (int argc, char *argv[]) {
     dcc->setBitRate(bitrate * 1e6);
     if (enable_DCC)
     {
-        dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC);
+        dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC, profile_DCC);
         dcc->setMetricSupervisor(&metric_supervisor);
     }
     else
@@ -1595,7 +1602,7 @@ int main (int argc, char *argv[]) {
                                force_20Hz_freq,
                                &cabs,
                                &BTP
-                               );
+                            );
     }
     if(enable_VAM_dissemination) {
         txThreads.emplace_back(VAMtxThr,
@@ -1609,7 +1616,7 @@ int main (int argc, char *argv[]) {
                                force_20Hz_freq,
                                &vrubs,
                                &BTP
-                               );
+                            );
     }
     if(enable_CPM_dissemination) {
         txThreads.emplace_back(CPMtxThr,
@@ -1622,7 +1629,7 @@ int main (int argc, char *argv[]) {
                                verbose,
                                &cpbs,
                                &BTP
-                               );
+                            );
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
@@ -1635,7 +1642,8 @@ int main (int argc, char *argv[]) {
                                enable_sensor_classification,
                                verbose,
                                CPM_CAN_signals,
-                               CPM_CAN_ids);
+                               CPM_CAN_ids
+                            );
     }
 
     if(veh_data_sock_addr!="dis") {
@@ -1645,7 +1653,8 @@ int main (int argc, char *argv[]) {
                                veh_data_periodicity_s,
                                gnss_device,
                                gnss_port,
-                               use_gpsd);
+                               use_gpsd
+                            );
     }
 
 	// Enable debug age of information, if option has been specified

@@ -19,6 +19,7 @@
 #include <iomanip>
 #include <sstream>
 #include <openssl/ec.h>
+#include <algorithm>
 
 extern "C" {
 #include "CAM.h"
@@ -284,8 +285,8 @@ Security::signatureCreation (const std::string& tbsData_hex, const std::string& 
 
     GNsignMaterial signMaterial;
 
-    std::vector<unsigned char> tbsData_bytes = hexStringToBytes (tbsData_hex);
-    std::vector<unsigned char> certificate_bytes = hexStringToBytes (certificate_hex);
+    std::vector<unsigned char> tbsData_bytes(tbsData_hex.begin(), tbsData_hex.end());
+    std::vector<unsigned char> certificate_bytes(certificate_hex.begin(), certificate_hex.end());
 
     unsigned char tbsData_hash[SHA256_DIGEST_LENGTH];
     computeSHA256 (tbsData_bytes, tbsData_hash);
@@ -357,8 +358,8 @@ Security::signatureVerification (const std::string& tbsData_hex, const std::stri
 {
 
     // Convert hex string to bytes
-    std::vector<unsigned char> tbsData_bytes = hexStringToBytes (tbsData_hex);
-    std::vector<unsigned char> certificate_bytes = hexStringToBytes (certificate_hex);
+    std::vector<unsigned char> tbsData_bytes(tbsData_hex.begin(), tbsData_hex.end());
+    std::vector<unsigned char> certificate_bytes(certificate_hex.begin(), certificate_hex.end());
 
     // Compute SHA-256 hash
     unsigned char tbsData_hash[SHA256_DIGEST_LENGTH];
@@ -694,7 +695,7 @@ Security::createSecurePacket (GNDataRequest_t dataRequest, bool &isCertificate)
         m_certificate = certHex;
 
         // generate the digest of the certificate, so calculate the hash of certificate and take only the last 8 bytes
-        std::vector<unsigned char> cer_bytes = hexStringToBytes(certHex);
+        std::vector<unsigned char> cer_bytes(certHex.begin(), certHex.end());
         unsigned char c_hash[SHA256_DIGEST_LENGTH];
         computeSHA256(cer_bytes, c_hash);
         m_digest.clear();
@@ -762,6 +763,24 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
     ieeeData_decoded = asn1cpp::oer::decode(packetContent, Ieee1609Dot2Data);
 
     GNsecDP secureDataPacket;
+
+    if(!ieeeData_decoded)
+    {
+        std::ostringstream rawDump;
+        rawDump << "[ERROR] [Security] Unable to decode Ieee1609Dot2Data payload. Raw secured payload size: "
+                << sizeB << " bytes. First bytes: ";
+        rawDump << std::hex << std::setfill('0');
+        for(uint32_t i = 0; i < std::min<uint32_t>(sizeB, 16); ++i)
+        {
+            rawDump << std::setw(2) << static_cast<int>(static_cast<unsigned char>(packetContent[i])) << ' ';
+        }
+        if(sizeB > 16)
+        {
+            rawDump << "...";
+        }
+        std::cerr << rawDump.str() << std::dec << std::endl;
+        return SECURITY_VERIFICATION_FAILED;
+    }
 
 
     secureDataPacket.protocol_version = asn1cpp::getField (ieeeData_decoded->protocolVersion, long);
@@ -948,10 +967,14 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
         } else {
             //for every item in map do signature verification
             bool signValid = false;
+            int certIndex = 0;
             for (auto const &item: m_receivedCertificates) {
                 if (signatureVerification(tbs_hex, item.second.second,secureDataPacket.content.signData.signature,item.second.first)) {
                     signValid = true;
                     break;
+                }
+                else {
+                    
                 }
             }
             if (!signValid) {

@@ -31,7 +31,7 @@ public:
 DCC();
 ~DCC();
 
-void setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance=0.01, bool verbose=false, int queue_length=0, int max_lifetime=100, std::string log_file="");
+void setupDCC(unsigned long long dcc_interval, std::string modality, std::string dissemination_interface, float cbr_target, float tolerance=0.01, bool verbose=false, int queue_length=0, int max_lifetime=100, std::string log_file="", std::string profile_DCC="etsi");
 void startDCC();
 void reactiveDCC();
 void adaptiveDCC();
@@ -111,6 +111,7 @@ std::string m_dissemination_interface;
 bool m_verbose;
 float m_tolerance;
 std::string m_modality = "";
+std::string m_profile;
 
 double m_alpha = 0.016;
 double m_beta = 0.0012;
