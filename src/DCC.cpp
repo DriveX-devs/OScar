@@ -173,7 +173,7 @@ void DCC::functionReactive()
                 // Car2Car strategy: average of the last two sensed CBRs
                 currentCbr = 0.5 * (m_CBR_L0_Hop[0] + m_CBR_L0_Hop[1]);
             }
-            else if (m_profile == "drivex")
+            else if (m_profile == "cbrg")
             {
                 // DriveX strategy
                 if (m_CBR_G[0] == -1 && m_CBR_G[1] == -1)

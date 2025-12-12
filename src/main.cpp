@@ -996,8 +996,7 @@ int main (int argc, char *argv[]) {
         cmd.add(QueueLifetimeDCC);
 
         TCLAP::ValueArg<std::string> ProfileDCC("", "profile-DCC",
-                                                "Profile for DCC features, it could be ETSI or C2C. The strings to be used to indicate the modality are: ['etsi', 'c2c', 'drivex'].
-                                                In the 'drivex' profile, we consider the Global CBR from DCC_NET instead of the locally sensed one also for Reactive modality. Default: (etsi).",
+                                                "Profile for DCC features, it could be ETSI or C2C. The strings to be used to indicate the modality are: ['etsi', 'c2c', 'cbrg']. In the 'cbrg' profile, we consider the Global CBR from DCC_NET instead of the locally sensed one also for Reactive modality. Default: (etsi).",
                                                 false, "etsi", "string");
         cmd.add(ProfileDCC);
 
@@ -1185,9 +1184,9 @@ int main (int argc, char *argv[]) {
                 return 1;
             }
 
-            if (profile_DCC != "etsi" && profile_DCC != "c2c" && profile_DCC != "drivex") {
+            if (profile_DCC != "etsi" && profile_DCC != "c2c" && profile_DCC != "cbrg") {
                 std::cerr
-                        << "[ERROR] Profile for DCC was not correctly set. Remember that it must be a string of value 'etsi', 'c2c', or 'drivex', please check the helper."
+                        << "[ERROR] Profile for DCC was not correctly set. Remember that it must be a string of value 'etsi', 'c2c', or 'cbrg', please check the helper."
                         << std::endl;
                 return 1;
             }
