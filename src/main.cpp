@@ -996,9 +996,10 @@ int main (int argc, char *argv[]) {
         cmd.add(QueueLifetimeDCC);
 
         TCLAP::ValueArg<std::string> ProfileDCC("", "profile-DCC",
-                                                "Profile for DCC features, it could be ETSI or C2C. The strings to be used to indicate the modality are: ['etsi', 'c2c'] Default: (etsi).",
+                                                "Profile for DCC features, it could be ETSI or C2C. The strings to be used to indicate the modality are: ['etsi', 'c2c', 'drivex'].
+                                                In the 'drivex' profile, we consider the Global CBR from DCC_NET instead of the locally sensed one also for Reactive modality. Default: (etsi).",
                                                 false, "etsi", "string");
-        cmd.add(LogfileDCC);
+        cmd.add(ProfileDCC);
 
         TCLAP::SwitchArg EnableMetricSupervisor("", "enable-metric-supervisor",
                                                 "Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.",
@@ -1168,7 +1169,8 @@ int main (int argc, char *argv[]) {
                     << std::endl;
         }
 
-        if (enable_DCC == true) {
+        if (enable_DCC == true) 
+        {
             if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC) {
                 std::cerr
                         << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0 and lower than "
@@ -1179,6 +1181,13 @@ int main (int argc, char *argv[]) {
             if (modality_DCC != "reactive" && modality_DCC != "adaptive") {
                 std::cerr
                         << "[ERROR] Modality for DCC was not correctly set. Remember that it must be a string of value 'reactive' or 'adaptive', please check the helper."
+                        << std::endl;
+                return 1;
+            }
+
+            if (profile_DCC != "etsi" && profile_DCC != "c2c" && profile_DCC != "drivex") {
+                std::cerr
+                        << "[ERROR] Profile for DCC was not correctly set. Remember that it must be a string of value 'etsi', 'c2c', or 'drivex', please check the helper."
                         << std::endl;
                 return 1;
             }

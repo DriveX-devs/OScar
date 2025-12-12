@@ -32,6 +32,8 @@ void DCC::setCBRG(double cbr_g)
 {
     m_cbr_g_mutex.lock();
     m_CBR_G[1] = m_CBR_G[0];
+    // For the first time, set the second CBR_G to 0
+    if (m_CBR_G[1] == -1) m_CBR_G[1] = 0.0;
     m_CBR_G[0] = cbr_g;
     m_cbr_g_mutex.unlock();
 }
@@ -161,14 +163,26 @@ void DCC::functionReactive()
             m_read_cbr_mutex.unlock();
             setNewCBRL0Hop(m_current_cbr);
             m_cbr_g_mutex.lock();
-            // TODO
             if (m_profile == "etsi")
             {
+                // ETSI strategy (default): last sensed CBR
                 currentCbr = m_CBR_L0_Hop[0];
             }
             else if (m_profile == "c2c")
             {
+                // Car2Car strategy: average of the last two sensed CBRs
                 currentCbr = 0.5 * (m_CBR_L0_Hop[0] + m_CBR_L0_Hop[1]);
+            }
+            else if (m_profile == "drivex")
+            {
+                // DriveX strategy
+                if (m_CBR_G[0] == -1 && m_CBR_G[1] == -1)
+                {
+                    // If the CBR_G is not available, adopt the C2C strategy
+                    currentCbr = 0.5 * (m_CBR_L0_Hop[0] + m_CBR_L0_Hop[1]);
+                }
+                // average of the last two calculated CBR_Gs
+                else currentCbr = 0.5 * (m_CBR_G[0] + m_CBR_G[1]);
             }
             m_cbr_g_mutex.unlock();
 
