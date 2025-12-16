@@ -37,6 +37,21 @@ PCAN.ini
 /A4_andata.json
 /OScar-DCC-New
 /PKI_info.ini
+file.pcap
+OScar-DCC-NET
+OScar-DCC_NET
+pkiReqRes/ephPKEY.pem
+pkiReqRes/ephPKEY2.pem
+pkiReqRes/ephSKEY.pem
+pkiReqRes/ephSKEY2.pem
+pkiReqRes/responseAT.bin
+pkiReqRes/responseEC.bin
+pskAT.bin
+pskEC.bin
+requestAA.bin
+requestEC.bin
+security.cpp
 
 # JetBrains IDE project files
 /.idea
+
