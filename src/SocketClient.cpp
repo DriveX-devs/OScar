@@ -79,6 +79,8 @@ SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::L
 
 void
 SocketClient::rxThr(void) {
+    pthread_setname_np(pthread_self(), "rx_thr");
+
 	size_t msglen=-1;
 	uint8_t msgbuf[MSGBUF_MAXSIZ];
 

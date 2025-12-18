@@ -122,6 +122,8 @@ void DCC::startDCC()
 
 void DCC::DCCcheckCBRG()
 {
+    pthread_setname_np(pthread_self(), "DCC_checkCBRG_thr");
+
     bool retry_flag = true;
     std::this_thread::sleep_for(std::chrono::milliseconds(m_T_DCC_NET_Trig));
     do
@@ -143,6 +145,8 @@ void DCC::DCCcheckCBRG()
 
 void DCC::functionReactive()
 {
+    pthread_setname_np(pthread_self(), "DCC_functionReactive_thr");
+
     if (m_dcc_interval == 0 || m_dissemination_interface == "")
     {
         throw std::runtime_error("DCC not set properly.");
@@ -238,6 +242,8 @@ void DCC::reactiveDCC()
 
 void DCC::adaptiveDCCCheckCBR()
 {
+    pthread_setname_np(pthread_self(), "DCC_adaptiveDCCCheckCBR_thr");
+
     bool retry_flag = true;
     std::this_thread::sleep_for(std::chrono::milliseconds(m_T_CBR));
     do
@@ -265,6 +271,8 @@ void DCC::adaptiveDCCCheckCBR()
 
 void DCC::functionAdaptive()
 {
+    pthread_setname_np(pthread_self(), "DCC_functionAdaptive_thr");
+
     if (m_dcc_interval == 0 || m_dissemination_interface == "")
     {
         throw std::runtime_error("DCC not set properly.");
@@ -657,6 +665,8 @@ DCC::dequeue(int priority)
 
 void DCC::checkQueue()
 {
+    pthread_setname_np(pthread_self(), "DCC_checkQueue_thr");
+
     std::unique_lock<std::mutex> lock(m_check_queue_mutex);
 
     while (!m_stop_thread)

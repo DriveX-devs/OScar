@@ -112,6 +112,7 @@ void updateVisualizer(ldmmap::vehicleData_t vehdata,void *vizObjVoidPtr) {
 
 // Thread function for updating the objects displayed in the web-based vehicle visualizer GUI of OScar
 void *VehVizUpdater_callback(void *arg) {
+    pthread_setname_np(pthread_self(), "veh_viz_thr");
 	// Get the pointer to the visualizer options/parameters
 	vizOptions_t *vizopts_ptr = static_cast<vizOptions_t *>(arg);
 	// Get a direct pointer to the database
@@ -148,7 +149,7 @@ void *VehVizUpdater_callback(void *arg) {
 	POLL_DEFINE_JUNK_VARIABLE();
 
 	while(terminatorFlag == false) {
-		if(poll(&pollfddata,1,0)>0) {
+		if(poll(&pollfddata,1,-1)>0) {
 			POLL_CLEAR_EVENT(clockFd);
 
 			// ---- These operations will be performed periodically ----
@@ -188,6 +189,8 @@ void *VehVizUpdater_callback(void *arg) {
 
 // Thread function that periodically checks the LDM database content and clears outdated entries
 void *DBcleaner_callback(void *arg) {
+    pthread_setname_np(pthread_self(), "DB_cleaner_thr");
+
 	// Get the pointer to the database
 	ldmmap::LDMMap *db_ptr = static_cast<ldmmap::LDMMap *>(arg);
 
@@ -212,7 +215,7 @@ void *DBcleaner_callback(void *arg) {
 	POLL_DEFINE_JUNK_VARIABLE();
 
 	while(terminatorFlag == false) {
-		if(poll(&pollfddata,1,0)>0) {
+		if(poll(&pollfddata,1,-1)>0) {
 			POLL_CLEAR_EVENT(clockFd);
 
 			// ---- These operations will be performed periodically ----
@@ -243,6 +246,8 @@ void CAMtxThr(
         CABasicService* cabs,
         btp* BTP
     ) {
+    pthread_setname_np(pthread_self(), "CAM_tx_thr");
+
     bool m_retry_flag=false;
 
     // VDP (Vehicle Data Provider) GPS Client object test
@@ -321,6 +326,7 @@ void CPMtxThr(
             CPBasicService* cpbs,
             btp* BTP
         ) {
+    pthread_setname_np(pthread_self(), "CPM_tx_thr");
     bool m_retry_flag=false;
 
     do {
@@ -366,6 +372,7 @@ void VAMtxThr(VDPGPSClient* vrudp,
               VRUBasicService* vrubs,
               btp* BTP
         ) {
+    pthread_setname_np(pthread_self(), "VAM_tx_thr");
     bool m_retry_flag=false;
 
     do {
@@ -416,6 +423,7 @@ void radarReaderThr(std::string gnss_device,
                     bool verbose,
                     CAN_SENSOR_SIGNAL_INFO_t can_db_sensor_info,
                     std::vector<uint32_t> can_db_id_info) {
+    pthread_setname_np(pthread_self(), "sensor_reader_thr");
     bool m_retry_flag=false;
 
     do {
@@ -448,6 +456,7 @@ void vehdataTxThread(std::string udp_sock_addr,
               std::string gnss_device,
              int gnss_port,
              bool use_gpsd) {
+    pthread_setname_np(pthread_self(), "vehdata_tx_thr");
     VDPGPSClient vdpgpsc(gnss_device,gnss_port);
     vdpgpsc.selectGPSD(use_gpsd);
     if(!use_gpsd) {
@@ -720,7 +729,7 @@ int main (int argc, char *argv[]) {
 
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "9.0-development");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "9.1-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.

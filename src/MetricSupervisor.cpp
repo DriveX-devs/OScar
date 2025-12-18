@@ -82,6 +82,8 @@ void MetricSupervisor::setupMetricSupervisor(std::string log_filename, uint64_t 
 
 void MetricSupervisor::writeLogFile()
 {
+    pthread_setname_np(pthread_self(), "MS_writeLog_thr");
+
     bool retry_flag = true;
     std::ofstream file_sta_info;
     std::ofstream file_rssi_info;

@@ -2744,6 +2744,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
  * NOTE: This function is executed in a parallel thread (see main()) */
 void
 UBXNMEAParserSingleThread::readData() {
+    pthread_setname_np(pthread_self(), "serial_parser_thr");
+
 	// Initialization and preliminary operation on data buffer
     m_terminatorFlagPtr->store(false);
     clearBuffer();
