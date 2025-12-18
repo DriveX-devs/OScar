@@ -134,7 +134,7 @@ CPBasicService::initDissemination() {
 
     while (m_terminateFlag == false)
     {
-        if(poll(&pollfddata,1,0)>0) {
+        if(poll(&pollfddata,1,-1)>0) {
             POLL_CLEAR_EVENT(clockFd);
             std::string log_data;
             log_data = generateAndEncodeCPM();

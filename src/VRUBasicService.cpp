@@ -303,7 +303,7 @@ void VRUBasicService::checkVamConditions(){
   
   // The dissemination goes on until it is interrupted
   while(m_terminateFlag==false){
-  	if(poll(&pollfddata,1,0)>0){
+  	if(poll(&pollfddata,1,-1)>0){
   		POLL_CLEAR_EVENT(clockFd);
   		
   		// Initializing
