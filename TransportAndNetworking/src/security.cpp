@@ -43,6 +43,7 @@ Security::Security ()
     //m_eventCleaner = Simulator::Schedule(MilliSeconds (1000),&Security::mapCleaner,this);
     m_atmanager = nullptr;
     m_ecKey = nullptr;
+    m_messageType = 0;
     m_protocolVersion = 3;
     m_hashId = HashAlgorithm_sha256;
     m_generationTime = 0;

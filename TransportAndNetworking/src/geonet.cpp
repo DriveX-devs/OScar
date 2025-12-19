@@ -36,6 +36,9 @@ GeoNet::GeoNet()
 	m_station_id = ULONG_MAX;
 	m_stationtype = LONG_MAX;
 	m_seqNumber = 0;
+    enableSecurity = false;
+    isCertificate = false;
+    m_messageType = 0;
 	// m_GNAddress = GNAddress(); Should be already initialized to all zeros
 
 	m_RSU_epv_set=false;
