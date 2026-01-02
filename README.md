@@ -5,7 +5,18 @@
 </div>
 <br>
 
-Contacts: Francesco RAVIGLIONE [francescorav.es483@gmail.com], Marco RAPELLI [rapelli.m@libero.it], Carlos Mateo RISMA CARLETTI [carlosrisma@gmail.com], Diego GASCO [diego.gasco99@gmail.com], Alessandro GENOVESE [alessandro.genovese@icloud.com], Claudio CASETTI [claudio.casetti@polito.it]
+Maintainers and Contects:
+- Francesco RAVIGLIONE [francescorav.es483@gmail.com]
+- Carlos Mateo RISMA CARLETTI [carlosrisma@gmail.com]
+- Diego GASCO [diego.gasco99@gmail.com, diego.gasco@polito.it]
+- Giuseppe Perrone [giuseppe.perrone@polito.it]
+- Marco RAPELLI [rapelli.m@libero.it]
+- Claudio CASETTI [claudio.casetti@polito.it]
+
+Other Contributors
+- Alessandro GENOVESE [alessandro.genovese@icloud.com]
+- Alessandro GIACCAGLINI
+- Mauro VITTORIO
 
 This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
 
@@ -32,8 +43,22 @@ OScar thus supports the following message types:
 - Vulnerable road users Awareness Messages (**VAMs**) according to [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf)
 - Collective Perception Messages (**CPMs**) according to [ETSI TS 103 324 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/103324/02.01.01_60/ts_103324v020101p.pdf)
 
-Alongside the message types, OScar offers some additional functionalities related to V2X: 
-- Decentralized Congestion Control (**DCC**) in both Reactive and Adaptive modalities, according to [ETSI TS 102 687 V1.2.1 (2018-04)](https://www.etsi.org/deliver/etsi_ts/102600_102699/102687/01.02.01_60/ts_102687v010201p.pdf)
+### Decentralized Congestion Control (DCC)
+
+This module implements **Decentralized Congestion Control (DCC)** across multiple protocol layers:
+
+- **DCC_ACC** — Access layer
+- **DCC_NET** — Network layer
+- **DCC_CROSS** — Cross-layer coordination
+
+Both **Reactive** and **Adaptive** congestion control modalities are supported, in compliance with  
+[**ETSI TS 102 687 V1.2.1 (2018-04)**](https://www.etsi.org/deliver/etsi_ts/102600_102699/102687/01.02.01_60/ts_102687v010201p.pdf).
+
+### V2X Security
+
+TODO
+
+### Next Developments
 
 The support for other relevant message types is also planned for the near future:
 - Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf) (the encoding and decoding functions are already available and tested)
@@ -42,14 +67,16 @@ The support for other relevant message types is also planned for the near future
 - An ETSI-compliant proposal of a new type of message, i.e., Cooperative Enhancement Messages (**CEMs**) for the exchange of raw GNSS data, according to [this paper](https://www.sciencedirect.com/science/article/abs/pii/S2214209622000444) and to the [ms-van3t-CAM2CEM project](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
 - Security header and certificate formats according to [ETSI TS 103 097 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103000_103099/103097/02.01.01_60/ts_103097v020101p.pdf)
 
+### Important Notes
+
 The **OScar** framework stems from other existing GitHub projects:
-- An open-source simulation and emulation framework for vehicular networks, [**ms-van3t**](https://github.com/ms-van3t-devs/ms-van3t)
+- An open-source simulation and emulation framework for vehicular networks, [**VaN3Twin**](https://github.com/DriveX-devs/VaN3Twin)
 - The "Open Cooperative Awareness Basic Service", [**OCABS**](https://github.com/francescoraves483/OCABS-project)
 - An open vehicle Local Dynamic Map (LDM) implementation, i.e., the "Automotive Integrated Map", [**AIM**](https://github.com/francescoraves483/AIM-AutomotiveIntegratedMap)
 
 **Important**: OScar needs a source of PVT (Position-Velocity-Time) GNSS data through `gpsd`. Thus, a GNSS device must be available (either real, or emulated, for instance thanks to tools like `gpsfake` or the Cohda Wireless `vsim`) and it must be connected to a `gpsd` instance.
 
-The OScar main help, with all the possibile options, can be displayed with `./OScar --help`, after compiling the OScar binary.
+The OScar main help, with all the possible options, can be displayed with `./OScar --help`, after compiling the OScar binary.
 
 # Compiling OScar
 
@@ -113,9 +140,9 @@ Finally, build OScar with the `compileAPU` target:
 ```
 make compileAPU
 ```
-As in the previous case, a binary file named `OScar` will be generated. The executable can be then transferred to the device running OpenWrt and launched like described earlier.
+As in the previous case, a binary file named `OScar` will be generated. The executable can then be transferred to the device running OpenWrt and launched like described earlier.
 
-You can also make OScar run as a service, by creating two new files inside OpenWrt: 
+You can also make OScar run as a service by creating two new files inside OpenWrt: 
 - `/etc/init.d/OScar`, to create a new service
 - `/etc/config/OScar`, to configure the OScar service
 
@@ -125,7 +152,7 @@ A sample of the two files is reported below:
 
 This sample shows how to create the OScar service through an `init.d` script. More details are available [here](https://openwrt.org/docs/techref/initscripts) and [here](https://openwrt.org/docs/guide-developer/procd-init-script-example).
 
-For a basic working service setup for the transmission of CAMs only (plus the reception of CAMs and VAMs), you can freely copy the whole content reported below. This sample `init.d` assumes that the OScar executable has been placed inside a directory named `/root/OScar` (see the `procd_set_param command` line).
+For a basic working service setup for the transmission of CAMs only (plus the reception of CAMs and VAMs), you can freely copy the whole content reported below. This sample `init.d` assumes that the OScar executable has been placed inside a directory named `/root/OScar` (see the `procd_set_param command line`).
 
 ```
 #!/bin/sh /etc/rc.common
@@ -138,7 +165,7 @@ STOP=01
 CONFIGURATION=OScar
  
 start_service() {
-    # Reading configuration parameters (i.e. interface and port)
+    # Reading configuration parameters (i.e., interface and port)
     config_load "${CONFIGURATION}"
     local name
     local every
