@@ -45,7 +45,7 @@ OScar thus supports the following message types:
 
 ### Decentralized Congestion Control (DCC)
 
-This module implements **Decentralized Congestion Control (DCC)** across multiple protocol layers:
+OScar implements **Decentralized Congestion Control (DCC)** across multiple protocol layers:
 
 - **DCC_ACC** — Access layer
 - **DCC_NET** — Network layer
