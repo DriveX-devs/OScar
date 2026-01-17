@@ -653,8 +653,11 @@ int main (int argc, char *argv[]) {
     unsigned long vehicleID = 0; // Vehicle ID
     unsigned long VRUID = 0; // VRU ID
     bool enable_CAM_dissemination = false;
+    int CAMs_priority = 0;
     bool enable_VAM_dissemination = false;
+    int VAMs_priority = 0;
     bool enable_CPM_dissemination = false;
+    int CPMs_priority = 0;
     bool enable_DENM_decoding = false;
     bool enable_reception = false;
     bool disable_selfMAC_check = false;
@@ -747,6 +750,10 @@ int main (int argc, char *argv[]) {
                                      false);
         cmd.add(CAMsDissArg);
 
+        TCLAP::ValueArg<int> CAMsPriority("CP", "CAMs-priority", "Set the queue priority for CAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
+                                     false, 0, "integer");
+        cmd.add(CAMsPriority);
+
         TCLAP::SwitchArg DENMsDecArg("d", "enable-DENMs-decoding", "Enable the decoding of DENMs", false);
         cmd.add(DENMsDecArg);
 
@@ -795,6 +802,10 @@ int main (int argc, char *argv[]) {
 
         TCLAP::SwitchArg CPMsDissArg("M", "enable-CPMs-dissemination", "Enable the dissemination of CPMs", false);
         cmd.add(CPMsDissArg);
+
+        TCLAP::ValueArg<int> CPMsPriority("MP", "CPMs-priority", "Set the queue priority for CPMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 1 (second highest).",
+                                     false, 1, "integer");
+        cmd.add(CPMsPriority);
 
         TCLAP::ValueArg<double> POS_threshold("p", "Position-threshold", "VAM position triggering condition threshold",
                                               false, -1, "double");
@@ -845,6 +856,10 @@ int main (int argc, char *argv[]) {
 
         TCLAP::SwitchArg VAMsDissArg("V", "enable-VAMs-dissemination", "Enable the dissemination of VAMs", false);
         cmd.add(VAMsDissArg);
+
+        TCLAP::ValueArg<int> VAMsPriority("VP", "VAMs-priority", "Set the queue priority for VAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
+                                     false, 0, "integer");
+        cmd.add(VAMsPriority);
 
         TCLAP::SwitchArg SecurityArg("w", "enable-security",
                                      "Enable the the transmission and reception of secured messages (tested on CAMs and CPMs)",
@@ -1045,10 +1060,31 @@ int main (int argc, char *argv[]) {
         VRUID = VRUIDArg.getValue();
 
         enable_CAM_dissemination = CAMsDissArg.getValue();
+        CAMs_priority = CAMsPriority.getValue();
         enable_VAM_dissemination = VAMsDissArg.getValue();
+        VAMs_priority = VAMsPriority.getValue();
         enable_CPM_dissemination = CPMsDissArg.getValue();
+        CPMs_priority = CPMsPriority.getValue();
         enable_DENM_decoding = DENMsDecArg.getValue();
         enable_security = SecurityArg.getValue();
+
+        if (CAMs_priority < 0 || CAMs_priority > 3) {
+            std::cerr
+                << "[ERROR] CAMs priority for DCC is out of range [0, 3]." << std::endl;
+            return 1;
+        }
+
+        if (CPMs_priority < 0 || CPMs_priority > 3) {
+            std::cerr
+                << "[ERROR] CPMs priority for DCC is out of range [0, 3]." << std::endl;
+            return 1;
+        }
+
+        if (VAMs_priority < 0 || VAMs_priority > 3) {
+            std::cerr
+                << "[ERROR] VAMs priority for DCC is out of range [0, 3]." << std::endl;
+            return 1;
+        }
 
         check_faulty_object_acceleration = CheckFaultyObjectAcceleration.getValue();
         disable_cpm_speed_triggering = DisableCPMSpeedTriggering.getValue();
@@ -1489,6 +1525,18 @@ int main (int argc, char *argv[]) {
     {
         dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC, profile_DCC);
         dcc->setMetricSupervisor(&metric_supervisor);
+        if (enable_CAM_dissemination)
+        {
+            cabs.setPriority(CAMs_priority);
+        }
+        if (enable_CPM_dissemination)
+        {
+            cpbs.setPriority(CPMs_priority);
+        }
+        if (enable_VAM_dissemination)
+        {
+            vrubs.setPriority(VAMs_priority);
+        }
     }
     else
     {

@@ -78,6 +78,7 @@ public:
 
   void setOwnPrivateIP(std::string own_private_IP) {m_own_private_IP=own_private_IP;}
   void setOwnPublicIP(std::string own_public_IP) {m_own_public_IP=own_public_IP;}
+  void setPriority(int priority) {m_priority = (uint8_t) priority;}
   void disableOwnPrivateIP() {m_own_private_IP="0.0.0.0";}
   void disableOwnPublicIP() {m_own_private_IP="0.0.0.0";}
 

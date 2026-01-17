@@ -57,12 +57,8 @@ class VRUBasicService
 {
 public:
     VRUBasicService();
-
-    /**
-     * @brief Set the future time to send a VAM
-     * @param nextVAM The next time to send VAM
-     */
-    void setNextVAMDCC(long nextVAM) {m_T_next_dcc = nextVAM;};
+    
+    void setPriority(int priority) {m_priority = (uint8_t) priority;}
     
     void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
     void setLogfile(std::string filename) {m_log_filename=filename;}

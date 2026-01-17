@@ -34,11 +34,8 @@ class CPBasicService
 {
 public:
     CPBasicService();
-    /**
-     * @brief Set the future time to send a CPM
-     * @param nextCPM The next time to send CPM
-     */
-    void setNextCPMDCC(long nextCPM) {m_T_next_dcc = nextCPM;};
+
+    void setPriority(int priority) {m_priority = (uint8_t) priority;}
 
     void setStationID(unsigned long fixed_stationid);
     void setStationType(long fixed_stationtype);
