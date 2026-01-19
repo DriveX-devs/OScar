@@ -149,7 +149,7 @@ BasicSensorReader::readerLoop() {
                 }
                 else
                 {
-                    std::cout << "Warning Ego vehicle's position is not available!" << std::endl;
+                    // std::cout << "Warning Ego vehicle's position is not available!" << std::endl;
                     continue;
                 }
 
