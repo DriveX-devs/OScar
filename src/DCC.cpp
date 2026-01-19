@@ -374,17 +374,26 @@ void DCC::functionAdaptive()
                     m_gate_mutex.lock();
                     int dropped = m_dropped_by_gate;
                     m_gate_mutex.unlock();
+                    
+                    float average_aoi_dp0, average_aoi_dp1, average_aoi_dp2, average_aoi_dp3;
 
-                    float average_aoi_dp0 = m_cumulative_time_dp0 / m_packet_sent_dp0;
+                    if (m_packet_sent_dp0 == 0) average_aoi_dp0 = -1;
+                    else average_aoi_dp0 = m_cumulative_time_dp0 / m_packet_sent_dp0;
                     m_cumulative_time_dp0 = 0;
                     m_packet_sent_dp0 = 0;
-                    float average_aoi_dp1 = m_cumulative_time_dp1 / m_packet_sent_dp1;
+
+                    if (m_packet_sent_dp1 == 0) average_aoi_dp1 = -1;
+                    else average_aoi_dp1 = m_cumulative_time_dp1 / m_packet_sent_dp1;
                     m_cumulative_time_dp1 = 0;
                     m_packet_sent_dp1 = 0;
-                    float average_aoi_dp2 = m_cumulative_time_dp2 / m_packet_sent_dp2;
+                    
+                    if (m_packet_sent_dp2 == 0) average_aoi_dp2 = -1;
+                    else average_aoi_dp2 = m_cumulative_time_dp2 / m_packet_sent_dp2;
                     m_cumulative_time_dp2 = 0;
                     m_packet_sent_dp2 = 0;
-                    float average_aoi_dp3 = m_cumulative_time_dp0 / m_packet_sent_dp3;
+                    
+                    if (m_packet_sent_dp3 == 0) average_aoi_dp3 = -1;
+                    else average_aoi_dp3 = m_cumulative_time_dp3 / m_packet_sent_dp3;
                     m_cumulative_time_dp3 = 0;
                     m_packet_sent_dp3 = 0;
 
