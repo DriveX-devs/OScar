@@ -209,7 +209,20 @@ void DCC::functionReactive()
                     int dropped = m_dropped_by_gate;
                     m_gate_mutex.unlock();
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped << "\n";
+                    float average_aoi_dp0 = m_cumulative_time_dp0 / m_packet_sent_dp0;
+                    m_cumulative_time_dp0 = 0;
+                    m_packet_sent_dp0 = 0;
+                    float average_aoi_dp1 = m_cumulative_time_dp1 / m_packet_sent_dp1;
+                    m_cumulative_time_dp1 = 0;
+                    m_packet_sent_dp1 = 0;
+                    float average_aoi_dp2 = m_cumulative_time_dp2 / m_packet_sent_dp2;
+                    m_cumulative_time_dp2 = 0;
+                    m_packet_sent_dp2 = 0;
+                    float average_aoi_dp3 = m_cumulative_time_dp0 / m_packet_sent_dp3;
+                    m_cumulative_time_dp3 = 0;
+                    m_packet_sent_dp3 = 0;
+
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3"\n";
                     file.close();
                 }
             }
@@ -235,7 +248,7 @@ void DCC::reactiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time,#_dropped\n";
+        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time,#_dropped,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
     }
 }
@@ -362,7 +375,20 @@ void DCC::functionAdaptive()
                     int dropped = m_dropped_by_gate;
                     m_gate_mutex.unlock();
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << dropped << "\n";
+                    float average_aoi_dp0 = m_cumulative_time_dp0 / m_packet_sent_dp0;
+                    m_cumulative_time_dp0 = 0;
+                    m_packet_sent_dp0 = 0;
+                    float average_aoi_dp1 = m_cumulative_time_dp1 / m_packet_sent_dp1;
+                    m_cumulative_time_dp1 = 0;
+                    m_packet_sent_dp1 = 0;
+                    float average_aoi_dp2 = m_cumulative_time_dp2 / m_packet_sent_dp2;
+                    m_cumulative_time_dp2 = 0;
+                    m_packet_sent_dp2 = 0;
+                    float average_aoi_dp3 = m_cumulative_time_dp0 / m_packet_sent_dp3;
+                    m_cumulative_time_dp3 = 0;
+                    m_packet_sent_dp3 = 0;
+
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3"\n";
                     file.close();
                 }
             }
@@ -390,7 +416,7 @@ void DCC::adaptiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,#_dropped\n";
+        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,#_dropped,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
     }
 }
@@ -726,4 +752,27 @@ void DCC::setSendCallback(std::function<void(const Packet&)> cb)
 void DCC::setCBRGCallback (std::function<void()> cb)
 {
     m_cbr_g_callback = std::move(cb);
+}
+
+void updateAoI (int priority, int64_t time)
+{
+    switch(priority)
+    {
+        case 0:
+        m_packet_sent_dp0 ++;
+        m_cumulative_time_dp0 = m_cumulative_time_dp0 + time;
+        break;
+        case 1:
+        m_packet_sent_dp1 ++;
+        m_cumulative_time_dp1 = m_cumulative_time_dp1 + time;
+        break;
+        case 2:
+        m_packet_sent_dp2 ++;
+        m_cumulative_time_dp2 = m_cumulative_time_dp2 + time;
+        break;
+        case 3:
+        m_packet_sent_dp3 ++;
+        m_cumulative_time_dp3 = m_cumulative_time_dp3 + time;
+        break;
+    }
 }

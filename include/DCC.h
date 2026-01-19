@@ -62,6 +62,7 @@ void setCBRL1 (double cbr_r1) {m_cbr_g_mutex.lock(); m_CBR_L1_Hop = cbr_r1; m_cb
 void setCBRL2 (double cbr_r2) {m_cbr_g_mutex.lock(); m_CBR_L2_Hop = cbr_r2; m_cbr_g_mutex.unlock();};
 double getCBRR1 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L1_Hop; m_cbr_g_mutex.unlock(); return cbr;};
 double getCBRR2 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L2_Hop; m_cbr_g_mutex.unlock(); return cbr;};
+void updateAoI (int priority);
 
 private:
 
@@ -156,9 +157,17 @@ long m_lifetime; // ms
 struct GNDataIndication_t; // forward declaration to avoid circular import with geonet.h
 
 std::vector<Packet> m_dcc_queue_dp0;
+uint64_t m_packet_sent_dp0 = 0;
+uint64_t m_cumulative_time_dp0 = 0;
 std::vector<Packet> m_dcc_queue_dp1;
+uint64_t m_packet_sent_dp1 = 0;
+uint64_t m_cumulative_time_dp1 = 0;
 std::vector<Packet> m_dcc_queue_dp2;
+uint64_t m_packet_sent_dp2 = 0;
+uint64_t m_cumulative_time_dp2 = 0;
 std::vector<Packet> m_dcc_queue_dp3;
+uint64_t m_packet_sent_dp3 = 0;
+uint64_t m_cumulative_time_dp3 = 0;
 
 bool m_first_send = true;
 bool m_stop_thread = false;
