@@ -222,7 +222,7 @@ void DCC::functionReactive()
                     m_cumulative_time_dp3 = 0;
                     m_packet_sent_dp3 = 0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3"\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
                     file.close();
                 }
             }
@@ -388,7 +388,7 @@ void DCC::functionAdaptive()
                     m_cumulative_time_dp3 = 0;
                     m_packet_sent_dp3 = 0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3"\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
                     file.close();
                 }
             }

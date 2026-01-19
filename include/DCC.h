@@ -62,7 +62,7 @@ void setCBRL1 (double cbr_r1) {m_cbr_g_mutex.lock(); m_CBR_L1_Hop = cbr_r1; m_cb
 void setCBRL2 (double cbr_r2) {m_cbr_g_mutex.lock(); m_CBR_L2_Hop = cbr_r2; m_cbr_g_mutex.unlock();};
 double getCBRR1 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L1_Hop; m_cbr_g_mutex.unlock(); return cbr;};
 double getCBRR2 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L2_Hop; m_cbr_g_mutex.unlock(); return cbr;};
-void updateAoI (int priority);
+void updateAoI (int priority, int64_t time);
 
 private:
 
