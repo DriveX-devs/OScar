@@ -48,7 +48,7 @@ BasicSensorReader::readerLoop() {
     while(m_thread_running) {
         nbytes = read(cansockfd,&radar_msg,sizeof(struct can_frame));
 
-        std::cout << "Bytes: " << nbytes << std::endl;
+        // std::cout << "Bytes: " << nbytes << std::endl;
 
         if(nbytes<=0) {
             fprintf(stderr,"Error: cannot read CAN message with ID 0x%03X. Details: %s\n",radar_msg.can_id,strerror(errno));
