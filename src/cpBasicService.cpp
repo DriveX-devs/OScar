@@ -260,12 +260,16 @@ CPBasicService::generateAndEncodeCPM()
                     asn1cpp::setField (velocity->present,
                                        Velocity3dWithConfidence_PR_cartesianVelocity);
                     auto cartesianVelocity = asn1cpp::makeSeq (VelocityCartesian);
+                    constexpr long kVelocityComponentMin = -16383;
+                    constexpr long kVelocityComponentMax = 16383;
+                    long x_speed = std::clamp(it->vehData.xSpeed, kVelocityComponentMin, kVelocityComponentMax);
+                    long y_speed = std::clamp(it->vehData.ySpeed, kVelocityComponentMin, kVelocityComponentMax);
                     asn1cpp::setField (cartesianVelocity->xVelocity.value,
-                                       it->vehData.xSpeed);
+                                       x_speed);
                     asn1cpp::setField (cartesianVelocity->xVelocity.confidence,
                                        SpeedConfidence_unavailable);
                     asn1cpp::setField (cartesianVelocity->yVelocity.value,
-                                       it->vehData.ySpeed);
+                                       y_speed);
                     asn1cpp::setField (cartesianVelocity->yVelocity.confidence,
                                        SpeedConfidence_unavailable);
                     asn1cpp::setField (velocity->choice.cartesianVelocity, cartesianVelocity);
@@ -292,11 +296,11 @@ CPBasicService::generateAndEncodeCPM()
 
                     //Only z angle
                     auto angle = asn1cpp::makeSeq (EulerAnglesWithConfidence);
-                    if ((it->vehData.heading*DECI) < CartesianAngleValue_unavailable &&
-                        (it->vehData.heading*DECI) > 0)
-                        asn1cpp::setField (angle->zAngle.value, (it->vehData.heading*DECI));
-                    else
-                        asn1cpp::setField (angle->zAngle.value, CartesianAngleValue_unavailable);
+                    long heading_etsi = static_cast<long>(it->vehData.heading * DECI);
+                    if (heading_etsi <= 0 || heading_etsi > CartesianAngleValue_valueNotUsed) {
+                        heading_etsi = CartesianAngleValue_unavailable;
+                    }
+                    asn1cpp::setField (angle->zAngle.value, heading_etsi);
                     asn1cpp::setField (angle->zAngle.confidence, AngleConfidence_unavailable);
                     asn1cpp::setField (PO->angles, angle);
                     auto OD1 = asn1cpp::makeSeq (ObjectDimension);
