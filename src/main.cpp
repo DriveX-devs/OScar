@@ -857,7 +857,7 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg VAMsDissArg("V", "enable-VAMs-dissemination", "Enable the dissemination of VAMs", false);
         cmd.add(VAMsDissArg);
 
-        TCLAP::ValueArg<int> VAMsPriority("VP", "VAMs-priority", "Set the queue priority for VAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
+        TCLAP::ValueArg<int> VAMsPriority("", "VAMs-priority", "Set the queue priority for VAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
                                      false, 0, "integer");
         cmd.add(VAMsPriority);
 
