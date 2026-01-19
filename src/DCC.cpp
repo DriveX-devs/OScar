@@ -754,7 +754,7 @@ void DCC::setCBRGCallback (std::function<void()> cb)
     m_cbr_g_callback = std::move(cb);
 }
 
-void updateAoI (int priority, int64_t time)
+void DCC::updateAoI (int priority, int64_t time)
 {
     switch(priority)
     {
