@@ -750,7 +750,7 @@ int main (int argc, char *argv[]) {
                                      false);
         cmd.add(CAMsDissArg);
 
-        TCLAP::ValueArg<int> CAMsPriority("CP", "CAMs-priority", "Set the queue priority for CAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
+        TCLAP::ValueArg<int> CAMsPriority("", "CAMs-priority", "Set the queue priority for CAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
                                      false, 0, "integer");
         cmd.add(CAMsPriority);
 
@@ -803,7 +803,7 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg CPMsDissArg("M", "enable-CPMs-dissemination", "Enable the dissemination of CPMs", false);
         cmd.add(CPMsDissArg);
 
-        TCLAP::ValueArg<int> CPMsPriority("MP", "CPMs-priority", "Set the queue priority for CPMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 1 (second highest).",
+        TCLAP::ValueArg<int> CPMsPriority("", "CPMs-priority", "Set the queue priority for CPMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 1 (second highest).",
                                      false, 1, "integer");
         cmd.add(CPMsPriority);
 
