@@ -420,7 +420,7 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
                 }
                 return GN_SECURED_ERROR;
             } else {
-                std::cout << "[INFO] [Decoder] Security verification successful" << std::endl;
+                // std::cout << "[INFO] [Decoder] Security verification successful" << std::endl;
             }
 
             long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();

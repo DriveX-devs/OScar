@@ -979,6 +979,7 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
                 }
             }
             if (!signValid) {
+                std::cout << "[INFO] [SECURITY] Security Verification Failed Due To Signature!!!!!!!" << std::endl;
                 return SECURITY_VERIFICATION_FAILED;
             }
         }
