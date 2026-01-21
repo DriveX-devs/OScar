@@ -444,7 +444,7 @@ void DCC::updateTgoAfterTransmission()
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);
     int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
-    float aux;
+    double aux;
     m_gate_mutex.lock();
     if (m_Ton_pp / m_delta > 25)
     {
@@ -461,7 +461,7 @@ void DCC::updateTgoAfterTransmission()
         aux = 1000;
     }
     m_gate_mutex.lock();
-    m_Tpg_ms = static_cast<float>(now);
+    m_Tpg_ms = static_cast<double>(now);
     // Compute next time gate will be open
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
@@ -480,21 +480,15 @@ void DCC::updateTgoAfterDeltaUpdate()
         return;
     }
     m_gate_mutex.lock();
-    float aux = m_Ton_pp / m_delta;
-    aux = aux * ((m_Tgo_ms - now) / (m_Tgo_ms - m_Tpg_ms));
-    aux = aux + (now - m_Tpg_ms);
-    m_gate_mutex.unlock();
-    if (aux < 25)
-    {
-        aux = 25;
-    }
-    if (aux > 1000)
-    {
-        aux = 1000;
-    }
-    m_gate_mutex.lock();
-    m_Tgo_ms = m_Tpg_ms + aux;
-    m_Toff_ms = aux;
+    double aux = m_Ton_pp / m_delta;
+    double frac = (m_Tgo_ms - static_cast<double>(now)) / (m_Tgo_ms - m_Tpg_ms);
+    double update = aux * frac + (static_cast<double>(now) - m_Tpg_ms);
+    // Clamp update between 25 and 1000
+    if (update < 25) update = 25;
+    if (update > 1000) update = 1000;
+    std::cout << "AUX 3: " << update << std::endl;
+    m_Tgo_ms = m_Tpg_ms + update;
+    m_Toff_ms = update;
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
@@ -503,8 +497,9 @@ bool DCC::checkGateOpen(int64_t now)
 {
     m_gate_mutex.lock();
     // Return true if the gate is open now
-    bool ret = now - m_last_tx >= m_Toff_ms;
+    bool ret = (static_cast<double>(now) - m_last_tx) >= m_Toff_ms;
     m_gate_mutex.unlock();
+    if (ret == false) std::cout << "Gate is closed" << std::endl;
     return ret;
 }
 
@@ -532,7 +527,7 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
     clock_gettime (CLOCK_MONOTONIC, &tv);
     int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
     m_gate_mutex.lock();
-    m_Tgo_ms = now + Toff;
+    m_Tgo_ms = static_cast<double>(now) + Toff;
     m_Toff_ms = Toff;
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
@@ -721,8 +716,8 @@ void DCC::checkQueue()
 
         m_gate_mutex.lock();
 
-        int64_t elapsed = now - m_last_tx;
-        int64_t wait_time = (m_Toff_ms >= elapsed) ? (m_Toff_ms - elapsed) : 0;
+        double elapsed = static_cast<double>(now) - m_last_tx;
+        double wait_time = (m_Toff_ms >= elapsed) ? (m_Toff_ms - elapsed) : 0.0;
 
         bool queues_have_packets = !(m_dcc_queue_dp0.empty() && m_dcc_queue_dp1.empty() && m_dcc_queue_dp2.empty() && m_dcc_queue_dp3.empty());
         
@@ -750,11 +745,11 @@ void DCC::checkQueue()
         {
             // Wait until Toff expires or Toff changes
             m_gate_mutex.unlock();
-            m_check_queue_cv.wait_for(lock, std::chrono::milliseconds(wait_time), [&]{
+            m_check_queue_cv.wait_for(lock, std::chrono::milliseconds(static_cast<int64_t>(wait_time)), [&]{
                 std::lock_guard<std::mutex> gate_lock(m_gate_mutex);
                 clock_gettime(CLOCK_MONOTONIC, &tv);
                 now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
-                elapsed = now - m_last_tx;
+                elapsed = static_cast<double>(now) - m_last_tx;
                 bool are_queues_empty = m_dcc_queue_dp0.empty() && m_dcc_queue_dp1.empty() && m_dcc_queue_dp2.empty() && m_dcc_queue_dp3.empty();
                 return (elapsed >= m_Toff_ms && !are_queues_empty) || m_stop_thread;
             });

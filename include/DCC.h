@@ -48,7 +48,7 @@ float getDelta() {float delta; m_gate_mutex.lock(); delta = m_delta; m_gate_mute
 void cleanQueues(int now);
 void enqueue(int priority, Packet p);
 std::tuple<bool, Packet> dequeue(int priority);
-void setLastTx(float t) {m_gate_mutex.lock(); m_last_tx = t; m_gate_mutex.unlock();}
+void setLastTx(int64_t t) {m_gate_mutex.lock(); m_last_tx = static_cast<double>(t); m_gate_mutex.unlock();}
 void setSendCallback(std::function<void(const Packet&)> cb);
 void setCBRGCallback(std::function<void()> cb);
 void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
@@ -143,11 +143,11 @@ CBRReader m_main_cbr_reader;
 CBRReader m_second_cbr_reader;
 
 std::mutex m_gate_mutex;
-float m_Tpg_ms = 0.0;
-float m_Tgo_ms = 0.0;
+double m_Tpg_ms = 0.0;
+double m_Tgo_ms = 0.0;
 float m_Ton_pp = 0.5;
-float m_Toff_ms = 0.0;
-float m_last_tx = 0.0;
+double m_Toff_ms = 0.0;
+double m_last_tx = 0.0;
 float m_delta = 0;
 long m_bitrate_bps;
 std::string m_dcc = "";
