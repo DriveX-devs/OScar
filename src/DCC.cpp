@@ -486,7 +486,6 @@ void DCC::updateTgoAfterDeltaUpdate()
     // Clamp update between 25 and 1000
     if (update < 25) update = 25;
     if (update > 1000) update = 1000;
-    std::cout << "AUX 3: " << update << std::endl;
     m_Tgo_ms = m_Tpg_ms + update;
     m_Toff_ms = update;
     m_gate_mutex.unlock();
