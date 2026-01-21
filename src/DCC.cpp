@@ -498,7 +498,6 @@ bool DCC::checkGateOpen(int64_t now)
     // Return true if the gate is open now
     bool ret = (static_cast<double>(now) - m_last_tx) >= m_Toff_ms;
     m_gate_mutex.unlock();
-    if (ret == false) std::cout << "Gate is closed" << std::endl;
     return ret;
 }
 
