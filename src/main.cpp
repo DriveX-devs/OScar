@@ -439,7 +439,7 @@ void radarReaderThr(std::string gnss_device,
             BasicSensorReader sensorReader(can_device, db_ptr, &sensorgpsc, vehicleID);
             sensorReader.setCANdbInfo(can_db_sensor_info,can_db_id_info);
             sensorReader.setEnableClassification(enable_sensor_classification);
-            sensorReader.setVerbose(true);
+            sensorReader.setVerbose(verbose);
             sensorReader.startReader();
         } catch(const std::exception& e) {
             std::cerr << "Error in creating a new VDP GPS Client connection: " << e.what() << std::endl;
