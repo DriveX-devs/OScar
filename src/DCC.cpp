@@ -406,7 +406,7 @@ void DCC::functionAdaptive()
                     m_cumulative_time_dp3 = 0;
                     m_packet_sent_dp3 = 0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << m_Toff_ms <<"," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
                     file.close();
                 }
             }
@@ -434,7 +434,7 @@ void DCC::adaptiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,#_dropped,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
+        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,int_pkt_time,#_dropped,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
     }
 }
