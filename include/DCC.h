@@ -63,6 +63,7 @@ void setCBRL2 (double cbr_r2) {m_cbr_g_mutex.lock(); m_CBR_L2_Hop = cbr_r2; m_cb
 double getCBRR1 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L1_Hop; m_cbr_g_mutex.unlock(); return cbr;};
 double getCBRR2 () {double cbr; m_cbr_g_mutex.lock(); cbr = m_CBR_L2_Hop; m_cbr_g_mutex.unlock(); return cbr;};
 void updateAoI (int priority, int64_t time);
+void updatePktToSend() {m_gate_mutex.lock(); m_pkt_to_send ++; m_gate_mutex.unlock();};
 
 private:
 
@@ -177,7 +178,9 @@ std::condition_variable m_check_queue_cv;
 std::function<void(const Packet&)> m_send_callback;
 std::function<void()> m_cbr_g_callback;
 MetricSupervisor *m_met_sup_ptr = nullptr;
-uint32_t m_dropped_by_gate = 0;
+uint32_t m_dropped_full_queue = 0;
+uint32_t m_dropped_lifetime = 0;
+uint32_t m_pkt_to_send = 0;
 
 std::thread m_cbr_g_thread;
 std::mutex m_cbr_g_mutex;

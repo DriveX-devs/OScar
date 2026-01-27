@@ -206,7 +206,9 @@ void DCC::functionReactive()
 
                     auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
                     m_gate_mutex.lock();
-                    int dropped = m_dropped_by_gate;
+                    int dropped_lifetime = m_dropped_lifetime;
+                    int dropped_full_queue = m_dropped_full_queue;
+                    int pkt_to_send = m_pkt_to_send;
                     m_gate_mutex.unlock();
 
                     float average_aoi_dp0, average_aoi_dp1, average_aoi_dp2, average_aoi_dp3;
@@ -231,7 +233,7 @@ void DCC::functionReactive()
                     m_cumulative_time_dp3 = 0;
                     m_packet_sent_dp3 = 0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped_lifetime << "," << dropped_full_queue << "," << pkt_to_send << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
                     file.close();
                 }
             }
@@ -257,7 +259,7 @@ void DCC::reactiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time,#_dropped,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
+        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time,#_dropped_lifetime,#_dropped_full_queue,#_pkt_to_send,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
     }
 }
@@ -381,7 +383,9 @@ void DCC::functionAdaptive()
                     auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
 
                     m_gate_mutex.lock();
-                    int dropped = m_dropped_by_gate;
+                    int dropped_full_queue = m_dropped_full_queue;
+                    int dropped_lifetime = m_dropped_lifetime;
+                    int pkt_to_send = m_pkt_to_send;
                     m_gate_mutex.unlock();
                     
                     float average_aoi_dp0, average_aoi_dp1, average_aoi_dp2, average_aoi_dp3;
@@ -406,7 +410,7 @@ void DCC::functionAdaptive()
                     m_cumulative_time_dp3 = 0;
                     m_packet_sent_dp3 = 0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << m_Toff_ms <<"," << dropped << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << m_Toff_ms <<"," << dropped_lifetime << "," << dropped_full_queue << "," << pkt_to_send << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
                     file.close();
                 }
             }
@@ -434,8 +438,14 @@ void DCC::adaptiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,int_pkt_time,#_dropped,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
+        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,int_pkt_time,#_dropped_lifetime,#_dropped_full_queue,#_pkt_to_send,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
+        // Remove .txt from log_file for Toff log name
+        std::string file_log = m_log_file + "_Toff.log";
+        std::ofstream file_toff;
+        file_toff.open(file_log, std::ios::out);
+        file_toff << "timestamp_unix_s,Toff_ms\n";
+        file_toff.close();
     }
 }
 
@@ -465,6 +475,17 @@ void DCC::updateTgoAfterTransmission()
     // Compute next time gate will be open
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
+    if (m_log_file != "")
+    {
+        std::string file_log = m_log_file + "_Toff.log";
+        std::ofstream file_toff;
+        file_toff.open(file_log, std::ios::app);
+
+        auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+
+        file_toff << std::fixed << now_unix << "," << m_Toff_ms << "\n";
+        file_toff.close();
+    }
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
@@ -541,7 +562,7 @@ DCC::cleanQueues(int now)
     {
         if (now > (*it).time + m_lifetime)
         {
-            m_dropped_by_gate ++;
+            m_dropped_lifetime ++;
             to_delete.push_back(counter);
         }
         counter ++;
@@ -557,7 +578,7 @@ DCC::cleanQueues(int now)
     {
         if (now > (*it).time + m_lifetime)
         {
-            m_dropped_by_gate ++;
+            m_dropped_lifetime ++;
             to_delete.push_back(counter);
         }
         counter ++;
@@ -573,7 +594,7 @@ DCC::cleanQueues(int now)
     {
         if (now > (*it).time + m_lifetime)
         {
-            m_dropped_by_gate ++;
+            m_dropped_lifetime ++;
             to_delete.push_back(counter);
         }
         counter ++;
@@ -589,7 +610,7 @@ DCC::cleanQueues(int now)
     {
         if (now > (*it).time + m_lifetime)
         {
-            m_dropped_by_gate ++;
+            m_dropped_lifetime ++;
             to_delete.push_back(counter);
         }
         counter ++;
@@ -608,7 +629,7 @@ DCC::enqueue(int priority, Packet p)
     {
         // There is no queue, the pkt is directly discarded
         m_gate_mutex.lock();
-        m_dropped_by_gate ++;
+        m_dropped_full_queue ++;
         m_gate_mutex.unlock();
         return;
     }
@@ -658,7 +679,7 @@ DCC::enqueue(int priority, Packet p)
 	else
 	{
 		m_gate_mutex.lock();
-		m_dropped_by_gate ++;
+		m_dropped_full_queue ++;
 		m_gate_mutex.unlock();
 	}
 }

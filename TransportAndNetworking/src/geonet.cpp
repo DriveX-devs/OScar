@@ -275,6 +275,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 	Packet pkt = {now, basicHeader, commonHeader, longPV, dataRequest, message_id};
 	if (use_dcc != "")
 	{
+		m_dcc->updatePktToSend();
 		gate_open = m_dcc->checkGateOpen(now);
 		if (gate_open == false)
 		{
