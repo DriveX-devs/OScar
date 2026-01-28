@@ -64,10 +64,15 @@ namespace etsiDecoder {
 			    std::cerr << "[WARN] [Decoder] Warning: GeoNet unable to decode a received packet." << std::endl;
 			    return ETSI_DECODED_ERROR;
 			  }
-
-			if(BTP.decodeBTP(gndataIndication,&btpDataIndication)!= BTP_OK)
+			
+			btpError_e error = BTP.decodeBTP(gndataIndication,&btpDataIndication);
+			if(error != BTP_OK)
 			  {
 			    std::cerr << "[WARN] [Decoder] Warning: BTP unable to decode a received packet." << std::endl;
+				if (error == BTP_ERROR_CPM)
+				{
+					return ETSI_DECODED_ERROR_CPM;
+				}
 			    return ETSI_DECODED_ERROR;
 			  }
 
