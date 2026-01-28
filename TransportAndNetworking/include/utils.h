@@ -26,7 +26,8 @@ typedef enum {
 
 typedef enum {
 	BTP_OK = 0,
-	BTP_ERROR = 1
+	BTP_ERROR = 1,
+	BTP_ERROR_CPM = 2
 } btpError_e;
 
 typedef struct longPositionVector{

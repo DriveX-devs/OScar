@@ -90,7 +90,7 @@ void MetricSupervisor::writeLogFile()
     file_sta_info.open(m_log_filename + "_station_info.csv", std::ios::out);
     file_rssi_info.open(m_log_filename + "_rssi_info.csv", std::ios::out);
     uint64_t start = get_timestamp_us();
-    file_sta_info << "timestamp_unix_s,timestamp_relative_us,CBR,busy_time,tx_time,rx_time,num_tx,num_rx\n";
+    file_sta_info << "timestamp_unix_s,timestamp_relative_us,CBR,busy_time,tx_time,rx_time,num_tx,num_tx_cam,num_tx_cpm,num_rx,num_rx_cam,num_rx_cpm\n";
     file_rssi_info << "timestamp_unix_s,timestamp_relative_us,mac_address,last_rssi\n";
     do
     {
@@ -103,7 +103,7 @@ void MetricSupervisor::writeLogFile()
             auto now = static_cast<long int>(get_timestamp_us()-start);
             auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
             m_mutex.lock();
-            file_sta_info << std::fixed << now_unix << "," << now << "," << cbr << "," << m_cbr_reader.get_current_busy_time() << "," << m_cbr_reader.get_current_tx_time() << "," << m_cbr_reader.get_current_rx_time() << "," << m_tx_total << "," << m_rx_total << "\n";
+            file_sta_info << std::fixed << now_unix << "," << now << "," << cbr << "," << m_cbr_reader.get_current_busy_time() << "," << m_cbr_reader.get_current_tx_time() << "," << m_cbr_reader.get_current_rx_time() << "," << m_tx_total << "," << m_tx_CAMs << "," << m_tx_CPMs << "," << m_rx_total << "," << m_rx_CAMs << "," << m_rx_CPMs << "\n";
             m_mutex.unlock();
             for (auto it = rssi_map.begin(); it != rssi_map.end(); ++it)
             {

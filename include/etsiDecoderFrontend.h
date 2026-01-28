@@ -32,6 +32,7 @@ NAMED_ENUM_DECLARE(etsi_message_t,MSGTYPES);
 namespace etsiDecoder {
 	typedef enum {
 		ETSI_DECODED_ERROR,
+		ETSI_DECODED_ERROR_CPM,
 		ETSI_DECODED_CAM,
 		ETSI_DECODED_DENM,
 		ETSI_DECODED_IVIM,

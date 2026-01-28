@@ -209,6 +209,7 @@ void DCC::functionReactive()
                     int dropped_lifetime = m_dropped_lifetime;
                     int dropped_full_queue = m_dropped_full_queue;
                     int pkt_to_send = m_pkt_to_send;
+                    int pkt_received = m_pkt_received;
                     m_gate_mutex.unlock();
 
                     float average_aoi_dp0, average_aoi_dp1, average_aoi_dp2, average_aoi_dp3;
@@ -233,7 +234,7 @@ void DCC::functionReactive()
                     m_cumulative_time_dp3 = 0;
                     m_packet_sent_dp3 = 0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped_lifetime << "," << dropped_full_queue << "," << pkt_to_send << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_current_state << "," << tx_power << "," << int_pkt_time << "," << dropped_lifetime << "," << dropped_full_queue << "," << pkt_to_send << "," << pkt_received << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
                     file.close();
                 }
             }
@@ -259,7 +260,7 @@ void DCC::reactiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time,#_dropped_lifetime,#_dropped_full_queue,#_pkt_to_send,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
+        file << "timestamp_unix_s,timestamp_relative_us,CBR,state,tx_pwr,int_pkt_time,#_dropped_lifetime,#_dropped_full_queue,#_pkt_to_send,#_pkt_received,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
     }
 }
@@ -386,6 +387,7 @@ void DCC::functionAdaptive()
                     int dropped_full_queue = m_dropped_full_queue;
                     int dropped_lifetime = m_dropped_lifetime;
                     int pkt_to_send = m_pkt_to_send;
+                    int pkt_received = m_pkt_received;
                     m_gate_mutex.unlock();
                     
                     float average_aoi_dp0, average_aoi_dp1, average_aoi_dp2, average_aoi_dp3;
@@ -410,7 +412,7 @@ void DCC::functionAdaptive()
                     m_cumulative_time_dp3 = 0;
                     m_packet_sent_dp3 = 0;
 
-                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << m_Toff_ms <<"," << dropped_lifetime << "," << dropped_full_queue << "," << pkt_to_send << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
+                    file << std::fixed << now_unix << "," << static_cast<long int>(get_timestamp_us()-start) << "," << currentCbr << "," << m_CBR_its << "," << new_delta << "," << m_Toff_ms <<"," << dropped_lifetime << "," << dropped_full_queue << "," << pkt_to_send << "," << pkt_received << "," << average_aoi_dp0 << "," << average_aoi_dp1 << "," << average_aoi_dp2 << "," << average_aoi_dp3 << "\n";
                     file.close();
                 }
             }
@@ -438,7 +440,7 @@ void DCC::adaptiveDCC()
     {
         std::ofstream file;
         file.open(m_log_file, std::ios::out);
-        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,int_pkt_time,#_dropped_lifetime,#_dropped_full_queue,#_pkt_to_send,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
+        file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,int_pkt_time,#_dropped_lifetime,#_dropped_full_queue,#_pkt_to_send,#_pkt_received,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
         // Remove .txt from log_file for Toff log name
         std::string file_log = m_log_file + "_Toff.log";

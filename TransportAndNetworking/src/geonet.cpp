@@ -382,6 +382,7 @@ void GeoNet::attachSendFromDCCQueue()
 gnError_e
 GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
 {
+		if (m_dcc != nullptr) m_dcc->updatePktReceived();
         basicHeader basicH;
         commonHeader commonH;
 

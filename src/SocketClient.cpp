@@ -228,7 +228,14 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 	// Decode the content of the message, using the decoder-module frontend class
 	// m_decodeFrontend.setPrintPacket(true); // <- uncomment to print the bytes of each received message. Should be used for debug only, and should be kept disabled when deploying the S-LDM.
-	if(m_decodeFrontend.decodeEtsi(message_bin_buf, bufsize, decodedData, etsiDecoder::decoderFrontend::MSGTYPE_AUTO)!=ETSI_DECODER_OK) {
+	int error = m_decodeFrontend.decodeEtsi(message_bin_buf, bufsize, decodedData, etsiDecoder::decoderFrontend::MSGTYPE_AUTO);
+	if(error != ETSI_DECODER_OK) {
+		if (error == etsiDecoder::ETSI_DECODED_ERROR_CPM)
+		{
+			if(m_met_sup_ptr!=nullptr) {
+				m_met_sup_ptr->signalReceivedPacket(MessageId_cpm);
+			}
+		}
 		std::cerr << "Error! Cannot decode ETSI packet!" << std::endl;
 		return;
 	}

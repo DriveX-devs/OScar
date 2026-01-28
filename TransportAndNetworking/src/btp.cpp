@@ -75,7 +75,7 @@ btp::decodeBTP(GNDataIndication_t dataIndication, BTPDataIndication_t* btpDataIn
     if(header.getDestPort () == CP_PORT)
     {
         std::cerr << "[ERROR] [Decoder] Reception of CPMs is not yet fully supported" << std::endl;
-        return BTP_ERROR;
+        return BTP_ERROR_CPM;
     }
 
 	btpDataIndication->destPort = header.getDestPort ();
