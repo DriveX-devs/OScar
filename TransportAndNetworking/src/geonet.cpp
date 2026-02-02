@@ -1071,8 +1071,9 @@ void GeoNet::attachGlobalCBRCheck ()
         m_dcc->setCBRG(CBR_G);
         m_dcc->setCBRL1(CBR_L1_Hop);
     });
+}
 
-	void GeoNet::writeFinalLogRX (MessageId_t msg)
+void GeoNet::writeFinalLogRX (MessageId_t msg)
 	{
 		std::ofstream file;
 		file.open(m_GN_log_file, std::ios::app);
