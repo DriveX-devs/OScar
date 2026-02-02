@@ -88,6 +88,7 @@ class GeoNet {
 		void setDCC(DCC *dcc) {m_dcc = dcc; attachSendFromDCCQueue(); attachGlobalCBRCheck();}
         void attachSendFromDCCQueue();
         void attachGlobalCBRCheck();
+		void writeFinalLogRX (MessageId_t msg);
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;

@@ -45,7 +45,7 @@ GeoNet::GeoNet()
 
 	std::ofstream file;
 	file.open(m_GN_log_file, std::ios::out);
-	file << "timestamp_unix_s,timestamp_relative_us,gn_addr,tst,gn_lat,gn_lon,state\n";
+	file << "timestamp_unix_s,timestamp_relative_us,gn_addr,tst,gn_lat,gn_lon,message_id,state\n";
 	file.close();
 }
 
@@ -289,7 +289,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
 	}
 	file << std::dec;
-	file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << "0\n";
+	file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "0\n";
 	file.close();
 	if (use_dcc != "")
 	{
@@ -328,7 +328,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 					file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
 				}
 				file << std::dec;
-				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << "1\n";
+				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
 				file.close();
 			}
 			else
@@ -343,7 +343,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 					file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
 				}
 				file << std::dec;
-				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << "1\n";
+				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
 				file.close();
 				aoi = 0;
 			}
@@ -365,7 +365,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 			file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
 		}
 		file << std::dec;
-		file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << "1\n";
+		file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
 		file.close();
 	}
 
@@ -823,7 +823,7 @@ GeoNet::processSHB (GNDataIndication_t* dataIndication)
 				file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
 			}
 			file << std::dec;
-			file << "," << dataIndication->SourcePV.TST << "," << dataIndication->SourcePV.latitude << "," << dataIndication->SourcePV.longitude << "," << "2\n";
+			file << "," << dataIndication->SourcePV.TST << "," << dataIndication->SourcePV.latitude << "," << dataIndication->SourcePV.longitude << ",";
 			file.close();
             cbrr0 = shbH.GetCBRR0Hop();
             cbrr1 = shbH.GetCBRR1Hop();
@@ -1071,4 +1071,12 @@ void GeoNet::attachGlobalCBRCheck ()
         m_dcc->setCBRG(CBR_G);
         m_dcc->setCBRL1(CBR_L1_Hop);
     });
+
+	void GeoNet::writeFinalLogRX (MessageId_t msg)
+	{
+		std::ofstream file;
+		file.open(m_GN_log_file, std::ios::app);
+		file << msg << "," << "2\n";
+		file.close();
+	}
 }
