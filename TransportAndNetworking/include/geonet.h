@@ -185,6 +185,8 @@ class GeoNet {
 
         std::shared_mutex m_LocT_Mutex;
         std::map<uint64_t , GNLocTE> m_GNLocT;
+
+		std::string m_GN_log_file = "GN_log_TX_RX.csv";
 };
 
 #endif // OCABS_GEONET_H

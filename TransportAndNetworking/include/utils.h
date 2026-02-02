@@ -106,7 +106,7 @@ typedef struct dataIndication {
 typedef struct gndataIndication {
     uint8_t upperProtocol;
     GNlpv_t SourcePV;
-    GeoArea_t GnAddressDest; // GN destination adress -- destination adress(GeoUnicast) or geo. area (GeoBroadcast or GeoAnycast)
+    GeoArea_t GnAddressDest; // GN destination adress -- destination address(GeoUnicast) or geo. area (GeoBroadcast or GeoAnycast)
     uint8_t GNTraClass; // GN Traffic Class
     double GNRemainingLife; //GN Remaining Packet Lifetime in [s] /OPCIONAL/
     int16_t GNRemainingHL; // GN Remaining Hop Limit /OPCIONAL/
