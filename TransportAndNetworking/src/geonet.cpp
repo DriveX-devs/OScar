@@ -278,9 +278,9 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 	else use_dcc = "";
 	struct timespec tv;
 	clock_gettime (CLOCK_MONOTONIC, &tv);
-	int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+	double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 	bool gate_open = false;
-	Packet pkt = {static_cast<double>(now), basicHeader, commonHeader, longPV, dataRequest, message_id};
+	Packet pkt = {now, basicHeader, commonHeader, longPV, dataRequest, message_id};
 	char GNAddr [8];
 	memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
 	auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
@@ -319,7 +319,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 				longPV = pkt_to_send.long_PV;
 				dataRequest = pkt_to_send.dataRequest;
 				message_id = pkt_to_send.message_id;
-				aoi = static_cast<double>(now) - pkt_to_send.time;
+				aoi = now - pkt_to_send.time;
 				// std::cout << "[DEQUEUE]" << std::endl;
 				memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
 				now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
@@ -349,7 +349,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 			}
 			m_dcc->updateAoI(priority, aoi);
 			clock_gettime (CLOCK_MONOTONIC, &tv);
-			now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+			now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 			m_dcc->setLastTx(now);
 		}
 	}
@@ -406,7 +406,7 @@ void GeoNet::attachSendFromDCCQueue()
 
 		struct timespec tv;
 		clock_gettime (CLOCK_MONOTONIC, &tv);
-		int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+		double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 		m_dcc->setLastTx(now);
 
         // set last tx etc. is handled by DCC; here we just call the appropriate send
@@ -832,7 +832,7 @@ GeoNet::processSHB (GNDataIndication_t* dataIndication)
         {
             struct timespec tv;
             clock_gettime (CLOCK_MONOTONIC, &tv);
-            int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+            double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
             uint64_t key;
             std::memcpy(&key, dataIndication->SourcePV.GnAddress, 8);
             m_GNLocT[key].cbr_extension.CBR_R0_Hop.push_back (std::make_tuple(now, cbrr0));
@@ -968,7 +968,7 @@ void GeoNet::attachGlobalCBRCheck ()
     m_dcc->setCBRGCallback([this](){
         struct timespec tv;
         clock_gettime (CLOCK_MONOTONIC, &tv);
-        int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+        double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
         double mean_cbr_r0_hop = 0.0;
         long tot_r0 = 0;
         double max_cbr_r0 = 0.0, second_max_cbr_r0 = 0.0;

@@ -455,7 +455,7 @@ void DCC::updateTgoAfterTransmission()
 {
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);
-    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
     double aux;
     m_gate_mutex.lock();
     if (m_Ton_pp / m_delta > 25)
@@ -473,7 +473,7 @@ void DCC::updateTgoAfterTransmission()
         aux = 1000;
     }
     m_gate_mutex.lock();
-    m_Tpg_ms = static_cast<double>(now);
+    m_Tpg_ms = now;
     // Compute next time gate will be open
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
@@ -496,7 +496,7 @@ void DCC::updateTgoAfterDeltaUpdate()
 {
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);
-    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
     if (checkGateOpen(now))
     {
         // Update just if the gate is currently closed, otherwise return
@@ -504,8 +504,8 @@ void DCC::updateTgoAfterDeltaUpdate()
     }
     m_gate_mutex.lock();
     double aux = m_Ton_pp / m_delta;
-    double frac = (m_Tgo_ms - static_cast<double>(now)) / (m_Tgo_ms - m_Tpg_ms);
-    double update = aux * frac + (static_cast<double>(now) - m_Tpg_ms);
+    double frac = (m_Tgo_ms - now) / (m_Tgo_ms - m_Tpg_ms);
+    double update = aux * frac + (now - m_Tpg_ms);
     // Clamp update between 25 and 1000
     if (update < 25) update = 25;
     if (update > 1000) update = 1000;
@@ -515,11 +515,11 @@ void DCC::updateTgoAfterDeltaUpdate()
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
 
-bool DCC::checkGateOpen(int64_t now)
+bool DCC::checkGateOpen(double now)
 {
     m_gate_mutex.lock();
     // Return true if the gate is open now
-    bool ret = (static_cast<double>(now) - m_last_tx) >= m_Toff_ms;
+    bool ret = (now - m_last_tx) >= m_Toff_ms;
     m_gate_mutex.unlock();
     return ret;
 }
@@ -546,23 +546,23 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
 {
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);
-    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
     m_gate_mutex.lock();
-    m_Tgo_ms = static_cast<double>(now) + Toff;
+    m_Tgo_ms = now + Toff;
     m_Toff_ms = Toff;
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
 
 void 
-DCC::cleanQueues(int now)
+DCC::cleanQueues(double now)
 {
     std::vector<int> to_delete;
     int counter = 0;
     
     for(auto it = m_dcc_queue_dp0.begin(); it != m_dcc_queue_dp0.end(); ++it)
     {
-        if (static_cast<double>(now) > (*it).time + m_lifetime)
+        if (now > (*it).time + m_lifetime)
         {
             m_dropped_lifetime ++;
             to_delete.push_back(counter);
@@ -578,7 +578,7 @@ DCC::cleanQueues(int now)
     counter = 0;
     for(auto it = m_dcc_queue_dp1.begin(); it != m_dcc_queue_dp1.end(); ++it)
     {
-        if (static_cast<double>(now) > (*it).time + m_lifetime)
+        if (now > (*it).time + m_lifetime)
         {
             m_dropped_lifetime ++;
             to_delete.push_back(counter);
@@ -594,7 +594,7 @@ DCC::cleanQueues(int now)
     counter = 0;
     for(auto it = m_dcc_queue_dp2.begin(); it != m_dcc_queue_dp2.end(); ++it)
     {
-        if (static_cast<double>(now) > (*it).time + m_lifetime)
+        if (now > (*it).time + m_lifetime)
         {
             m_dropped_lifetime ++;
             to_delete.push_back(counter);
@@ -610,7 +610,7 @@ DCC::cleanQueues(int now)
     counter = 0;
     for(auto it = m_dcc_queue_dp3.begin(); it != m_dcc_queue_dp3.end(); ++it)
     {
-        if (static_cast<double>(now) > (*it).time + m_lifetime)
+        if (now > (*it).time + m_lifetime)
         {
             m_dropped_lifetime ++;
             to_delete.push_back(counter);
@@ -638,7 +638,7 @@ DCC::enqueue(int priority, Packet p)
     bool inserted = false;
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);
-    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
     m_gate_mutex.lock();
     cleanQueues(now);
     switch(priority)
@@ -691,7 +691,7 @@ DCC::dequeue(int priority)
 {
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);
-    int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+    double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
     m_gate_mutex.lock();
     cleanQueues(now);
     Packet pkt;
@@ -733,11 +733,11 @@ void DCC::checkQueue()
     {
         struct timespec tv;
         clock_gettime (CLOCK_MONOTONIC, &tv);
-        int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+        double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 
         m_gate_mutex.lock();
 
-        double elapsed = static_cast<double>(now) - m_last_tx;
+        double elapsed = now - m_last_tx;
         double wait_time = (m_Toff_ms >= elapsed) ? (m_Toff_ms - elapsed) : 0.0;
 
         bool queues_have_packets = !(m_dcc_queue_dp0.empty() && m_dcc_queue_dp1.empty() && m_dcc_queue_dp2.empty() && m_dcc_queue_dp3.empty());
@@ -769,8 +769,8 @@ void DCC::checkQueue()
             m_check_queue_cv.wait_for(lock, std::chrono::milliseconds(static_cast<int64_t>(wait_time)), [&]{
                 std::lock_guard<std::mutex> gate_lock(m_gate_mutex);
                 clock_gettime(CLOCK_MONOTONIC, &tv);
-                now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
-                elapsed = static_cast<double>(now) - m_last_tx;
+                now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
+                elapsed = now - m_last_tx;
                 bool are_queues_empty = m_dcc_queue_dp0.empty() && m_dcc_queue_dp1.empty() && m_dcc_queue_dp2.empty() && m_dcc_queue_dp3.empty();
                 return (elapsed >= m_Toff_ms && !are_queues_empty) || m_stop_thread;
             });

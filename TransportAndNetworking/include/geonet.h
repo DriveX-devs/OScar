@@ -27,8 +27,8 @@ class GeoNet {
 	public:
 
         typedef struct LocationTableExtension{
-            std::vector<std::tuple<int64_t , double>> CBR_R0_Hop;
-            std::vector<std::tuple<int64_t , double>> CBR_R1_Hop;
+            std::vector<std::tuple<double , double>> CBR_R0_Hop;
+            std::vector<std::tuple<double , double>> CBR_R1_Hop;
         } LocationTableExtension;
 
         typedef struct _LocTableEntry {
@@ -182,10 +182,10 @@ class GeoNet {
 
 		DCC *m_dcc = nullptr;
 		// CBRReader m_cbr_reader;
-        int64_t m_GNLocTTimerCBR_ms = 1000;
+        double m_GNLocTTimerCBR_ms = 1000.0;
 
         std::shared_mutex m_LocT_Mutex;
-        std::map<uint64_t , GNLocTE> m_GNLocT;
+        std::map<uint64_t, GNLocTE> m_GNLocT;
 
 		std::string m_GN_log_file_tx = "GN_log_TX.csv";
 		std::string m_GN_log_file_rx = "GN_log_RX.csv";

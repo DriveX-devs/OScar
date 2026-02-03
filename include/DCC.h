@@ -38,17 +38,17 @@ void adaptiveDCC();
 float getTonpp();
 void updateTgoAfterStateCheck(uint32_t Toff);
 void updateTonpp(ssize_t pktSize);
-bool checkGateOpen(int64_t now);
+bool checkGateOpen(double now);
 void updateTgoAfterDeltaUpdate();
 void updateTgoAfterTransmission();
 std::string getModality() {return m_modality;}
 void setBitRate(long bitrate) {m_bitrate_bps = bitrate;}
 void updateDelta(float delta) {m_gate_mutex.lock(); m_delta = delta; m_gate_mutex.unlock();}
 float getDelta() {float delta; m_gate_mutex.lock(); delta = m_delta; m_gate_mutex.unlock(); return delta;}
-void cleanQueues(int now);
+void cleanQueues(double now);
 void enqueue(int priority, Packet p);
 std::tuple<bool, Packet> dequeue(int priority);
-void setLastTx(int64_t t) {m_gate_mutex.lock(); m_last_tx = static_cast<double>(t); m_gate_mutex.unlock();}
+void setLastTx(double t) {m_gate_mutex.lock(); m_last_tx = t; m_gate_mutex.unlock();}
 void setSendCallback(std::function<void(const Packet&)> cb);
 void setCBRGCallback(std::function<void()> cb);
 void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
