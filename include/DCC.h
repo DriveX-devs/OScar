@@ -17,7 +17,7 @@
 #define MAXIMUM_TIME_WINDOW_DCC 2000
 
 typedef struct Packet {
-    int64_t time;
+    double time;
     basicHeader bh;
     commonHeader ch;
     GNlpv_t long_PV;

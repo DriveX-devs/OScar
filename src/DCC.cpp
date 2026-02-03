@@ -562,7 +562,7 @@ DCC::cleanQueues(int now)
     
     for(auto it = m_dcc_queue_dp0.begin(); it != m_dcc_queue_dp0.end(); ++it)
     {
-        if (now > (*it).time + m_lifetime)
+        if (static_cast<double>(now) > (*it).time + m_lifetime)
         {
             m_dropped_lifetime ++;
             to_delete.push_back(counter);
@@ -578,7 +578,7 @@ DCC::cleanQueues(int now)
     counter = 0;
     for(auto it = m_dcc_queue_dp1.begin(); it != m_dcc_queue_dp1.end(); ++it)
     {
-        if (now > (*it).time + m_lifetime)
+        if (static_cast<double>(now) > (*it).time + m_lifetime)
         {
             m_dropped_lifetime ++;
             to_delete.push_back(counter);
@@ -594,7 +594,7 @@ DCC::cleanQueues(int now)
     counter = 0;
     for(auto it = m_dcc_queue_dp2.begin(); it != m_dcc_queue_dp2.end(); ++it)
     {
-        if (now > (*it).time + m_lifetime)
+        if (static_cast<double>(now) > (*it).time + m_lifetime)
         {
             m_dropped_lifetime ++;
             to_delete.push_back(counter);
@@ -610,7 +610,7 @@ DCC::cleanQueues(int now)
     counter = 0;
     for(auto it = m_dcc_queue_dp3.begin(); it != m_dcc_queue_dp3.end(); ++it)
     {
-        if (now > (*it).time + m_lifetime)
+        if (static_cast<double>(now) > (*it).time + m_lifetime)
         {
             m_dropped_lifetime ++;
             to_delete.push_back(counter);

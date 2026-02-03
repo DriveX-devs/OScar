@@ -88,7 +88,7 @@ class GeoNet {
 		void setDCC(DCC *dcc) {m_dcc = dcc; attachSendFromDCCQueue(); attachGlobalCBRCheck();}
         void attachSendFromDCCQueue();
         void attachGlobalCBRCheck();
-		void writeFinalLogRX (MessageId_t msg);
+		void writeEndRowLogRX (MessageId_t msg_id);
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;
@@ -189,6 +189,7 @@ class GeoNet {
 
 		std::string m_GN_log_file_tx = "GN_log_TX.csv";
 		std::string m_GN_log_file_rx = "GN_log_RX.csv";
+		std::mutex m_mutex_log_rx; 
 };
 
 #endif // OCABS_GEONET_H

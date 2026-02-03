@@ -71,11 +71,15 @@ namespace etsiDecoder {
 			    std::cerr << "[WARN] [Decoder] Warning: BTP unable to decode a received packet." << std::endl;
 				if (error == BTP_ERROR_CPM)
 				{
-					m_gn->writeFinalLogRX(MessageId_cpm);
+					m_gn->writeEndRowLogRX(MessageId_cpm);
 					return ETSI_DECODED_ERROR_CPM;
 				}
-				m_gn->writeFinalLogRX(MessageId_cam);
+				m_gn->writeEndRowLogRX(MessageId_cam);
 			    return ETSI_DECODED_ERROR;
+			  }
+			  else
+			  {
+				m_gn->writeEndRowLogRX(MessageId_cam);
 			  }
 
 			if(m_print_pkt==true) {
