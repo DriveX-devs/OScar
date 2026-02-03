@@ -308,7 +308,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		{
 			// Gate is opened
 			std::tuple<bool, Packet> value = m_dcc->dequeue(priority);
-			int64_t aoi;
+			double aoi;
 			if (std::get<0>(value) == true)
 			{
 				// Found a packet in queue with higher priority
