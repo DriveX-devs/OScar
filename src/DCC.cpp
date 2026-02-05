@@ -30,7 +30,7 @@ DCC::~DCC()
 
 void DCC::setCBRG(double cbr_g)
 {
-    if (cbr_g <= 0.0)
+    if (cbr_g < 0.0)
     {
         return;
     }
@@ -447,11 +447,13 @@ void DCC::adaptiveDCC()
         file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,int_pkt_time,#_dropped_lifetime,#_dropped_full_queue,#_pkt_to_send,#_pkt_received,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
         // Remove .txt from log_file for Toff log name
+        /*
         std::string file_log = m_log_file + "_Toff.log";
         std::ofstream file_toff;
         file_toff.open(file_log, std::ios::out);
         file_toff << "timestamp_unix_s,Toff_ms,place\n";
         file_toff.close();
+        */
     }
 }
 
@@ -481,6 +483,7 @@ void DCC::updateTgoAfterTransmission()
     // Compute next time gate will be open
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
+    /*
     if (m_log_file != "")
     {
         std::string file_log = m_log_file + "_Toff.log";
@@ -492,6 +495,7 @@ void DCC::updateTgoAfterTransmission()
         file_toff << std::fixed << now_unix << "," << m_Toff_ms << "," << "0" << "\n";
         file_toff.close();
     }
+    */
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
@@ -516,6 +520,7 @@ void DCC::updateTgoAfterDeltaUpdate()
     if (update > 1000) update = 1000;
     m_Tgo_ms = m_Tpg_ms + update;
     m_Toff_ms = update;
+    /*
     if (m_log_file != "")
     {
         std::string file_log = m_log_file + "_Toff.log";
@@ -527,6 +532,7 @@ void DCC::updateTgoAfterDeltaUpdate()
         file_toff << std::fixed << now_unix << "," << m_Toff_ms << "," << "1" << "\n";
         file_toff.close();
     }
+    */
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }

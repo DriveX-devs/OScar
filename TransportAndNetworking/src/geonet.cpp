@@ -1090,6 +1090,7 @@ void GeoNet::attachGlobalCBRCheck ()
 		double CBR_L0_Hop_prev = m_dcc->getCBRL0Prev();
         double CBR_G = std::max(CBR_L0_Hop_prev, CBR_L1_Hop);
         CBR_G = std::max(CBR_G, CBR_L2_Hop);
+		/*
 		std::ofstream file;
 		file.open("CBR_global.txt", std::ios::app);
 		file << std::fixed << std::setprecision(2);
@@ -1097,6 +1098,7 @@ void GeoNet::attachGlobalCBRCheck ()
 		file << "[DCC] Global CBR: " << CBR_G << ", Local CBR L1: " << CBR_L1_Hop << ", Local CBR L2: " << CBR_L2_Hop << ", CBR L0 prev: " << CBR_L0_Hop_prev << std::endl;
 		file << "\n";
 		file.close();
+		*/
         m_dcc->setCBRG(CBR_G);
         m_dcc->setCBRL1(CBR_L1_Hop);
     });
@@ -1106,7 +1108,7 @@ void GeoNet::writeEndRowLogRX (MessageId_t msg_id)
 {
 	std::ofstream file;
 	file.open(m_GN_log_file_rx, std::ios::app);
-	file << msg_id << "," << "2\n";
+	file << msg_id << "," << "3\n";
 	file.close();
 	// m_mutex_log_rx.unlock();
 }
