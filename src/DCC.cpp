@@ -30,6 +30,10 @@ DCC::~DCC()
 
 void DCC::setCBRG(double cbr_g)
 {
+    if (cbr_g <= 0.0)
+    {
+        return;
+    }
     m_cbr_g_mutex.lock();
     m_CBR_G[1] = m_CBR_G[0];
     // For the first time, set the second CBR_G to 0
@@ -446,7 +450,7 @@ void DCC::adaptiveDCC()
         std::string file_log = m_log_file + "_Toff.log";
         std::ofstream file_toff;
         file_toff.open(file_log, std::ios::out);
-        file_toff << "timestamp_unix_s,Toff_ms\n";
+        file_toff << "timestamp_unix_s,Toff_ms,place\n";
         file_toff.close();
     }
 }
@@ -485,7 +489,7 @@ void DCC::updateTgoAfterTransmission()
 
         auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
 
-        file_toff << std::fixed << now_unix << "," << m_Toff_ms << "\n";
+        file_toff << std::fixed << now_unix << "," << m_Toff_ms << "," << "0" << "\n";
         file_toff.close();
     }
     m_gate_mutex.unlock();
@@ -497,11 +501,12 @@ void DCC::updateTgoAfterDeltaUpdate()
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);
     double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
+    /*
     if (checkGateOpen(now))
     {
         // Update just if the gate is currently closed, otherwise return
         return;
-    }
+    }*/
     m_gate_mutex.lock();
     double aux = m_Ton_pp / m_delta;
     double frac = (m_Tgo_ms - now) / (m_Tgo_ms - m_Tpg_ms);
@@ -511,6 +516,17 @@ void DCC::updateTgoAfterDeltaUpdate()
     if (update > 1000) update = 1000;
     m_Tgo_ms = m_Tpg_ms + update;
     m_Toff_ms = update;
+    if (m_log_file != "")
+    {
+        std::string file_log = m_log_file + "_Toff.log";
+        std::ofstream file_toff;
+        file_toff.open(file_log, std::ios::app);
+
+        auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+
+        file_toff << std::fixed << now_unix << "," << m_Toff_ms << "," << "1" << "\n";
+        file_toff.close();
+    }
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
@@ -557,71 +573,58 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
 void 
 DCC::cleanQueues(double now)
 {
-    std::vector<int> to_delete;
-    int counter = 0;
     
-    for(auto it = m_dcc_queue_dp0.begin(); it != m_dcc_queue_dp0.end(); ++it)
+    for(auto it = m_dcc_queue_dp0.begin(); it != m_dcc_queue_dp0.end();)
     {
-        if (now > (*it).time + m_lifetime)
+        if (now > it->time + m_lifetime)
         {
-            m_dropped_lifetime ++;
-            to_delete.push_back(counter);
+            m_dropped_lifetime++;
+            it = m_dcc_queue_dp0.erase(it);
         }
-        counter ++;
-    }
-    for(int i = 0; i < to_delete.size(); i++)
-    {
-        m_dcc_queue_dp0.erase(m_dcc_queue_dp0.begin() + to_delete[i]);
+        else
+        {
+            ++it;
+        }
     }
 
-    to_delete.clear();
-    counter = 0;
-    for(auto it = m_dcc_queue_dp1.begin(); it != m_dcc_queue_dp1.end(); ++it)
+    for(auto it = m_dcc_queue_dp1.begin(); it != m_dcc_queue_dp1.end();)
     {
-        if (now > (*it).time + m_lifetime)
+        if (now > it->time + m_lifetime)
         {
-            m_dropped_lifetime ++;
-            to_delete.push_back(counter);
+            m_dropped_lifetime++;
+            it = m_dcc_queue_dp1.erase(it);
         }
-        counter ++;
-    }
-    for(int i = 0; i < to_delete.size(); i++)
-    {
-        m_dcc_queue_dp1.erase(m_dcc_queue_dp1.begin() + to_delete[i]);
+        else
+        {
+            ++it;
+        }
     }
     
-    to_delete.clear();
-    counter = 0;
-    for(auto it = m_dcc_queue_dp2.begin(); it != m_dcc_queue_dp2.end(); ++it)
+    for(auto it = m_dcc_queue_dp2.begin(); it != m_dcc_queue_dp2.end();)
     {
-        if (now > (*it).time + m_lifetime)
+        if (now > it->time + m_lifetime)
         {
-            m_dropped_lifetime ++;
-            to_delete.push_back(counter);
+            m_dropped_lifetime++;
+            it = m_dcc_queue_dp2.erase(it);
         }
-        counter ++;
-    }
-    for(int i = 0; i < to_delete.size(); i++)
-    {
-        m_dcc_queue_dp2.erase(m_dcc_queue_dp2.begin() + to_delete[i]);
+        else
+        {
+            ++it;
+        }
     }
     
-    to_delete.clear();
-    counter = 0;
-    for(auto it = m_dcc_queue_dp3.begin(); it != m_dcc_queue_dp3.end(); ++it)
+    for(auto it = m_dcc_queue_dp3.begin(); it != m_dcc_queue_dp3.end();)
     {
-        if (now > (*it).time + m_lifetime)
+        if (now > it->time + m_lifetime)
         {
-            m_dropped_lifetime ++;
-            to_delete.push_back(counter);
+            m_dropped_lifetime++;
+            it = m_dcc_queue_dp3.erase(it);
         }
-        counter ++;
+        else
+        {
+            ++it;
+        }
     }
-    for(int i = 0; i < to_delete.size(); i++)
-    {
-        m_dcc_queue_dp3.erase(m_dcc_queue_dp3.begin() + to_delete[i]);
-    }
-    
 }
 
 void 

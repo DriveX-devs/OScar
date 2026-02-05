@@ -329,7 +329,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 					file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
 				}
 				file << std::dec;
-				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
+				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "2\n";
 				file.close();
 			}
 			else
@@ -408,6 +408,28 @@ void GeoNet::attachSendFromDCCQueue()
 		clock_gettime (CLOCK_MONOTONIC, &tv);
 		double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 		m_dcc->setLastTx(now);
+
+		char GNAddr [8];
+		memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+		auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+		std::ofstream file;
+		file.open(m_GN_log_file_tx, std::ios::app);
+		file << std::fixed << now_unix << ",";
+		for (unsigned char c : GNAddr) {
+			file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+		}
+		file << std::dec;
+		file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "2\n";
+		file.close();
+
+		std::string use_dcc;
+		if (m_dcc != nullptr) use_dcc = m_dcc->getModality();
+		else use_dcc = "";
+
+		if (use_dcc == "adaptive")
+		{
+			m_dcc->updateTgoAfterTransmission();
+		}
 
         // set last tx etc. is handled by DCC; here we just call the appropriate send
         switch(dataRequest.GNType)
@@ -1065,8 +1087,16 @@ void GeoNet::attachGlobalCBRCheck ()
         {
             CBR_L2_Hop = second_max_cbr_r1;
         }
-        double CBR_G = std::max(m_dcc->getCBRL0Prev(), CBR_L1_Hop);
+		double CBR_L0_Hop_prev = m_dcc->getCBRL0Prev();
+        double CBR_G = std::max(CBR_L0_Hop_prev, CBR_L1_Hop);
         CBR_G = std::max(CBR_G, CBR_L2_Hop);
+		std::ofstream file;
+		file.open("CBR_global.txt", std::ios::app);
+		file << std::fixed << std::setprecision(2);
+		file << "\n";
+		file << "[DCC] Global CBR: " << CBR_G << ", Local CBR L1: " << CBR_L1_Hop << ", Local CBR L2: " << CBR_L2_Hop << ", CBR L0 prev: " << CBR_L0_Hop_prev << std::endl;
+		file << "\n";
+		file.close();
         m_dcc->setCBRG(CBR_G);
         m_dcc->setCBRL1(CBR_L1_Hop);
     });

@@ -173,17 +173,14 @@ void shbHeader::removeHeader(unsigned char *buffer) {
         buffer += 2;
         m_sourcePV.heading = swap_16bit(m_sourcePV.heading);
 
-        uint8_t cbr0_enc, cbr1_enc, txp_byte, reserved;
-        memcpy(&cbr0_enc, buffer, sizeof(uint8_t));
-        buffer += 1;
-        cbr0_enc = swap_8bit(cbr0_enc);
-        memcpy(&cbr1_enc, buffer, sizeof(uint8_t));
-        buffer += 1;
-        cbr1_enc = swap_8bit(cbr1_enc);
+		uint32_t field;
+		memcpy(&field, buffer, sizeof(uint32_t));
+		buffer += 4;
+		field = swap_32bit(field);
+        uint8_t cbr0_enc = (field >> 24) & 0xFF;
+		uint8_t cbr1_enc = (field >> 16) & 0xFF;
+		uint8_t txp_byte = (field >> 8)  & 0xFF;
+		// uint8_t reserved = field & 0xFF;
         m_CBR_R0_Hop = static_cast<double>(cbr0_enc) / 255.0f;
         m_CBR_R1_Hop = static_cast<double>(cbr1_enc) / 255.0f;
-        memcpy(&txp_byte, buffer, sizeof(uint8_t));
-        buffer += 1;
-        float txPower = static_cast<uint8_t>(txp_byte & 0x1F);
-        buffer += 1;
     }
