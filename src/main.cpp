@@ -1586,11 +1586,11 @@ int main (int argc, char *argv[]) {
                 sleep(1);
                 cnt_CAM++;
             }
-            GN.setMessageType(1);
+            GN.setMessageType(MessageId_cam);
         }
         else
         {
-            GN.setMessageType(2);
+            GN.setMessageType(MessageId_cpm);
         }
     }
     else if (enable_VAM_dissemination)
@@ -1615,7 +1615,7 @@ int main (int argc, char *argv[]) {
             sleep(1);
             vam_cnt_test++;
         }
-        GN.setMessageType(3);
+        GN.setMessageType(MessageId_vam);
     }
 
     if (enable_security && (&atManager) != nullptr) {

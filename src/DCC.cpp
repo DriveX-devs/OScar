@@ -327,11 +327,11 @@ void DCC::functionAdaptive()
                 {
                     if (m_CBR_G[0] == -1 && m_CBR_G[1] == -1)
                     {
-                        m_CBR_its = 0.5 * m_CBR_its + 0.25 * ((m_CBR_L0_Hop[0] + m_CBR_L0_Hop[1]) / 2);
+                        m_CBR_its = 0.5 * m_CBR_its + 0.5 * ((m_CBR_L0_Hop[0] + m_CBR_L0_Hop[1]) / 2);
                     }
                     else
                     {
-                        m_CBR_its = 0.5 * m_CBR_its + 0.25 * ((m_CBR_G[0] + m_CBR_G[1]) / 2);
+                        m_CBR_its = 0.5 * m_CBR_its + 0.5 * ((m_CBR_G[0] + m_CBR_G[1]) / 2);
                     }
                 }
                 else
