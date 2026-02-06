@@ -505,12 +505,11 @@ void DCC::updateTgoAfterDeltaUpdate()
     struct timespec tv;
     clock_gettime (CLOCK_MONOTONIC, &tv);
     double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
-    /*
     if (checkGateOpen(now))
     {
         // Update just if the gate is currently closed, otherwise return
         return;
-    }*/
+    }
     m_gate_mutex.lock();
     double aux = m_Ton_pp / m_delta;
     double frac = (m_Tgo_ms - now) / (m_Tgo_ms - m_Tpg_ms);
