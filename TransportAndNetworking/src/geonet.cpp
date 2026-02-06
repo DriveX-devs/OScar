@@ -431,6 +431,11 @@ void GeoNet::attachSendFromDCCQueue()
 			m_dcc->updateTgoAfterTransmission();
 		}
 
+		m_dcc->updateAoI(priority, aoi);
+		clock_gettime (CLOCK_MONOTONIC, &tv);
+		now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
+		m_dcc->setLastTx(now);
+
         // set last tx etc. is handled by DCC; here we just call the appropriate send
         switch(dataRequest.GNType)
         {
