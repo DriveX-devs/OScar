@@ -655,6 +655,7 @@ DCC::enqueue(int priority, Packet p)
         if (m_dcc_queue_dp0.size() < m_queue_length)
         {
             // The queue is not full, we can accept a new packet
+            p.priority = 0;
             m_dcc_queue_dp0.push_back(p);
             inserted = true;
         }
@@ -662,6 +663,7 @@ DCC::enqueue(int priority, Packet p)
         case 1:
         if (m_dcc_queue_dp1.size()< m_queue_length)
         {
+            p.priority = 1;
             m_dcc_queue_dp1.push_back(p);
             inserted = true;
         }
@@ -669,6 +671,7 @@ DCC::enqueue(int priority, Packet p)
         case 2:
         if (m_dcc_queue_dp2.size() < m_queue_length)
         {
+            p.priority = 2;
             m_dcc_queue_dp2.push_back(p);
             inserted = true;
         }
@@ -676,6 +679,7 @@ DCC::enqueue(int priority, Packet p)
         case 3:
         if (m_dcc_queue_dp3.size() < m_queue_length)
         {
+            p.priority = 3;
             m_dcc_queue_dp3.push_back(p);
             inserted = true;
         }

@@ -18,6 +18,7 @@
 
 typedef struct Packet {
     double time;
+    int priority;
     basicHeader bh;
     commonHeader ch;
     GNlpv_t long_PV;

@@ -280,7 +280,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 	clock_gettime (CLOCK_MONOTONIC, &tv);
 	double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 	bool gate_open = false;
-	Packet pkt = {now, basicHeader, commonHeader, longPV, dataRequest, message_id};
+	Packet pkt = {now, priority, basicHeader, commonHeader, longPV, dataRequest, message_id};
 	char GNAddr [8];
 	memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
 	auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
@@ -409,6 +409,8 @@ void GeoNet::attachSendFromDCCQueue()
 		double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 		m_dcc->setLastTx(now);
 
+		double aoi = now - pkt.time;
+
 		char GNAddr [8];
 		memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
 		auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
@@ -431,7 +433,7 @@ void GeoNet::attachSendFromDCCQueue()
 			m_dcc->updateTgoAfterTransmission();
 		}
 
-		m_dcc->updateAoI(priority, aoi);
+		m_dcc->updateAoI(pkt.priority, aoi);
 		clock_gettime (CLOCK_MONOTONIC, &tv);
 		now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 		m_dcc->setLastTx(now);
