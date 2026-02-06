@@ -12,7 +12,7 @@
 #include "asn_application.h"
 
 /* Including external dependencies */
-#include "StationId.h"
+#include "StationID.h"
 #include "SafeDistanceIndicator.h"
 #include "DeltaTimeTenthOfSecond.h"
 #include "constr_SEQUENCE.h"

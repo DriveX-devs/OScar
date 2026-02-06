@@ -52,14 +52,15 @@ inline bool compare_mac(uint8_t mac_a[6],uint8_t mac_b[6]) {
 		mac_a[5]==mac_b[5]);
 }
 
-SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security)
+SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn)
 {
 	m_raw_rx_sock = raw_rx_sock;
 	m_opts_ptr = opts_ptr;
 	m_db_ptr = db_ptr;
 	m_logfile_name = logfile_name;
-	m_decodeFrontend = enable_security;
-	m_enable_security = enable_security;
+    m_decodeFrontend.setEnableSecurity(enable_security);
+	m_decodeFrontend.setGeoNet(gn);
+    m_enable_security = enable_security;
 	m_logfile_security = logfile_security;
 	m_client_id="unset";
 	m_logfile_file=nullptr;
@@ -78,6 +79,8 @@ SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::L
 
 void
 SocketClient::rxThr(void) {
+    pthread_setname_np(pthread_self(), "rx_thr");
+
 	size_t msglen=-1;
 	uint8_t msgbuf[MSGBUF_MAXSIZ];
 
@@ -225,7 +228,14 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 	// Decode the content of the message, using the decoder-module frontend class
 	// m_decodeFrontend.setPrintPacket(true); // <- uncomment to print the bytes of each received message. Should be used for debug only, and should be kept disabled when deploying the S-LDM.
-	if(m_decodeFrontend.decodeEtsi(message_bin_buf, bufsize, decodedData, etsiDecoder::decoderFrontend::MSGTYPE_AUTO)!=ETSI_DECODER_OK) {
+	int error = m_decodeFrontend.decodeEtsi(message_bin_buf, bufsize, decodedData, etsiDecoder::decoderFrontend::MSGTYPE_AUTO);
+	if(error != ETSI_DECODER_OK) {
+		if (error == etsiDecoder::ETSI_DECODED_ERROR_CPM)
+		{
+			if(m_met_sup_ptr!=nullptr) {
+				m_met_sup_ptr->signalReceivedPacket(MessageId_cpm);
+			}
+		}
 		std::cerr << "Error! Cannot decode ETSI packet!" << std::endl;
 		return;
 	}

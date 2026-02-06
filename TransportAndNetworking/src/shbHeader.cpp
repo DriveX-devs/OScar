@@ -34,18 +34,33 @@ shbHeader::serializeInto(packetBuffer &packet) {
 	packet.addHtonU32(m_sourcePV.longitude);
 	packet.addHtonU16(pai_speed);
 	packet.addHtonU16(m_sourcePV.heading);
-	//Reserved
-	packet.addU8(m_local_CBR);
-	packet.addU8(m_max_CBR_neighbouring);
-	packet.addU8(m_tx_power_reserved);
-	packet.addU8(m_reserved);
-	// packet.addHtonU32(0x00000000);
-}
 
-void 
-shbHeader::SetOutputPower(uint8_t tx_power)
-{
-	m_tx_power_reserved = (tx_power & 0x1F) << 3;
+    if (m_dcc == nullptr)
+    {
+        //Reserved
+        packet.addHtonU32(0x00000000);
+    }
+    else
+    {
+        double cbr0 = m_dcc->getCBRR0();
+        if (cbr0 < 0.0f) cbr0 = 0.0f;
+        if (cbr0 > 1.0f) cbr0 = 1.0f;
+        uint8_t cbr0_enc = static_cast<uint8_t>(std::floor(cbr0 * 255.0f));
+        double cbr1 = m_dcc->getCBRR1();
+        uint8_t cbr1_enc = static_cast<uint8_t>(std::floor(cbr1 * 255.0f));
+        int tp = 0;
+        tp = getTxPower(); // 0..31
+        if (tp < 0)  tp = 0;
+        if (tp > 31) tp = 31;
+        uint8_t txp_byte = static_cast<uint8_t>(tp & 0x1F); // bits 0–4
+        uint8_t reserved = 0;
+        uint32_t field =
+                (uint32_t(cbr0_enc) << 24) |
+                (uint32_t(cbr1_enc) << 16) |
+                (uint32_t(txp_byte) <<  8) |
+                uint32_t(reserved);
+        packet.addHtonU32(field);
+    }
 }
 
 void 
@@ -157,4 +172,15 @@ void shbHeader::removeHeader(unsigned char *buffer) {
         memcpy(&m_sourcePV.heading, buffer, sizeof(uint16_t));
         buffer += 2;
         m_sourcePV.heading = swap_16bit(m_sourcePV.heading);
+
+		uint32_t field;
+		memcpy(&field, buffer, sizeof(uint32_t));
+		buffer += 4;
+		field = swap_32bit(field);
+        uint8_t cbr0_enc = (field >> 24) & 0xFF;
+		uint8_t cbr1_enc = (field >> 16) & 0xFF;
+		uint8_t txp_byte = (field >> 8)  & 0xFF;
+		// uint8_t reserved = field & 0xFF;
+        m_CBR_R0_Hop = static_cast<double>(cbr0_enc) / 255.0f;
+        m_CBR_R1_Hop = static_cast<double>(cbr1_enc) / 255.0f;
     }

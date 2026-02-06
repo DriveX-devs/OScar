@@ -23,6 +23,9 @@
 #include "basicSensorReader.h"
 // CAN database reader
 #include "dbcReader.h"
+// Certificate manager
+#include <ECManager.h>
+#include <ATManager.h>
 
 // Linux net includes
 #include <sys/ioctl.h>
@@ -42,8 +45,6 @@
 #include "DCC.h"
 
 #include "MetricSupervisor.h"
-
-#include "GateKeeper.h"
 
 #define DB_CLEANER_INTERVAL_SECONDS 5
 #define DB_DELETE_OLDER_THAN_SECONDS 2 // This value should NEVER be set greater than (5-DB_CLEANER_INTERVAL_SECONDS/60) minutes or (300-DB_CLEANER_INTERVAL_SECONDS) seconds - doing so may break the database age check functionality!
@@ -111,6 +112,7 @@ void updateVisualizer(ldmmap::vehicleData_t vehdata,void *vizObjVoidPtr) {
 
 // Thread function for updating the objects displayed in the web-based vehicle visualizer GUI of OScar
 void *VehVizUpdater_callback(void *arg) {
+    pthread_setname_np(pthread_self(), "veh_viz_thr");
 	// Get the pointer to the visualizer options/parameters
 	vizOptions_t *vizopts_ptr = static_cast<vizOptions_t *>(arg);
 	// Get a direct pointer to the database
@@ -147,7 +149,7 @@ void *VehVizUpdater_callback(void *arg) {
 	POLL_DEFINE_JUNK_VARIABLE();
 
 	while(terminatorFlag == false) {
-		if(poll(&pollfddata,1,0)>0) {
+		if(poll(&pollfddata,1,-1)>0) {
 			POLL_CLEAR_EVENT(clockFd);
 
 			// ---- These operations will be performed periodically ----
@@ -187,6 +189,8 @@ void *VehVizUpdater_callback(void *arg) {
 
 // Thread function that periodically checks the LDM database content and clears outdated entries
 void *DBcleaner_callback(void *arg) {
+    pthread_setname_np(pthread_self(), "DB_cleaner_thr");
+
 	// Get the pointer to the database
 	ldmmap::LDMMap *db_ptr = static_cast<ldmmap::LDMMap *>(arg);
 
@@ -211,7 +215,7 @@ void *DBcleaner_callback(void *arg) {
 	POLL_DEFINE_JUNK_VARIABLE();
 
 	while(terminatorFlag == false) {
-		if(poll(&pollfddata,1,0)>0) {
+		if(poll(&pollfddata,1,-1)>0) {
 			POLL_CLEAR_EVENT(clockFd);
 
 			// ---- These operations will be performed periodically ----
@@ -233,28 +237,17 @@ void *DBcleaner_callback(void *arg) {
 }
 
 // Main CAM transmission thread
-void CAMtxThr(std::string gnss_device,
-        int gnss_port,
-        int sockfd,
-        int ifindex,
-        uint8_t srcmac[6],
+void CAMtxThr(
+        VDPGPSClient* vdpgpsc,
         int vehicleID,
-        std::string udp_sock_addr,
-        std::string udp_bind_ip,
-        bool extra_position_udp,
         std::string log_filename_CAM,
-        std::string log_filename_GNsecurity,
         ldmmap::LDMMap *db_ptr,
-        double pos_th,
-        double speed_th,
-        double head_th,
-        bool rx_enabled,
-        bool use_gpsd,
-        bool enable_security,
         bool force_20Hz_freq,
         CABasicService* cabs,
-        GateKeeper *gk
+        btp* BTP
     ) {
+    pthread_setname_np(pthread_self(), "CAM_tx_thr");
+
     bool m_retry_flag=false;
 
     // VDP (Vehicle Data Provider) GPS Client object test
@@ -264,38 +257,15 @@ void CAMtxThr(std::string gnss_device,
     int cnt_CPM = 0;
     #pragma GCC diagnostic pop
 
-    VDPGPSClient vdpgpsc(gnss_device,gnss_port);
-    vdpgpsc.selectGPSD(use_gpsd);
-    if(!use_gpsd) {
-        vdpgpsc.setSerialParser(&serialParser);
-    }
-
-    GeoNet GN;
-    btp BTP;
-
-    double test_lat, test_lon;
-
     do {
         try {
-            std::cout << "[INFO] CAM VDP GPS Client: opening connection..." << std::endl;
-            vdpgpsc.openConnection();
-
-            GN.setVDP(&vdpgpsc);
-            GN.setSocketTx(sockfd, ifindex, srcmac);
-            GN.setStationProperties(vehicleID, StationType_passengerCar);
-            GN.setSecurity(enable_security);
-            if(log_filename_GNsecurity != "dis" && log_filename_GNsecurity != ""){
-                GN.setLogFile2(log_filename_GNsecurity);
-            }
-            GN.setGateKeeper(gk);
-            BTP.setGeoNet(&GN);
-            
+            double test_lat, test_lon;
             while (true) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
 
                 std::cout << "[INFO] VDP GPS Client test: getting GNSS data..." << std::endl;
 
-                CAMdata = vdpgpsc.getCAMMandatoryData();
+                CAMdata = vdpgpsc->getCAMMandatoryData();
                 test_lat = CAMdata.latitude/1e7;
                 test_lon = CAMdata.longitude/1e7;
 
@@ -313,24 +283,10 @@ void CAMtxThr(std::string gnss_device,
             }
 
             std::cout << "[INFO] CAM Dissemination started!" << std::endl;
-
-            if (udp_sock_addr != "dis") {
-                int rval;
-
-                rval = GN.openUDPsocket(udp_sock_addr, udp_bind_ip, extra_position_udp);
-
-                if (rval < 0) {
-                    std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: "
-                              << rval << ". Additional details: " << (errno == 0 ? "None" : strerror(errno))
-                              << std::endl;
-                    close(sockfd);
-                    exit(EXIT_FAILURE);
-                }
-            }
         
-            cabs->setBTP(&BTP);
+            cabs->setBTP(BTP);
             cabs->setStationProperties(vehicleID, StationType_passengerCar);
-            cabs->setVDP(&vdpgpsc);
+            cabs->setVDP(vdpgpsc);
             cabs->setLDM(db_ptr);
 
             if(force_20Hz_freq) {
@@ -353,78 +309,34 @@ void CAMtxThr(std::string gnss_device,
         }
     }while(m_retry_flag==true && terminatorFlag==false);
 
-    vdpgpsc.closeConnection();
+    vdpgpsc->closeConnection();
     terminatorFlag=true;
 
 }
 
 // Main CPM transmission thread
-void CPMtxThr(std::string gnss_device,
-            int gnss_port,
-            int sockfd,
-            int ifindex,
-            uint8_t srcmac[6],
+void CPMtxThr(
+            VDPGPSClient* vdpgpsc,
             int vehicleID,
-            std::string udp_sock_addr,
-            std::string udp_bind_ip,
-            bool extra_position_udp,
             std::string log_filename_CPM,
             ldmmap::LDMMap *db_ptr,
-            bool use_gpsd,
             double check_faulty_object_acceleration,
             bool disable_cpm_speed_triggering,
             bool verbose,
-            bool enable_security,
             CPBasicService* cpbs,
-            GateKeeper *gk
+            btp* BTP
         ) {
+    pthread_setname_np(pthread_self(), "CPM_tx_thr");
     bool m_retry_flag=false;
-
-    VDPGPSClient vdpgpsc(gnss_device,gnss_port);
-    vdpgpsc.selectGPSD(use_gpsd);
-
-    if(!use_gpsd) {
-        vdpgpsc.setSerialParser(&serialParser);
-    }
-
-    std::cout << use_gpsd << std::endl;
-
-    VDPGPSClient vrudp(gnss_device,gnss_port);
-    GeoNet GN;
-    btp BTP;
 
     do {
         try {
-            std::cout << "[INFO] CAM VDP GPS Client: opening connection..." << std::endl;
-            vdpgpsc.openConnection();
-
-            GN.setVDP(&vdpgpsc);
-            GN.setSocketTx(sockfd, ifindex, srcmac);
-            GN.setStationProperties(vehicleID, StationType_passengerCar);
-            GN.setSecurity(enable_security);
-            GN.setGateKeeper(gk);
-            BTP.setGeoNet(&GN);
-
 
             std::cout << "[INFO] CPM Dissemination started!" << std::endl;
-
-            if (udp_sock_addr != "dis") {
-                int rval;
-
-                rval = GN.openUDPsocket(udp_sock_addr, udp_bind_ip, extra_position_udp);
-
-                if (rval < 0) {
-                    std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: "
-                              << rval << ". Additional details: " << (errno == 0 ? "None" : strerror(errno))
-                              << std::endl;
-                    close(sockfd);
-                    exit(EXIT_FAILURE);
-                }
-            }
             
-            cpbs->setBTP(&BTP);
+            cpbs->setBTP(BTP);
             cpbs->setStationProperties(vehicleID, StationType_passengerCar);
-            cpbs->setVDP(&vdpgpsc);
+            cpbs->setVDP(vdpgpsc);
             cpbs->setLDM(db_ptr);
             cpbs->setVerbose(verbose);
             if (check_faulty_object_acceleration != 0.0)
@@ -444,97 +356,36 @@ void CPMtxThr(std::string gnss_device,
         }
     }while(m_retry_flag==true && terminatorFlag==false);
 
-    vdpgpsc.closeConnection();
-    vrudp.closeConnection();
+    vdpgpsc->closeConnection();
     terminatorFlag=true;
 }
 
 // Main VAM transmission thread
-void VAMtxThr(std::string gnss_device,
-            int gnss_port,
-            int sockfd,
-            int ifindex,
-            uint8_t srcmac[6],
-            int VRUID,
-            std::string udp_sock_addr,
-            std::string udp_bind_ip,
-            bool extra_position_udp,
-            std::string log_filename_VAM,
-            ldmmap::LDMMap *db_ptr,
-            double pos_th,
-            double speed_th,
-            double head_th,
-            bool use_gpsd,
-            bool enable_security,
-            VRUBasicService* vrubs,
-            GateKeeper *gk
+void VAMtxThr(VDPGPSClient* vrudp,
+              int vehicleID,
+              std::string log_filename_VAM,
+              ldmmap::LDMMap *db_ptr,
+              double pos_th,
+              double speed_th,
+              double head_th,
+              bool force_20Hz_freq,
+              VRUBasicService* vrubs,
+              btp* BTP
         ) {
+    pthread_setname_np(pthread_self(), "VAM_tx_thr");
     bool m_retry_flag=false;
-
-    VDPGPSClient vrudp(gnss_device,gnss_port);
-    vrudp.selectGPSD(use_gpsd);
-
-    if(!use_gpsd) {
-        vrudp.setSerialParser(&serialParser);
-    }
 
     do {
         try {
-            vrudp.openConnection();
-
-            int vam_cnt_test=0;
-            while (true) {
-                VDPGPSClient::VRU_position_latlon_t pos;
-
-                pos=vrudp.getPedPosition();
-
-                if(pos.lat>=-90.0 && pos.lat<=90.0 && pos.lon>=-180.0 && pos.lon <= 180.0) {
-                    std::cout << "[INFO] Position available after roughly " << vam_cnt_test << " seconds: latitude: " << pos.lat << " - longitude: " << pos.lon << std::endl;
-                    break;
-                } else {
-                    std::cout << "[INFO] Position not yet available. Unavail. value: " << pos.lat << ". Waiting 1 second and trying again..." << std::endl;
-                }
-
-                std::cout << "[INFO] Waiting for the VRU Data Provider to provide the position (a fix may not be yet available)..." << std::endl;
-
-                sleep(1);
-                vam_cnt_test++;
-            }
 
             std::cout << "[INFO] VAM Dissemination started!" << std::endl;
-
-            GeoNet GN;
-
-            GN.setVRUdp(&vrudp);
-            GN.setSocketTx(sockfd,ifindex,srcmac);
-            GN.setStationProperties(VRUID,StationType_pedestrian);
-            GN.setGateKeeper(gk);
-            if(enable_security) {
-                GN.setSecurity(enable_security);
-            }
-
-            if(udp_sock_addr!="dis") {
-                int rval;
-
-                rval=GN.openUDPsocket(udp_sock_addr,udp_bind_ip,extra_position_udp);
-
-                if(rval<0) {
-                    std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: " << rval << ". Additional details: " << (errno==0 ? "None" : strerror(errno)) << std::endl;
-                    close(sockfd);
-                    exit(EXIT_FAILURE);
-                }
-            }
-
-            btp BTP;
-            BTP.setGeoNet(&GN);
 
             if(log_filename_VAM!="dis" && log_filename_VAM!="") {
                 vrubs->setLogfile(log_filename_VAM);
             }
 
-            vrubs->setBTP(&BTP);
-            vrubs->setStationProperties(VRUID,StationType_pedestrian);
-            vrubs->setVRUdp(&vrudp);
+            vrubs->setBTP(BTP);
+            vrubs->setVRUdp(vrudp);
             vrubs->setLDM(db_ptr);
 
             // Set triggering conditions threshold
@@ -557,7 +408,7 @@ void VAMtxThr(std::string gnss_device,
         }
 } while(m_retry_flag==true && terminatorFlag==false);
 
-    vrudp.closeConnection();
+    vrudp->closeConnection();
     terminatorFlag=true;
 }
 
@@ -572,6 +423,7 @@ void radarReaderThr(std::string gnss_device,
                     bool verbose,
                     CAN_SENSOR_SIGNAL_INFO_t can_db_sensor_info,
                     std::vector<uint32_t> can_db_id_info) {
+    pthread_setname_np(pthread_self(), "sensor_reader_thr");
     bool m_retry_flag=false;
 
     do {
@@ -604,6 +456,7 @@ void vehdataTxThread(std::string udp_sock_addr,
               std::string gnss_device,
              int gnss_port,
              bool use_gpsd) {
+    pthread_setname_np(pthread_self(), "vehdata_tx_thr");
     VDPGPSClient vdpgpsc(gnss_device,gnss_port);
     vdpgpsc.selectGPSD(use_gpsd);
     if(!use_gpsd) {
@@ -800,8 +653,11 @@ int main (int argc, char *argv[]) {
     unsigned long vehicleID = 0; // Vehicle ID
     unsigned long VRUID = 0; // VRU ID
     bool enable_CAM_dissemination = false;
+    int CAMs_priority = 0;
     bool enable_VAM_dissemination = false;
+    int VAMs_priority = 0;
     bool enable_CPM_dissemination = false;
+    int CPMs_priority = 0;
     bool enable_DENM_decoding = false;
     bool enable_reception = false;
     bool disable_selfMAC_check = false;
@@ -865,15 +721,18 @@ int main (int argc, char *argv[]) {
     std::string modality_DCC = "";
     bool verbose_DCC = false;
     std::string log_filename_DCC = "";
+    std::string profile_DCC = "";
 
     bool enable_metric_supervisor = false;
     uint64_t time_window_met_sup = 0;
     std::string log_filename_met_sup = "";
     float cbr_target;
+    int queue_length;
+    int queue_lifetime;
 
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "8.0-development");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "9.1-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -890,6 +749,10 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg CAMsDissArg("C", "enable-CAMs-dissemination", "Enable the dissemination of standard CAMs",
                                      false);
         cmd.add(CAMsDissArg);
+
+        TCLAP::ValueArg<int> CAMsPriority("", "CAMs-priority", "Set the queue priority for CAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
+                                     false, 0, "integer");
+        cmd.add(CAMsPriority);
 
         TCLAP::SwitchArg DENMsDecArg("d", "enable-DENMs-decoding", "Enable the decoding of DENMs", false);
         cmd.add(DENMsDecArg);
@@ -940,6 +803,10 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg CPMsDissArg("M", "enable-CPMs-dissemination", "Enable the dissemination of CPMs", false);
         cmd.add(CPMsDissArg);
 
+        TCLAP::ValueArg<int> CPMsPriority("", "CPMs-priority", "Set the queue priority for CPMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 1 (second highest).",
+                                     false, 1, "integer");
+        cmd.add(CPMsPriority);
+
         TCLAP::ValueArg<double> POS_threshold("p", "Position-threshold", "VAM position triggering condition threshold",
                                               false, -1, "double");
         cmd.add(POS_threshold);
@@ -989,6 +856,10 @@ int main (int argc, char *argv[]) {
 
         TCLAP::SwitchArg VAMsDissArg("V", "enable-VAMs-dissemination", "Enable the dissemination of VAMs", false);
         cmd.add(VAMsDissArg);
+
+        TCLAP::ValueArg<int> VAMsPriority("", "VAMs-priority", "Set the queue priority for VAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
+                                     false, 0, "integer");
+        cmd.add(VAMsPriority);
 
         TCLAP::SwitchArg SecurityArg("w", "enable-security",
                                      "Enable the the transmission and reception of secured messages (tested on CAMs and CPMs)",
@@ -1123,7 +994,7 @@ int main (int argc, char *argv[]) {
         
         cmd.add(ModalityDCC);
         
-        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.5", false, 0.5, "float");
+        TCLAP::ValueArg<float> CBRTarget("", "CBR-target", "For the Adaptive DCC, the CBR we would the environment reach. Default: 0.68", false, 0.68, "float");
 
         cmd.add(CBRTarget);
 
@@ -1138,19 +1009,29 @@ int main (int argc, char *argv[]) {
                                                 false, "", "string");
         cmd.add(LogfileDCC);
 
+        TCLAP::ValueArg<int> QueueLengthDCC("", "queue-length-DCC",
+                                                "Length of the priority queue for DCC. Default: 0 (no queue).",
+                                                false, 0, "int");
+        cmd.add(QueueLengthDCC);
+
+        TCLAP::ValueArg<int> QueueLifetimeDCC("", "queue-lifetime-DCC",
+                                                "Lifetime for packet queued by DCC in ms. Default: 300.",
+                                                false, 300, "int");
+        cmd.add(QueueLifetimeDCC);
+
+        TCLAP::ValueArg<std::string> ProfileDCC("", "profile-DCC",
+                                                "Profile for DCC features, it could be ETSI or C2C. The strings to be used to indicate the modality are: ['etsi', 'c2c', 'cbrg']. In the 'cbrg' profile, we consider the Global CBR from DCC_NET instead of the locally sensed one also for Reactive modality. Default: (etsi).",
+                                                false, "etsi", "string");
+        cmd.add(ProfileDCC);
+
         TCLAP::SwitchArg EnableMetricSupervisor("", "enable-metric-supervisor",
                                                 "Activate the Metric Supervisor to collect information and metrics about V2X messages sent and received.",
                                                 false);
         cmd.add(EnableMetricSupervisor);
 
-        std::string helpText_met_sup =
-                "Time window for Metric Supervisor check. "
-                "It must be a strictly positive integer value, expressed in milliseconds";
+        std::string helpText_met_sup = "Time window for Metric Supervisor check. It must be a strictly positive integer value, expressed in milliseconds";
 
-        TCLAP::ValueArg<int> TimeWindowMetricSupervisor(
-                "", "time-window-metric-supervisor",
-                helpText_met_sup,
-                false, 0, "integer");
+        TCLAP::ValueArg<int> TimeWindowMetricSupervisor("", "time-window-metric-supervisor", helpText_met_sup, false, 0, "integer");
 
         cmd.add(TimeWindowMetricSupervisor);
 
@@ -1179,10 +1060,31 @@ int main (int argc, char *argv[]) {
         VRUID = VRUIDArg.getValue();
 
         enable_CAM_dissemination = CAMsDissArg.getValue();
+        CAMs_priority = CAMsPriority.getValue();
         enable_VAM_dissemination = VAMsDissArg.getValue();
+        VAMs_priority = VAMsPriority.getValue();
         enable_CPM_dissemination = CPMsDissArg.getValue();
+        CPMs_priority = CPMsPriority.getValue();
         enable_DENM_decoding = DENMsDecArg.getValue();
         enable_security = SecurityArg.getValue();
+
+        if (CAMs_priority < 0 || CAMs_priority > 3) {
+            std::cerr
+                << "[ERROR] CAMs priority for DCC is out of range [0, 3]." << std::endl;
+            return 1;
+        }
+
+        if (CPMs_priority < 0 || CPMs_priority > 3) {
+            std::cerr
+                << "[ERROR] CPMs priority for DCC is out of range [0, 3]." << std::endl;
+            return 1;
+        }
+
+        if (VAMs_priority < 0 || VAMs_priority > 3) {
+            std::cerr
+                << "[ERROR] VAMs priority for DCC is out of range [0, 3]." << std::endl;
+            return 1;
+        }
 
         check_faulty_object_acceleration = CheckFaultyObjectAcceleration.getValue();
         disable_cpm_speed_triggering = DisableCPMSpeedTriggering.getValue();
@@ -1260,6 +1162,9 @@ int main (int argc, char *argv[]) {
         verbose_DCC = VerboseDCC.getValue();
         log_filename_DCC = LogfileDCC.getValue();
         cbr_target = CBRTarget.getValue();
+        queue_length = QueueLengthDCC.getValue();
+        queue_lifetime = QueueLifetimeDCC.getValue();
+        profile_DCC = ProfileDCC.getValue();
 
         enable_metric_supervisor = EnableMetricSupervisor.getValue();
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
@@ -1308,7 +1213,8 @@ int main (int argc, char *argv[]) {
                     << std::endl;
         }
 
-        if (enable_DCC == true) {
+        if (enable_DCC == true) 
+        {
             if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC) {
                 std::cerr
                         << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0 and lower than "
@@ -1319,6 +1225,13 @@ int main (int argc, char *argv[]) {
             if (modality_DCC != "reactive" && modality_DCC != "adaptive") {
                 std::cerr
                         << "[ERROR] Modality for DCC was not correctly set. Remember that it must be a string of value 'reactive' or 'adaptive', please check the helper."
+                        << std::endl;
+                return 1;
+            }
+
+            if (profile_DCC != "etsi" && profile_DCC != "c2c" && profile_DCC != "cbrg") {
+                std::cerr
+                        << "[ERROR] Profile for DCC was not correctly set. Remember that it must be a string of value 'etsi', 'c2c', or 'cbrg', please check the helper."
                         << std::endl;
                 return 1;
             }
@@ -1480,6 +1393,23 @@ int main (int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    ECManager ecManager;
+    ATManager atManager(&terminatorFlag);
+    ATManager *atManager_ptr = nullptr;
+    if (enable_security) {
+        if (!ecManager.manageRequest()) {
+            std::cerr << "Error in managing the EC request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        std::string ecBytes = ecManager.getECBytes();
+        atManager.setECHex(ecBytes);
+        if (!atManager.manageRequest()) {
+            std::cerr << "Error in managing the AT request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        atManager_ptr = &atManager;
+    }
+
     // Create a new DB object
     ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
     if (ego_station_type == StationType_passengerCar) {
@@ -1589,33 +1519,140 @@ int main (int argc, char *argv[]) {
         vrubs_ptr->setMetricSupervisor(&metric_supervisor);
     }
 
-    DCC dcc;
-    GateKeeper *gk = new GateKeeper();
-    gk->setBitRate(bitrate * 1e6);
-    dcc.setGateKeeper(gk);
+    DCC *dcc = new DCC();
+    dcc->setBitRate(bitrate * 1e6);
     if (enable_DCC)
     {
-        dcc.setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, log_filename_DCC);
-        if (modality_DCC == "adaptive")
-        {
-            dcc.setAdaptiveDCCGK();
-        }
+        dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC, profile_DCC);
+        dcc->setMetricSupervisor(&metric_supervisor);
         if (enable_CAM_dissemination)
         {
-            dcc.addCaBasicService(cabs_ptr);
+            cabs.setPriority(CAMs_priority);
         }
         if (enable_CPM_dissemination)
         {
-            dcc.addCpBasicService(cpbs_ptr);
+            cpbs.setPriority(CPMs_priority);
         }
         if (enable_VAM_dissemination)
         {
-            dcc.addVruBasicService(vrubs_ptr);
+            vrubs.setPriority(VAMs_priority);
         }
+    }
+    else
+    {
+	    dcc = nullptr;
     }
 
     // This must be defined here, otherwise the goto will jump over its definition
     SocketClient *mainRecvClient = nullptr;
+
+    GeoNet GN;
+    VDPGPSClient* vdpgpsc = new VDPGPSClient(gnss_device, gnss_port);
+    vdpgpsc->selectGPSD(use_gpsd);
+    if(!use_gpsd) {
+        vdpgpsc->setSerialParser(&serialParser);
+    }
+    std::cout << "[INFO] GPS Client: opening connection..." << std::endl;
+    vdpgpsc->openConnection();
+
+    GN.setSocketTx(sockfd, ifindex, srcmac);
+    GN.setSecurity(enable_security);
+
+    if (enable_CAM_dissemination || enable_CPM_dissemination)
+    {
+        GN.setStationProperties(vehicleID, StationType_passengerCar);
+        GN.setVDP(vdpgpsc);
+        if (enable_CAM_dissemination)
+        {
+            int cnt_CAM = 0;
+            while (true) {
+                VDPGPSClient::CAM_mandatory_data_t CAMdata;
+
+                std::cout << "[INFO] VDP GPS Client test: getting GNSS data..." << std::endl;
+
+                CAMdata = vdpgpsc->getCAMMandatoryData();
+                test_lat = CAMdata.latitude/1e7;
+                test_lon = CAMdata.longitude/1e7;
+
+                if(test_lat>=-90.0 && test_lat<=90.0 && test_lon>=-180.0 && test_lon<=180.0) {
+                    std::cout << "[INFO] Position available after roughly " << cnt_CAM << " seconds: latitude: " << test_lat << " - longitude: " << test_lon << std::endl;
+                    break;
+                } else {
+                    std::cout << "[INFO] Position not yet available. Unavail. value: " << CAMdata.latitude << "," << CAMdata.longitude << ". Waiting 1 second and trying again..." << std::endl;
+                }
+
+                std::cout << "[INFO] Waiting for VDP to provide the position (a fix may not be yet available)..." << std::endl;
+
+                sleep(1);
+                cnt_CAM++;
+            }
+            GN.setMessageType(1);
+        }
+        else
+        {
+            GN.setMessageType(2);
+        }
+    }
+    else if (enable_VAM_dissemination)
+    {
+        GN.setStationProperties(vehicleID, StationType_pedestrian);
+        GN.setVRUdp(vdpgpsc);
+        int vam_cnt_test=0;
+        while (true) {
+            VDPGPSClient::VRU_position_latlon_t pos;
+
+            pos=vdpgpsc->getPedPosition();
+
+            if(pos.lat>=-90.0 && pos.lat<=90.0 && pos.lon>=-180.0 && pos.lon <= 180.0) {
+                std::cout << "[INFO] Position available after roughly " << vam_cnt_test << " seconds: latitude: " << pos.lat << " - longitude: " << pos.lon << std::endl;
+                break;
+            } else {
+                std::cout << "[INFO] Position not yet available. Unavail. value: " << pos.lat << ". Waiting 1 second and trying again..." << std::endl;
+            }
+
+            std::cout << "[INFO] Waiting for the VRU Data Provider to provide the position (a fix may not be yet available)..." << std::endl;
+
+            sleep(1);
+            vam_cnt_test++;
+        }
+        GN.setMessageType(3);
+    }
+
+    if (enable_security && (&atManager) != nullptr) {
+        GN.setATmanager(&atManager);
+    }
+    if(enable_security && log_filename_GNsecurity != "dis" && !log_filename_GNsecurity.empty()){
+        GN.setLogFile2(log_filename_GNsecurity);
+    }
+    GN.setDCC(dcc);
+    if (udp_sock_addr != "dis") {
+        int rval;
+
+        rval = GN.openUDPsocket(udp_sock_addr, udp_bind_ip, extra_position_udp);
+
+        if (rval < 0) {
+            std::cerr << "Error. Cannot create UDP socket for additional packet transmission. Internal code: "
+                      << rval << ". Additional details: " << (errno == 0 ? "None" : strerror(errno))
+                      << std::endl;
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    btp BTP;
+    BTP.setGeoNet(&GN);
+    if (enable_CAM_dissemination)
+    {
+        BTP.setVDP(vdpgpsc);
+    }
+    else if (enable_CPM_dissemination)
+    {
+        BTP.setVDP(vdpgpsc);
+    }
+    else if (enable_VAM_dissemination)
+    {
+        BTP.setVRUdp(vdpgpsc);
+    }
 
     if(terminatorFlag) {
         goto exit_failure;
@@ -1623,72 +1660,41 @@ int main (int argc, char *argv[]) {
 
     if(enable_CAM_dissemination) {
         txThreads.emplace_back(CAMtxThr,
-                                        gnss_device,
-                                        gnss_port,
-                                        sockfd,
-                                        ifindex,
-                                        srcmac,
-                                        vehicleID,
-                                        udp_sock_addr,
-                                        udp_bind_ip,
-                                        extra_position_udp,
-                                        log_filename_CAM,
-                                        log_filename_GNsecurity,
-                                        db_ptr,
-                                        pos_th,
-                                        speed_th,
-                                        head_th,
-                                        enable_reception,
-                                        use_gpsd,
-                                        enable_security,
-                                        force_20Hz_freq,
-                                        cabs_ptr,
-                                        gk
-                                    );
+                               vdpgpsc,
+                               vehicleID,
+                               log_filename_CAM,
+                               db_ptr,
+                               force_20Hz_freq,
+                               &cabs,
+                               &BTP
+                            );
     }
     if(enable_VAM_dissemination) {
         txThreads.emplace_back(VAMtxThr,
-                                        gnss_device,
-                                        gnss_port,
-                                        sockfd,
-                                        ifindex,
-                                        srcmac,
-                                        VRUID,
-                                        udp_sock_addr,
-                                        udp_bind_ip,
-                                        extra_position_udp,
-                                        log_filename_VAM,
-                                        db_ptr,
-                                        pos_th,
-                                        speed_th,
-                                        head_th,
-                                        use_gpsd,
-                                        enable_security,
-                                        vrubs_ptr,
-                                        gk
-                                    );
+                               vdpgpsc,
+                               vehicleID,
+                               log_filename_VAM,
+                               db_ptr,
+                               pos_th,
+                               speed_th,
+                               head_th,
+                               force_20Hz_freq,
+                               &vrubs,
+                               &BTP
+                            );
     }
     if(enable_CPM_dissemination) {
         txThreads.emplace_back(CPMtxThr,
-                                        gnss_device,
-                                        gnss_port,
-                                        sockfd,
-                                        ifindex,
-                                        srcmac,
-                                        vehicleID,
-                                        udp_sock_addr,
-                                        udp_bind_ip,
-                                        extra_position_udp,
-                                        log_filename_CPM,
-                                        db_ptr,
-                                        use_gpsd,
-                                        check_faulty_object_acceleration,
-                                        disable_cpm_speed_triggering,
-                                        verbose,
-                                        enable_security,
-                                        cpbs_ptr,
-                                        gk
-                                    );
+                               vdpgpsc,
+                               vehicleID,
+                               log_filename_CPM,
+                               db_ptr,
+                               check_faulty_object_acceleration,
+                               disable_cpm_speed_triggering,
+                               verbose,
+                               &cpbs,
+                               &BTP
+                            );
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
@@ -1701,7 +1707,8 @@ int main (int argc, char *argv[]) {
                                enable_sensor_classification,
                                verbose,
                                CPM_CAN_signals,
-                               CPM_CAN_ids);
+                               CPM_CAN_ids
+                            );
     }
 
     if(veh_data_sock_addr!="dis") {
@@ -1711,7 +1718,8 @@ int main (int argc, char *argv[]) {
                                veh_data_periodicity_s,
                                gnss_device,
                                gnss_port,
-                               use_gpsd);
+                               use_gpsd
+                            );
     }
 
 	// Enable debug age of information, if option has been specified
@@ -1721,7 +1729,7 @@ int main (int argc, char *argv[]) {
 
     if(enable_DCC)
     {
-        dcc.startDCC();
+        dcc->startDCC();
     }
 
 	// Reception loop (using the main thread)
@@ -1730,7 +1738,7 @@ int main (int argc, char *argv[]) {
 
 		if(terminatorFlag==false) {
 			// Create the main SocketClient object for the reception of the V2X messages
-            mainRecvClient = new SocketClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity);
+            mainRecvClient = new SocketClient(sockfd,&rx_opts, db_ptr, log_filename_rcv, enable_security, log_filename_GNsecurity, &GN);
 
 			if(enable_DENM_decoding) {
 				mainRecvClient->enableDENMdecoding();

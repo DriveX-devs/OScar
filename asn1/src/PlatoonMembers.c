@@ -19,7 +19,7 @@ asn_TYPE_member_t asn_MBR_PlatoonMembers_1[] = {
 	{ ATF_POINTER, 0, 0,
 		(ASN_TAG_CLASS_UNIVERSAL | (2 << 2)),
 		0,
-		&asn_DEF_StationID,
+		&asn_DEF_StationId,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -49,4 +49,3 @@ asn_TYPE_descriptor_t asn_DEF_PlatoonMembers = {
 	1,	/* Single element */
 	&asn_SPC_PlatoonMembers_specs_1	/* Additional specs */
 };
-

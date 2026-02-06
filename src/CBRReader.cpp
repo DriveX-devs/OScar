@@ -34,6 +34,8 @@ float CBRReader::get_current_rx_time()
 
 void CBRReader::start_reading_cbr(nl_sock_info_t m_nl_sock_info)
 {
+    pthread_setname_np(pthread_self(), "CBR_reader_thr");
+
     if (m_nl_sock_info.sock_valid==true)
     {
         read_cbr_from_netlink(m_nl_sock_info);

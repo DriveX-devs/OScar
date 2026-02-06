@@ -82,7 +82,7 @@ asn_TYPE_member_t asn_MBR_PlatoonPerceivedObject_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct PlatoonPerceivedObject, responsiblePM),
 		(ASN_TAG_CLASS_CONTEXT | (3 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_StationID,
+		&asn_DEF_StationId,
 		0,
 		{ 0, 0, 0 },
 		0, 0, /* No default value */
@@ -235,4 +235,3 @@ asn_TYPE_descriptor_t asn_DEF_PlatoonPerceivedObject = {
 	15,	/* Elements count */
 	&asn_SPC_PlatoonPerceivedObject_specs_1	/* Additional specs */
 };
-

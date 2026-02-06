@@ -20,6 +20,7 @@ class MetricSupervisor {
         uint64_t m_time_window;
         std::string m_log_filename;
         CBRReader m_cbr_reader;
+        std::mutex m_mutex;
 
         // nl80211 socket info structure to retrieve RSSI values
         nl_sock_info_t m_nl_sock_info;

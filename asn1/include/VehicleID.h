@@ -32,7 +32,7 @@ typedef struct VehicleID {
 	VehicleID_PR present;
 	union VehicleID_u {
 		TemporaryID_t	 entityID;
-		StationID_t	 stationID;
+		StationId_t	 stationID;
 	} choice;
 	
 	/* Context for parsing across buffer boundaries */

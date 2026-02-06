@@ -12,15 +12,10 @@
 NAMED_ENUM_DEFINE_FCNS(etsi_message_t,MSGTYPES);
 
 namespace etsiDecoder {
-	decoderFrontend::decoderFrontend(bool enable_security, std::string logfile_security) {
+	decoderFrontend::decoderFrontend(bool enable_security, std::string logfile_security, GeoNet* gn) {
         m_enable_security = enable_security;
         m_logfile_security = logfile_security;
 		m_print_pkt = false;
-        m_gn.setSecurity(m_enable_security);
-
-        if (m_logfile_security != "dis" && !m_logfile_security.empty()) {
-            m_gn.setLogFile2(m_logfile_security);  // If a log file is specified, set it for GeoNet
-        }
 	}
 
 	int decoderFrontend::decodeEtsi(uint8_t *buffer,size_t buflen,etsiDecodedData_t &decoded_data,msgType_e msgtype) {
@@ -64,16 +59,27 @@ namespace etsiDecoder {
 			BTPDataIndication_t btpDataIndication;
 
             gndataIndication.lenght = buflen;
-			if(m_gn.decodeGN(buffer,&gndataIndication)!= GN_OK)
+			if(m_gn->decodeGN(buffer,&gndataIndication)!= GN_OK)
 			  {
 			    std::cerr << "[WARN] [Decoder] Warning: GeoNet unable to decode a received packet." << std::endl;
 			    return ETSI_DECODED_ERROR;
 			  }
-
-			if(BTP.decodeBTP(gndataIndication,&btpDataIndication)!= BTP_OK)
+			
+			btpError_e error = BTP.decodeBTP(gndataIndication,&btpDataIndication);
+			if(error != BTP_OK)
 			  {
 			    std::cerr << "[WARN] [Decoder] Warning: BTP unable to decode a received packet." << std::endl;
+				if (error == BTP_ERROR_CPM)
+				{
+					m_gn->writeEndRowLogRX(MessageId_cpm);
+					return ETSI_DECODED_ERROR_CPM;
+				}
+				m_gn->writeEndRowLogRX(MessageId_cam);
 			    return ETSI_DECODED_ERROR;
+			  }
+			  else
+			  {
+				m_gn->writeEndRowLogRX(MessageId_cam);
 			  }
 
 			if(m_print_pkt==true) {

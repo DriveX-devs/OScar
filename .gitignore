@@ -4,6 +4,8 @@ OScar
 # Additional OScar binaries
 OScar-7.0
 OScar-7.1
+OScar-8.0
+OScar-8.1
 OScar-DCC
 
 # Compiled source
@@ -35,6 +37,21 @@ PCAN.ini
 /A4_andata.json
 /OScar-DCC-New
 /PKI_info.ini
+file.pcap
+OScar-DCC-NET
+OScar-DCC_NET
+pkiReqRes/ephPKEY.pem
+pkiReqRes/ephPKEY2.pem
+pkiReqRes/ephSKEY.pem
+pkiReqRes/ephSKEY2.pem
+pkiReqRes/responseAT.bin
+pkiReqRes/responseEC.bin
+pskAT.bin
+pskEC.bin
+requestAA.bin
+requestEC.bin
+security.cpp
 
 # JetBrains IDE project files
 /.idea
+

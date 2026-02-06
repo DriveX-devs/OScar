@@ -134,7 +134,7 @@ CPBasicService::initDissemination() {
 
     while (m_terminateFlag == false)
     {
-        if(poll(&pollfddata,1,0)>0) {
+        if(poll(&pollfddata,1,-1)>0) {
             POLL_CLEAR_EVENT(clockFd);
             std::string log_data;
             log_data = generateAndEncodeCPM();
@@ -260,12 +260,16 @@ CPBasicService::generateAndEncodeCPM()
                     asn1cpp::setField (velocity->present,
                                        Velocity3dWithConfidence_PR_cartesianVelocity);
                     auto cartesianVelocity = asn1cpp::makeSeq (VelocityCartesian);
+                    constexpr long kVelocityComponentMin = -16383;
+                    constexpr long kVelocityComponentMax = 16383;
+                    long x_speed = std::clamp(it->vehData.xSpeed, kVelocityComponentMin, kVelocityComponentMax);
+                    long y_speed = std::clamp(it->vehData.ySpeed, kVelocityComponentMin, kVelocityComponentMax);
                     asn1cpp::setField (cartesianVelocity->xVelocity.value,
-                                       it->vehData.xSpeed);
+                                       x_speed);
                     asn1cpp::setField (cartesianVelocity->xVelocity.confidence,
                                        SpeedConfidence_unavailable);
                     asn1cpp::setField (cartesianVelocity->yVelocity.value,
-                                       it->vehData.ySpeed);
+                                       y_speed);
                     asn1cpp::setField (cartesianVelocity->yVelocity.confidence,
                                        SpeedConfidence_unavailable);
                     asn1cpp::setField (velocity->choice.cartesianVelocity, cartesianVelocity);
@@ -292,11 +296,11 @@ CPBasicService::generateAndEncodeCPM()
 
                     //Only z angle
                     auto angle = asn1cpp::makeSeq (EulerAnglesWithConfidence);
-                    if ((it->vehData.heading*DECI) < CartesianAngleValue_unavailable &&
-                        (it->vehData.heading*DECI) > 0)
-                        asn1cpp::setField (angle->zAngle.value, (it->vehData.heading*DECI));
-                    else
-                        asn1cpp::setField (angle->zAngle.value, CartesianAngleValue_unavailable);
+                    long heading_etsi = static_cast<long>(it->vehData.heading * DECI);
+                    if (heading_etsi <= 0 || heading_etsi > CartesianAngleValue_valueNotUsed) {
+                        heading_etsi = CartesianAngleValue_unavailable;
+                    }
+                    asn1cpp::setField (angle->zAngle.value, heading_etsi);
                     asn1cpp::setField (angle->zAngle.confidence, AngleConfidence_unavailable);
                     asn1cpp::setField (PO->angles, angle);
                     auto OD1 = asn1cpp::makeSeq (ObjectDimension);
@@ -496,11 +500,13 @@ CPBasicService::generateAndEncodeCPM()
     /* Create the packet and the BTP header */
     packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size()));
     dataRequest.data = pktbuf;
-    GNDataConfirm_t dataConfirm = m_btp->sendBTP(dataRequest);
-
+    std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_cpm);
+    GNDataConfirm_t dataConfirm = std::get<0>(status);
+    MessageId_t message_id = std::get<1>(status);
+    /* Update the CPM statistics */
     if(m_met_sup_ptr!=nullptr && dataConfirm == ACCEPTED) {
-        m_cpm_sent++;
-        m_met_sup_ptr->signalSentPacket(MessageId_cpm);
+        if (message_id == MessageId_cpm) m_cpm_sent++;
+        m_met_sup_ptr->signalSentPacket(message_id);
     }
 
     // Store the time in which the last CPM (i.e. this one) has been generated and successfully sent

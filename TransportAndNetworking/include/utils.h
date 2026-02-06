@@ -26,7 +26,8 @@ typedef enum {
 
 typedef enum {
 	BTP_OK = 0,
-	BTP_ERROR = 1
+	BTP_ERROR = 1,
+	BTP_ERROR_CPM = 2
 } btpError_e;
 
 typedef struct longPositionVector{
@@ -105,7 +106,7 @@ typedef struct dataIndication {
 typedef struct gndataIndication {
     uint8_t upperProtocol;
     GNlpv_t SourcePV;
-    GeoArea_t GnAddressDest; // GN destination adress -- destination adress(GeoUnicast) or geo. area (GeoBroadcast or GeoAnycast)
+    GeoArea_t GnAddressDest; // GN destination adress -- destination address(GeoUnicast) or geo. area (GeoBroadcast or GeoAnycast)
     uint8_t GNTraClass; // GN Traffic Class
     double GNRemainingLife; //GN Remaining Packet Lifetime in [s] /OPCIONAL/
     int16_t GNRemainingHL; // GN Remaining Hop Limit /OPCIONAL/
@@ -158,6 +159,12 @@ typedef struct _gndataRequest {
 	uint32_t lenght; // Payload size
 	packetBuffer data; // Payload
 } GNDataRequest_t;
+
+inline uint16_t swap_8bit(uint8_t us)
+{
+    return (uint8_t)(((us & 0xFF) >> 4) |
+                      ((us & 0xFF) << 4));
+}
 
 inline uint16_t swap_16bit(uint16_t us)
 {

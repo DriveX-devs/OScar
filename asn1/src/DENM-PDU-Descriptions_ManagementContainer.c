@@ -33,7 +33,7 @@ asn_TYPE_member_t asn_MBR_DENM_PDU_Descriptions_ManagementContainer_1[] = {
 	{ ATF_NOFLAGS, 0, offsetof(struct DENM_PDU_Descriptions_ManagementContainer, actionID),
 		(ASN_TAG_CLASS_CONTEXT | (0 << 2)),
 		-1,	/* IMPLICIT tag at current level */
-		&asn_DEF_ActionID,
+		&asn_DEF_ActionId,
 		0,
 		{
 #if !defined(ASN_DISABLE_OER_SUPPORT)
@@ -250,4 +250,3 @@ asn_TYPE_descriptor_t asn_DEF_DENM_PDU_Descriptions_ManagementContainer = {
 	10,	/* Elements count */
 	&asn_SPC_DENM_PDU_Descriptions_ManagementContainer_specs_1	/* Additional specs */
 };
-

@@ -30,14 +30,26 @@ GeoNet::MakeManagedconfiguredAddress (uint8_t addr[6], uint8_t ITSType, uint8_t 
 	memcpy(out_addr + 2, addr, 6);
 }
 
-GeoNet::GeoNet() {
+GeoNet::GeoNet()
+{
 	m_socket_tx = -1;
 	m_station_id = ULONG_MAX;
 	m_stationtype = LONG_MAX;
 	m_seqNumber = 0;
+    enableSecurity = false;
+    isCertificate = false;
+    m_messageType = 0;
 	// m_GNAddress = GNAddress(); Should be already initialized to all zeros
 
 	m_RSU_epv_set=false;
+
+	std::ofstream file;
+	file.open(m_GN_log_file_tx, std::ios::out);
+	file << "timestamp_ms,gn_addr,tst,gn_lat,gn_lon,message_id,state\n";
+	file.close();
+	file.open(m_GN_log_file_rx, std::ios::out);
+	file << "timestamp_ms,gn_addr,tst,gn_lat,gn_lon,message_id,state\n";
+	file.close();
 }
 
 GeoNet::~GeoNet() {
@@ -161,8 +173,8 @@ bool GeoNet::decodeLT (uint8_t lifeTime, double*seconds)
         return true;
 }
 
-GNDataConfirm_t
-GeoNet::sendGN (GNDataRequest_t dataRequest) {
+std::tuple<GNDataConfirm_t, MessageId_t>
+GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_id) {
 	GNDataConfirm_t dataConfirm = ACCEPTED;
 	basicHeader basicHeader;
 	commonHeader commonHeader;
@@ -179,20 +191,20 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 		)
 	) {
 		std::cerr << "GeoNetworking error: either no socket, no interface index or no source MAC address are available. Initialize them first before calling sendGN()!" << std::endl;
-		return UNSPECIFIED_ERROR;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(UNSPECIFIED_ERROR, message_id);
 	}
 
 	if(m_stationtype==StationType_roadSideUnit && m_RSU_epv_set==false)	{
 		std::cerr << "GeoNetworking error: no position has been set for an RSU object. Please use setFixedPositionRSU() on the Facilities Layer object." << std::endl;
-		return UNSPECIFIED_ERROR;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(UNSPECIFIED_ERROR, message_id);
 	}
 
 	if(dataRequest.lenght > m_GnMaxSduSize) {
-		return MAX_LENGHT_EXCEEDED;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(MAX_LENGHT_EXCEEDED, message_id);
 	} else if(dataRequest.GNMaxLife > m_GNMaxPacketLifetime) {
-		return MAX_LIFE_EXCEEDED;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(MAX_LIFE_EXCEEDED, message_id);
 	} else if(dataRequest.GNRepInt != 0 && dataRequest.GNRepInt < m_GNMinPacketRepetitionInterval) {
-		return REP_INTERVAL_LOW;
+		return std::tuple<GNDataConfirm_t, MessageId_t>(REP_INTERVAL_LOW, message_id);
 	}
 
     //Basic Header field setting according to ETSI EN 302 636-4-1 [10.3.2]
@@ -261,24 +273,104 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 		longPV.heading = (uint16_t) m_vdp->getHeadingValueDbl()*DECI;// [degrees] to [0.1 degrees]
 	}
 
-	bool use_adaptive_dcc = m_gate_keeper->getAdaptiveDCC();
+	std::string use_dcc;
+	if (m_dcc != nullptr) use_dcc = m_dcc->getModality();
+	else use_dcc = "";
 	struct timespec tv;
 	clock_gettime (CLOCK_MONOTONIC, &tv);
-	int64_t now = (tv.tv_sec * 1e9 + tv.tv_nsec)/1e6;
+	double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
 	bool gate_open = false;
-	if (use_adaptive_dcc)
+	Packet pkt = {now, basicHeader, commonHeader, longPV, dataRequest, message_id};
+	char GNAddr [8];
+	memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+	auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+	std::ofstream file;
+    file.open(m_GN_log_file_tx, std::ios::app);
+	file << std::fixed << now_unix << ",";
+	for (unsigned char c : GNAddr) {
+		file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+	}
+	file << std::dec;
+	file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "0\n";
+	file.close();
+	if (use_dcc != "")
 	{
-		gate_open = m_gate_keeper->checkGateOpen(now);
+		m_dcc->updatePktToSend();
+		gate_open = m_dcc->checkGateOpen(now);
 		if (gate_open == false)
 		{
-			return BLOCKED_BY_GK;
+			// Gate is closed
+			m_dcc->enqueue(priority, pkt);
+			// std::cout << "[ENQUEUE]" << std::endl;
+			return std::tuple<GNDataConfirm_t, MessageId_t>(BLOCKED_BY_GK, message_id);
+		}
+		else
+		{
+			// Gate is opened
+			std::tuple<bool, Packet> value = m_dcc->dequeue(priority);
+			double aoi;
+			if (std::get<0>(value) == true)
+			{
+				// Found a packet in queue with higher priority
+				m_dcc->enqueue(priority, pkt);
+				Packet pkt_to_send = std::get<1>(value);
+				basicHeader = pkt_to_send.bh;
+				commonHeader = pkt_to_send.ch;
+				longPV = pkt_to_send.long_PV;
+				dataRequest = pkt_to_send.dataRequest;
+				message_id = pkt_to_send.message_id;
+				aoi = now - pkt_to_send.time;
+				// std::cout << "[DEQUEUE]" << std::endl;
+				memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+				now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+				file.open(m_GN_log_file_tx, std::ios::app);
+				file << std::fixed << now_unix << ",";
+				for (unsigned char c : GNAddr) {
+					file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+				}
+				file << std::dec;
+				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "2\n";
+				file.close();
+			}
+			else
+			{
+				// std::cout << "[ORIGINAL]" << std::endl;
+				memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+				now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+				file.open(m_GN_log_file_tx, std::ios::app);
+				file << std::fixed << now_unix << ",";
+				for (unsigned char c : GNAddr) {
+					file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+				}
+				file << std::dec;
+				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
+				file.close();
+				aoi = 0;
+			}
+			m_dcc->updateAoI(priority, aoi);
+			clock_gettime (CLOCK_MONOTONIC, &tv);
+			now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
+			m_dcc->setLastTx(now);
 		}
 	}
-
-	if (use_adaptive_dcc)
+	else
 	{
-		m_gate_keeper->updateTgoAfterTransmission();
+		// std::cout << "[ORIGINAL NO DCC]" << std::endl;
+		memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+		now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+		file.open(m_GN_log_file_tx, std::ios::app);
+		file << std::fixed << now_unix << ",";
+		for (unsigned char c : GNAddr) {
+			file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+		}
+		file << std::dec;
+		file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
+		file.close();
+	}
 
+	if (use_dcc == "adaptive")
+	{
+		m_dcc->updateTgoAfterTransmission();
 	}
 
 	switch(dataRequest.GNType)
@@ -296,12 +388,73 @@ GeoNet::sendGN (GNDataRequest_t dataRequest) {
 			dataConfirm = UNSPECIFIED_ERROR;
 	}
 
-	return dataConfirm;
+	return std::tuple<GNDataConfirm_t, MessageId_t>(dataConfirm, message_id);
+}
+
+void GeoNet::attachSendFromDCCQueue()
+{
+	if (m_dcc == nullptr) return;
+    m_dcc->setSendCallback([this](const Packet& pkt) {
+        // replicate the previous sending logic here; GeoNet has access to sendGBC/sendSHB
+        basicHeader bh = pkt.bh;
+        commonHeader ch = pkt.ch;
+        GNlpv_t longPV = pkt.long_PV;
+        GNDataRequest_t dataRequest = pkt.dataRequest;
+        MessageId_t message_id = pkt.message_id;
+
+		GNDataConfirm_t dataConfirm;
+
+		struct timespec tv;
+		clock_gettime (CLOCK_MONOTONIC, &tv);
+		double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
+		m_dcc->setLastTx(now);
+
+		char GNAddr [8];
+		memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+		auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+		std::ofstream file;
+		file.open(m_GN_log_file_tx, std::ios::app);
+		file << std::fixed << now_unix << ",";
+		for (unsigned char c : GNAddr) {
+			file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+		}
+		file << std::dec;
+		file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "2\n";
+		file.close();
+
+		std::string use_dcc;
+		if (m_dcc != nullptr) use_dcc = m_dcc->getModality();
+		else use_dcc = "";
+
+		if (use_dcc == "adaptive")
+		{
+			m_dcc->updateTgoAfterTransmission();
+		}
+
+        // set last tx etc. is handled by DCC; here we just call the appropriate send
+        switch(dataRequest.GNType)
+        {
+            case GBC:
+                dataConfirm = this->sendGBC(dataRequest, ch, bh, longPV);
+                break;
+            case TSB:
+                if(ch.GetHeaderSubType () == 0) dataConfirm = this->sendSHB(dataRequest, ch, bh, longPV);
+                break;
+            default:
+                std::cerr << "GeoNet: unsupported GNType in DCC callback." << std::endl;
+        }
+
+		if (dataConfirm == ACCEPTED)
+		{
+			m_dcc->metricSupervisorSignalSentPacket(message_id);
+		}
+    });
 }
 
 gnError_e
 GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
 {
+		if (m_dcc != nullptr) m_dcc->updatePktReceived();
         basicHeader basicH;
         commonHeader commonH;
 
@@ -341,7 +494,7 @@ GeoNet::decodeGN(unsigned char *packet, GNDataIndication_t* dataIndication)
                 }
                 return GN_SECURED_ERROR;
             } else {
-                std::cout << "[INFO] [Decoder] Security verification successful" << std::endl;
+                // std::cout << "[INFO] [Decoder] Security verification successful" << std::endl;
             }
 
             long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
@@ -407,6 +560,9 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	//c) SHB extended header
 	header.SetLongPositionV (longPV);
 
+	header.setDCC(m_dcc);
+
+	/*
 	uint32_t tx_power = getTxPower();
 	header.SetOutputPower(static_cast<uint8_t>(tx_power));
 
@@ -417,6 +573,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 
 	// TODO check the meaning of this parameter
 	header.SetMaxNeighbouringCBR((uint8_t) 0);
+	*/
 	
 	// Serialize the headers
 	packetBuffer shbHeaderSerialized;
@@ -444,7 +601,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
         if (f_out != nullptr) {
             fprintf(f_out, "[ENCODE] Start time: %ld us, ", start_us);
         }
-
+		m_security.setATmanager(m_atmanager);
         dataRequest = m_security.createSecurePacket (dataRequest, isCertificate);
 
         long int end_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
@@ -544,7 +701,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 	}
 
 	size_t pktSize = finalPktSize - sizeof(struct ether_header) + IEEE80211_DATA_PKT_HDR_LEN + IEEE80211_FCS_LEN + 8; // 8 = bytes layer LLC
-	m_gate_keeper->updateTonpp(pktSize);
+	if (m_dcc != nullptr) m_dcc->updateTonpp(pktSize);
 
 	delete []finalPktBuffer;
 
@@ -653,7 +810,7 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 	}
 
 	size_t pktSize = finalPktSize - sizeof(struct ether_header) + IEEE80211_DATA_PKT_HDR_LEN + IEEE80211_FCS_LEN + 8; // 8 = bytes layer LLC
-	m_gate_keeper->updateTonpp(pktSize);
+	if (m_dcc != nullptr) m_dcc->updateTonpp(pktSize);
 
 	delete []finalPktBuffer;
 
@@ -666,12 +823,45 @@ GNDataIndication_t*
 GeoNet::processSHB (GNDataIndication_t* dataIndication)
 {
         shbHeader shbH;
-
-        shbH.removeHeader(dataIndication->data);
-        dataIndication->data += 28;
-        dataIndication->SourcePV = shbH.GetLongPositionV ();
+        double cbrr0, cbrr1;
+        if(dataIndication->GNType == BEACON)
+        {
+           // TODO
+        }
+        else
+        {
+            shbH.removeHeader(dataIndication->data);
+            dataIndication->data += 28;
+            dataIndication->SourcePV = shbH.GetLongPositionV ();
+			char GNAddr [8];
+			memcpy(GNAddr, dataIndication->SourcePV.GnAddress, sizeof(GNAddr));
+			auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+			std::ofstream file;
+			file.open(m_GN_log_file_rx, std::ios::app);
+			// m_mutex_log_rx.lock();
+			file << std::fixed << now_unix << ",";
+			for (unsigned char c : GNAddr) {
+				file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+			}
+			file << std::dec;
+			file << "," << dataIndication->SourcePV.TST << "," << dataIndication->SourcePV.latitude << "," << dataIndication->SourcePV.longitude << ",";
+			file.close();
+            cbrr0 = shbH.GetCBRR0Hop();
+            cbrr1 = shbH.GetCBRR1Hop();
+        }
+        m_LocT_Mutex.lock ();
+        if (dataIndication->GNType != BEACON)
+        {
+            struct timespec tv;
+            clock_gettime (CLOCK_MONOTONIC, &tv);
+            double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
+            uint64_t key;
+            std::memcpy(&key, dataIndication->SourcePV.GnAddress, 8);
+            m_GNLocT[key].cbr_extension.CBR_R0_Hop.push_back (std::make_tuple(now, cbrr0));
+            m_GNLocT[key].cbr_extension.CBR_R1_Hop.push_back (std::make_tuple(now, cbrr1));
+        }
+        m_LocT_Mutex.unlock ();
         dataIndication->GNType = TSB;
-
 
         //7) Pass the payload to the upper protocol entity
         return dataIndication;
@@ -792,4 +982,133 @@ GeoNet::closeUDPsocket() {
 		close(m_udp_sockfd);
 		m_udp_sockfd=-1;
 	}
+}
+
+void GeoNet::attachGlobalCBRCheck ()
+{
+    if (m_dcc == nullptr) return;
+    m_dcc->setCBRGCallback([this](){
+        struct timespec tv;
+        clock_gettime (CLOCK_MONOTONIC, &tv);
+        double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
+        double mean_cbr_r0_hop = 0.0;
+        long tot_r0 = 0;
+        double max_cbr_r0 = 0.0, second_max_cbr_r0 = 0.0;
+        double mean_cbr_r1_hop = 0.0;
+        long tot_r1 = 0;
+        double max_cbr_r1 = 0.0, second_max_cbr_r1 = 0.0;
+        m_LocT_Mutex.lock ();
+        for(auto it = m_GNLocT.begin(); it != m_GNLocT.end(); ++it)
+        {
+            auto& cbr_data = it->second.cbr_extension;
+            // Clean old data
+            size_t counter = 0;
+            std::vector<size_t> to_delete;
+            for (auto it2 = cbr_data.CBR_R0_Hop.begin(); it2 != cbr_data.CBR_R0_Hop.end(); ++it2)
+            {
+                if(now - m_GNLocTTimerCBR_ms > std::get<0>(*it2)) to_delete.push_back (counter);
+                counter ++;
+            }
+            std::sort(to_delete.begin(), to_delete.end(), std::greater<size_t>());
+            for (size_t idx : to_delete) {
+                if (idx < cbr_data.CBR_R0_Hop.size()) {
+                    cbr_data.CBR_R0_Hop.erase(cbr_data.CBR_R0_Hop.begin() + idx);
+                }
+            }
+
+            counter = 0;
+            to_delete.clear();
+            for (auto it2 = cbr_data.CBR_R1_Hop.begin(); it2 != cbr_data.CBR_R1_Hop.end(); ++it2)
+            {
+                if(now - m_GNLocTTimerCBR_ms > std::get<0>(*it2)) to_delete.push_back (counter);
+                counter ++;
+            }
+            std::sort(to_delete.begin(), to_delete.end(), std::greater<size_t>());
+            for (size_t idx : to_delete) {
+                if (idx < cbr_data.CBR_R1_Hop.size()) {
+                    cbr_data.CBR_R1_Hop.erase(cbr_data.CBR_R1_Hop.begin() + idx);
+                }
+            }
+
+            for (auto it2 = cbr_data.CBR_R0_Hop.begin(); it2 != cbr_data.CBR_R0_Hop.end(); ++it2)
+            {
+                double val = std::get<1>(*it2);
+                mean_cbr_r0_hop += val;
+
+                if (val > max_cbr_r0)
+                {
+                    second_max_cbr_r0 = max_cbr_r0;
+                    max_cbr_r0 = val;
+                }
+                else if (val < max_cbr_r0 && val > second_max_cbr_r0)
+                {
+                    second_max_cbr_r0 = val;
+                }
+            }
+            tot_r0 += cbr_data.CBR_R0_Hop.size();
+
+            for (auto it2 = cbr_data.CBR_R1_Hop.begin(); it2 != cbr_data.CBR_R1_Hop.end(); ++it2)
+            {
+                double val = std::get<1>(*it2);
+                mean_cbr_r1_hop += val;
+
+                if (val > max_cbr_r1)
+                {
+                    second_max_cbr_r1 = max_cbr_r1;
+                    max_cbr_r1 = val;
+                }
+                else if (val < max_cbr_r1 && val > second_max_cbr_r1)
+                {
+                    second_max_cbr_r1 = val;
+                }
+            }
+            tot_r1 += cbr_data.CBR_R1_Hop.size();
+        }
+        m_LocT_Mutex.unlock ();
+		if (tot_r0 == 0) mean_cbr_r0_hop = 0;
+		else mean_cbr_r0_hop /= tot_r0;
+		if (tot_r1 == 0) mean_cbr_r1_hop = 0;
+		else mean_cbr_r1_hop /= tot_r1;
+        double CBR_L1_Hop, CBR_L2_Hop;
+        if (mean_cbr_r0_hop > m_dcc->getCBRTarget())
+        {
+            CBR_L1_Hop = max_cbr_r0;
+        }
+        else
+        {
+            CBR_L1_Hop = second_max_cbr_r0;
+        }
+
+        if (mean_cbr_r1_hop > m_dcc->getCBRTarget())
+        {
+            CBR_L2_Hop = max_cbr_r1;
+        }
+        else
+        {
+            CBR_L2_Hop = second_max_cbr_r1;
+        }
+		double CBR_L0_Hop_prev = m_dcc->getCBRL0Prev();
+        double CBR_G = std::max(CBR_L0_Hop_prev, CBR_L1_Hop);
+        CBR_G = std::max(CBR_G, CBR_L2_Hop);
+		/*
+		std::ofstream file;
+		file.open("CBR_global.txt", std::ios::app);
+		file << std::fixed << std::setprecision(2);
+		file << "\n";
+		file << "[DCC] Global CBR: " << CBR_G << ", Local CBR L1: " << CBR_L1_Hop << ", Local CBR L2: " << CBR_L2_Hop << ", CBR L0 prev: " << CBR_L0_Hop_prev << std::endl;
+		file << "\n";
+		file.close();
+		*/
+        m_dcc->setCBRG(CBR_G);
+        m_dcc->setCBRL1(CBR_L1_Hop);
+    });
+}
+
+void GeoNet::writeEndRowLogRX (MessageId_t msg_id)
+{
+	std::ofstream file;
+	file.open(m_GN_log_file_rx, std::ios::app);
+	file << msg_id << "," << "3\n";
+	file.close();
+	// m_mutex_log_rx.unlock();
 }

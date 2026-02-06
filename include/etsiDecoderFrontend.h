@@ -32,6 +32,7 @@ NAMED_ENUM_DECLARE(etsi_message_t,MSGTYPES);
 namespace etsiDecoder {
 	typedef enum {
 		ETSI_DECODED_ERROR,
+		ETSI_DECODED_ERROR_CPM,
 		ETSI_DECODED_CAM,
 		ETSI_DECODED_DENM,
 		ETSI_DECODED_IVIM,
@@ -74,13 +75,22 @@ namespace etsiDecoder {
 				MSGTYPE_AUTO = 2
 			} msgType_e;
 
-			decoderFrontend(bool enable_security = false, std::string logfile_security = "dis");
+			decoderFrontend(bool enable_security = false, std::string logfile_security = "dis", GeoNet* gn = nullptr);
 			int decodeEtsi(uint8_t *buffer,size_t buflen,etsiDecodedData_t &decoded_data, msgType_e msgtype = MSGTYPE_ITS);
 			void setPrintPacket(bool print_pkt) {m_print_pkt=print_pkt;}
+            void setEnableSecurity(bool enable) {m_enable_security = enable;};
+			void setGeoNet(GeoNet* gn) {
+				m_gn = gn;
+				m_gn->setSecurity(m_enable_security);
+				if (m_logfile_security != "dis" && !m_logfile_security.empty())
+				{
+					m_gn->setLogFile2(m_logfile_security);  // If a log file is specified, set it for GeoNet
+				}
+			};
 
 		private:
 			bool m_print_pkt;
-            GeoNet m_gn;
+            GeoNet* m_gn;
             bool m_enable_security;  // Store security option
             std::string m_logfile_security;  // Store security logfile name
 	};

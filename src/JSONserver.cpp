@@ -23,6 +23,8 @@
 //}
 
 void *JSONthread_callback(void *arg) {
+	pthread_setname_np(pthread_self(), "JSON_API_thr");
+
 	fd_set sockdescrs,rd_sockdescrs;
 	std::set<int> sockdescrs_set = {};
 	char rx_buff[1024];

@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include "utils.h"
+#include "DCC.h"
 
 class shbHeader {
 	public:
@@ -24,11 +25,9 @@ class shbHeader {
 		//Setters
 		void SetLongPositionV(GNlpv_t longPositionVector) {m_sourcePV = longPositionVector;}
 
-		void SetLocalCBR(uint8_t cbr) {m_local_CBR = cbr;}
-
-		void SetMaxNeighbouringCBR(uint8_t cbr) {m_max_CBR_neighbouring = cbr;}
-
-		void SetOutputPower(uint8_t tx_power);
+        void setDCC(DCC* dcc) {m_dcc = dcc;};
+        double GetCBRR0Hop() {return m_CBR_R0_Hop;};
+        double GetCBRR1Hop() {return m_CBR_R1_Hop;};
 
 		static void printTSBPheader(packetBuffer &packet,std::string filename);
 	private:
@@ -38,6 +37,9 @@ class shbHeader {
 		uint8_t m_local_CBR;
 		uint8_t m_max_CBR_neighbouring;
 		uint8_t m_tx_power_reserved;
+        DCC* m_dcc = nullptr;
+        double m_CBR_R0_Hop;
+        double m_CBR_R1_Hop;
 
 };
 

@@ -10,8 +10,8 @@ btp::btp() = default;
 
 btp::~btp() = default;
 
-GNDataConfirm_t
-btp::sendBTP(BTPDataRequest_t dataRequest) {
+std::tuple<GNDataConfirm_t, MessageId_t>
+btp::sendBTP(BTPDataRequest_t dataRequest, int priority, MessageId_t message_id) {
 	GNDataConfirm_t dataConfirm;
 	GNDataRequest_t GnDataRequest = {};
 	btpHeader btpheader;
@@ -46,11 +46,12 @@ btp::sendBTP(BTPDataRequest_t dataRequest) {
 	GnDataRequest.data = dataRequest.data;
 	GnDataRequest.lenght = dataRequest.lenght + 4;
 
-	dataConfirm = m_geonet->sendGN(GnDataRequest);
+	std::tuple<GNDataConfirm_t, MessageId_t> status = m_geonet->sendGN(GnDataRequest, priority, message_id);
+	dataConfirm = std::get<0>(status);
 	if(dataConfirm != ACCEPTED && dataConfirm != BLOCKED_BY_GK) {
 		std::cerr << "Error! GeoNetworking could not send any packet." << std::endl;
 	}
-	return dataConfirm;
+	return status;
 }
 
 btpError_e
@@ -74,7 +75,7 @@ btp::decodeBTP(GNDataIndication_t dataIndication, BTPDataIndication_t* btpDataIn
     if(header.getDestPort () == CP_PORT)
     {
         std::cerr << "[ERROR] [Decoder] Reception of CPMs is not yet fully supported" << std::endl;
-        return BTP_ERROR;
+        return BTP_ERROR_CPM;
     }
 
 	btpDataIndication->destPort = header.getDestPort ();
