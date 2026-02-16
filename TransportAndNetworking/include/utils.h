@@ -82,6 +82,7 @@ typedef enum {
     UNSPECIFIED_ERROR =6,
     UNSUPPORTED_GN_REP=7,
 	BLOCKED_BY_GK = 8,
+	UNKNOWN = 9
 } GNDataConfirm_t;
 
 typedef struct dataIndication {

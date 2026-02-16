@@ -268,7 +268,7 @@ bool BasicSensorReader::startReader() {
     // Prepare a CAN ID filter
     // Filter only for the messages of interest
     // The data of interest should be located inside the messages matching the regex used to read the CAN database (default CAN message names: "Video_Object_0x_B")
-    for(int can_id_idx=0;can_id_idx<m_can_db_id_info.size();can_id_idx++) {
+    for(int can_id_idx=0;can_id_idx<static_cast<int>(m_can_db_id_info.size());can_id_idx++) {
         canfilter[can_id_idx].can_id=m_can_db_id_info[can_id_idx];
         canfilter[can_id_idx].can_mask=CAN_SFF_MASK;
     }

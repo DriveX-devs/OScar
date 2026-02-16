@@ -2,18 +2,18 @@
 #define AIM_JSONSERVER_H
 
 // json11 include
-#include "json11.h"
 #include <atomic>
-
+#include "json11.h"
+#include "denBasicService.h"
 #include "LDMmap.h" 
 
 class JSONserver {
 	public:
-		JSONserver(ldmmap::LDMMap *db_ptr) :
-			m_range_m(m_range_m_default), m_db_ptr(db_ptr) {m_port=49000; m_thread_running=false;};
+		JSONserver(ldmmap::LDMMap *db_ptr, DENBasicService *den_service) :
+			m_range_m(m_range_m_default), m_db_ptr(db_ptr), m_den_service(den_service) {m_port=49000; m_thread_running=false;};
 
-		JSONserver(ldmmap::LDMMap *db_ptr, long port) :
-			m_range_m(m_range_m_default), m_db_ptr(db_ptr) {m_port=port; m_thread_running=false;};
+		JSONserver(ldmmap::LDMMap *db_ptr, long port, DENBasicService *den_service) :
+			m_range_m(m_range_m_default), m_db_ptr(db_ptr), m_den_service(den_service) {m_port=port; m_thread_running=false;};
 
 		~JSONserver() {stopServer();}
 
@@ -36,6 +36,11 @@ class JSONserver {
 		// The user is not expected to call these functions, which are used internally (they must be public due to the usage of pthread; future work will switch to C++ threads)
 		int getSock(void) {return m_sockd;}
 		void setJSONThreatRunningStatus(bool status) {m_thread_running=status;}
+
+		void setDENService(DENBasicService *debns_ptr) {m_den_service = debns_ptr;}
+
+		json11::Json::object handleRequest(const json11::Json &request);
+		json11::Json::object handleDENMRequest(const json11::Json &request);
 	private:
 		json11::Json::object make_vehicle_standard(uint64_t stationID, 
 			double lat, 
@@ -52,9 +57,12 @@ class JSONserver {
 			double heading
 			);
 
+		static denData fillDenDataFromJson(const json11::Json &request);
+
 		const double m_range_m_default = 15000.0;
 		double m_range_m;
 		ldmmap::LDMMap *m_db_ptr;
+		DENBasicService *m_den_service;
 		long m_port;
 		std::atomic<bool> m_thread_running;
 

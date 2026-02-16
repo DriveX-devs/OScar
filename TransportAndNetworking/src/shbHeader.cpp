@@ -180,6 +180,7 @@ void shbHeader::removeHeader(unsigned char *buffer) {
         uint8_t cbr0_enc = (field >> 24) & 0xFF;
 		uint8_t cbr1_enc = (field >> 16) & 0xFF;
 		uint8_t txp_byte = (field >> 8)  & 0xFF;
+		(void) txp_byte;
 		// uint8_t reserved = field & 0xFF;
         m_CBR_R0_Hop = static_cast<double>(cbr0_enc) / 255.0f;
         m_CBR_R1_Hop = static_cast<double>(cbr1_enc) / 255.0f;

@@ -55,3 +55,6 @@ security.cpp
 # JetBrains IDE project files
 /.idea
 
+.idea/editor.xml
+GN_log_RX.csv
+GN_log_TX.csv

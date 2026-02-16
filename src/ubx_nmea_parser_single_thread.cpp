@@ -444,7 +444,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
         bool all_chars_equal = false;
 
         // If the first N (up to 4) characters are the same, take as fix mode the common one
-        for(int i=0;i<posMode.length() && i<4;i++) {
+        for(int i=0;i<static_cast<int>(posMode.length()) && i<4;i++) {
             if(posMode[i]!=posMode[0]) {
                 all_chars_equal=false;
                 break;
@@ -461,7 +461,7 @@ UBXNMEAParserSingleThread::parseNmeaGns(std::string nmea_response) {
             // If no valid character is found, take as reference the GPS fix (i.e., initialize fix_cumulative_char with posMode[0])
             // TODO: for the time being, only (N,) E, A, D, F, R are supported. However, this could be extended to P, M, S even if we hardly ever encounter these modes
             fix_cumulative_char = posMode[0];
-            for (int i=0;i<posMode.length() && i<4;i++) {
+            for (int i=0;i<static_cast<int>(posMode.length()) && i<4;i++) {
                 if (posMode[i] == 'E' || posMode[i] == 'A' || posMode[i] == 'D' || posMode[i] == 'F' || posMode[i] == 'R') {
                     fix_cumulative_char = posMode[i];
                     break;
@@ -2257,7 +2257,8 @@ UBXNMEAParserSingleThread::readFromSerial() {
     // Variables useful for the trace file reproduction: not used in normal serial parser mode
     size_t ti = 0, tj = 0;
     std::string curr_data_str, curr_msg_type;
-    uint64_t curr_tstamp, start_time=0, delta_time_us_real=0, start_time_us=0, delta_time_us_trace=0, variable_delta_us_factor=0;
+    uint64_t curr_tstamp, start_time=0, delta_time_us_real=0, delta_time_us_trace=0, variable_delta_us_factor=0;
+    // uint64_t start_time_us=0;
     // Get current timestamp in microseconds
     uint64_t startup_time = get_timestamp_us();
 
@@ -2337,9 +2338,9 @@ UBXNMEAParserSingleThread::readFromSerial() {
         wrong_input.push_back(byte);
         // If too many wrong bytes have been accumulated, terminate the parser (and the whole program)
         // Print also the accumulated bytes for debug purposes
-        if (wrong_input.size() >= m_WRONG_INPUT_THRESHOLD) {
+        if (static_cast<int>(wrong_input.size()) >= m_WRONG_INPUT_THRESHOLD) {
             std::cerr << "Error. Wrong input detected. Size: " << wrong_input.size() << " . Terminating. Content: ";
-            for (int i = 0; i < wrong_input.size(); i++) {
+            for (int i = 0; i < static_cast<int>(wrong_input.size()); i++) {
                 printf("%02X-", wrong_input[i]);
             }
             printf("\n");
@@ -2892,7 +2893,7 @@ uint8_t UBXNMEAParserSingleThread::str_to_byte(const std::string &str) {
     }
 
     uint8_t final_val=0x00;
-    for(int i=0;i<str.length();i++) {
+    for(int i=0;i<static_cast<int>(str.length());i++) {
         char curr_c = str[i];
         uint8_t curr_val= 0x00;
 

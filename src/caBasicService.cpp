@@ -274,7 +274,7 @@ void
 CABasicService::checkCamConditions()
 {
   // Initializing
-  int64_t now;
+  int64_t now=computeTimestampUInt64()/NANO_TO_MILLI;
   CABasicService_error_t cam_error;
   bool condition_verified;
   static bool dyn_cond_verified = false;
@@ -283,7 +283,7 @@ CABasicService::checkCamConditions()
   double currHead = (double)m_vdp->getHeadingValue().getValue()/10;
   std::pair<double,double> currPos = m_vdp->getCurrentPositionDbl();
   double currSpeed = m_vdp->getSpeedValue().getValue();
-  long int time_difference;
+  long int time_difference=0;
   double head_diff=-1;
   double pos_diff=-1;
   double speed_diff=-1;
@@ -538,7 +538,7 @@ CABasicService::checkCamConditions()
         // If the speed difference with the previous CAM sent is more than 0.5 m/s, then generate the CAM
         if (!condition_verified && (speed_diff > 0.5 || speed_diff < -0.5))
         {
-          if (m_T_next_dcc == -1 || now - lastCamGen >= m_T_next_dcc)
+          if (m_T_next_dcc == -1 || (now - lastCamGen >= m_T_next_dcc))
           {
             auto cam_result = generateAndEncodeCam();
             cam_error = cam_result.error;

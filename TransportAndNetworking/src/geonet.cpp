@@ -402,7 +402,7 @@ void GeoNet::attachSendFromDCCQueue()
         GNDataRequest_t dataRequest = pkt.dataRequest;
         MessageId_t message_id = pkt.message_id;
 
-		GNDataConfirm_t dataConfirm;
+		GNDataConfirm_t dataConfirm = UNKNOWN;
 
 		struct timespec tv;
 		clock_gettime (CLOCK_MONOTONIC, &tv);
@@ -830,7 +830,7 @@ GNDataIndication_t*
 GeoNet::processSHB (GNDataIndication_t* dataIndication)
 {
         shbHeader shbH;
-        double cbrr0, cbrr1;
+        double cbrr0 = 0.0, cbrr1 = 0.0;
         if(dataIndication->GNType == BEACON)
         {
            // TODO

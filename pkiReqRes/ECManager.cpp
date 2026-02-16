@@ -48,6 +48,10 @@ extern "C"
 #define NONCE_LENGTH 12
 #define AES_CCM_TAG_LENGTH 16
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 ECManager::~ECManager ()
 {
@@ -221,8 +225,8 @@ std::vector<unsigned char> ECManager::concatenateHashes(const unsigned char hash
 void ECManager::deriveKeyWithKDF2(const unsigned char* sharedSecret, size_t secretLen,
                        const unsigned char* P1, size_t P1_len,
                        unsigned char* derivedKey, size_t derivedKeyLen) {
-    size_t hBits = SHA256_DIGEST_LENGTH * 8; // SHA-256 produces 256 bits (32 bytes)
-    size_t cThreshold = (derivedKeyLen * 8 + hBits - 1) / hBits;  // Quante iterazioni necessarie
+    // size_t hBits = SHA256_DIGEST_LENGTH * 8; // SHA-256 produces 256 bits (32 bytes) - currently unused
+    // size_t cThreshold = (derivedKeyLen * 8 + hBits - 1) / hBits;  // How many iterations are needed - currently unused
 
     size_t offset = 0;
     unsigned int counter = 1;
@@ -1010,7 +1014,7 @@ void ECManager::createRequest()
   }
   // Signature part inside certificate signer. In this case the signature is of type Brain384. This code will note save anything. But for the moment is not important the EA signature.
   auto signcertData_decoded = asn1cpp::getSeqOpt(certData_decoded->signature, Signature, &getValue_ok);
-  auto present = asn1cpp::getField(signcertData_decoded->present, Signature_PR);
+  // auto present = asn1cpp::getField(signcertData_decoded->present, Signature_PR);
   if (asn1cpp::getField(signcertData_decoded->present, Signature_PR) == Signature_PR_ecdsaNistP256Signature)
   {
     auto present4 = asn1cpp::getField(signcertData_decoded->choice.ecdsaNistP256Signature.rSig.present, EccP256CurvePoint_PR);
@@ -1342,3 +1346,7 @@ bool ECManager::manageRequest() {
         return true;
     }
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif

@@ -53,6 +53,10 @@ extern "C" {
 #define AES_CCM_TAG_LENGTH 16
 #define HMAC_TAG_LENGTH 32
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 ATManager::~ATManager ()
 {
@@ -308,6 +312,7 @@ void ATManager::deriveKeyWithKDF2(const unsigned char* sharedSecret, size_t secr
                        unsigned char* derivedKey, size_t derivedKeyLen) {
     size_t hBits = SHA256_DIGEST_LENGTH * 8; // SHA-256 produces 256 bits (32 bytes)
     size_t cThreshold = (derivedKeyLen * 8 + hBits - 1) / hBits;  // Quante iterazioni necessarie
+    (void) cThreshold;
 
     size_t offset = 0;
     unsigned int counter = 1;
@@ -980,6 +985,7 @@ void ATManager::createRequest () {
   // Signature part inside certificate signer. In this case the signature is of type Brain384. This code will note save anything. But for the moment is not important the EA signature.
   auto signcertData_decoded = asn1cpp::getSeqOpt(certData_decoded->signature, Signature, &getValue_ok);
   auto present = asn1cpp::getField(signcertData_decoded->present, Signature_PR);
+  (void) present;
   if (asn1cpp::getField(signcertData_decoded->present, Signature_PR) == Signature_PR_ecdsaNistP256Signature)
   {
     auto present4 = asn1cpp::getField(signcertData_decoded->choice.ecdsaNistP256Signature.rSig.present, EccP256CurvePoint_PR);
@@ -1595,7 +1601,6 @@ void ATManager::run(){
 
 */
 
-
-
-
-
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif

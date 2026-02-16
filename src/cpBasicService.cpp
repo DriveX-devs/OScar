@@ -657,8 +657,7 @@ CPBasicService::checkCPMconditions(std::vector<ldmmap::LDMMap::returnedVehicleDa
     uint64_t now = computeTimestampUInt64 () / NANO_TO_MILLI;
     uint64_t time_diff = now - previousCPM.timestamp_us/1000;
     data_time="  [TIME] Timestamp="+std::to_string(now)+" LastCPMSend="+std::to_string(previousCPM.timestamp_us/1000)+" TimeThreshold="+std::to_string(m_N_GenCpmMax)+" TimeDiff="+std::to_string(time_diff)+"\n";
-    if(!condition_verified && time_diff > m_N_GenCpmMax)
-    {
+    if(!condition_verified && time_diff > static_cast<uint32_t>(m_N_GenCpmMax)) {
         //std::cout << "[CP service] Time check passed: " << time_diff << " ms since last CPM"<< std::endl;
         condition_verified = true;
         if (motivation == "None"){

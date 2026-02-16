@@ -594,6 +594,8 @@ std::unordered_map<std::string,float> get_current_rssi()
     {
         std::cerr << e.what() << '\n';
     }
+
+	return {};
 }
 
 uint32_t getTxPower()
