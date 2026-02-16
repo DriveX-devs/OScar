@@ -524,11 +524,8 @@ DENBasicService::appDENM_trigger(denData data, denData::DEN_ActionID_t &actionid
                                  data.getDenmMgmtValidityDuration() * 1000, &DENBasicService::T_O_ValidityStop,
                                  actionid);
 
-    std::cout << "HERE! 1" << std::endl;
-
     /* 10. Calculate and start timers T_RepetitionDuration and T_Repetition when both parameters in denData are > 0 */
     if (data.getDenmRepetitionDuration() > 0 && data.getDenmRepetitionInterval() > 0) {
-        std::cout << "HERE! 2" << std::endl;
         // Store the repetition interval for rescheduling
         m_repetitionIntervals[map_index] = data.getDenmRepetitionInterval();
 
@@ -539,12 +536,9 @@ DENBasicService::appDENM_trigger(denData data, denData::DEN_ActionID_t &actionid
                                      data.getDenmRepetitionDuration(),
                                      &DENBasicService::T_RepetitionDurationStop, actionid);
     }
-    std::cout << "HERE! 3" << std::endl;
     /* 11. Finally create the entry after starting all the timers (it refers to the step '8' of appDENM_trigger in ETSI EN302 637-3 V1.3.1 */
 
     m_originatingITSSTable[map_index] = entry;
-
-    std::cout << "HERE! 4" << std::endl;
 
     /* 12. Send actionID to the requesting ITS-S application. This is requested by the standard, but we are already reporting the actionID using &actionID */
 
@@ -988,8 +982,6 @@ void
 DENBasicService::T_RepetitionStop(denData::DEN_ActionID_t entry_actionid) {
     std::pair<unsigned long, long> map_index = std::make_pair((unsigned long) entry_actionid.originatingStationID,
                                                               (long) entry_actionid.sequenceNumber);
-
-    std::cout << "HERE! 5" << std::endl;
 
     T_Repetition_Mutex.lock();
     // Check if the entry still exists in the table
