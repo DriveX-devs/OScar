@@ -447,13 +447,11 @@ void DCC::adaptiveDCC()
         file << "timestamp_unix_s,timestamp_relative_us,currentCBR,CBRITS,new_delta,int_pkt_time,#_dropped_lifetime,#_dropped_full_queue,#_pkt_to_send,#_pkt_received,average_aoi_dp0,average_aoi_dp1,average_aoi_dp2,average_aoi_dp3\n";
         file.close();
         // Remove .txt from log_file for Toff log name
-        /*
-        std::string file_log = m_log_file + "_Toff.log";
+        std::string file_log = "Log_Toff.csv";
         std::ofstream file_toff;
         file_toff.open(file_log, std::ios::out);
         file_toff << "timestamp_unix_s,Toff_ms,place\n";
         file_toff.close();
-        */
     }
 }
 
@@ -483,10 +481,9 @@ void DCC::updateTgoAfterTransmission()
     // Compute next time gate will be open
     m_Tgo_ms = m_Tpg_ms + aux;
     m_Toff_ms = aux;
-    /*
     if (m_log_file != "")
     {
-        std::string file_log = m_log_file + "_Toff.log";
+        std::string file_log = "Log_Toff.csv";
         std::ofstream file_toff;
         file_toff.open(file_log, std::ios::app);
 
@@ -495,7 +492,6 @@ void DCC::updateTgoAfterTransmission()
         file_toff << std::fixed << now_unix << "," << m_Toff_ms << "," << "0" << "\n";
         file_toff.close();
     }
-    */
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
@@ -519,10 +515,9 @@ void DCC::updateTgoAfterDeltaUpdate()
     if (update > 1000) update = 1000;
     m_Tgo_ms = m_Tpg_ms + update;
     m_Toff_ms = update;
-    /*
     if (m_log_file != "")
     {
-        std::string file_log = m_log_file + "_Toff.log";
+        std::string file_log = "Log_Toff.csv";
         std::ofstream file_toff;
         file_toff.open(file_log, std::ios::app);
 
@@ -531,7 +526,6 @@ void DCC::updateTgoAfterDeltaUpdate()
         file_toff << std::fixed << now_unix << "," << m_Toff_ms << "," << "1" << "\n";
         file_toff.close();
     }
-    */
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
@@ -571,6 +565,17 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
     m_gate_mutex.lock();
     m_Tgo_ms = now + Toff;
     m_Toff_ms = Toff;
+    if (m_log_file != "")
+    {
+        std::string file_log = "Log_Toff.csv";
+        std::ofstream file_toff;
+        file_toff.open(file_log, std::ios::app);
+
+        auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+
+        file_toff << std::fixed << now_unix << "," << m_Toff_ms << "," << "3" << "\n";
+        file_toff.close();
+    }
     m_gate_mutex.unlock();
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
