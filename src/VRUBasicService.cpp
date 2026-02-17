@@ -76,6 +76,9 @@ VRUBasicService::VRUBasicService(){
   m_trigg_cond = NOT_VALID;
   
   m_terminateFlag = false;
+
+  m_force_10Hz_freq=false;
+  m_force_20Hz_freq=false;
   
   // The log file and .csv file are disabled by default
   m_log_filename = "dis";
@@ -285,11 +288,28 @@ void VRUBasicService::checkVamConditions(){
   int clockFd;
   
   // The last argument of timer_fd_create should be in microseconds
-  if(timer_fd_create(pollfddata, clockFd, m_T_CheckVamGen_ms*1e3)<0) {
-    std::cerr << "[ERROR] Fatal error! Cannot create timer for the VAM dissemination" << std::endl;
-    terminateDissemination();
-    return;
-  }
+  if(m_force_20Hz_freq) {
+      // Force 20 Hz CAM transmission
+      if (timer_fd_create(pollfddata, clockFd, 50 * 1e3) < 0) {
+          std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
+          terminateDissemination();
+          return;
+      }
+  } else if (m_force_10Hz_freq) {
+    // Force 10 Hz CAM transmission
+      if (timer_fd_create(pollfddata, clockFd, 100 * 1e3) < 0) {
+          std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
+          terminateDissemination();
+          return;
+      }
+  } else {
+    // The last argument of timer_fd_create should be in microseconds
+      if(timer_fd_create(pollfddata, clockFd, m_T_CheckVamGen_ms*1e3)<0) {
+        std::cerr << "[ERROR] Fatal error! Cannot create timer for the VAM dissemination" << std::endl;
+        terminateDissemination();
+        return;
+      }
+    }
 
   POLL_DEFINE_JUNK_VARIABLE();
   
@@ -336,6 +356,19 @@ void VRUBasicService::checkVamConditions(){
    		* ETSI TS 103 300-3 V2.2.1 chap. 8 table 17 (no DCC)
    		* One of the following ITS-S dynamics related conditions is given:
   		*/
+
+      if(m_force_20Hz_freq || m_force_10Hz_freq) {
+          auto vam_result = generateAndEncodeVam();
+
+          if(vam_result==VAM_NO_ERROR)
+          {
+              condition_verified=true;
+          } else {
+              std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_result) << std::endl;
+          }
+
+          goto goto_print;
+      }
 
   		/* 1a)
    		* The absolute difference between the current heading of the originating
@@ -546,6 +579,8 @@ void VRUBasicService::checkVamConditions(){
     	// Create data for the log print in case of VAM redundancy mitigation
     	data_vamredmit = "[REDUNDANCY MITIGATION] numSkipVAMsForRedMitMax="+std::to_string(m_N_GenVam_max_red)+" numSkipVAMsForRedMit="+std::to_string(m_N_GenVam_red)+" TimestampLastVAMGen="+std::to_string(lastVamGen)+" TimeIntervalSinceLastVAMGen="+std::to_string(time_difference)+"\n";
     		
+      goto_print:
+
     	if(m_log_filename!="dis" && m_log_filename!=""){
     		// If the log file has not been set to append mode, then set it to append mode
         if(first==true) {
@@ -568,86 +603,95 @@ void VRUBasicService::checkVamConditions(){
         std::string num_VAMs_sent="";
 
         // Check the motivation of the VAM sent
-        if (!condition_verified && !vamredmit_verified) {
-          motivation="none";
-          num_VAMs_sent="unavailable";
-        } else if(vamredmit_verified){
-        	motivation="VAM Redundancy Mitigation";
-          num_VAMs_sent="unavailable";
-        } else {
-          data="[VAM] VAM sent\n";
-          sent="true";
+        if (!m_force_20Hz_freq && !m_force_10Hz_freq)
+        {
+          if (!condition_verified && !vamredmit_verified) {
+            motivation="none";
+            num_VAMs_sent="unavailable";
+          } else if(vamredmit_verified){
+            motivation="VAM Redundancy Mitigation";
+            num_VAMs_sent="unavailable";
+          } else {
+            data="[VAM] VAM sent\n";
+            sent="true";
 
-          if(head_diff > m_head_th || head_diff < -m_head_th) {
-            motivation="heading";
-            joint=joint+"H";
-            num_VAMs_sent=std::to_string(m_head_sent);
-            numConditions++;
-          }
-
-          if((pos_diff > 4.0 || pos_diff < -4.0)) {
-            motivation="position";
-            joint=joint+"P";
-            num_VAMs_sent=std::to_string(m_pos_sent);
-            numConditions++;
-          }
-
-          if(speed_diff > 0.5 || speed_diff < -0.5) {
-           	motivation="speed";
-            joint=joint+"S";
-            num_VAMs_sent=std::to_string(m_speed_sent);
-            numConditions++;
-          }
-          
-          // fprintf(stdout,"[TBR] (%.7lf<%.7lf && %.7lf<%.7lf && %.7lf<%.7lf) || (%.7lf<%.7lf && %.7lf<%.7lf && %.7lf<%.7lf)\n",
-          //   m_min_dist[1].longitudinal,
-          //   m_long_safe_d,
-          //   m_min_dist[1].lateral,
-          //   m_lat_safe_d,
-          //   m_min_dist[1].vertical,
-          //   m_vert_safe_d,
-          //   m_min_dist[0].longitudinal,
-          //   m_long_safe_d,
-          //   m_min_dist[0].lateral,
-          //   m_lat_safe_d,
-          //   m_min_dist[0].vertical,
-          //   m_vert_safe_d
-          //   );
-
-          if((m_min_dist[1].longitudinal < m_long_safe_d && m_min_dist[1].lateral < m_lat_safe_d && m_min_dist[1].vertical < m_vert_safe_d) || (m_min_dist[0].longitudinal < m_long_safe_d && m_min_dist[0].lateral < m_lat_safe_d && m_min_dist[0].vertical < m_vert_safe_d)){
-          	motivation="safe_distances";
-            joint=joint+"D";
-            num_VAMs_sent=std::to_string(m_safedist_sent);
-            numConditions++;
-          }
-
-          if(abs(time_difference - m_T_GenVam_ms) <= 10 || (m_T_GenVam_ms - time_difference) <= 0 ) {
-            motivation="time";
-            joint=joint+"T";
-            num_VAMs_sent=std::to_string(m_time_sent);
-            numConditions++;
-          }
-
-          // When joint with a single other motivation, the joint motivation should not be considered
-          if(numConditions>1) {
-            motivation="joint("+joint+")";
-            if(joint=="HT") {
+            if(head_diff > m_head_th || head_diff < -m_head_th) {
               motivation="heading";
+              joint=joint+"H";
+              num_VAMs_sent=std::to_string(m_head_sent);
+              numConditions++;
             }
-            if(joint=="PT") {
-              motivation="position";
-            }
-            if(joint=="ST") {
-              motivation="speed";
-            }
-            if(joint=="DT") {
-              motivation="safe_distances";
-            }
-          }
 
-          if(condition_verified && strlen(motivation.c_str())==0) {
-            motivation="numPkt";
+            if((pos_diff > 4.0 || pos_diff < -4.0)) {
+              motivation="position";
+              joint=joint+"P";
+              num_VAMs_sent=std::to_string(m_pos_sent);
+              numConditions++;
+            }
+
+            if(speed_diff > 0.5 || speed_diff < -0.5) {
+              motivation="speed";
+              joint=joint+"S";
+              num_VAMs_sent=std::to_string(m_speed_sent);
+              numConditions++;
+            }
+            
+            // fprintf(stdout,"[TBR] (%.7lf<%.7lf && %.7lf<%.7lf && %.7lf<%.7lf) || (%.7lf<%.7lf && %.7lf<%.7lf && %.7lf<%.7lf)\n",
+            //   m_min_dist[1].longitudinal,
+            //   m_long_safe_d,
+            //   m_min_dist[1].lateral,
+            //   m_lat_safe_d,
+            //   m_min_dist[1].vertical,
+            //   m_vert_safe_d,
+            //   m_min_dist[0].longitudinal,
+            //   m_long_safe_d,
+            //   m_min_dist[0].lateral,
+            //   m_lat_safe_d,
+            //   m_min_dist[0].vertical,
+            //   m_vert_safe_d
+            //   );
+
+            if((m_min_dist[1].longitudinal < m_long_safe_d && m_min_dist[1].lateral < m_lat_safe_d && m_min_dist[1].vertical < m_vert_safe_d) || (m_min_dist[0].longitudinal < m_long_safe_d && m_min_dist[0].lateral < m_lat_safe_d && m_min_dist[0].vertical < m_vert_safe_d)){
+              motivation="safe_distances";
+              joint=joint+"D";
+              num_VAMs_sent=std::to_string(m_safedist_sent);
+              numConditions++;
+            }
+
+            if(abs(time_difference - m_T_GenVam_ms) <= 10 || (m_T_GenVam_ms - time_difference) <= 0 ) {
+              motivation="time";
+              joint=joint+"T";
+              num_VAMs_sent=std::to_string(m_time_sent);
+              numConditions++;
+            }
+
+            // When joint with a single other motivation, the joint motivation should not be considered
+            if(numConditions>1) {
+              motivation="joint("+joint+")";
+              if(joint=="HT") {
+                motivation="heading";
+              }
+              if(joint=="PT") {
+                motivation="position";
+              }
+              if(joint=="ST") {
+                motivation="speed";
+              }
+              if(joint=="DT") {
+                motivation="safe_distances";
+              }
+            }
+
+            if(condition_verified && strlen(motivation.c_str())==0) {
+              motivation="numPkt";
+            }
           }
+        } else {
+            data = "[VAM] VAM sent\n";
+            sent = "true";
+
+            motivation = "10/20Hz_forced";
+            numConditions++;
         }
 
         // Create the data for the log print

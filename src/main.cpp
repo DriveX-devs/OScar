@@ -245,6 +245,7 @@ void CAMtxThr(
         std::string log_filename_CAM,
         ldmmap::LDMMap *db_ptr,
         bool force_20Hz_freq,
+        bool force_10Hz_freq,
         CABasicService* cabs,
         btp* BTP
     ) {
@@ -293,6 +294,10 @@ void CAMtxThr(
 
             if(force_20Hz_freq) {
                 cabs->force20HzFreq();
+            }
+
+            if(force_10Hz_freq) {
+                cabs->force10HzFreq();
             }
 
             if (log_filename_CAM != "dis" && log_filename_CAM != "") {
@@ -371,6 +376,7 @@ void VAMtxThr(VDPGPSClient* vrudp,
               double speed_th,
               double head_th,
               bool force_20Hz_freq,
+              bool force_10Hz_freq,
               VRUBasicService* vrubs,
               btp* BTP
         ) {
@@ -399,6 +405,14 @@ void VAMtxThr(VDPGPSClient* vrudp,
             }
             if(head_th != -1){
                 vrubs->setHeadingThreshold(head_th);
+            }
+
+            if(force_20Hz_freq) {
+                vrubs->force20HzFreq();
+            }
+
+            if(force_10Hz_freq) {
+                vrubs->force10HzFreq();
             }
 
             vrubs->startVamDissemination();
@@ -708,6 +722,7 @@ int main (int argc, char *argv[]) {
     int debug_age_info_rate_ms = 0;
 
     bool force_20Hz_freq = false;
+    bool force_10Hz_freq = false;
 
     // Ego station type; it is set to passenger car if CAMs are activated, and to pedestrian if VAMs are activated
     StationType_t ego_station_type = StationType_passengerCar;
@@ -884,10 +899,15 @@ int main (int argc, char *argv[]) {
                                                         false, 1, "positive double");
         cmd.add(SerialDeviceValidityThr);
 
-        TCLAP::SwitchArg Force20HzFreq("Y", "force-CAM-20Hz",
-                                       "Advanced options: force the CAM transmission frequency to a fixed 20 Hz (in line with the 5G-CARMEN project experimentation)",
+        TCLAP::SwitchArg Force20HzFreq("", "force-20Hz",
+                                       "Advanced options: force the transmission frequency to a fixed 20 Hz (in line with the 5G-CARMEN project experimentation)",
                                        false);
         cmd.add(Force20HzFreq);
+
+        TCLAP::SwitchArg Force10HzFreq("", "force-10Hz",
+                                       "Advanced options: force the transmission frequency to a fixed 10 Hz",
+                                       false);
+        cmd.add(Force10HzFreq);
 
         TCLAP::ValueArg<std::string> LogfileCPM("z", "log-file-CPM",
                                                 "Print on file the log for the CPM condition checks. Default: (disabled).",
@@ -1167,6 +1187,7 @@ int main (int argc, char *argv[]) {
         wrong_input_threshold = WrongInputTsholdArg.getValue();
 
         force_20Hz_freq = Force20HzFreq.getValue();
+        force_10Hz_freq = Force10HzFreq.getValue();
 
         use_json_trace = UseJsonTrace.getValue();
 
@@ -1694,6 +1715,7 @@ int main (int argc, char *argv[]) {
                                log_filename_CAM,
                                db_ptr,
                                force_20Hz_freq,
+                               force_10Hz_freq,
                                &cabs,
                                &BTP
                             );
@@ -1708,6 +1730,7 @@ int main (int argc, char *argv[]) {
                                speed_th,
                                head_th,
                                force_20Hz_freq,
+                               force_10Hz_freq,
                                &vrubs,
                                &BTP
                             );

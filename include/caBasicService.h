@@ -58,6 +58,9 @@ public:
   void force20HzFreq() {m_force_20Hz_freq=true;}
   void disable20HzFreq() {m_force_20Hz_freq=false;}
 
+  void force10HzFreq() {m_force_10Hz_freq=true;}
+  void disable10HzFreq() {m_force_10Hz_freq=false;}
+
   // A BTP object must always be associated with the CA Basic service
   void setBTP(btp *btp){m_btp = btp;}
 
@@ -151,6 +154,7 @@ private:
   std::string m_own_public_IP;
 
   bool m_force_20Hz_freq=false;
+  bool m_force_10Hz_freq=false;
 
   // Metric Supervisor pointer
   MetricSupervisor *m_met_sup_ptr = nullptr;

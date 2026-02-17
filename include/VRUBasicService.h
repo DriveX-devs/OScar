@@ -76,6 +76,12 @@ public:
     void setSafeLateralDistance(double safe_lat_d) {m_lat_safe_d = safe_lat_d;}
     void setSafeVerticalDistance(double safe_vert_d) {m_vert_safe_d = safe_vert_d;}
 
+    void force20HzFreq() {m_force_20Hz_freq=true;}
+    void disable20HzFreq() {m_force_20Hz_freq=false;}
+
+    void force10HzFreq() {m_force_10Hz_freq=true;}
+    void disable10HzFreq() {m_force_10Hz_freq=false;}
+
     void startVamDissemination();
     void startVamDissemination(int desync_ms);
 
@@ -163,6 +169,9 @@ private:
 
     long m_T_next_dcc = -1;
     uint8_t m_priority = 0;
+
+    bool m_force_20Hz_freq=false;
+    bool m_force_10Hz_freq=false;
 };
 
 #endif /* VRUBasicService_h */

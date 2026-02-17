@@ -78,6 +78,7 @@ CABasicService::CABasicService()
   m_own_public_IP="0.0.0.0";
 
   m_force_20Hz_freq=false;
+  m_force_10Hz_freq=false;
 
   m_met_sup_ptr = nullptr;
 }
@@ -292,16 +293,24 @@ CABasicService::checkCamConditions()
   struct pollfd pollfddata;
   int clockFd;
 
-  if(!m_force_20Hz_freq) {
-      // The last argument of timer_fd_create should be in microseconds
-      if (timer_fd_create(pollfddata, clockFd, m_T_CheckCamGen_ms * 1e3) < 0) {
+  if(m_force_20Hz_freq) {
+      // Force 20 Hz CAM transmission
+      if (timer_fd_create(pollfddata, clockFd, 50 * 1e3) < 0) {
+          std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
+          terminateDissemination();
+          return;
+      }
+  }
+  else if (m_force_10Hz_freq) {
+    // Force 10 Hz CAM transmission
+      if (timer_fd_create(pollfddata, clockFd, 100 * 1e3) < 0) {
           std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
           terminateDissemination();
           return;
       }
   } else {
-      // Force 20 Hz CAM transmission
-      if (timer_fd_create(pollfddata, clockFd, 50 * 1e3) < 0) {
+    // The last argument of timer_fd_create should be in microseconds
+      if (timer_fd_create(pollfddata, clockFd, m_T_CheckCamGen_ms * 1e3) < 0) {
           std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
           terminateDissemination();
           return;
@@ -398,7 +407,8 @@ CABasicService::checkCamConditions()
          * One of the following ITS-S dynamics related conditions is given:
         */
 
-      if(m_force_20Hz_freq) {
+      if(m_force_20Hz_freq || m_force_10Hz_freq) {
+        // std::cout << "\nForced higher generation frequency\n" << std::endl;
           auto cam_result = generateAndEncodeCam();
           cam_error = cam_result.error;
 
@@ -631,7 +641,7 @@ CABasicService::checkCamConditions()
         motivation="";
 
         // Check the motivation of the CAM sent
-        if(!m_force_20Hz_freq) {
+        if(!m_force_20Hz_freq && !m_force_10Hz_freq) {
             if (!condition_verified) {
                 motivation = "none";
             } else {
@@ -684,7 +694,7 @@ CABasicService::checkCamConditions()
             data = "[CAM] CAM sent\n";
             sent = "true";
 
-            motivation = "20Hz_forced";
+            motivation = "10/20Hz_forced";
             numConditions++;
         }
 
