@@ -283,22 +283,22 @@ void VRUBasicService::checkVamConditions(){
   double pos_diff=-1;
   double speed_diff=-1;
   
-  // Create a new timer to periodically check the CAM conditions, according to the standard
+  // Create a new timer to periodically check the VAM conditions, according to the standard
   struct pollfd pollfddata;
   int clockFd;
   
   // The last argument of timer_fd_create should be in microseconds
   if(m_force_20Hz_freq) {
-      // Force 20 Hz CAM transmission
+      // Force 20 Hz VAM transmission
       if (timer_fd_create(pollfddata, clockFd, 50 * 1e3) < 0) {
-          std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
+          std::cerr << "[ERROR] Fatal error! Cannot create timer for the VAM dissemination" << std::endl;
           terminateDissemination();
           return;
       }
   } else if (m_force_10Hz_freq) {
-    // Force 10 Hz CAM transmission
+    // Force 10 Hz VAM transmission
       if (timer_fd_create(pollfddata, clockFd, 100 * 1e3) < 0) {
-          std::cerr << "[ERROR] Fatal error! Cannot create timer for the CAM dissemination" << std::endl;
+          std::cerr << "[ERROR] Fatal error! Cannot create timer for the VAM dissemination" << std::endl;
           terminateDissemination();
           return;
       }
@@ -344,7 +344,7 @@ void VRUBasicService::checkVamConditions(){
         terminateDissemination();
         close(clockFd);
         break;
-        //throw std::runtime_error("Error. checkCamConditions() was called before sending any CAM and this is not allowed.");
+        //throw std::runtime_error("Error. checkVamConditions() was called before sending any VAM and this is not allowed.");
       }
       		
       // Check if redundancy mitigation has to be applied
@@ -832,7 +832,7 @@ VRUBasicService::generateAndEncodeVam(){
   std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_vam);
   GNDataConfirm_t dataConfirm = std::get<0>(status);
   MessageId_t message_id = std::get<1>(status);
-  /* Update the CAM statistics */
+  /* Update the VAM statistics */
   if(m_met_sup_ptr!=nullptr && dataConfirm == ACCEPTED) {
     if (message_id == MessageId_vam) m_vam_sent++;
     m_met_sup_ptr->signalSentPacket(message_id);
