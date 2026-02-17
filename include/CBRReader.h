@@ -1,3 +1,6 @@
+#ifndef OSCAR_CBRREADER_H
+#define OSCAR_CBRREADER_H
+
 #include <string>
 #include <netlink/netlink.h>
 #include <netlink/genl/genl.h>
@@ -11,9 +14,6 @@
 #include <netlink/attr.h>
 #include <thread>
 #include "utils.h"
-
-#ifndef OSCAR_CBRREADER_H
-#define OSCAR_CBRREADER_H
 
 int cbr_handler(struct nl_msg *msg, void *arg);
 

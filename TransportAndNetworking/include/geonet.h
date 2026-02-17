@@ -3,13 +3,14 @@
 // Updated by Francesco Raviglione in November 2021
 //
 
-#ifndef OCABS_GEONET_H
-#define OCABS_GEONET_H
+#ifndef OSCAR_GEONET_H
+#define OSCAR_GEONET_H
 
 #include <cstdint>
 #include <map>
 #include <set>
 #include <mutex>
+#include <shared_mutex>
 #include "gpsc.h"
 #include "security.h"
 #include "basicHeader.h"
@@ -127,7 +128,7 @@ class GeoNet {
 		StationId_t m_station_id;
 		StationType_t m_stationtype;
 
-		// OCABS-specific attributes
+		// OScar-specific attributes
 		uint8_t m_mac_src[6] = {0};
 		int m_ifindex=-1;
 
@@ -192,4 +193,4 @@ class GeoNet {
 		std::mutex m_mutex_log_rx; 
 };
 
-#endif // OCABS_GEONET_H
+#endif // OSCAR_GEONET_H

@@ -3,12 +3,12 @@
 // Updated by Francesco Raviglione in November 2021
 //
 
-#ifndef OCABS_BTPHEADER_H
-#define OCABS_BTPHEADER_H
+#ifndef OSCAR_BTPHEADER_H
+#define OSCAR_BTPHEADER_H
 
 #include <cstdint>
 #include <cstring>
-#include "utils.h"
+#include "gn_utils.h"
 #include "packetBuffer.h"
 
 class btpHeader {
@@ -34,4 +34,4 @@ private:
     uint16_t m_source_destInfo; //!< Source port/Destination port info
 };
 
-#endif // OCABS_BTPHEADER_H
+#endif // OSCAR_BTPHEADER_H

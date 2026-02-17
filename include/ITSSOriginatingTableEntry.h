@@ -3,7 +3,7 @@
 
 #include "denData.h"
 #include "packetBuffer.h"
-#include "TransportAndNetworking/include/utils.h"
+#include "TransportAndNetworking/include/gn_utils.h"
 
 class ITSSOriginatingTableEntry {
 public:

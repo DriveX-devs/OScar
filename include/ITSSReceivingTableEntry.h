@@ -3,7 +3,7 @@
 
 #include "denData.h"
 #include "packetBuffer.h"
-#include "TransportAndNetworking/include/utils.h"
+#include "TransportAndNetworking/include/gn_utils.h"
 
 #define ITSS_RX_ENTRY_TERMINATION_UNSET -1
 

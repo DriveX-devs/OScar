@@ -763,7 +763,7 @@ int main (int argc, char *argv[]) {
         cmd.add(DENMsDecArg);
 
         TCLAP::ValueArg<std::string> GNSSDevArg("D", "gnss-device",
-                                                "[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",
+                                                "[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OScar). Default: localhost.",
                                                 false, "localhost", "string");
         cmd.add(GNSSDevArg);
 
@@ -817,7 +817,7 @@ int main (int argc, char *argv[]) {
         cmd.add(POS_threshold);
 
         TCLAP::ValueArg<long> GNSSPortArg("P", "gnss-port",
-                                          "[Considered only if -g is specified] Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OCABS is 3000.",
+                                          "[Considered only if -g is specified] Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OScar is 3000.",
                                           false, GNSS_DEFAULT_PORT, "integer");
         cmd.add(GNSSPortArg);
 
@@ -846,7 +846,7 @@ int main (int argc, char *argv[]) {
         cmd.add(DisableSelfMACArg);
 
         TCLAP::ValueArg<std::string> UDPSockAddrArg("u", "udp-sock-addr",
-                                                    "If specified, OCABS, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",
+                                                    "If specified, OScar, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",
                                                     false, "dis", "string");
         cmd.add(UDPSockAddrArg);
 
@@ -875,7 +875,7 @@ int main (int argc, char *argv[]) {
         cmd.add(EnableRxArg);
 
         TCLAP::SwitchArg ExtraPosUDPArg("X", "add-extra-position-udp",
-                                        "This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",
+                                        "This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OScar add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",
                                         false);
         cmd.add(ExtraPosUDPArg);
 

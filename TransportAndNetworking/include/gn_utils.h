@@ -3,9 +3,8 @@
 // Updated by Francesco Raviglione in November 2021
 //
 
-#ifndef OCABS_UTILS_H
-#define OCABS_UTILS_H
-
+#ifndef OSCAR_GN_UTILS_H
+#define OSCAR_GN_UTILS_H
 
 #include <cmath>
 #include <cstdint>
@@ -204,4 +203,4 @@ inline uint32_t get_timestamp_ms_gn32(void) {
 	return (static_cast<uint32_t>(floor((seconds*1000000+microseconds)/1000.0))-TIME_SHIFT_MILLI)%TS_MAX1;
 }
 
-#endif // OCABS_UTILS_H
+#endif // OSCAR_GN_UTILS_H
