@@ -3,12 +3,12 @@
 // Updated by Francesco Raviglione in November 2021
 //
 
-#ifndef OCABS_GBCHEADER_H
-#define OCABS_GBCHEADER_H
+#ifndef OSCAR_GBCHEADER_H
+#define OSCAR_GBCHEADER_H
 
 #include <cstdint>
 #include <cstring>
-#include "utils.h"
+#include "gn_utils.h"
 
 class gbcHeader
 {
@@ -51,4 +51,4 @@ class gbcHeader
 		uint16_t m_reserved; //! aux variable for reading reserved fields
 };
 
-#endif // OCABS_GBCHEADER_H
+#endif // OSCAR_GBCHEADER_H

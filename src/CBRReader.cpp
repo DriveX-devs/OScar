@@ -58,6 +58,7 @@ void CBRReader::read_cbr_from_netlink(nl_sock_info_t nl_sock_info)
     nl_send_auto_complete(nl_sock_info.nl_sock,nl_msg);
 
     int err = nl_recvmsgs_default(nl_sock_info.nl_sock);
+    (void) err;
 
     free_nl_socket(nl_sock_info);
 }
@@ -79,7 +80,6 @@ int cbr_handler(struct nl_msg *msg, void *arg)
     struct nlattr *tb[NL80211_ATTR_MAX + 1];
     struct genlmsghdr *gnlh = (struct genlmsghdr *) nlmsg_data(nlmsg_hdr(msg));
     struct nlattr *sinfo[NL80211_SURVEY_INFO_MAX + 1];
-    char dev[20];
 
     static struct nla_policy survey_policy[NL80211_SURVEY_INFO_MAX + 1] = {};
     survey_policy[NL80211_SURVEY_INFO_FREQUENCY].type = NLA_U32;

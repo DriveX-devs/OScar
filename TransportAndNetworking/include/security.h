@@ -10,6 +10,7 @@
 #include <openssl/pem.h>
 #include "asn_utils.h"
 #include "utils.h"
+#include "gn_utils.h"
 //#include "btpdatarequest.h"
 #include <openssl/obj_mac.h>
 #include <iostream>

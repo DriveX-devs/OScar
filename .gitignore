@@ -12,7 +12,7 @@ OScar-DCC
 obj/*.o
 obj
 
-# nohup.out file, if the user launches OCABS with nohup
+# nohup.out file, if the user launches OScar with nohup
 nohup.out
 
 # "testing" test log file
@@ -55,3 +55,6 @@ security.cpp
 # JetBrains IDE project files
 /.idea
 
+.idea/editor.xml
+GN_log_RX.csv
+GN_log_TX.csv

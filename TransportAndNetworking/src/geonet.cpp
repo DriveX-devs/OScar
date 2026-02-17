@@ -13,6 +13,7 @@
 #include <iomanip>
 #include "functional"
 #include "geonet.h"
+#include "gn_utils.h"
 
 #define IEEE80211_DATA_PKT_HDR_LEN 24
 #ifndef IEEE80211_FCS_LEN 
@@ -402,7 +403,7 @@ void GeoNet::attachSendFromDCCQueue()
         GNDataRequest_t dataRequest = pkt.dataRequest;
         MessageId_t message_id = pkt.message_id;
 
-		GNDataConfirm_t dataConfirm;
+		GNDataConfirm_t dataConfirm = UNKNOWN;
 
 		struct timespec tv;
 		clock_gettime (CLOCK_MONOTONIC, &tv);
@@ -628,7 +629,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
     dataRequest.data.addHeader(basicHeaderSerialized);
 
 	//3)If not suitable neighbour exist in the LocT and the SCF for the traffic class is set:
-	// This part is not yet implemented in OCABS
+	// This part is not yet implemented in OScar
 	// if((dataRequest.GNTraClass > 128) && (!hasNeighbour ())) {
 	// 	//a)Buffer the SHB packet in the BC forwarding buffer and omit execution of further steps
 	// 	return UNSUPPORTED_TRA_CLASS;// Not implemented yet
@@ -716,7 +717,7 @@ GeoNet::sendSHB (GNDataRequest_t dataRequest,commonHeader commonHeader,basicHead
 		delete []finalPktBufferUDP;
 	}
 
-	//7)reset beacon timer to prevent dissemination of unnecessary beacon packet [Not yet implemented in OCABS]
+	//7)reset beacon timer to prevent dissemination of unnecessary beacon packet [Not yet implemented in OScar]
 	return ACCEPTED;
 }
 
@@ -761,7 +762,7 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 	 * 2)If not suitable neighbour exist in the LocT and the SCF for the traffic class is set:
 	 * a)Buffer the SHB packet in the BC forwarding buffer and omit execution of further steps
 	*/
-	// This part is not yet implemented in OCABS
+	// This part is not yet implemented in OScar
 	// if((dataRequest.GNTraClass >= 128) && (!hasNeighbour ())) {
 	//   return UNSUPPORTED_TRA_CLASS;//Not implemented yet
 	// }
@@ -775,7 +776,7 @@ GeoNet::sendGBC (GNDataRequest_t dataRequest,commonHeader commonHeader, basicHea
 
 	//!5)Security profile settings not implemented
 	//6)If the optional repetition interval paramter in the GN-dataRequest parameter is set
-	// Not yet implemented in OCABS
+	// Not yet implemented in OScar
 	// if(dataRequest.GNRepInt != 0) {
 	// 	if(dataRequest.GNRepInt < m_GNMinPacketRepetitionInterval) return REP_INTERVAL_LOW;
 	// 	//a)save the SHB packet
@@ -830,7 +831,7 @@ GNDataIndication_t*
 GeoNet::processSHB (GNDataIndication_t* dataIndication)
 {
         shbHeader shbH;
-        double cbrr0, cbrr1;
+        double cbrr0 = 0.0, cbrr1 = 0.0;
         if(dataIndication->GNType == BEACON)
         {
            // TODO

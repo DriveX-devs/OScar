@@ -39,6 +39,11 @@ extern "C"
 #include "EtsiTs102941MessagesItss_EtsiTs102941Data.h"
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #define AES_KEY_LENGTH 16
 #define NONCE_LENGTH 12
 #define AES_CCM_TAG_LENGTH 16
@@ -51,14 +56,21 @@ ATResponse::~ATResponse ()
 
 ATResponse::ATResponse ()
 {
-
     dataResponse = NULL;
     length = 0;
+
+    #if defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wunused-variable"
+    #endif
 
     bool ephemeral = false;
     EC_KEY *m_ecKey = nullptr;
     EC_KEY *m_EPHecKey = nullptr;
 
+    #if defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic pop
+    #endif
 }
 
 
@@ -808,7 +820,7 @@ ATResponse::GNcertificateDC ATResponse::getATResponse()
   }
   // Signature part inside certificate signer. In this case the signature is of type Brain384. This code will note save anything. But for the moment is not important the EA signature.
   auto signcertData_decoded = asn1cpp::getSeqOpt(certData_decoded->signature, Signature, &getValue_ok);
-  auto present = asn1cpp::getField(signcertData_decoded->present, Signature_PR);
+  // auto present = asn1cpp::getField(signcertData_decoded->present, Signature_PR);
   if (asn1cpp::getField(signcertData_decoded->present, Signature_PR) == Signature_PR_ecdsaNistP256Signature)
   {
     auto present4 = asn1cpp::getField(signcertData_decoded->choice.ecdsaNistP256Signature.rSig.present, EccP256CurvePoint_PR);
@@ -899,7 +911,7 @@ ATResponse::GNcertificateDC ATResponse::getATResponse()
 
   cPacket sPack;
   sPack.m_protocolversion = asn1cpp::getField(signedDataDecoded->protocolVersion, long);
-  bool getValue_ok2;
+  // bool getValue_ok2;
   auto contentDecoded2 = asn1cpp::getSeqOpt(signedDataDecoded->content, Ieee1609Dot2Content, &getValue_ok);
   // check the present, here is always signed data
   auto present7 = asn1cpp::getField(contentDecoded2->present, Ieee1609Dot2Content_PR);
@@ -963,7 +975,7 @@ ATResponse::GNcertificateDC ATResponse::getATResponse()
   {
     asn1cpp::Seq<EtsiTs102941MessagesItss_EtsiTs102941Data> etsiData;
     etsiData = asn1cpp::oer::decode(sPack.content.signData.tbsdata.unsecuredData, EtsiTs102941MessagesItss_EtsiTs102941Data);
-    int etsiVersion = asn1cpp::getField(etsiData->version, int);
+    // int etsiVersion = asn1cpp::getField(etsiData->version, int);
     auto etsiContent = asn1cpp::getSeq(etsiData->content, EtsiTs102941MessagesItss_EtsiTs102941DataContent, &getValue_ok);
     auto pres = asn1cpp::getField(etsiContent->present, EtsiTs102941MessagesItss_EtsiTs102941DataContent_PR);
     if (pres == EtsiTs102941MessagesItss_EtsiTs102941DataContent_PR_authorizationResponse)
@@ -1089,3 +1101,7 @@ ATResponse::GNcertificateDC ATResponse::getATResponse()
   } else std::cout << "[ERR] Error - signature not valid" << std::endl;
   return {};
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif

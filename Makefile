@@ -113,7 +113,7 @@ compilePC compilePCdebug: $(EXECNAME)
 compileAPU compileAPUdebug: APUcopyfiles $(EXECNAME)
 
 APUcopyfiles:
-	# This is just a "trick" to be able to compile OCABS for OpenWrt, properly linking with libgps, without writing a specific package Makefile
+	# This is just a "trick" to be able to compile OScar for OpenWrt, properly linking with libgps, without writing a specific package Makefile
 	@ cp $(OPENWRT_INCLUDE_DIR)/../../../../build_dir/$(OPENWRT_TARGET)/gpsd-$(OPENWRT_LIBGPS_VER)/ipkg-install/usr/lib/*.so* $(OPENWRT_INCLUDE_DIR)/../../../$(OPENWRT_TOOLCHAIN)/lib
 
 # Standard targets

@@ -64,7 +64,7 @@ public:
   void changeNGenCamMax(int16_t N_GenCamMax) {m_N_GenCamMax=N_GenCamMax;}
   void changeRSUGenInterval(long RSU_GenCam_ms) {m_RSU_GenCam_ms=RSU_GenCam_ms;}
 
-  // Not yet suppported in OCABS
+  // Not yet suppported in OScar
   // void setLowFrequencyContainer(bool enable) {m_lowFreqContainerEnabled = enable;}
   // void setSpecialVehicleContainer(bool enabled) {m_specialVehContainerEnabled = enabled;}
 
@@ -138,7 +138,7 @@ private:
   double m_RSUlat;
 
   // Boolean/Enum variables to enable/disable the presence of certain optional containers in the CAM messages
-  // Not yet supported in OCABS
+  // Not yet supported in OScar
   // bool m_lowFreqContainerEnabled;
   // bool m_specialVehContainerEnabled;
 

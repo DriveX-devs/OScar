@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include "CBRReader.h"
 #include "utils.h"
+#include "gn_utils.h"
 #include "basicHeader.h"
 #include "commonHeader.h"
 #include "MessageId.h"

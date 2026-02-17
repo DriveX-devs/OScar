@@ -11,13 +11,15 @@
 #include "gpsc.h"
 // LDM
 #include "LDMmap.h"
-// CA Basic Service (TX only)
+// CA Basic Service
 #include "caBasicService.h"
-// VRU Basic service (TX only)
+// DEN Basic Service (TX only)
+#include "denBasicService.h"
+// VRU Basic service
 #include "VRUBasicService.h"
-// CP Basic service (TX only)
+// CP service
 #include "cpBasicService.h"
-// Rx of CAMs and VAMs
+// Rx loop
 #include "SocketClient.h"
 // Sensor reader
 #include "basicSensorReader.h"
@@ -42,8 +44,8 @@
 #include "JSONserver.h"
 #include "vehicle-visualizer.h"
 
+// DCC and MetricSupervisor
 #include "DCC.h"
-
 #include "MetricSupervisor.h"
 
 #define DB_CLEANER_INTERVAL_SECONDS 5
@@ -571,6 +573,7 @@ void vehdataTxThread(std::string udp_sock_addr,
             double lat = vehdata.latitude/1e7; // [deg]
             double lon = vehdata.longitude/1e7; // [deg]
             double altitude = vehdata.altitude.getValue()/100.0; // [m]
+            (void) altitude;
             double speed = vehdata.speed.getValue()/100.0; // [m/s]
             double heading = vehdata.heading.getValue()/10.0; // [deg]
             double acceleration = vehdata.longAcceleration.getValue()/10.0; // [m/s^2]
@@ -658,6 +661,8 @@ int main (int argc, char *argv[]) {
     int VAMs_priority = 0;
     bool enable_CPM_dissemination = false;
     int CPMs_priority = 0;
+    bool enable_DENM_tx = false;
+    int DENMs_priority = 2;
     bool enable_DENM_decoding = false;
     bool enable_reception = false;
     bool disable_selfMAC_check = false;
@@ -732,7 +737,7 @@ int main (int argc, char *argv[]) {
 
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "9.1-development");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "10.1-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.
@@ -758,7 +763,7 @@ int main (int argc, char *argv[]) {
         cmd.add(DENMsDecArg);
 
         TCLAP::ValueArg<std::string> GNSSDevArg("D", "gnss-device",
-                                                "[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OCABS). Default: localhost.",
+                                                "[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OScar). Default: localhost.",
                                                 false, "localhost", "string");
         cmd.add(GNSSDevArg);
 
@@ -812,7 +817,7 @@ int main (int argc, char *argv[]) {
         cmd.add(POS_threshold);
 
         TCLAP::ValueArg<long> GNSSPortArg("P", "gnss-port",
-                                          "[Considered only if -g is specified] Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OCABS is 3000.",
+                                          "[Considered only if -g is specified] Port to be used to connect to the GNSS device. It should correspond to the port used by gpsd for the desired receiver. Warning! The default port for gpsd is 2947, while the default for OScar is 3000.",
                                           false, GNSS_DEFAULT_PORT, "integer");
         cmd.add(GNSSPortArg);
 
@@ -841,7 +846,7 @@ int main (int argc, char *argv[]) {
         cmd.add(DisableSelfMACArg);
 
         TCLAP::ValueArg<std::string> UDPSockAddrArg("u", "udp-sock-addr",
-                                                    "If specified, OCABS, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",
+                                                    "If specified, OScar, in addition to the standard-compliant CAM dissemination, will also encapsulate each CAM inside UDP, and send these messages to the address (in the form <IP:port>) specified after this options.",
                                                     false, "dis", "string");
         cmd.add(UDPSockAddrArg);
 
@@ -870,7 +875,7 @@ int main (int argc, char *argv[]) {
         cmd.add(EnableRxArg);
 
         TCLAP::SwitchArg ExtraPosUDPArg("X", "add-extra-position-udp",
-                                        "This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OCABS add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",
+                                        "This options is valid only if --udp-sock-addr/-u has been specified. If specified, this option will make OScar add, before the actual CAM payload of each UDP packets, 64 extra bits, contatining the current latitude and longitude (32 bits each), in network byte order and stored as degrees*1e7.",
                                         false);
         cmd.add(ExtraPosUDPArg);
 
@@ -949,6 +954,13 @@ int main (int argc, char *argv[]) {
                                                    "If this option is not specified, default values will be used, i.e., a CAN message name regex equal to \"^Video_Object_\\d{2}_B$\", and signal names set to, respectively, \"classification\", \"phi_left\", \"phi_right\" and \"dx_v\".",
                                                    false, "dis", "string");
         cmd.add(CANdbParamINI);
+
+        TCLAP::SwitchArg DENMsTxArg("", "enable-DENMs-tx", "Enable DENM transmission via JSON API", false);
+        cmd.add(DENMsTxArg);
+
+        TCLAP::ValueArg<int> DENMsPriority("", "DENMs-priority", "Set the queue priority for DENMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 2.",
+                                           false, 2, "int");
+        cmd.add(DENMsPriority);
 
         TCLAP::ValueArg<int> ShowDebugAgeInfo("", "show-live-data",
                                               "[Considered only if -g is not specified] When activated, OScar will show, while it is running, the live data obtained from the GNSS system, together with the age of each piece of information (how old it is with respect to when it was last retrieved). After the option, an update interval in milliseconds should be specified. This will be the frequency at which the live data will be displayed.",
@@ -1067,22 +1079,26 @@ int main (int argc, char *argv[]) {
         CPMs_priority = CPMsPriority.getValue();
         enable_DENM_decoding = DENMsDecArg.getValue();
         enable_security = SecurityArg.getValue();
+        enable_DENM_tx = DENMsTxArg.getValue();
+        DENMs_priority = DENMsPriority.getValue();
 
         if (CAMs_priority < 0 || CAMs_priority > 3) {
-            std::cerr
-                << "[ERROR] CAMs priority for DCC is out of range [0, 3]." << std::endl;
+            std::cerr << "[ERROR] CAMs priority for DCC is out of range [0, 3]." << std::endl;
             return 1;
         }
 
         if (CPMs_priority < 0 || CPMs_priority > 3) {
-            std::cerr
-                << "[ERROR] CPMs priority for DCC is out of range [0, 3]." << std::endl;
+            std::cerr << "[ERROR] CPMs priority for DCC is out of range [0, 3]." << std::endl;
             return 1;
         }
 
         if (VAMs_priority < 0 || VAMs_priority > 3) {
-            std::cerr
-                << "[ERROR] VAMs priority for DCC is out of range [0, 3]." << std::endl;
+            std::cerr << "[ERROR] VAMs priority for DCC is out of range [0, 3]." << std::endl;
+            return 1;
+        }
+
+        if (DENMs_priority < 0 || DENMs_priority > 3) {
+            std::cerr << "[ERROR] DENMs priority for DCC is out of range [0, 3]." << std::endl;
             return 1;
         }
 
@@ -1396,6 +1412,7 @@ int main (int argc, char *argv[]) {
     ECManager ecManager;
     ATManager atManager(&terminatorFlag);
     ATManager *atManager_ptr = nullptr;
+    (void) atManager_ptr;
     if (enable_security) {
         if (!ecManager.manageRequest()) {
             std::cerr << "Error in managing the EC request" << std::endl;
@@ -1443,7 +1460,7 @@ int main (int argc, char *argv[]) {
 
     // Take the current position (if available) from the positioning provider (either gpsd or serial parser)
     int pos_avail_cnt = 0;
-    double test_lat, test_lon;
+    double test_lat = -DBL_MAX, test_lon = -DBL_MAX;
     while (!terminatorFlag) {
         std::pair<double, double> curr_pos = ldmgpsc.getCurrentPositionDbl();
         test_lat = curr_pos.first;
@@ -1519,6 +1536,14 @@ int main (int argc, char *argv[]) {
         vrubs_ptr->setMetricSupervisor(&metric_supervisor);
     }
 
+    DENBasicService denbs;
+    DENBasicService *denbs_ptr = &denbs;
+    if (enable_DENM_tx) {
+        denbs.setStationProperties(vehicleID, StationType_passengerCar);
+        // TODO: implement MetricSupervisor support for DEN Service
+        // denbs.setMetricSupervisor(&metric_supervisor);
+    }
+
     DCC *dcc = new DCC();
     dcc->setBitRate(bitrate * 1e6);
     if (enable_DCC)
@@ -1537,6 +1562,10 @@ int main (int argc, char *argv[]) {
         {
             vrubs.setPriority(VAMs_priority);
         }
+        // TODO: implement DENM priority for DCC
+        /*if(enable_DENM_decoding) {
+            dens.setPriority(DENMs_priority);
+        } */
     }
     else
     {
@@ -1696,6 +1725,12 @@ int main (int argc, char *argv[]) {
                                &BTP
                             );
     }
+    if (enable_DENM_tx) {
+        denbs.setBTP(&BTP);
+        denbs.setVDP(vdpgpsc);
+
+        std::cout << "[INFO] DEN service configure, ready to send messages!" << std::endl;
+    }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
                                gnss_device,
@@ -1764,7 +1799,12 @@ int main (int argc, char *argv[]) {
 			mainRecvClient->setLoggingGNSSClient(&logginggpsc);
 
 			// Before starting the data reception, create a new JSONserver object for client to retrieve the DB data
-			JSONserver jsonsrv(db_ptr);
+			JSONserver jsonsrv(db_ptr,nullptr);
+
+		    if (enable_DENM_tx) {
+                jsonsrv.setDENService(denbs_ptr);
+		    }
+
 			jsonsrv.setServerPort(json_over_tcp_port);
 			if(jsonsrv.startServer()!=true) {
 				fprintf(stderr,"[ERROR] Critical error: cannot start the JSON server for the client data retrieval.\n");

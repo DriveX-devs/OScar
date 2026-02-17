@@ -265,7 +265,7 @@ void VRUBasicService::initDissemination(){
 }
 
 void VRUBasicService::checkVamConditions(){
-  int64_t now;
+  int64_t now = computeTimestampUInt64()/NANO_TO_MILLI;
   VRUBasicService_error_t vam_error;
   bool condition_verified;
   bool redundancy_mitigation;

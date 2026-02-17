@@ -68,6 +68,8 @@ DCC::getConfiguration(double Ton, double currentCBR)
         map = m_reactive_parameters_Ton_1ms;
       }
     ReactiveState old_state = m_current_state;
+    (void) old_state;
+
     if (currentCBR >= map[m_current_state].cbr_threshold && m_current_state != ReactiveState::Restrictive)
     {
       m_current_state = static_cast<ReactiveState>(m_current_state + 1);

@@ -3,8 +3,8 @@
 // Updated by Francesco Raviglione in November 2021
 //
 
-#ifndef OCABS_BASICHEADER_H
-#define OCABS_BASICHEADER_H
+#ifndef OSCAR_BASICHEADER_H
+#define OSCAR_BASICHEADER_H
 
 #include <cstdint>
 #include "packetBuffer.h"
@@ -39,4 +39,4 @@ private:
 		uint8_t m_remainingHopLimit;
 	};
 
-#endif //S_LDM_BASICHEADER_H
+#endif // OSCAR_BASICHEADER_H

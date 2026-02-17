@@ -3,12 +3,12 @@
 // Updated by Francesco Raviglione in November 2021
 //
 
-#ifndef OCABS_SHBHEADER_H
-#define OCABS_SHBHEADER_H
+#ifndef OSCAR_SHBHEADER_H
+#define OSCAR_SHBHEADER_H
 
 #include <cstdint>
 #include <cstring>
-#include "utils.h"
+#include "gn_utils.h"
 #include "DCC.h"
 
 class shbHeader {
@@ -43,4 +43,4 @@ class shbHeader {
 
 };
 
-#endif // OCABS_SHBHEADER_H
+#endif // OSCAR_SHBHEADER_H

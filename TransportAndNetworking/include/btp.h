@@ -3,9 +3,9 @@
 // Updated by Francesco Raviglione in November 2021
 //
 
-#ifndef OCABS_BTP_H
-#define OCABS_BTP_H
-#include "utils.h"
+#ifndef OSCAR_BTP_H
+#define OSCAR_BTP_H
+#include "gn_utils.h"
 #include "btpHeader.h"
 #include "geonet.h"
 #include "gpsc.h"
@@ -39,4 +39,4 @@ class btp {
         std::string m_log_filename = "dis";
 
 };
-#endif // OCABS_BTP_H
+#endif // OSCAR_BTP_H

@@ -59,8 +59,8 @@ void KalmanFilter::init_step(double x_init, double y_init) {
 }
 
 void KalmanFilter::predict() {
-    double prev_x = x[0];
-    double prev_y = x[1];
+    // double prev_x = x[0];
+    // double prev_y = x[1];
     x = matrixVectorMultiply(F, x);
     auto FT = transpose(F);
     P = matrixMultiply(matrixMultiply(F, P), FT);
@@ -88,9 +88,9 @@ KalmanFilter::KFState KalmanFilter::update(double x_meas, double y_meas, double 
     m_lon0 = lon0;
     if (now - m_last_update >= (uint64_t) ((m_dt*MILLI)-1)) {
         this->predict();
-        //std::cout << "[" << get_timestamp_ms_gn() << "] Time since last update " << now - m_last_update << "(Number of dt periods: " << (now - m_last_update)/(m_dt*MILLI) << ")" << std::endl;
-        double prev_x = x[0];
-        double prev_y = x[1];
+        // std::cout << "[" << get_timestamp_ms_gn() << "] Time since last update " << now - m_last_update << "(Number of dt periods: " << (now - m_last_update)/(m_dt*MILLI) << ")" << std::endl;
+        // double prev_x = x[0];
+        // double prev_y = x[1];
         std::vector<double> z = {x_meas, y_meas};
         auto y = z;
         auto hx = matrixVectorMultiply(H, x);

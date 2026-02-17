@@ -3,11 +3,11 @@
 // Updated by Francesco Raviglione in November 2021
 //
 
-#ifndef OCABS_COMMONHEADER_H
-#define OCABS_COMMONHEADER_H
+#ifndef OSCAR_COMMONHEADER_H
+#define OSCAR_COMMONHEADER_H
 
 #include <cstdint>
-#include "utils.h"
+#include "gn_utils.h"
 
 class commonHeader {
 	public:
@@ -48,4 +48,4 @@ class commonHeader {
 		uint8_t m_reserved;
 };
 
-#endif // OCABS_COMMONHEADER_H
+#endif // OSCAR_COMMONHEADER_H

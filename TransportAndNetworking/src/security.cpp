@@ -27,8 +27,12 @@ extern "C" {
 #include "Ieee1609Dot2Content.h"
 #include "EtsiTs103097Data.h"
 #include "CertificateBase.h"
-#
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 Security::~Security ()
 {
@@ -969,17 +973,15 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
             //for every item in map do signature verification
             bool signValid = false;
             int certIndex = 0;
+            (void) certIndex;
             for (auto const &item: m_receivedCertificates) {
                 if (signatureVerification(tbs_hex, item.second.second,secureDataPacket.content.signData.signature,item.second.first)) {
                     signValid = true;
                     break;
                 }
-                else {
-                    
-                }
             }
             if (!signValid) {
-                std::cout << "[INFO] [SECURITY] Security Verification Failed Due To Signature!!!!!!!" << std::endl;
+                std::cout << "[INFO] [SECURITY] Security Verification Failed Due To Signature!" << std::endl;
                 return SECURITY_VERIFICATION_FAILED;
             }
         }
@@ -993,3 +995,7 @@ Security::extractSecurePacket (GNDataIndication_t &dataIndication, bool &isCerti
 
     return SECURITY_OK;
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif

@@ -27,7 +27,7 @@ void *JSONthread_callback(void *arg) {
 
 	fd_set sockdescrs,rd_sockdescrs;
 	std::set<int> sockdescrs_set = {};
-	char rx_buff[1024];
+	char rx_buff[8192];
 	std::string rx_str;
 
 	JSONserver *srvObj = static_cast<JSONserver *>(arg);
@@ -95,22 +95,28 @@ void *JSONthread_callback(void *arg) {
 						json11::Json db_data = {};
 						std::string err="";
 
-						rx_str=std::string(rx_buff);
+						rx_str=std::string(rx_buff,readbytes);
 						json11::Json request = json11::Json::parse(rx_str,err);
 
 						if(err=="") {
-							double lat = GET_NUM(request,"lat");
-							double lon = GET_NUM(request,"lon");
-
-							db_data=srvObj->make_AIM_json(lat,lon);
-
-							std::string strjson=db_data.dump();
+							json11::Json::object response = srvObj->handleRequest(request);
+							std::string strjson = json11::Json(response).dump();
 
 							if(send(currd,strjson.c_str(),strjson.length(),0)!=static_cast<ssize_t>(strjson.length())) {
 								perror("[ERROR] Could not send data to connected client. The connection will still remain active. Reason");
 							}
 						} else {
 							fprintf(stdout,"[ERROR] Cannot parse a client request. Descriptor: %d. Error details: %s\n",currd,err.c_str());
+
+							// An invalid request was provided: send error response
+							json11::Json::object error_response;
+							error_response["status"] = json11::Json("error");
+							error_response["message"] = json11::Json("Invalid JSON request: " + err);
+							std::string error_json = json11::Json(error_response).dump();
+
+							if(send(currd,error_json.c_str(),error_json.length(),0)!=static_cast<ssize_t>(error_json.length())) {
+								perror("[ERROR] Could not send error response to client. Reason");
+							}
 						}
 
 						++currd_it;
@@ -291,6 +297,162 @@ bool JSONserver::startServer(void) {
 	}
 
 	return true;
+}
+
+json11::Json::object JSONserver::handleRequest(const json11::Json &request) {
+    std::string request_type = GET_STR(request, "request_type");
+
+	std::cout << "[INFO] Received JSON request: " << request_type << std::endl;
+
+	// Empty request types are also accepted for back-compatibility
+    if (request_type == "LDM" || request_type.empty()) {
+        double lat = GET_NUM(request, "lat");
+        double lon = GET_NUM(request, "lon");
+        return make_AIM_json(lat, lon);
+    } else if (request_type == "DENM_trigger" || request_type == "DENM_update" || request_type == "DENM_termination") {
+        return handleDENMRequest(request);
+    } else {
+    	std::cout << "[ERROR] Received unknown JSON request: " << request_type << std::endl;
+
+        json11::Json::object response;
+    	response["status"] = MAKE_STR("error");
+    	response["message"] = MAKE_STR("Unknown request_type: " + request_type);
+        return response;
+    }
+}
+
+// TODO: this function should be significantly extended to consider many different DENMs
+denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
+    denData data;
+	bool situation_field_set = false;
+
+    data.setDenmMandatoryFields(
+        compute_timestampIts(),
+        request["lat"].is_null() ? Latitude_unavailable : GET_NUM(request, "lat")*DOT_ONE_MICRO,
+        request["lon"].is_null() ? Longitude_unavailable : GET_NUM(request, "lon")*DOT_ONE_MICRO
+    );
+
+	// If not specified, the defailt validityDuration (600 s) will be used by the DEN service
+	if (!request["validityDuration"].is_null()) {
+		if (GET_NUM(request,"validityDuration")<=0) {
+			std::cerr << "[ERROR] Received a negative or null validityDuration. No validity duration will be set." << std::endl;
+		} else {
+			data.setValidityDuration(GET_NUM(request,"validityDuration"));
+		}
+	}
+
+	denData::denDataSituation situationData = {.informationQuality = 0, .causeCode = 0, .subCauseCode = 0};
+
+    if (!request["causeCode"].is_null()) {
+    	situationData.causeCode=GET_NUM(request,"causeCode");
+    	situation_field_set = true;
+    }
+    if (!request["subCauseCode"].is_null()) {
+    	situationData.subCauseCode=GET_NUM(request,"subCauseCode");
+    	situation_field_set = true;
+    }
+    if (!request["informationQuality"].is_null()) {
+    	situationData.informationQuality=GET_NUM(request,"informationQuality");
+    	situation_field_set = true;
+    }
+
+	if (!request["repetitionDuration_ms"].is_null()) {
+		std::cout << "[INFO] Sending DENM with repetition duration " << GET_NUM(request,"repetitionDuration_ms")/1000.0 << " seconds." << std::endl;
+		if (GET_NUM(request,"repetitionDuration_ms")<=0) {
+			std::cerr << "[ERROR] Received a negative or null repetitionDuration_ms. No repetition duration will be set." << std::endl;
+		} else {
+			data.setDenmRepetitionDuration(GET_NUM(request,"repetitionDuration_ms"));
+		}
+	}
+
+	if (!request["repetitionInterval_ms"].is_null()) {
+		std::cout << "[INFO] Sending DENM with repetition interval " << GET_NUM(request,"repetitionInterval_ms")/1000.0 << " seconds." << std::endl;
+		if (GET_NUM(request,"repetitionInterval_ms")<=0) {
+			std::cerr << "[ERROR] Received a negative or null repetitionInterval_ms. No repetition interval will be set." << std::endl;
+		} else {
+			data.setDenmRepetitionInterval(GET_NUM(request,"repetitionInterval_ms"));
+		}
+	}
+
+	if(situation_field_set) {
+		data.setDenmSituationData_asn_types(situationData);
+	}
+
+    return data;
+}
+
+json11::Json::object JSONserver::handleDENMRequest(const json11::Json &request) {
+    json11::Json::object response;
+	GeoArea_t geoArea;
+
+    if (m_den_service == nullptr) {
+        response["status"] = MAKE_STR("error");
+        response["message"] = MAKE_STR("DEN service not available");
+        return response;
+    }
+
+    std::string request_type = GET_STR(request, "request_type");
+    denData data = fillDenDataFromJson(request);
+
+    DENBasicService_error_t result = DENM_UNKNOWN_STATUS;
+
+    if (request_type == "DENM_trigger" || request_type == "DENM_update" || request_type == "DENM_termination") {
+    	// No GeoArea required for appDENM_termination()
+    	if (request_type == "DENM_trigger" || request_type == "DENM_update") {
+    		if (request["GeoArea_lat"].is_null() || request["GeoArea_lon"].is_null() || request["GeoArea_radius"].is_null()) {
+    			response["status"] = MAKE_STR("error");
+    			response["message"] = MAKE_STR("Missing GeoArea");
+    			return response;
+    		}
+
+    		if ((request_type == "DENM_update" || request_type == "DENM_termination") && request["ActionID_seq"].is_null()) {
+    			response["status"] = MAKE_STR("error");
+    			response["message"] = MAKE_STR("DENM_update and DENM_termination require an ActionID sequence number; please add a field ActionID_seq");
+    			return response;
+    		}
+
+    		// TODO: support also non circular areas (.shape = 0 -> GEOBROACAST_CIRCLE - see 9.7.4 in ETSI EN 302 636-4-1 V1.4.1)
+    		geoArea.shape = 0;
+    		geoArea.posLat = GET_NUM(request, "GeoArea_lat")*DOT_ONE_MICRO;
+    		geoArea.posLong = GET_NUM(request, "GeoArea_lon")*DOT_ONE_MICRO;;
+    		geoArea.angle = 0;
+    		geoArea.distA = GET_NUM(request, "GeoArea_radius");
+    		geoArea.distB = 0;
+    	}
+
+    	denData::DEN_ActionID_t actionID;
+    	actionID.originatingStationID = m_den_service->getStationID();
+
+    	if (request_type == "DENM_trigger") {
+    		actionID.sequenceNumber = 0;
+    		result = m_den_service->appDENM_trigger(data,actionID,geoArea);
+    	} else if (request_type == "DENM_update") {
+    		actionID.sequenceNumber = GET_NUM(request,"ActionID_seq");
+    		result = m_den_service->appDENM_update(data,actionID,geoArea);
+    	} else if (request_type == "DENM_termination") {
+    		actionID.sequenceNumber = GET_NUM(request,"ActionID_seq");
+
+    		if (!request["ActionID_stationID"].is_null()) {
+    			actionID.originatingStationID = GET_NUM(request, "ActionID_stationID");
+    		}
+
+    		// No GeoArea required
+    		result = m_den_service->appDENM_termination(data,actionID);
+    	}
+
+        if (result == DENM_NO_ERROR) {
+            response["status"] = MAKE_STR("ok");
+            response["message"] = MAKE_STR("DENM action performed.");
+        } else {
+            response["status"] = MAKE_STR("error");
+            response["message"] = MAKE_STR("DENM action failed. Error code: " + std::to_string(result));
+        }
+    } else {
+    	response["status"] = MAKE_STR("error");
+    	response["message"] = MAKE_STR("Unknown request_type: " + request_type);
+    }
+
+    return response;
 }
 
 bool JSONserver::stopServer(void) {

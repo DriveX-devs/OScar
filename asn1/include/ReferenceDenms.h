@@ -20,11 +20,11 @@ extern "C" {
 #endif
 
 /* Forward declarations */
-struct ActionID;
+struct ActionId;
 
 /* ReferenceDenms */
 typedef struct ReferenceDenms {
-	A_SEQUENCE_OF(struct ActionID) list;
+	A_SEQUENCE_OF(struct ActionId) list;
 	
 	/* Context for parsing across buffer boundaries */
 	asn_struct_ctx_t _asn_ctx;
