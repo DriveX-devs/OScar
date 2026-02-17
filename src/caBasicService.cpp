@@ -62,7 +62,7 @@ CABasicService::CABasicService()
   m_cam_sent=0;
 
   // All the optional containers are disabled by default
-  // This is not yet supported in OCABS
+  // This is not yet supported in OScar
   // m_lowFreqContainerEnabled = false;
   // m_specialVehContainerEnabled = false;
 

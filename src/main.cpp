@@ -11,15 +11,15 @@
 #include "gpsc.h"
 // LDM
 #include "LDMmap.h"
-// CA Basic Service (TX only)
+// CA Basic Service
 #include "caBasicService.h"
 // DEN Basic Service (TX only)
 #include "denBasicService.h"
-// VRU Basic service (TX only)
+// VRU Basic service
 #include "VRUBasicService.h"
-// CP Basic service (TX only)
+// CP service
 #include "cpBasicService.h"
-// Rx of CAMs and VAMs
+// Rx loop
 #include "SocketClient.h"
 // Sensor reader
 #include "basicSensorReader.h"
@@ -44,8 +44,8 @@
 #include "JSONserver.h"
 #include "vehicle-visualizer.h"
 
+// DCC and MetricSupervisor
 #include "DCC.h"
-
 #include "MetricSupervisor.h"
 
 #define DB_CLEANER_INTERVAL_SECONDS 5
@@ -737,7 +737,7 @@ int main (int argc, char *argv[]) {
 
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "10.0-development");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "10.1-development");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.

@@ -107,6 +107,16 @@ void *JSONthread_callback(void *arg) {
 							}
 						} else {
 							fprintf(stdout,"[ERROR] Cannot parse a client request. Descriptor: %d. Error details: %s\n",currd,err.c_str());
+
+							// An invalid request was provided: send error response
+							json11::Json::object error_response;
+							error_response["status"] = json11::Json("error");
+							error_response["message"] = json11::Json("Invalid JSON request: " + err);
+							std::string error_json = json11::Json(error_response).dump();
+
+							if(send(currd,error_json.c_str(),error_json.length(),0)!=static_cast<ssize_t>(error_json.length())) {
+								perror("[ERROR] Could not send error response to client. Reason");
+							}
 						}
 
 						++currd_it;
@@ -324,7 +334,11 @@ denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
 
 	// If not specified, the defailt validityDuration (600 s) will be used by the DEN service
 	if (!request["validityDuration"].is_null()) {
-		data.setValidityDuration(GET_NUM(request,"validityDuration"));
+		if (GET_NUM(request,"validityDuration")<=0) {
+			std::cerr << "[ERROR] Received a negative or null validityDuration. No validity duration will be set." << std::endl;
+		} else {
+			data.setValidityDuration(GET_NUM(request,"validityDuration"));
+		}
 	}
 
 	denData::denDataSituation situationData = {.informationQuality = 0, .causeCode = 0, .subCauseCode = 0};
@@ -344,12 +358,20 @@ denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
 
 	if (!request["repetitionDuration_ms"].is_null()) {
 		std::cout << "[INFO] Sending DENM with repetition duration " << GET_NUM(request,"repetitionDuration_ms")/1000.0 << " seconds." << std::endl;
-		data.setDenmRepetitionDuration(GET_NUM(request,"repetitionDuration_ms"));
+		if (GET_NUM(request,"repetitionDuration_ms")<=0) {
+			std::cerr << "[ERROR] Received a negative or null repetitionDuration_ms. No repetition duration will be set." << std::endl;
+		} else {
+			data.setDenmRepetitionDuration(GET_NUM(request,"repetitionDuration_ms"));
+		}
 	}
 
 	if (!request["repetitionInterval_ms"].is_null()) {
 		std::cout << "[INFO] Sending DENM with repetition interval " << GET_NUM(request,"repetitionInterval_ms")/1000.0 << " seconds." << std::endl;
-		data.setDenmRepetitionInterval(GET_NUM(request,"repetitionInterval_ms"));
+		if (GET_NUM(request,"repetitionInterval_ms")<=0) {
+			std::cerr << "[ERROR] Received a negative or null repetitionInterval_ms. No repetition interval will be set." << std::endl;
+		} else {
+			data.setDenmRepetitionInterval(GET_NUM(request,"repetitionInterval_ms"));
+		}
 	}
 
 	if(situation_field_set) {
