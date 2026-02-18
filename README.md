@@ -32,16 +32,19 @@ The _OScar - Open Stack for car_ framework is an ongoing C++ open implementation
 
 OScar is meant to be used on real hardware boards for vehicular communication and it was successfully tested on dedicated V2X boards running [OpenWrt-V2X](https://github.com/francescoraves483/OpenWrt-V2X).
 
-This project includes a full open source implementation of the **ETSI CA Basic Service**, with reference to the standard [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf), including the **BTP** and **GeoNetworking** layers. CAMs **version 2** are currently being managed (there is no official support for the older CAMs version 1).
+This project includes a full open source implementation of the **ETSI CA Basic Service**, with reference to the standard [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf), including the **BTP** and **GeoNetworking** layers. CAMs **version 2** are currently being managed (there is currently no official support for the older CAMs version 1).
 
 It includes an implementation of the **ETSI VRU awareness Basic Service (VBS)**, with reference to the standard [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf). The implementation is complete except for the clustering feature.
 
 It also includes the implementation of the **ETSI Collective Perception Service (CPS)**, with reference to the standard [ETSI TS 103 324 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/103324/02.01.01_60/ts_103324v020101p.pdf), allowing the transmission of CPMs **version 2**.
 
+Finally, OScar includes a preliminary implementation of the **ETSI Decentralized Environmental Notification Basic Service** according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf). The transmission of DENM messages can be enabled with the `--enable-DENMs-tx` option and triggered via a dedicated JSON-over-TCP interface. This implementation is under development, and it currently supports the transmission of unsecured DENMs with circular destination areas. Reception is currently limited to logging (the insertion of events in the LDM is under development).
+
 OScar thus supports the following message types:
 - Cooperative Awareness Messages (**CAMs**) according to [ETSI EN 302 637-2 V1.4.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263702/01.04.01_60/en_30263702v010401p.pdf)
 - Vulnerable road users Awareness Messages (**VAMs**) according to [ETSI TS 103 300-3 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/10330003/02.01.01_60/ts_10330003v020101p.pdf)
 - Collective Perception Messages (**CPMs**) according to [ETSI TS 103 324 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/103324/02.01.01_60/ts_103324v020101p.pdf)
+- Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf).
 
 ### Decentralized Congestion Control (DCC)
 
@@ -56,16 +59,20 @@ Both **Reactive** and **Adaptive** congestion control modalities are supported, 
 
 ### V2X Security
 
-TODO
+OScar currently implements security header and certificate formats according to [ETSI TS 103 097 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103000_103099/103097/02.01.01_60/ts_103097v020101p.pdf).
+This enables the transmission and reception of secured V2X messages, with **L0 security**.
+
+The **Enrollment Certificate (EC)** and **Authorization Tickets (AT)** retrieval needs a working Internet connection (e.g., via cellular network when on a vehicle), and will be performed automatically the first time security is enabled. Both EC and AT will be then cached for subsequent uses, so that secured messages can be transmitted even when no connection to the Internet is available (until they expire and need to be requested again.
+
+Security can be enabled with the `--enable-security` option, and configured by customizing the **PKI_info.ini** file (a sample INI file is provided in the main directory of this repository).
 
 ### Next Developments
 
 The support for other relevant message types is also planned for the near future:
-- Decentralized Environmental Notification Messages (**DENMs**) according to [ETSI EN 302 637-3 V1.3.1](https://www.etsi.org/deliver/etsi_en/302600_302699/30263703/01.03.01_60/en_30263703v010301p.pdf) (the encoding and decoding functions are already available and tested)
-- Infrastructure to Vehicle Information Messages (**IVIM**) according to [ETSI TS 103 301 V1.3.1 ](https://www.etsi.org/deliver/etsi_ts/103300_103399/103301/01.03.01_60/ts_103301v010301p.pdf), PD CEN ISO/TS 19321:2020 and BS EN ISO 14823:2017
-- Electrical Vehicle Charging Spot Notifications (**EVCSNs**) according to [ETSI TS 101 556-1 V1.1.1](https://www.etsi.org/deliver/etsi_ts/101500_101599/10155601/01.01.01_60/ts_10155601v010101p.pdf)
+- Infrastructure to Vehicle Information Message (**IVIM**) according to [ETSI TS 103 301 V1.3.1 ](https://www.etsi.org/deliver/etsi_ts/103300_103399/103301/01.03.01_60/ts_103301v010301p.pdf), PD CEN ISO/TS 19321:2020 and BS EN ISO 14823:2017
+- MAP (topology) Extended Messages (**MAPEM**) and Signal Phase And Timing Extended Message (**SPATEM**) according to [ETSI TS 103 301 V1.3.1](https://www.etsi.org/deliver/etsi_ts/103300_103399/103301/01.03.01_60/ts_103301v010301p.pdf)
+- Electrical Vehicle Charging Spot Notification (**EVCSNs**) according to [ETSI TS 101 556-1 V1.1.1](https://www.etsi.org/deliver/etsi_ts/101500_101599/10155601/01.01.01_60/ts_10155601v010101p.pdf)
 - An ETSI-compliant proposal of a new type of message, i.e., Cooperative Enhancement Messages (**CEMs**) for the exchange of raw GNSS data, according to [this paper](https://www.sciencedirect.com/science/article/abs/pii/S2214209622000444) and to the [ms-van3t-CAM2CEM project](https://github.com/francescoraves483/ms-van3t-CAM2CEM)
-- Security header and certificate formats according to [ETSI TS 103 097 V2.1.1](https://www.etsi.org/deliver/etsi_ts/103000_103099/103097/02.01.01_60/ts_103097v020101p.pdf)
 
 ### Important Notes
 
@@ -74,7 +81,7 @@ The **OScar** framework stems from other existing GitHub projects:
 - The "Open Cooperative Awareness Basic Service", [**OCABS**](https://github.com/francescoraves483/OCABS-project)
 - An open vehicle Local Dynamic Map (LDM) implementation, i.e., the "Automotive Integrated Map", [**AIM**](https://github.com/francescoraves483/AIM-AutomotiveIntegratedMap)
 
-**Important**: OScar needs a source of PVT (Position-Velocity-Time) GNSS data through `gpsd`. Thus, a GNSS device must be available (either real, or emulated, for instance thanks to tools like `gpsfake` or the Cohda Wireless `vsim`) and it must be connected to a `gpsd` instance.
+**Important**: OScar needs a source of navigation data either through `gpsd` or by connecting directly to a receiver via serial interface. Thus, a GNSS device must be available (either real, or emulated, for instance thanks to tools like `gpsfake`, the Cohda Wireless `vsim` or [**TRACEN-X**](https://github.com/DriveX-devs/TRACEN-X)).
 
 The OScar main help, with all the possible options, can be displayed with `./OScar --help`, after compiling the OScar binary.
 
