@@ -750,6 +750,8 @@ int main (int argc, char *argv[]) {
     int queue_length;
     int queue_lifetime;
 
+    std::string mac_address = "";
+
     // Parse the command line options with the TCLAP library
     try {
         TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "10.1-development");
@@ -1011,6 +1013,10 @@ int main (int argc, char *argv[]) {
                                    false);
         cmd.add(EnableDCC);
 
+        TCLAP::ValueArg<std::string> MACAddress("", "mac-address", "MAC address of the interface to be used for GeoNetworking. Default: disabled (set through the interface)", false, "", "string");
+
+        cmd.add(MACAddress);
+
         std::string helpText_dcc =
                 "Time window for DCC Channel State check (Channel Busy Ratio). "
                 "It must be a strictly positive integer value, expressed in milliseconds, "
@@ -1207,6 +1213,8 @@ int main (int argc, char *argv[]) {
         time_window_met_sup = TimeWindowMetricSupervisor.getValue();
         log_filename_met_sup = LogfileMetricSupervisor.getValue();
 
+        mac_address = MACAddress.getValue();
+
         if (can_db == "") {
             if (can_db_param_ini != "dis" && can_db_param_ini != "") {
                 std::cerr
@@ -1391,20 +1399,32 @@ int main (int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Get the MAC address of the dissemination interface and store it inside "srcmac"
-    uint8_t srcmac[6] = {0};
-    struct ifreq ifreq;
+    uint8_t srcmac[6];
+    if (mac_address == "")
+    {
+        // Get the MAC address of the dissemination interface and store it inside "srcmac"
+        srcmac = {0};
+        struct ifreq ifreq;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
-    strncpy(ifreq.ifr_name, dissem_vif.c_str(), IFNAMSIZ);
-#pragma GCC diagnostic pop
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wstringop-truncation"
+            strncpy(ifreq.ifr_name, dissem_vif.c_str(), IFNAMSIZ);
+        #pragma GCC diagnostic pop
 
-    if (ioctl(sockfd, SIOCGIFHWADDR, &ifreq) != -1) {
-        memcpy(srcmac, ifreq.ifr_hwaddr.sa_data, 6);
-    } else {
-        std::cerr << "Critical error: cannot find a MAC address for interface: " << dissem_vif << std::endl;
-        exit(EXIT_FAILURE);
+        if (ioctl(sockfd, SIOCGIFHWADDR, &ifreq) != -1) {
+            memcpy(srcmac, ifreq.ifr_hwaddr.sa_data, 6);
+        } else {
+            std::cerr << "Critical error: cannot find a MAC address for interface: " << dissem_vif << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        if (sscanf(mac_address.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+                   &srcmac[0], &srcmac[1], &srcmac[2], &srcmac[3], &srcmac[4], &srcmac[5]) != 6) {
+            std::cerr << "Critical error: the specified MAC address is not valid. Please provide a valid MAC address in the format XX:XX:XX:XX:XX:XX, where X is a hexadecimal digit." << std::endl;
+            exit(EXIT_FAILURE);
+        }
     }
 
     // Enable broadcast on the socket (is it really needed? To be double-checked!)

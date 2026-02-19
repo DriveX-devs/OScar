@@ -292,7 +292,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
 	}
 	file << std::dec;
-	file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "0\n";
+	file  << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "0\n";
 	file.close();
 	if (use_dcc != "")
 	{
@@ -1116,7 +1116,7 @@ void GeoNet::writeEndRowLogRX (MessageId_t msg_id)
 {
 	std::ofstream file;
 	file.open(m_GN_log_file_rx, std::ios::app);
-	file << msg_id << "," << "3\n";
+	file << msg_id << "," << "3" << "\n";
 	file.close();
 	// m_mutex_log_rx.unlock();
 }
