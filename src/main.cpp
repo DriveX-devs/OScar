@@ -1399,11 +1399,10 @@ int main (int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    uint8_t srcmac[6];
+    uint8_t srcmac[6] = {0};
     if (mac_address == "")
     {
         // Get the MAC address of the dissemination interface and store it inside "srcmac"
-        srcmac = {0};
         struct ifreq ifreq;
 
         #pragma GCC diagnostic push
