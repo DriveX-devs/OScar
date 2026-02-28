@@ -705,7 +705,7 @@ DENBasicService::appDENM_termination(denData data, const denData::DEN_ActionID_t
     // It makes sense to perform this check only on vehicle IDs that are different that the current stationID
     if (actionid.originatingStationID != m_station_id) {
         std::map<std::pair<unsigned long, long>, ITSSReceivingTableEntry>::iterator entry_receiving_table = m_receivingITSSTable.find(map_index);
-        if (entry_receiving_table != m_receivingITSSTable.end()) {
+        if (entry_receiving_table == m_receivingITSSTable.end()) {
             T_Repetition_Mutex.unlock();
             return DENM_UNKNOWN_ACTIONID_RECEIVING;
         } else if (entry_receiving_table->second.getStatus() == ITSSReceivingTableEntry::STATE_ACTIVE) {
