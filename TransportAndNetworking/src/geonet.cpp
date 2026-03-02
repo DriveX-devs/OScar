@@ -43,14 +43,6 @@ GeoNet::GeoNet()
 	// m_GNAddress = GNAddress(); Should be already initialized to all zeros
 
 	m_RSU_epv_set=false;
-
-	std::ofstream file;
-	file.open(m_GN_log_file_tx, std::ios::out);
-	file << "timestamp_ms,gn_addr,tst,gn_lat,gn_lon,message_id,state\n";
-	file.close();
-	file.open(m_GN_log_file_rx, std::ios::out);
-	file << "timestamp_ms,gn_addr,tst,gn_lat,gn_lon,message_id,state\n";
-	file.close();
 }
 
 GeoNet::~GeoNet() {
@@ -283,17 +275,20 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 	bool gate_open = false;
 	Packet pkt = {now, priority, basicHeader, commonHeader, longPV, dataRequest, message_id};
 	char GNAddr [8];
-	memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
 	auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
-	std::ofstream file;
-    file.open(m_GN_log_file_tx, std::ios::app);
-	file << std::fixed << now_unix << ",";
-	for (unsigned char c : GNAddr) {
-		file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+	if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
+		memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+		std::ofstream file;
+		file.open(m_log_filename_sending, std::ios::app);
+		file << std::fixed << now_unix << ",";
+		for (unsigned char c : GNAddr) {
+			file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+		}
+		file << std::dec;
+		file  << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "0\n";
+		file.close();
 	}
-	file << std::dec;
-	file  << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "0\n";
-	file.close();
+	
 	if (use_dcc != "")
 	{
 		m_dcc->updatePktToSend();
@@ -322,30 +317,34 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 				message_id = pkt_to_send.message_id;
 				aoi = now - pkt_to_send.time;
 				// std::cout << "[DEQUEUE]" << std::endl;
-				memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
-				now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
-				file.open(m_GN_log_file_tx, std::ios::app);
-				file << std::fixed << now_unix << ",";
-				for (unsigned char c : GNAddr) {
-					file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+				if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
+					memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+					now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+					file.open(m_log_filename_sending, std::ios::app);
+					file << std::fixed << now_unix << ",";
+					for (unsigned char c : GNAddr) {
+						file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+					}
+					file << std::dec;
+					file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "2\n";
+					file.close();
 				}
-				file << std::dec;
-				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "2\n";
-				file.close();
 			}
 			else
 			{
 				// std::cout << "[ORIGINAL]" << std::endl;
-				memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
-				now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
-				file.open(m_GN_log_file_tx, std::ios::app);
-				file << std::fixed << now_unix << ",";
-				for (unsigned char c : GNAddr) {
-					file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+				if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
+					memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+					now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+					file.open(m_log_filename_sending, std::ios::app);
+					file << std::fixed << now_unix << ",";
+					for (unsigned char c : GNAddr) {
+						file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+					}
+					file << std::dec;
+					file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
+					file.close();
 				}
-				file << std::dec;
-				file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
-				file.close();
 				aoi = 0;
 			}
 			m_dcc->updateAoI(priority, aoi);
@@ -357,16 +356,18 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 	else
 	{
 		// std::cout << "[ORIGINAL NO DCC]" << std::endl;
-		memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
-		now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
-		file.open(m_GN_log_file_tx, std::ios::app);
-		file << std::fixed << now_unix << ",";
-		for (unsigned char c : GNAddr) {
-			file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+		if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
+			memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+			now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+			file.open(m_log_filename_sending, std::ios::app);
+			file << std::fixed << now_unix << ",";
+			for (unsigned char c : GNAddr) {
+				file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+			}
+			file << std::dec;
+			file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
+			file.close();
 		}
-		file << std::dec;
-		file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "1\n";
-		file.close();
 	}
 
 	if (use_dcc == "adaptive")
@@ -412,18 +413,20 @@ void GeoNet::attachSendFromDCCQueue()
 
 		double aoi = now - pkt.time;
 
-		char GNAddr [8];
-		memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
-		auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
-		std::ofstream file;
-		file.open(m_GN_log_file_tx, std::ios::app);
-		file << std::fixed << now_unix << ",";
-		for (unsigned char c : GNAddr) {
-			file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+		if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
+			char GNAddr [8];
+			memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
+			auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+			std::ofstream file;
+			file.open(m_log_filename_sending, std::ios::app);
+			file << std::fixed << now_unix << ",";
+			for (unsigned char c : GNAddr) {
+				file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+			}
+			file << std::dec;
+			file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "2\n";
+			file.close();
 		}
-		file << std::dec;
-		file << "," << longPV.TST << "," << longPV.latitude << "," << longPV.longitude << "," << message_id << "," << "2\n";
-		file.close();
 
 		std::string use_dcc;
 		if (m_dcc != nullptr) use_dcc = m_dcc->getModality();
@@ -841,19 +844,21 @@ GeoNet::processSHB (GNDataIndication_t* dataIndication)
             shbH.removeHeader(dataIndication->data);
             dataIndication->data += 28;
             dataIndication->SourcePV = shbH.GetLongPositionV ();
-			char GNAddr [8];
-			memcpy(GNAddr, dataIndication->SourcePV.GnAddress, sizeof(GNAddr));
-			auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
-			std::ofstream file;
-			file.open(m_GN_log_file_rx, std::ios::app);
-			// m_mutex_log_rx.lock();
-			file << std::fixed << now_unix << ",";
-			for (unsigned char c : GNAddr) {
-				file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+			if (m_log_filename_receiving!="dis" && m_log_filename_receiving!="") {
+				char GNAddr [8];
+				memcpy(GNAddr, dataIndication->SourcePV.GnAddress, sizeof(GNAddr));
+				auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
+				std::ofstream file;
+				file.open(m_log_filename_receiving, std::ios::app);
+				// m_mutex_log_rx.lock();
+				file << std::fixed << now_unix << ",";
+				for (unsigned char c : GNAddr) {
+					file << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+				}
+				file << std::dec;
+				file << "," << dataIndication->SourcePV.TST << "," << dataIndication->SourcePV.latitude << "," << dataIndication->SourcePV.longitude << ",";
+				file.close();
 			}
-			file << std::dec;
-			file << "," << dataIndication->SourcePV.TST << "," << dataIndication->SourcePV.latitude << "," << dataIndication->SourcePV.longitude << ",";
-			file.close();
             cbrr0 = shbH.GetCBRR0Hop();
             cbrr1 = shbH.GetCBRR1Hop();
         }
@@ -1114,9 +1119,12 @@ void GeoNet::attachGlobalCBRCheck ()
 
 void GeoNet::writeEndRowLogRX (MessageId_t msg_id)
 {
-	std::ofstream file;
-	file.open(m_GN_log_file_rx, std::ios::app);
-	file << msg_id << "," << "3" << "\n";
-	file.close();
+	if (m_log_filename_receiving != "dis" && m_log_filename_receiving != "") {
+		std::ofstream file;
+		file.open(m_log_filename_receiving, std::ios::app);
+		file << msg_id << "," << "3" << "\n";
+		file.close();
+	}
+	
 	// m_mutex_log_rx.unlock();
 }

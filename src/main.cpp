@@ -752,6 +752,9 @@ int main (int argc, char *argv[]) {
 
     std::string mac_address = "";
 
+    std::string log_filename_sending_GN = "";
+    std::string log_filename_receiving_GN = "";
+
     // Parse the command line options with the TCLAP library
     try {
         TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "10.1-development");
@@ -1076,7 +1079,18 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<std::string> LogfileMetricSupervisor("", "log-file-metric-supervisor",
                                                              "Print on file the log for the Metric Supervisor measured metrics. Default: (disabled).",
                                                              false, "", "string");
+                                                    
         cmd.add(LogfileMetricSupervisor);
+
+        TCLAP::ValueArg<std::string> LogfileSendingGN("", "log-file-GN-send",
+                                                "Log on a file the fingerprints of packets to be sent. Please note that the column 'state' will contain the state of the packet: 0 = coming from facilities; 1 = normally sent, without any restrictions; 2 = sent from DCC queue. Default: (disabled).",
+                                                false, "", "string");
+        cmd.add(LogfileSendingGN);
+
+        TCLAP::ValueArg<std::string> LogfileReceivingGN("", "log-file-GN-rcv",
+                                                "Log on a file the fingerprints of packets received. Please note that the column 'state' will contain the state 3 for all the received packets, to be coherent with the sending log. Default: (disabled).",
+                                                false, "", "string");
+        cmd.add(LogfileReceivingGN);
 
         cmd.parse(argc, argv);
 
@@ -1214,6 +1228,9 @@ int main (int argc, char *argv[]) {
         log_filename_met_sup = LogfileMetricSupervisor.getValue();
 
         mac_address = MACAddress.getValue();
+
+        log_filename_sending_GN = LogfileSendingGN.getValue();
+        log_filename_receiving_GN = LogfileReceivingGN.getValue();
 
         if (can_db == "") {
             if (can_db_param_ini != "dis" && can_db_param_ini != "") {
@@ -1416,6 +1433,15 @@ int main (int argc, char *argv[]) {
             std::cerr << "Critical error: cannot find a MAC address for interface: " << dissem_vif << std::endl;
             exit(EXIT_FAILURE);
         }
+        std::cout << "[INFO] No MAC address specified for GeoNetworking dissemination, using the one of the '" << dissem_vif << "' interface." << std::endl;
+        std::cout << "[INFO] MAC address for GeoNetworking dissemination: " << std::hex
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[0]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[1]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[2]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[3]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[4]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[5]) << std::dec
+                  << "\n" << std::endl;
     }
     else
     {
@@ -1424,6 +1450,15 @@ int main (int argc, char *argv[]) {
             std::cerr << "Critical error: the specified MAC address is not valid. Please provide a valid MAC address in the format XX:XX:XX:XX:XX:XX, where X is a hexadecimal digit." << std::endl;
             exit(EXIT_FAILURE);
         }
+        std::cout << "[INFO] Using the specified MAC address for GeoNetworking dissemination." << std::endl;
+        std::cout << "[INFO] MAC address for GeoNetworking dissemination: " << std::hex
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[0]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[1]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[2]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[3]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[4]) << ":"
+                  << std::setw(2) << std::setfill('0') << static_cast<int>(srcmac[5]) << std::dec
+                  << "\n" << std::endl;
     }
 
     // Enable broadcast on the socket (is it really needed? To be double-checked!)
@@ -1626,6 +1661,13 @@ int main (int argc, char *argv[]) {
 
     GN.setSocketTx(sockfd, ifindex, srcmac);
     GN.setSecurity(enable_security);
+
+    if (log_filename_sending_GN != "") {
+        GN.setLogFileSending(log_filename_sending_GN);
+    }
+    if (log_filename_receiving_GN != "") {
+        GN.setLogFileReceiving(log_filename_receiving_GN);
+    }
 
     if (enable_CAM_dissemination || enable_CPM_dissemination)
     {

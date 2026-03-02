@@ -90,6 +90,20 @@ class GeoNet {
         void attachSendFromDCCQueue();
         void attachGlobalCBRCheck();
 		void writeEndRowLogRX (MessageId_t msg_id);
+		void setLogFileSending(std::string msgfile) {
+			m_log_filename_sending=msgfile;
+			std::ofstream file;
+			file.open(m_log_filename_sending, std::ios::out);
+			file << "timestamp_ms,gn_addr,tst,gn_lat,gn_lon,message_id,state\n";
+			file.close();
+		}
+		void setLogFileReceiving(std::string msgfile) {
+			m_log_filename_receiving = msgfile;
+			std::ofstream file;
+			file.open(m_log_filename_receiving, std::ios::out);
+			file << "timestamp_ms,gn_addr,tst,gn_lat,gn_lon,message_id,state\n";
+			file.close();
+		}
 	private:
 		typedef struct _extralatlon_t {
 			int32_t lat;
@@ -172,6 +186,9 @@ class GeoNet {
 		
 		std::string m_log_filename = "dis";
 
+		std::string m_log_filename_sending = "";
+		std::string m_log_filename_receiving = "";
+
 		int m_udp_sockfd = -1;
 
 		// If this flag is set to "true" and UDP packets are sent by the GeoNetworking layer, in addition to the
@@ -188,8 +205,6 @@ class GeoNet {
         std::shared_mutex m_LocT_Mutex;
         std::map<uint64_t, GNLocTE> m_GNLocT;
 
-		std::string m_GN_log_file_tx = "GN_log_TX.csv";
-		std::string m_GN_log_file_rx = "GN_log_RX.csv";
 		std::mutex m_mutex_log_rx; 
 };
 
