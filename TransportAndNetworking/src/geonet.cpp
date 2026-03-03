@@ -390,7 +390,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 			dataConfirm = UNSPECIFIED_ERROR;
 	}
 
-	return std::tuple<GNDataConfirm_t, MessageId_t>(dataConfirm, message_id);
+	return {dataConfirm, message_id};
 }
 
 void GeoNet::attachSendFromDCCQueue()
@@ -438,9 +438,6 @@ void GeoNet::attachSendFromDCCQueue()
 		}
 
 		m_dcc->updateAoI(pkt.priority, aoi);
-		clock_gettime (CLOCK_MONOTONIC, &tv);
-		now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
-		m_dcc->setLastTx(now);
 
         // set last tx etc. is handled by DCC; here we just call the appropriate send
         switch(dataRequest.GNType)

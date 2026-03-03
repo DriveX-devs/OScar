@@ -739,7 +739,7 @@ DCC::dequeue(int priority)
     }
     
     m_gate_mutex.unlock();
-    return std::tuple<bool, Packet> (found, pkt);
+    return {found, pkt};
 }
 
 void DCC::checkQueue()
