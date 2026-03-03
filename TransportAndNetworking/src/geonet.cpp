@@ -275,10 +275,10 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 	bool gate_open = false;
 	Packet pkt = {now, priority, basicHeader, commonHeader, longPV, dataRequest, message_id};
 	char GNAddr [8];
+    std::ofstream file;
 	auto now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
 	if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
 		memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
-		std::ofstream file;
 		file.open(m_log_filename_sending, std::ios::app);
 		file << std::fixed << now_unix << ",";
 		for (unsigned char c : GNAddr) {
