@@ -35,9 +35,11 @@ void DCC::setCBRG(double cbr_g)
         return;
     }
     m_cbr_g_mutex.lock();
+    // Store the last CBR_G computed
     m_CBR_G[1] = m_CBR_G[0];
     // For the first time, set the second CBR_G to 0
     if (m_CBR_G[1] == -1) m_CBR_G[1] = 0.0;
+    // Store the new CBR_G
     m_CBR_G[0] = cbr_g;
     m_cbr_g_mutex.unlock();
 }
@@ -45,6 +47,7 @@ void DCC::setCBRG(double cbr_g)
 void DCC::setNewCBRL0Hop(double cbr)
 {
     m_cbr_g_mutex.lock();
+    // Store the last and the newest CBR sensed
     m_CBR_L0_Hop[1] = m_CBR_L0_Hop[0];
     m_CBR_L0_Hop[0] = cbr;
     m_cbr_g_mutex.unlock();
@@ -54,6 +57,7 @@ std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters>
 DCC::getConfiguration(double Ton, double currentCBR)
 {
     std::unordered_map<DCC::ReactiveState, DCC::ReactiveParameters> map;
+    // Choose the set of parameters based on Ton
     if (Ton <= 0.5)
       {
         map = m_reactive_parameters_Ton_500_us;
@@ -72,7 +76,8 @@ DCC::getConfiguration(double Ton, double currentCBR)
 
     if (currentCBR >= map[m_current_state].cbr_threshold && m_current_state != ReactiveState::Restrictive)
     {
-      m_current_state = static_cast<ReactiveState>(m_current_state + 1);
+        // New state up
+        m_current_state = static_cast<ReactiveState>(m_current_state + 1);
     }
     else
     {
@@ -81,7 +86,8 @@ DCC::getConfiguration(double Ton, double currentCBR)
         ReactiveState prev_state = static_cast<ReactiveState> (m_current_state - 1);
         if (currentCBR <= map[prev_state].cbr_threshold)
         {
-          m_current_state = static_cast<ReactiveState>(m_current_state - 1);
+            // New state down
+            m_current_state = static_cast<ReactiveState>(m_current_state - 1);
         }
       }
     }
@@ -105,6 +111,7 @@ void DCC::setupDCC(unsigned long long dcc_interval, std::string modality, std::s
     m_main_cbr_reader.setupCBRReader(verbose, dissemination_interface);
     if (m_modality == "adaptive")
     {
+        // If adaptive is selected, the additional CBR reader is started
         m_second_cbr_reader.setupCBRReader(verbose, dissemination_interface);
     }
 }
@@ -121,7 +128,8 @@ void DCC::startDCC()
   }
   if (m_queue_length > 0)
   {
-    m_check_queue_thread = std::thread(&DCC::checkQueue, this);
+      // If the DCC queue is selected, the thread for queue checking with condition variable is started
+        m_check_queue_thread = std::thread(&DCC::checkQueue, this);
   }
   m_cbr_g_thread = std::thread(&DCC::DCCcheckCBRG, this);
 }
@@ -136,6 +144,7 @@ void DCC::DCCcheckCBRG()
     {
         try
         {
+            // Callback for the CBR_G computation from GeoNetworking
             m_cbr_g_callback();
             std::this_thread::sleep_for(std::chrono::milliseconds(m_T_DCC_NET_Trig));
         }
@@ -167,12 +176,15 @@ void DCC::functionReactive()
         try
         {
             double currentCbr;
+            // Read the new sensed CBR
             m_read_cbr_mutex.lock();
             m_main_cbr_reader.wrapper_start_reading_cbr();
             m_current_cbr = m_main_cbr_reader.get_current_cbr();
             m_read_cbr_mutex.unlock();
+            // Store CBR
             setNewCBRL0Hop(m_current_cbr);
             m_cbr_g_mutex.lock();
+            // Choose the profile: ETSI, C2C, CBRG
             if (m_profile == "etsi")
             {
                 // ETSI strategy (default): last sensed CBR
@@ -199,6 +211,7 @@ void DCC::functionReactive()
             if (currentCbr != -1.0f)
             {
                 float Ton = getTonpp(); // Milliseconds
+                // Collect the state and the parameters associated
                 std::unordered_map<ReactiveState, ReactiveParameters> map = getConfiguration(Ton, currentCbr);
                 long tx_power = map[m_current_state].tx_power;
                 long int_pkt_time = map[m_current_state].tx_inter_packet_time;
@@ -207,6 +220,7 @@ void DCC::functionReactive()
 
                 if(m_log_file != "")
                 {
+                    // Log utility
                     std::ofstream file;
                     file.open(m_log_file, std::ios::app);
 
@@ -281,12 +295,14 @@ void DCC::adaptiveDCCCheckCBR()
     {
         try
         {
+            // Read the new sensed CBR
             m_read_cbr_mutex.lock();
             m_second_cbr_reader.wrapper_start_reading_cbr();
-            double previous_cbr = m_second_cbr_reader.get_current_cbr();
+            double new_cbr = m_second_cbr_reader.get_current_cbr();
             m_read_cbr_mutex.unlock();
-            if (previous_cbr == -1) previous_cbr = 0;
-            setNewCBRL0Hop (previous_cbr);
+            if (new_cbr == -1) new_cbr = 0;
+            // Store the new CBR
+            setNewCBRL0Hop (new_cbr);
             std::this_thread::sleep_for(std::chrono::milliseconds(m_T_CBR));
         }
         catch(const std::exception& e)
@@ -317,13 +333,14 @@ void DCC::functionAdaptive()
         try
         {
             m_read_cbr_mutex.lock();
+            // Read and store the new sensed CBR
             m_main_cbr_reader.wrapper_start_reading_cbr();
             double currentCbr = m_main_cbr_reader.get_current_cbr();
             setNewCBRL0Hop (currentCbr);
             m_read_cbr_mutex.unlock();
             if (currentCbr != -1.0f)
             {
-                // Step 1
+                // Step 1: update CBR_ITS with the moving average
                 m_cbr_g_mutex.lock();
                 if (m_CBR_its != -1)
                 {
@@ -348,7 +365,8 @@ void DCC::functionAdaptive()
                     }
                 }
                 m_cbr_g_mutex.unlock();
-                // Step 2
+
+                // Step 2: calculate the new delta offset
                 float delta_offset;
                 if ((m_CBR_target - m_CBR_its) > 0)
                 {
@@ -359,7 +377,7 @@ void DCC::functionAdaptive()
                     delta_offset = std::max (m_beta * (m_CBR_target - m_CBR_its), m_Gmin);
                 }
 
-                 // Step 3
+                // Step 3: calculate the new value for delta
                 float old_delta = getDelta();
 				if (old_delta == 0)
 				{
@@ -367,18 +385,19 @@ void DCC::functionAdaptive()
 				}
                 float new_delta = (1 - m_alpha) * old_delta + delta_offset;
 
-                // Step 4
+                // Step 4: clip delta value
                 if (new_delta > m_delta_max)
                 {
                     new_delta = m_delta_max;
                 }
 
-                // Step 5
+                // Step 5: clip delta value
                 if (new_delta < m_delta_min)
                 {
                     new_delta = m_delta_min;
                 }
 
+                // Call functions to update delta to the new value and to update Tgo/Toff
                 updateDelta(new_delta);
                 updateTgoAfterDeltaUpdate();
 
@@ -479,9 +498,11 @@ void DCC::updateTgoAfterTransmission()
         aux = 1000;
     }
     m_gate_mutex.lock();
+    // Store time when the transmission happens
     m_Tpg_ms = now;
     // Compute next time gate will be open
     m_Tgo_ms = m_Tpg_ms + aux;
+    // Store the Toff
     m_Toff_ms = aux;
     if (m_log_file != "")
     {
@@ -495,6 +516,7 @@ void DCC::updateTgoAfterTransmission()
         file_toff.close();
     }
     m_gate_mutex.unlock();
+    // If the queue mechanism is active, wake up the condition variable for DCC queue
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
 
@@ -515,7 +537,9 @@ void DCC::updateTgoAfterDeltaUpdate()
     // Clamp update between 25 and 1000
     if (update < 25) update = 25;
     if (update > 1000) update = 1000;
+    // Update next time the gate will be open
     m_Tgo_ms = m_Tpg_ms + update;
+    // Store Toff
     m_Toff_ms = update;
     if (m_log_file != "")
     {
@@ -529,6 +553,7 @@ void DCC::updateTgoAfterDeltaUpdate()
         file_toff.close();
     }
     m_gate_mutex.unlock();
+    // If the queue mechanism is active, wake up the condition variable for DCC queue
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
 
@@ -565,7 +590,9 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
     clock_gettime (CLOCK_MONOTONIC, &tv);
     double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
     m_gate_mutex.lock();
+    // Update next time the gate will be open
     m_Tgo_ms = now + Toff;
+    // Store Toff
     m_Toff_ms = Toff;
     if (m_log_file != "")
     {
@@ -579,13 +606,14 @@ void DCC::updateTgoAfterStateCheck(uint32_t Toff)
         file_toff.close();
     }
     m_gate_mutex.unlock();
+    // If the queue mechanism is active, wake up the condition variable for DCC queue
     if (m_queue_length > 0) m_check_queue_cv.notify_all();
 }
 
 void 
 DCC::cleanQueues(double now)
 {
-    
+    // Utility to clean the DCC queues, following the packet lifetime constraint
     for(auto it = m_dcc_queue_dp0.begin(); it != m_dcc_queue_dp0.end();)
     {
         if (now > it->time + m_lifetime)
@@ -655,6 +683,7 @@ DCC::enqueue(int priority, Packet p)
     clock_gettime (CLOCK_MONOTONIC, &tv);
     double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
     m_gate_mutex.lock();
+    // Clean the queues before insertion
     cleanQueues(now);
     switch(priority)
     {
@@ -670,6 +699,7 @@ DCC::enqueue(int priority, Packet p)
         case 1:
         if (m_dcc_queue_dp1.size()< m_queue_length)
         {
+            // The queue is not full, we can accept a new packet
             p.priority = 1;
             m_dcc_queue_dp1.push_back(p);
             inserted = true;
@@ -678,6 +708,7 @@ DCC::enqueue(int priority, Packet p)
         case 2:
         if (m_dcc_queue_dp2.size() < m_queue_length)
         {
+            // The queue is not full, we can accept a new packet
             p.priority = 2;
             m_dcc_queue_dp2.push_back(p);
             inserted = true;
@@ -686,6 +717,7 @@ DCC::enqueue(int priority, Packet p)
         case 3:
         if (m_dcc_queue_dp3.size() < m_queue_length)
         {
+            // The queue is not full, we can accept a new packet
             p.priority = 3;
             m_dcc_queue_dp3.push_back(p);
             inserted = true;
@@ -695,6 +727,7 @@ DCC::enqueue(int priority, Packet p)
     m_gate_mutex.unlock();
     if (inserted)
     {
+        // If an insertion has been done and the queue mechanism is active, wake up the condition variable for DCC queue
         m_check_queue_cv.notify_all();
     }
 	else
@@ -712,10 +745,12 @@ DCC::dequeue(int priority)
     clock_gettime (CLOCK_MONOTONIC, &tv);
     double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
     m_gate_mutex.lock();
+    // Clean queues before extract packets
     cleanQueues(now);
     Packet pkt;
     bool found = false;
 
+    // Extract packets following the priority system between queues, and the FIFO approach on the single queue
     if (m_dcc_queue_dp0.size() > 0 && priority >= 0)
     {
         pkt = *m_dcc_queue_dp0.begin();
@@ -744,6 +779,7 @@ DCC::dequeue(int priority)
 
 void DCC::checkQueue()
 {
+    // Condition variable to send packets from queues, if possible
     pthread_setname_np(pthread_self(), "DCC_checkQueue_thr");
 
     std::unique_lock<std::mutex> lock(m_check_queue_mutex);
@@ -756,9 +792,11 @@ void DCC::checkQueue()
 
         m_gate_mutex.lock();
 
+        // Calculate the time elapsed from the last transmission
         double elapsed = now - m_last_tx;
+        // Calculate the new waiting time for the next transmission
         double wait_time = (m_Toff_ms >= elapsed) ? (m_Toff_ms - elapsed) : 0.0;
-
+        // Check whether the queues are empty
         bool queues_have_packets = !(m_dcc_queue_dp0.empty() && m_dcc_queue_dp1.empty() && m_dcc_queue_dp2.empty() && m_dcc_queue_dp3.empty());
         
         if (elapsed >= m_Toff_ms && queues_have_packets)
@@ -771,19 +809,18 @@ void DCC::checkQueue()
             m_gate_mutex.unlock();
             std::tuple<bool, Packet> value = this->dequeue(4);
             bool status = std::get<0>(value);
-			if (status)
-			{
-				Packet pkt_to_send = std::get<1>(value);
-				m_send_callback(pkt_to_send);
-			}
-            else
-            {
+			if (status) {
+                // There is a candidate
+                Packet pkt_to_send = std::get<1>(value);
+                // Callback to the GeoNetworking
+                m_send_callback(pkt_to_send);
             }
             lock.lock();
         } 
-        else 
+        else
         {
-            // Wait until Toff expires or Toff changes
+            // Condition variable mechanism
+            // Wait until: Toff expires, Toff changes, queue changes
             m_gate_mutex.unlock();
             m_check_queue_cv.wait_for(lock, std::chrono::milliseconds(static_cast<int64_t>(wait_time)), [&]{
                 std::lock_guard<std::mutex> gate_lock(m_gate_mutex);
@@ -799,16 +836,19 @@ void DCC::checkQueue()
 
 void DCC::setSendCallback(std::function<void(const Packet&)> cb)
 {
+    // Sending callback for the GeoNetworking
     m_send_callback = std::move(cb);
 }
 
 void DCC::setCBRGCallback (std::function<void()> cb)
 {
+    // CBR_G callback for the GeoNetworking
     m_cbr_g_callback = std::move(cb);
 }
 
 void DCC::updateAoI (int priority, double time)
 {
+    // Age of Information utility for logs
     switch(priority)
     {
         case 0:

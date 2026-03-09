@@ -295,28 +295,28 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		gate_open = m_dcc->checkGateOpen(now);
 		if (gate_open == false)
 		{
-			// Gate is closed
+			// Gate is closed, enqueue the packet if possible
 			m_dcc->enqueue(priority, pkt);
-			// std::cout << "[ENQUEUE]" << std::endl;
-			return std::tuple<GNDataConfirm_t, MessageId_t>(BLOCKED_BY_GK, message_id);
+			return {BLOCKED_BY_GK, message_id};
 		}
 		else
 		{
-			// Gate is opened
+			// Gate is opened, we can send a packet
+            // Extraction from the DCC queues, following FIFO approach
 			std::tuple<bool, Packet> value = m_dcc->dequeue(priority);
 			double aoi;
-			if (std::get<0>(value) == true)
+			if (std::get<0>(value))
 			{
-				// Found a packet in queue with higher priority
+				// Found a packet in queue with higher priority, enqueue the new one
 				m_dcc->enqueue(priority, pkt);
 				Packet pkt_to_send = std::get<1>(value);
+                // Extract the information useful for sending
 				basicHeader = pkt_to_send.bh;
 				commonHeader = pkt_to_send.ch;
 				longPV = pkt_to_send.long_PV;
 				dataRequest = pkt_to_send.dataRequest;
 				message_id = pkt_to_send.message_id;
 				aoi = now - pkt_to_send.time;
-				// std::cout << "[DEQUEUE]" << std::endl;
 				if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
 					memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
 					now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
@@ -332,7 +332,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 			}
 			else
 			{
-				// std::cout << "[ORIGINAL]" << std::endl;
+				// Send directly the new packet
 				if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
 					memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
 					now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
@@ -347,15 +347,16 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 				}
 				aoi = 0;
 			}
+            // Update AoI and the last transmission
 			m_dcc->updateAoI(priority, aoi);
 			clock_gettime (CLOCK_MONOTONIC, &tv);
 			now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
-			m_dcc->setLastTx(now);
+			m_dcc->setLastTx(now); // DON'T CHANGE THE POSITION OF THIS LINE
 		}
 	}
 	else
 	{
-		// std::cout << "[ORIGINAL NO DCC]" << std::endl;
+		// The system is not using the DCC mechanism, send directly the packet
 		if (m_log_filename_sending != "dis" && m_log_filename_sending != "") {
 			memcpy(GNAddr, longPV.GnAddress, sizeof(GNAddr));
 			now_unix = static_cast<double>(get_timestamp_us_realtime())/1000000.0;
@@ -372,6 +373,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 
 	if (use_dcc == "adaptive")
 	{
+        // In the adaptive mechanism, after each transmission the Toff should be updated to avoid synch between OBUs
 		m_dcc->updateTgoAfterTransmission();
 	}
 
@@ -396,8 +398,9 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 void GeoNet::attachSendFromDCCQueue()
 {
 	if (m_dcc == nullptr) return;
+    // Callback to send a packet from DCC queues
     m_dcc->setSendCallback([this](const Packet& pkt) {
-        // replicate the previous sending logic here; GeoNet has access to sendGBC/sendSHB
+        // Replicate the previous sending logic here; GeoNet has access to sendGBC/sendSHB
         basicHeader bh = pkt.bh;
         commonHeader ch = pkt.ch;
         GNlpv_t longPV = pkt.long_PV;
@@ -409,7 +412,8 @@ void GeoNet::attachSendFromDCCQueue()
 		struct timespec tv;
 		clock_gettime (CLOCK_MONOTONIC, &tv);
 		double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
-		m_dcc->setLastTx(now);
+        // Update the last transmission time
+		m_dcc->setLastTx(now); // DON'T CHANGE THE POSITION OF THIS LINE
 
 		double aoi = now - pkt.time;
 
@@ -434,6 +438,7 @@ void GeoNet::attachSendFromDCCQueue()
 
 		if (use_dcc == "adaptive")
 		{
+            // In the adaptive mechanism, after each transmission the Toff should be updated to avoid synch between OBUs
 			m_dcc->updateTgoAfterTransmission();
 		}
 
@@ -454,6 +459,7 @@ void GeoNet::attachSendFromDCCQueue()
 
 		if (dataConfirm == ACCEPTED)
 		{
+            // Logic for Metric Supervisor
 			m_dcc->metricSupervisorSignalSentPacket(message_id);
 		}
     });
@@ -856,12 +862,14 @@ GeoNet::processSHB (GNDataIndication_t* dataIndication)
 				file << "," << dataIndication->SourcePV.TST << "," << dataIndication->SourcePV.latitude << "," << dataIndication->SourcePV.longitude << ",";
 				file.close();
 			}
+            // Extract CBR information from the SHB header
             cbrr0 = shbH.GetCBRR0Hop();
             cbrr1 = shbH.GetCBRR1Hop();
         }
         m_LocT_Mutex.lock ();
         if (dataIndication->GNType != BEACON)
         {
+            // Update the Loc Table with CBR sharing information
             struct timespec tv;
             clock_gettime (CLOCK_MONOTONIC, &tv);
             double now = static_cast<double>((tv.tv_sec * 1e9 + tv.tv_nsec)/1e6);
@@ -997,6 +1005,7 @@ GeoNet::closeUDPsocket() {
 void GeoNet::attachGlobalCBRCheck ()
 {
     if (m_dcc == nullptr) return;
+    // Callback to periodically calculate the CBR_G
     m_dcc->setCBRGCallback([this](){
         struct timespec tv;
         clock_gettime (CLOCK_MONOTONIC, &tv);
@@ -1008,10 +1017,11 @@ void GeoNet::attachGlobalCBRCheck ()
         long tot_r1 = 0;
         double max_cbr_r1 = 0.0, second_max_cbr_r1 = 0.0;
         m_LocT_Mutex.lock ();
+        // Loop over the Loc Table
         for(auto it = m_GNLocT.begin(); it != m_GNLocT.end(); ++it)
         {
             auto& cbr_data = it->second.cbr_extension;
-            // Clean old data
+            // Clean old data from the table, CBR received more than 1s ago
             size_t counter = 0;
             std::vector<size_t> to_delete;
             for (auto it2 = cbr_data.CBR_R0_Hop.begin(); it2 != cbr_data.CBR_R0_Hop.end(); ++it2)
@@ -1040,6 +1050,7 @@ void GeoNet::attachGlobalCBRCheck ()
                 }
             }
 
+            // Search the largest and second largest values of CBR shared from 1 Hop hosts
             for (auto it2 = cbr_data.CBR_R0_Hop.begin(); it2 != cbr_data.CBR_R0_Hop.end(); ++it2)
             {
                 double val = std::get<1>(*it2);
@@ -1057,6 +1068,7 @@ void GeoNet::attachGlobalCBRCheck ()
             }
             tot_r0 += cbr_data.CBR_R0_Hop.size();
 
+            // Search the largest and second largest values of CBR shared from 2 Hop hosts
             for (auto it2 = cbr_data.CBR_R1_Hop.begin(); it2 != cbr_data.CBR_R1_Hop.end(); ++it2)
             {
                 double val = std::get<1>(*it2);
@@ -1075,11 +1087,13 @@ void GeoNet::attachGlobalCBRCheck ()
             tot_r1 += cbr_data.CBR_R1_Hop.size();
         }
         m_LocT_Mutex.unlock ();
+        // Compute the CBR mean from bboth 1 Hop and 2 Hop hosts
 		if (tot_r0 == 0) mean_cbr_r0_hop = 0;
 		else mean_cbr_r0_hop /= tot_r0;
 		if (tot_r1 == 0) mean_cbr_r1_hop = 0;
 		else mean_cbr_r1_hop /= tot_r1;
         double CBR_L1_Hop, CBR_L2_Hop;
+        // Compare the calculated means with the CBR Target
         if (mean_cbr_r0_hop > m_dcc->getCBRTarget())
         {
             CBR_L1_Hop = max_cbr_r0;
@@ -1097,18 +1111,10 @@ void GeoNet::attachGlobalCBRCheck ()
         {
             CBR_L2_Hop = second_max_cbr_r1;
         }
+        // Compute the CBR_G
 		double CBR_L0_Hop_prev = m_dcc->getCBRL0Prev();
         double CBR_G = std::max(CBR_L0_Hop_prev, CBR_L1_Hop);
         CBR_G = std::max(CBR_G, CBR_L2_Hop);
-		/*
-		std::ofstream file;
-		file.open("CBR_global.txt", std::ios::app);
-		file << std::fixed << std::setprecision(2);
-		file << "\n";
-		file << "[DCC] Global CBR: " << CBR_G << ", Local CBR L1: " << CBR_L1_Hop << ", Local CBR L2: " << CBR_L2_Hop << ", CBR L0 prev: " << CBR_L0_Hop_prev << std::endl;
-		file << "\n";
-		file.close();
-		*/
         m_dcc->setCBRG(CBR_G);
         m_dcc->setCBRL1(CBR_L1_Hop);
     });
