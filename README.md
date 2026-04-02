@@ -237,8 +237,12 @@ logread
 
 ## Used libraries
 
-This project uses internally the _TCLAP - Templatized Command Line Argument Parser_ library (v1.2), available [here](https://tclap.sourceforge.net/), and included in the `tclap` directory.
+To manage the command-line parameters, this project uses internally the _TCLAP - Templatized Command Line Argument Parser_ library (v1.2), available [here](https://tclap.sourceforge.net/), and included in the `tclap` directory.
 
-It also includes a porting and C adaptation of a part of [_GeographicLib_](https://geographiclib.sourceforge.io/) for the computation of Transverse Mercator projections, included in the `geographiclib-port` directory.
-
-Finally, it uses the INIH library available [here](https://github.com/benhoyt/inih), included in the `iniLibraryC` and `iniReader` directories, for reading INI configuration files.
+It also includes:
+- in the `asn1cpp` directory, an extension of the [_asn1cpp_](https://github.com/Svalorzen/asn1cpp) C++ wrapper, originally written by Eugenio Bargiacchi (Svalorzen).
+- in the `ceSerial` directory, the ceSerial C++ open-source serial port library, by Yan Naing Aye (yan9a), whose original repository is available [here](https://github.com/yan9a).
+- in the `geographiclib-port` directory, a porting and C adaptation of a part of [_GeographicLib_](https://geographiclib.sourceforge.io/) for the computation of Transverse Mercator projections.
+- in the `httpRest` directory, the HTTPRequest single-header C++ library by Elviss Strazdins, available [here](https://github.com/elnormous/HTTPRequest).
+- in the `iniLibraryC` and `iniReader` directories, the INIH library available [here](https://github.com/benhoyt/inih), for reading INI configuration files.
+- in the `json11` directory, the _json11_ C++ library by Dropbox: [github.com/dropbox/json11](https://github.com/dropbox/json11).
