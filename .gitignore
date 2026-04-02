@@ -36,7 +36,7 @@ PCAN.ini
 /MS_2_rssi_info.csv
 /A4_andata.json
 /OScar-DCC-New
-/PKI_info.ini
+/PKI_info_private.ini
 file.pcap
 OScar-DCC-NET
 OScar-DCC_NET
@@ -55,6 +55,7 @@ security.cpp
 # JetBrains IDE project files
 /.idea
 
+# Additional files
 .idea/editor.xml
 GN_log_RX.csv
 GN_log_TX.csv
