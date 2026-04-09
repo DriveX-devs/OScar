@@ -39,6 +39,9 @@ int get_asn1c_environment_version(void);	/* Run-time version */
 #define	REALLOC(oldptr, size)	realloc(oldptr, size)
 #define	FREEMEM(ptr)		free(ptr)
 
+#define asn_debug_indent    0
+#define ASN_DEBUG_INDENT_ADD(i) do{}while(0)
+
 // Uncomment this line (i.e., set ASN_EMIT_DEBUG to 1) to enable ASN.1 debugging
 //#define ASN_EMIT_DEBUG 1
 //#define ASN_THREAD_SAFE 0
@@ -53,8 +56,6 @@ int get_asn1c_environment_version(void);	/* Run-time version */
  * You may enable or override it.
  */
 #ifndef	ASN_DEBUG	/* If debugging code is not defined elsewhere... */
-#define asn_debug_indent    0
-#define ASN_DEBUG_INDENT_ADD(i) do{}while(0)
 #if	ASN_EMIT_DEBUG == 1	/* And it was asked to emit this code... */
 #if __STDC_VERSION__ >= 199901L
 #ifdef	ASN_THREAD_SAFE
