@@ -6,6 +6,7 @@
 #define ASN_OPEN_TYPE_H
 
 #include "asn_application.h"
+#include "jer_support.h"
 ///////////#include "per_support.h"
 
 #ifdef __cplusplus
@@ -63,6 +64,7 @@ asn_dec_rval_t OPEN_TYPE_xer_get(
 asn_dec_rval_t OPEN_TYPE_jer_get(
     const asn_codec_ctx_t *opt_codec_ctx,
     const asn_TYPE_descriptor_t *parent_type,
+    const struct asn_jer_constraints_s *constraints,
     void *parent_structure,
     const asn_TYPE_member_t *element,
     const void *ptr, size_t size);

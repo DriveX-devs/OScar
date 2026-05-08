@@ -4,6 +4,7 @@
  * Redistribution and modifications are permitted subject to BSD license.
  */
 #include "asn_internal.h"
+#include "jer_support.h"
 #include "constr_SEQUENCE.h"
 #include "OPEN_TYPE.h"
 
@@ -39,7 +40,7 @@
  */
 asn_dec_rval_t
 SEQUENCE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
-                    const asn_TYPE_descriptor_t *td, void **struct_ptr,
+                    const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, void **struct_ptr,
                     const void *ptr, size_t size) {
     /*
      * Bring closer parts of structure description.
@@ -104,11 +105,11 @@ SEQUENCE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
             }
 
             if(elm->flags & ATF_OPEN_TYPE) {
-                tmprval = OPEN_TYPE_jer_get(opt_codec_ctx, td, st, elm, ptr, size);
+                tmprval = OPEN_TYPE_jer_get(opt_codec_ctx, td, constraints, st, elm, ptr, size);
             } else {
                 /* Invoke the inner type decoder, m.b. multiple times */
                 tmprval = elm->type->op->jer_decoder(opt_codec_ctx,
-                                                     elm->type, memb_ptr2,
+                                                     elm->type, 0, memb_ptr2,
                                                      ptr, size);
             }
             JER_ADVANCE(tmprval.consumed);
@@ -294,7 +295,7 @@ SEQUENCE_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
 }
 
 
-asn_enc_rval_t SEQUENCE_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr,
+asn_enc_rval_t SEQUENCE_encode_jer(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr,
                     int ilevel, enum jer_encoder_flags_e flags,
                     asn_app_consume_bytes_f *cb, void *app_key) {
     asn_enc_rval_t er = {0,0,0};
@@ -352,7 +353,7 @@ asn_enc_rval_t SEQUENCE_encode_jer(const asn_TYPE_descriptor_t *td, const void *
         }
 
         /* Print the member itself */
-        tmper = elm->type->op->jer_encoder(elm->type, memb_ptr, ilevel + 1,
+        tmper = elm->type->op->jer_encoder(elm->type, constraints, memb_ptr, ilevel + 1,
                                            flags, cb, app_key);
         if(tmp_def_val) {
             ASN_STRUCT_FREE(*tmp_def_val_td, tmp_def_val);

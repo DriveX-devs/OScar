@@ -4,12 +4,13 @@
  * Redistribution and modifications are permitted subject to BSD license.
  */
 #include "asn_internal.h"
+#include "jer_support.h"
 #include "OPEN_TYPE.h"
 #include "constr_CHOICE.h"
 
 asn_dec_rval_t
 OPEN_TYPE_jer_get(const asn_codec_ctx_t *opt_codec_ctx,
-                  const asn_TYPE_descriptor_t *td, void *sptr,
+                  const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, void *sptr,
                   const asn_TYPE_member_t *elm, const void *ptr, size_t size) {
     size_t consumed_myself = 0;
     asn_type_selector_result_t selected;
@@ -103,7 +104,7 @@ OPEN_TYPE_jer_get(const asn_codec_ctx_t *opt_codec_ctx,
         + elm->type->elements[selected.presence_index - 1].memb_offset;
 
     rv = selected.type_descriptor->op->jer_decoder(
-        opt_codec_ctx, selected.type_descriptor, &inner_value, ptr, size);
+        opt_codec_ctx, selected.type_descriptor, constraints, &inner_value, ptr, size);
     ADVANCE(rv.consumed);
     rv.consumed = 0;
     switch(rv.code) {

@@ -10,7 +10,7 @@
  * The JER encoder of any type. May be invoked by the application.
  */
 asn_enc_rval_t
-jer_encode(const asn_TYPE_descriptor_t *td, const void *sptr,
+jer_encode(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr,
 		   enum jer_encoder_flags_e jer_flags, asn_app_consume_bytes_f *cb,
            void *app_key) {
     asn_enc_rval_t er = {0, 0, 0};
@@ -18,7 +18,7 @@ jer_encode(const asn_TYPE_descriptor_t *td, const void *sptr,
 
 	if(!td || !sptr) goto cb_failed;
 
-	tmper = td->op->jer_encoder(td, sptr, 0, jer_flags, cb, app_key);
+	tmper = td->op->jer_encoder(td, constraints, sptr, 0, jer_flags, cb, app_key);
 	if(tmper.encoded == -1) return tmper;
 	er.encoded += tmper.encoded;
 
@@ -49,7 +49,7 @@ jer_fprint(FILE *stream, const asn_TYPE_descriptor_t *td, const void *sptr) {
 	if(!td || !sptr)
 		return -1;
 
-	er = jer_encode(td, sptr, JER_F, jer__print2fp, stream);
+	er = jer_encode(td, 0, sptr, JER_F, jer__print2fp, stream);
 	if(er.encoded == -1)
 		return -1;
 

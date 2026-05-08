@@ -443,7 +443,7 @@ asn_encode_internal(const asn_codec_ctx_t *opt_codec_ctx,
         /* Fall through. */
     case ATS_JER:
         if(td->op->jer_encoder) {
-            er = jer_encode(td, sptr, jer_flags, callback, callback_key);
+            er = jer_encode(td, 0, sptr, jer_flags, callback, callback_key);
             if(er.encoded == -1) {
                 if(er.failed_type && er.failed_type->op->jer_encoder) {
                     errno = EBADF;   /* Structure has incorrect form. */
@@ -546,7 +546,7 @@ asn_decode(const asn_codec_ctx_t *opt_codec_ctx,
     case ATS_JER:
     case ATS_JER_MINIFIED:
 #if !defined(ASN_DISABLE_JER_SUPPORT)
-        return jer_decode(opt_codec_ctx, td, sptr, buffer, size);
+        return jer_decode(opt_codec_ctx, td, 0, sptr, buffer, size);
 #else
         errno = ENOENT;
         ASN__DECODE_FAILED;

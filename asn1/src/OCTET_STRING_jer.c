@@ -4,11 +4,12 @@
  * Redistribution and modifications are permitted subject to BSD license.
  */
 #include "asn_internal.h"
+#include "jer_support.h"
 #include "OCTET_STRING.h"
 #include "BIT_STRING.h"  /* for .bits_unused member */
 
 asn_enc_rval_t
-OCTET_STRING_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr,
+OCTET_STRING_encode_jer(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr,
                         int ilevel, enum jer_encoder_flags_e flags,
                         asn_app_consume_bytes_f *cb, void *app_key) {
     const char * const h2c = "0123456789ABCDEF";
@@ -155,7 +156,7 @@ OCTET_STRING__handle_control_chars(void *struct_ptr, const void *chunk_buf, size
 }
 
 asn_enc_rval_t
-OCTET_STRING_encode_jer_utf8(const asn_TYPE_descriptor_t *td, const void *sptr,
+OCTET_STRING_encode_jer_utf8(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr,
                              int ilevel, enum jer_encoder_flags_e flags,
                              asn_app_consume_bytes_f *cb, void *app_key) {
     const OCTET_STRING_t *st = (const OCTET_STRING_t *)sptr;
@@ -495,7 +496,7 @@ OCTET_STRING__convert_entrefs(void *sptr, const void *chunk_buf,
  */
 static asn_dec_rval_t
 OCTET_STRING__decode_jer(
-    const asn_codec_ctx_t *opt_codec_ctx, const asn_TYPE_descriptor_t *td,
+    const asn_codec_ctx_t *opt_codec_ctx, const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints,
     void **sptr, const void *buf_ptr, size_t size,
     int (*opt_unexpected_tag_decoder)(void *struct_ptr, const void *chunk_buf,
                                       size_t chunk_size),
@@ -554,9 +555,9 @@ sta_failed:
  */
 asn_dec_rval_t
 OCTET_STRING_decode_jer_hex(const asn_codec_ctx_t *opt_codec_ctx,
-                            const asn_TYPE_descriptor_t *td, void **sptr,
+                            const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, void **sptr,
                             const void *buf_ptr, size_t size) {
-    return OCTET_STRING__decode_jer(opt_codec_ctx, td, sptr,
+    return OCTET_STRING__decode_jer(opt_codec_ctx, td, constraints, sptr,
                                     buf_ptr, size, 0,
                                     OCTET_STRING__convert_hexadecimal);
 }
@@ -566,9 +567,9 @@ OCTET_STRING_decode_jer_hex(const asn_codec_ctx_t *opt_codec_ctx,
  */
 asn_dec_rval_t
 OCTET_STRING_decode_jer_utf8(const asn_codec_ctx_t *opt_codec_ctx,
-                             const asn_TYPE_descriptor_t *td, void **sptr,
+                             const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, void **sptr,
                              const void *buf_ptr, size_t size) {
-    return OCTET_STRING__decode_jer(opt_codec_ctx, td, sptr,
+    return OCTET_STRING__decode_jer(opt_codec_ctx, td, constraints, sptr,
                                     buf_ptr, size,
                                     OCTET_STRING__handle_control_chars,
                                     OCTET_STRING__convert_entrefs);

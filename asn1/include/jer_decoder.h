@@ -6,6 +6,7 @@
 #define	_JER_DECODER_H_
 
 #include "asn_application.h"
+#include "jer_support.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,6 +21,7 @@ struct asn_TYPE_descriptor_s;	/* Forward declaration */
 asn_dec_rval_t jer_decode(
     const struct asn_codec_ctx_s *opt_codec_ctx,
     const struct asn_TYPE_descriptor_s *type_descriptor,
+    const struct asn_jer_constraints_s *constraints,
     void **struct_ptr,  /* Pointer to a target structure's pointer */
     const void *buffer, /* Data to be decoded */
     size_t size         /* Size of data buffer */
@@ -30,7 +32,9 @@ asn_dec_rval_t jer_decode(
  */
 typedef asn_dec_rval_t(jer_type_decoder_f)(
     const asn_codec_ctx_t *opt_codec_ctx,
-    const struct asn_TYPE_descriptor_s *type_descriptor, void **struct_ptr,
+    const struct asn_TYPE_descriptor_s *type_descriptor,
+    const asn_jer_constraints_t *constraints,
+    void **struct_ptr,
     const void *buf_ptr, size_t size);
 
 /*******************************

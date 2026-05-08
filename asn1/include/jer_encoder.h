@@ -6,6 +6,7 @@
 #define	_JER_ENCODER_H_
 
 #include "asn_application.h"
+#include "jer_support.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,6 +28,7 @@ enum jer_encoder_flags_e {
  * Produces JER output.
  */
 asn_enc_rval_t jer_encode(const struct asn_TYPE_descriptor_s *type_descriptor,
+                        const struct asn_jer_constraints_s *constraints,
                           const void *struct_ptr, /* Structure to be encoded */
                           enum jer_encoder_flags_e jer_flags,
                           asn_app_consume_bytes_f *consume_bytes_cb,
@@ -71,6 +73,7 @@ enum jer_equivalence_e jer_equivalent(
  */
 typedef asn_enc_rval_t(jer_type_encoder_f)(
     const struct asn_TYPE_descriptor_s *type_descriptor,
+    const struct asn_jer_constraints_s *constraints,
     const void *struct_ptr, /* Structure to be encoded */
     int ilevel,             /* Level of indentation */
     enum jer_encoder_flags_e jer_flags,

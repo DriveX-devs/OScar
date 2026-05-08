@@ -4,6 +4,7 @@
  * Redistribution and modifications are permitted subject to BSD license.
  */
 #include "asn_internal.h"
+#include "jer_support.h"
 #include "constr_SET_OF.h"
 
 /*
@@ -31,7 +32,7 @@
  */
 asn_dec_rval_t
 SET_OF_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
-                  const asn_TYPE_descriptor_t *td, void **struct_ptr,
+                  const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, void **struct_ptr,
                   const void *buf_ptr, size_t size) {
     /*
      * Bring closer parts of structure description.
@@ -83,6 +84,7 @@ SET_OF_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
                     (*element->name) ? element->name : element->type->xml_tag);
             tmprval = element->type->op->jer_decoder(opt_codec_ctx,
                                                      element->type,
+                                                     0,
                                                      &ctx->ptr,
                                                      buf_ptr, size);
             if(tmprval.code == RC_OK) {
@@ -172,7 +174,7 @@ SET_OF_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
 }
 
 asn_enc_rval_t
-SET_OF_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr, int ilevel,
+SET_OF_encode_jer(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr, int ilevel,
                   enum jer_encoder_flags_e flags, asn_app_consume_bytes_f *cb,
                   void *app_key) {
     asn_enc_rval_t er = {0,0,0};
@@ -194,7 +196,7 @@ SET_OF_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr, int ilevel,
         if(!memb_ptr) continue;
 
         if(!jmin) ASN__TEXT_INDENT(1, ilevel + 1);
-        tmper = elm->type->op->jer_encoder(elm->type, memb_ptr,
+        tmper = elm->type->op->jer_encoder(elm->type, constraints, memb_ptr,
                                            ilevel + (specs->as_XMLValueList != 2),
                                            flags, cb, app_key);
         if(tmper.encoded == -1) return tmper;

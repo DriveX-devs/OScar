@@ -8,7 +8,7 @@
 #include "asn_SEQUENCE_OF.h"
 
 asn_enc_rval_t
-SEQUENCE_OF_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr,
+SEQUENCE_OF_encode_jer(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr,
                        int ilevel, enum jer_encoder_flags_e flags,
                        asn_app_consume_bytes_f *cb, void *app_key) {
     asn_enc_rval_t er = {0,0,0};
@@ -29,7 +29,7 @@ SEQUENCE_OF_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr,
         if(!memb_ptr) continue;
 
         if(!jmin) ASN__TEXT_INDENT(1, ilevel + 1);
-        tmper = elm->type->op->jer_encoder(elm->type, memb_ptr, ilevel + 1,
+        tmper = elm->type->op->jer_encoder(elm->type, constraints, memb_ptr, ilevel + 1,
                                            flags, cb, app_key);
         if(tmper.encoded == -1) return tmper;
         er.encoded += tmper.encoded;

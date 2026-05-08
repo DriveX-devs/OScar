@@ -12,7 +12,7 @@
  */
 asn_dec_rval_t
 jer_decode(const asn_codec_ctx_t *opt_codec_ctx,
-           const asn_TYPE_descriptor_t *td, void **struct_ptr,
+           const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints,  void **struct_ptr,
            const void *buffer, size_t size) {
     asn_codec_ctx_t s_codec_ctx;
 
@@ -35,7 +35,7 @@ jer_decode(const asn_codec_ctx_t *opt_codec_ctx,
 	/*
 	 * Invoke type-specific decoder.
 	 */
-	return td->op->jer_decoder(opt_codec_ctx, td, struct_ptr, buffer, size);
+	return td->op->jer_decoder(opt_codec_ctx, td, constraints, struct_ptr, buffer, size);
 }
 
 
