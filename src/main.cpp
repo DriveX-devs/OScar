@@ -19,6 +19,8 @@
 #include "VRUBasicService.h"
 // CP service
 #include "cpBasicService.h"
+// MC Service
+#include "mcBasicService.h"
 // Rx loop
 #include "SocketClient.h"
 // Sensor reader
@@ -247,7 +249,8 @@ void CAMtxThr(
         bool force_20Hz_freq,
         bool force_10Hz_freq,
         CABasicService* cabs,
-        btp* BTP
+        btp* BTP,
+        StationType_t ego_station_type
     ) {
     pthread_setname_np(pthread_self(), "CAM_tx_thr");
 
@@ -288,7 +291,7 @@ void CAMtxThr(
             std::cout << "[INFO] CAM Dissemination started!" << std::endl;
         
             cabs->setBTP(BTP);
-            cabs->setStationProperties(vehicleID, StationType_passengerCar);
+            cabs->setStationProperties(vehicleID, ego_station_type);
             cabs->setVDP(vdpgpsc);
             cabs->setLDM(db_ptr);
 
@@ -331,7 +334,8 @@ void CPMtxThr(
             bool disable_cpm_speed_triggering,
             bool verbose,
             CPBasicService* cpbs,
-            btp* BTP
+            btp* BTP,
+            StationType_t ego_station_type
         ) {
     pthread_setname_np(pthread_self(), "CPM_tx_thr");
     bool m_retry_flag=false;
@@ -342,7 +346,7 @@ void CPMtxThr(
             std::cout << "[INFO] CPM Dissemination started!" << std::endl;
             
             cpbs->setBTP(BTP);
-            cpbs->setStationProperties(vehicleID, StationType_passengerCar);
+            cpbs->setStationProperties(vehicleID, ego_station_type);
             cpbs->setVDP(vdpgpsc);
             cpbs->setLDM(db_ptr);
             cpbs->setVerbose(verbose);
@@ -378,7 +382,8 @@ void VAMtxThr(VDPGPSClient* vrudp,
               bool force_20Hz_freq,
               bool force_10Hz_freq,
               VRUBasicService* vrubs,
-              btp* BTP
+              btp* BTP,
+              StationType_t ego_station_type
         ) {
     pthread_setname_np(pthread_self(), "VAM_tx_thr");
     bool m_retry_flag=false;
@@ -393,6 +398,7 @@ void VAMtxThr(VDPGPSClient* vrudp,
             }
 
             vrubs->setBTP(BTP);
+            vrubs->setStationProperties(vehicleID, ego_station_type);
             vrubs->setVRUdp(vrudp);
             vrubs->setLDM(db_ptr);
 
@@ -678,6 +684,9 @@ int main (int argc, char *argv[]) {
     bool enable_DENM_tx = false;
     int DENMs_priority = 2;
     bool enable_DENM_decoding = false;
+    bool enable_MCM_tx = false;
+    int MCMs_priority = 2;
+    bool enable_MCM_decoding = false;
     bool enable_reception = false;
     bool disable_selfMAC_check = false;
     bool enable_sensor_classification = false;
@@ -725,7 +734,7 @@ int main (int argc, char *argv[]) {
     bool force_10Hz_freq = false;
 
     // Ego station type; it is set to passenger car if CAMs are activated, and to pedestrian if VAMs are activated
-    StationType_t ego_station_type = StationType_passengerCar;
+    StationType_t ego_station_type;
 
     // Flag that is set to true when using a pre-recorded JSON trace, recorded with TRACEN-X (https://github.com/DriveX-devs/TRACEN-X)
     // instead of reading from a real serial device, when the serial parser is used to get positioning+IMU data via NMEA+UBX
@@ -774,6 +783,9 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg CAMsDissArg("C", "enable-CAMs-dissemination", "Enable the dissemination of standard CAMs",
                                      false);
         cmd.add(CAMsDissArg);
+
+        TCLAP::ValueArg<long> StationType("", "station-type", "Set the Station Type",false, StationType_passengerCar, "long");
+        cmd.add(StationType);
 
         TCLAP::ValueArg<int> CAMsPriority("", "CAMs-priority", "Set the queue priority for CAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
                                      false, 0, "integer");
@@ -987,6 +999,13 @@ int main (int argc, char *argv[]) {
                                            false, 2, "int");
         cmd.add(DENMsPriority);
 
+        TCLAP::SwitchArg MCMsTxArg("", "enable-MCMs-tx", "Enable MCM transmission via JSON API", false);
+        cmd.add(MCMsTxArg);
+
+        TCLAP::ValueArg<int> MCMsPriority("", "MCMs-priority", "Set the queue priority for MCMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 3.",
+                                           false, 3, "int");
+        cmd.add(MCMsPriority);
+
         TCLAP::ValueArg<int> ShowDebugAgeInfo("", "show-live-data",
                                               "[Considered only if -g is not specified] When activated, OScar will show, while it is running, the live data obtained from the GNSS system, together with the age of each piece of information (how old it is with respect to when it was last retrieved). After the option, an update interval in milliseconds should be specified. This will be the frequency at which the live data will be displayed.",
                                               false, 0, "integer");
@@ -1096,6 +1115,8 @@ int main (int argc, char *argv[]) {
 
         dissem_vif = vifName.getValue();
 
+        ego_station_type = StationType.getValue();
+
         log_filename_CAM = LogfileCAM.getValue();
         log_filename_GNsecurity = LogfileGNsecurity.getValue();
         log_filename_VAM = LogfileVAM.getValue();
@@ -1121,6 +1142,8 @@ int main (int argc, char *argv[]) {
         enable_security = SecurityArg.getValue();
         enable_DENM_tx = DENMsTxArg.getValue();
         DENMs_priority = DENMsPriority.getValue();
+        enable_MCM_tx = MCMsTxArg.getValue();
+        MCMs_priority = MCMsPriority.getValue();
 
         if (CAMs_priority < 0 || CAMs_priority > 3) {
             std::cerr << "[ERROR] CAMs priority for DCC is out of range [0, 3]." << std::endl;
@@ -1139,6 +1162,11 @@ int main (int argc, char *argv[]) {
 
         if (DENMs_priority < 0 || DENMs_priority > 3) {
             std::cerr << "[ERROR] DENMs priority for DCC is out of range [0, 3]." << std::endl;
+            return 1;
+        }
+
+        if (MCMs_priority < 0 || MCMs_priority > 3) {
+            std::cerr << "[ERROR] MCMs priority for DCC is out of range [0, 3]." << std::endl;
             return 1;
         }
 
@@ -1184,9 +1212,9 @@ int main (int argc, char *argv[]) {
         }
 
         // Set the ego station type -> if CAMs are enabled, set it to passenger car, otherwise to pedestrian
-        if (enable_CAM_dissemination) {
-            ego_station_type = StationType_passengerCar;
-        } else {
+        if (enable_VAM_dissemination && ego_station_type != StationType_pedestrian)
+        {
+            std::cerr << "[WARN] VAM dissemination enabled but station type is not pedestrian. Switching station type to pedestrian." << std::endl;
             ego_station_type = StationType_pedestrian;
         }
 
@@ -1614,9 +1642,16 @@ int main (int argc, char *argv[]) {
     DENBasicService denbs;
     DENBasicService *denbs_ptr = &denbs;
     if (enable_DENM_tx) {
-        denbs.setStationProperties(vehicleID, StationType_passengerCar);
+        denbs.setStationProperties(vehicleID, ego_station_type);
         // TODO: implement MetricSupervisor support for DEN Service
         // denbs.setMetricSupervisor(&metric_supervisor);
+    }
+
+    MCBasicService mcbs;
+    MCBasicService *mcbs_ptr = &mcbs;
+    if (enable_MCM_tx) {
+        mcbs.setStationProperties(vehicleID, ego_station_type);
+        mcbs_ptr->setMetricSupervisor(&metric_supervisor);
     }
 
     DCC *dcc = new DCC();
@@ -1641,6 +1676,7 @@ int main (int argc, char *argv[]) {
         /*if(enable_DENM_decoding) {
             dens.setPriority(DENMs_priority);
         } */
+       // TODO: implement MCM priority for DCC
     }
     else
     {
@@ -1671,7 +1707,7 @@ int main (int argc, char *argv[]) {
 
     if (enable_CAM_dissemination || enable_CPM_dissemination)
     {
-        GN.setStationProperties(vehicleID, StationType_passengerCar);
+        // GN.setStationProperties(vehicleID, ego_station_type); Already done by BTP
         GN.setVDP(vdpgpsc);
         if (enable_CAM_dissemination)
         {
@@ -1706,7 +1742,7 @@ int main (int argc, char *argv[]) {
     }
     else if (enable_VAM_dissemination)
     {
-        GN.setStationProperties(vehicleID, StationType_pedestrian);
+        // GN.setStationProperties(vehicleID, ego_station_type); Already done by BTP
         GN.setVRUdp(vdpgpsc);
         int vam_cnt_test=0;
         while (true) {
@@ -1752,6 +1788,9 @@ int main (int argc, char *argv[]) {
 
     btp BTP;
     BTP.setGeoNet(&GN);
+    if (ego_station_type != StationType_roadSideUnit) BTP.setStationProperties(vehicleID,ego_station_type);
+    // TODO lat lon
+    else BTP.setStationProperties(vehicleID,ego_station_type, 0, 0);
     if (enable_CAM_dissemination)
     {
         BTP.setVDP(vdpgpsc);
@@ -1778,7 +1817,8 @@ int main (int argc, char *argv[]) {
                                force_20Hz_freq,
                                force_10Hz_freq,
                                &cabs,
-                               &BTP
+                               &BTP,
+                               ego_station_type
                             );
     }
     if(enable_VAM_dissemination) {
@@ -1793,7 +1833,8 @@ int main (int argc, char *argv[]) {
                                force_20Hz_freq,
                                force_10Hz_freq,
                                &vrubs,
-                               &BTP
+                               &BTP,
+                               ego_station_type
                             );
     }
     if(enable_CPM_dissemination) {
@@ -1806,7 +1847,8 @@ int main (int argc, char *argv[]) {
                                disable_cpm_speed_triggering,
                                verbose,
                                &cpbs,
-                               &BTP
+                               &BTP,
+                               ego_station_type
                             );
     }
     if (enable_DENM_tx) {
@@ -1814,6 +1856,12 @@ int main (int argc, char *argv[]) {
         denbs.setVDP(vdpgpsc);
 
         std::cout << "[INFO] DEN service configure, ready to send messages!" << std::endl;
+    }
+    if (enable_MCM_tx) {
+        mcbs.setBTP(&BTP);
+        mcbs.setVDP(vdpgpsc);
+
+        std::cout << "[INFO] MCM service configure, ready to send messages!" << std::endl;
     }
     if (can_device != "none") {
         txThreads.emplace_back(radarReaderThr,
@@ -1887,6 +1935,10 @@ int main (int argc, char *argv[]) {
 
 		    if (enable_DENM_tx) {
                 jsonsrv.setDENService(denbs_ptr);
+		    }
+
+            if (enable_MCM_tx) {
+                jsonsrv.setMCService(mcbs_ptr);
 		    }
 
 			jsonsrv.setServerPort(json_over_tcp_port);

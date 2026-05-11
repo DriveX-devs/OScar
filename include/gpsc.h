@@ -73,7 +73,24 @@ class VDPGPSClient {
         long int speedCheck;
     } CAM_conditions_data_t;
 
-        typedef struct CPM_mandatory_data {
+    typedef struct MCM_mandatory_data {
+			bool avail;
+	        VDPValueConfidence<> speed;
+	        long longitude;
+	        long latitude;
+	        VDPValueConfidence<> altitude;
+	        VDP_PosConfidenceEllipse_t posConfidenceEllipse;
+	        VDPValueConfidence<> longAcceleration;
+	        VDPValueConfidence<> heading;
+	        int driveDirection; // enum
+	        VDPValueConfidence<> curvature;
+	        int curvature_calculation_mode; // enum
+	        VDPValueConfidence<long,long> VehicleLength;
+	        int VehicleWidth;
+	        VDPValueConfidence<> yawRate;
+      	} MCM_mandatory_data_t;
+
+    typedef struct CPM_mandatory_data {
             bool avail;
             VDPValueConfidence<> speed;
             long longitude;
@@ -129,6 +146,8 @@ class VDPGPSClient {
 		CAM_mandatory_data_t getCAMMandatoryData();
 
         CAM_conditions_data getCAMConditionsData();
+
+        MCM_mandatory_data_t getMCMMandatoryData();
 
         // Function to retrieve the mandatory data for CPM messages
         CPM_mandatory_data_t getCPMMandatoryData();

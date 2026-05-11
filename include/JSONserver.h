@@ -5,6 +5,7 @@
 #include <atomic>
 #include "json11.h"
 #include "denBasicService.h"
+#include "mcBasicService.h"
 #include "LDMmap.h" 
 
 class JSONserver {
@@ -39,6 +40,8 @@ class JSONserver {
 
 		void setDENService(DENBasicService *debns_ptr) {m_den_service = debns_ptr;}
 
+		void setMCService(MCBasicService *mcbs_ptr) {m_mc_service = mcbs_ptr;}
+
 		json11::Json::object handleRequest(const json11::Json &request);
 		json11::Json::object handleDENMRequest(const json11::Json &request);
 	private:
@@ -63,6 +66,7 @@ class JSONserver {
 		double m_range_m;
 		ldmmap::LDMMap *m_db_ptr;
 		DENBasicService *m_den_service;
+		MCBasicService *m_mc_service;
 		long m_port;
 		std::atomic<bool> m_thread_running;
 

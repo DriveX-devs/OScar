@@ -1572,6 +1572,280 @@ VDPGPSClient::getCAMConditionsData()
     return CAMdata;
 }
 
+// This function returns the main kinematic data to be inserted into CAM messages in ETSI units
+VDPGPSClient::MCM_mandatory_data_t
+VDPGPSClient::getMCMMandatoryData() {
+	MCM_mandatory_data_t MCMdata={.avail=false};
+
+    if(m_use_gpsd==true) {
+        int rval;
+
+        rval = gps_read(&m_gps_data, nullptr, 0);
+
+        if (rval == -1) {
+            throw std::runtime_error("Cannot read data from GNSS device: " + std::string(gps_errstr(rval)));
+        } else {
+            // Check if the mode is set and if a fix has been obtained
+            if ((m_gps_data.set & MODE_SET) == MODE_SET) { // && GPSSTATUS(m_gps_data)!=STATUS_NO_FIX) {
+                if (m_gps_data.fix.mode == MODE_2D || m_gps_data.fix.mode == MODE_3D) {
+                    /* Speed [0.01 m/s] */
+                    MCMdata.speed = VDPValueConfidence<>(m_gps_data.fix.speed * CENTI, SpeedConfidence_unavailable);
+
+                    /* Latitude WGS84 [0,1 microdegree] */
+                    MCMdata.latitude = (Latitude_t) (m_gps_data.fix.latitude * DOT_ONE_MICRO);
+                    /* Longitude WGS84 [0,1 microdegree] */
+                    MCMdata.longitude = (Longitude_t) (m_gps_data.fix.longitude * DOT_ONE_MICRO);
+
+                    int asnAltitudeValue = static_cast<int>(m_gps_data.fix.altitude * CENTI);
+                    /* Altitude [0,01 m] */
+                    if (m_gps_data.fix.mode == MODE_3D && asnAltitudeValue >= -100000 && asnAltitudeValue <= 800000) {
+                        MCMdata.altitude = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.altitude * CENTI),
+                                                                AltitudeConfidence_unavailable);
+                    } else {
+                        MCMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable,
+                                                                AltitudeConfidence_unavailable);
+                    }
+
+                    /* Position Confidence Ellipse */
+                    MCMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+                    MCMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+                    MCMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+
+                    /* Longitudinal acceleration [0.1 m/s^2] */
+                    MCMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,
+                                                                    AccelerationConfidence_unavailable);
+
+                    /* Heading WGS84 north [0.1 degree] - m_gps_data.fix.track should already provide a CW heading relative to North */
+                    if (static_cast<int>(m_gps_data.fix.track * DECI) < 0 ||
+                        static_cast<int>(m_gps_data.fix.track * DECI) > 3601) {
+                        MCMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+                    } else {
+                        MCMdata.heading = VDPValueConfidence<>(static_cast<int>(m_gps_data.fix.track * DECI),
+                                                               HeadingConfidence_unavailable);
+                    }
+
+                    /* Drive direction (backward driving is not fully supported by SUMO, at the moment */
+                    MCMdata.driveDirection = DriveDirection_unavailable;
+
+                    /* Curvature and CurvatureCalculationMode */
+                    MCMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable,
+                                                             CurvatureConfidence_unavailable);
+                    MCMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
+
+                    /* Length and Width [0.1 m] */
+                    MCMdata.VehicleLength = m_vehicle_length;
+                    MCMdata.VehicleWidth = m_vehicle_width;
+
+                    /* Yaw Rate */
+                    MCMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+
+                    /* This flag represents an easy way to understand if it was possible to read any valid data from the GNSS device */
+                    MCMdata.avail = true;
+                }
+            } else {
+                // Set everything to unavailable as no fix was possible (i.e., the resulting MCM will not be so useful...)
+
+                /* Speed [0.01 m/s] */
+                MCMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+
+                /* Latitude WGS84 [0,1 microdegree] */
+                MCMdata.latitude = (Latitude_t) Latitude_unavailable;
+                /* Longitude WGS84 [0,1 microdegree] */
+                MCMdata.longitude = (Longitude_t) Longitude_unavailable;
+
+                /* Altitude [0,01 m] */
+                MCMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+
+                /* Position Confidence Ellipse */
+                MCMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+                MCMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+                MCMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+
+                /* Longitudinal acceleration [0.1 m/s^2] */
+                MCMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,
+                                                                AccelerationConfidence_unavailable);
+
+                /* Heading WGS84 north [0.1 degree] */
+                MCMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+
+                /* Drive direction (backward driving is not fully supported by SUMO, at the moment */
+                MCMdata.driveDirection = DriveDirection_unavailable;
+
+                /* Curvature and CurvatureCalculationMode */
+                MCMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);
+                MCMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
+
+                /* Length and Width [0.1 m] */
+                // These can be set even in absence of a GPS fix
+                MCMdata.VehicleLength = m_vehicle_length;
+                MCMdata.VehicleWidth = m_vehicle_width;
+
+                /* Yaw Rate */
+                MCMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+
+                MCMdata.avail = false;
+            }
+        }
+    } else {
+        std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
+        std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
+        // If there is no fix set all the information as unavailable
+        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+            fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
+            fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
+
+            if (m_serialParserPtr->getSpeedValidity(false) > 0) {
+
+                double speed = m_serialParserPtr->getSpeed(nullptr, false);
+                if (speed >= 0 && speed <= 163.82) {
+                    MCMdata.speed = VDPValueConfidence<>(speed * CENTI, SpeedConfidence_unavailable);
+                }
+                else {
+                    MCMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+                }
+
+            } else MCMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+
+            long pos_age = -1;
+            double longitude = Latitude_unavailable;
+            double latitude = Longitude_unavailable;
+
+            // TODO: this can be potentially merged into a single block of code managing both latitude and longitude
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
+                MCMdata.latitude = (Latitude_t) (position.first * DOT_ONE_MICRO);
+                latitude = position.first;
+            } else {
+                MCMdata.latitude = (Latitude_t) Latitude_unavailable;
+            }
+
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
+                std::pair<double, double> position = m_serialParserPtr->getPosition(&pos_age, false);
+                MCMdata.longitude = (Longitude_t) (position.second * DOT_ONE_MICRO);
+                longitude = position.second;
+            } else {
+                MCMdata.longitude = (Longitude_t) Longitude_unavailable;
+            }
+
+            if (m_serialParserPtr->getAltitudeValidity(false) == true) {
+                double altitude = m_serialParserPtr->getAltitude(nullptr, false);
+                if (altitude * CENTI >= -100000 && altitude * CENTI <= 800000) {
+                    MCMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
+                } else {
+                    MCMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+                }
+            } else {
+                MCMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+            }
+
+            MCMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+            MCMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+            MCMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+
+            if (m_serialParserPtr->getAccelerationsValidity(false) == true) {
+                double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);
+                if (long_acc >= -16 && long_acc <= 16) {
+                    //CAMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+                    MCMdata.longAcceleration = VDPValueConfidence<>(long_acc * DECI, AccelerationConfidence_unavailable);
+                } else {
+                    MCMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+                }
+            } else {
+                MCMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,AccelerationConfidence_unavailable);
+            }
+
+            if (m_serialParserPtr->getCourseOverGroundValidity(false) > 0) {
+                double heading = m_serialParserPtr->getCourseOverGround(nullptr, false);
+                if (static_cast<int>(heading * DECI) < 0 || static_cast<int>(heading * DECI) > 3601) {
+                    MCMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+                } else {
+                    MCMdata.heading = VDPValueConfidence<>(heading * DECI, HeadingConfidence_unavailable);
+                }
+
+            } else {
+                MCMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+            }
+
+            // Set some data that we are not parsing yet as unavailable
+            MCMdata.driveDirection = DriveDirection_unavailable;
+            MCMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);
+            MCMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
+            MCMdata.VehicleLength = m_vehicle_length;
+            MCMdata.VehicleWidth = m_vehicle_width;
+
+            if (m_serialParserPtr->getYawRateValidity(false) == true) {
+                double yaw_rate = m_serialParserPtr->getYawRate(nullptr, false);
+
+                if (yaw_rate >= -327.66 && yaw_rate <= 327.66) {
+                    MCMdata.yawRate = VDPValueConfidence<>(yaw_rate * CENTI, YawRateConfidence_unavailable);
+                }
+                else {
+                    MCMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+                }
+            }
+            else {
+                MCMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+            }
+
+            MCMdata.avail = true;
+
+            // Compute the delta position considering the speed, heading and the pos age
+            // This part performs the data interpolation, to get updated positioning information even when the GNSS receiver
+            // has a low update rate (< 10 Hz)
+            // This interpolation is done all the times for the time being
+            if (MCMdata.avail == true && (MCMdata.latitude!=Latitude_unavailable && MCMdata.longitude!=Longitude_unavailable)) {
+                double delta_x = 0.0;
+                double delta_y = 0.0;
+                double gammar=0,kr=0;
+
+                if (MCMdata.speed.getValue() != SpeedValue_unavailable && MCMdata.heading.getValue() != HeadingValue_unavailable) {
+                    double speed = MCMdata.speed.getValue() / CENTI; // [m/s]
+                    double heading = MCMdata.heading.getValue() / DECI; // [degrees]
+                    heading = DEG_2_RAD_BSR_2((90-heading));
+
+                    // Compute the delta position
+                    double delta_t = pos_age / 1000000.0; // [s]
+                    delta_x = speed * delta_t * sin(heading);
+                    delta_y = speed * delta_t * cos(heading);
+                }
+
+                // Update the position
+                transverse_mercator_t tmerc = UTMUPS_init_UTM_TransverseMercator();
+                double lat1, lon1, ego_x, ego_y;
+                TransverseMercator_Forward(&tmerc, longitude, latitude, longitude, &ego_x, &ego_y, &gammar, &kr);
+                ego_x += delta_x;
+                ego_y += delta_y;
+                TransverseMercator_Reverse(&tmerc, longitude, ego_x, ego_y, &lat1, &lon1, &gammar, &kr);
+
+                MCMdata.latitude = (Latitude_t) (lat1 * DOT_ONE_MICRO);
+                MCMdata.longitude = (Longitude_t) (lon1 * DOT_ONE_MICRO);
+            }
+        }
+        else {
+            // Set everything to unavailable as no fix was possible (i.e., the resulting CAM will not be so useful...)
+            MCMdata.speed = VDPValueConfidence<>(SpeedValue_unavailable, SpeedConfidence_unavailable);
+            MCMdata.latitude = (Latitude_t) Latitude_unavailable;
+            MCMdata.longitude = (Longitude_t) Longitude_unavailable;
+            MCMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
+            MCMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+            MCMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+            MCMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+            MCMdata.longAcceleration = VDPValueConfidence<>(AccelerationValue_unavailable,
+                                                            AccelerationConfidence_unavailable);
+            MCMdata.heading = VDPValueConfidence<>(HeadingValue_unavailable, HeadingConfidence_unavailable);
+            MCMdata.driveDirection = DriveDirection_unavailable;
+            MCMdata.curvature = VDPValueConfidence<>(CurvatureValue_unavailable, CurvatureConfidence_unavailable);
+            MCMdata.curvature_calculation_mode = CurvatureCalculationMode_unavailable;
+            MCMdata.VehicleLength = m_vehicle_length;
+            MCMdata.VehicleWidth = m_vehicle_width;
+            MCMdata.yawRate = VDPValueConfidence<>(YawRateValue_unavailable, YawRateConfidence_unavailable);
+            MCMdata.avail = false;
+        }
+    }
+
+    return MCMdata;
+}
+
 // This function returns the main kinematic data to be inserted into CPM messages in ETSI units
 VDPGPSClient::CPM_mandatory_data_t VDPGPSClient::getCPMMandatoryData() {
     CPM_mandatory_data_t CPMdata={.avail=false};

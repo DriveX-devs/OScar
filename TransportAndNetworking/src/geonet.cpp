@@ -14,6 +14,7 @@
 #include "functional"
 #include "geonet.h"
 #include "gn_utils.h"
+#include "gpsc.h"
 
 #define IEEE80211_DATA_PKT_HDR_LEN 24
 #ifndef IEEE80211_FCS_LEN 
@@ -53,11 +54,13 @@ GeoNet::~GeoNet() {
 }
 
 void
-GeoNet::setStationProperties(unsigned long fixed_stationid,long fixed_stationtype) {
+GeoNet::setStationProperties(unsigned long fixed_stationid,long fixed_stationtype,double RSU_lat,double RSU_lon) {
 	m_station_id=fixed_stationid;
 	m_stationtype=fixed_stationtype;
 
 	if(fixed_stationtype==StationType_roadSideUnit) {
+		m_RSU_lat = RSU_lat;
+		m_RSU_lon = RSU_lon;
 		m_GnIsMobile=false;
 	}
 
@@ -256,7 +259,7 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		longPV.positionAccuracy = false;
 		longPV.speed = (int16_t) m_vrudp->getPedSpeedValue()*CENTI; // [m/s] to [0.01 m/s]
 		longPV.heading = (uint16_t) m_vrudp->getPedHeadingValue()*DECI;// [degrees] to [0.1 degrees]
-	} else{
+	} else if (m_stationtype == StationType_passengerCar) {
 		std::pair<double,double> POS_EPV_pair = m_vdp->getCurrentPositionDbl();
         // TODO: manage the case in which unavailable values are returned by getCurrentPositionDbl() (e.g., when the serial stram is stopped and the serial parser is no more able to provide positioning data)
 		longPV.latitude = (int32_t) (POS_EPV_pair.first*DOT_ONE_MICRO);
@@ -264,6 +267,13 @@ GeoNet::sendGN (GNDataRequest_t dataRequest, int priority, MessageId_t message_i
 		longPV.positionAccuracy = false;
 		longPV.speed = (int16_t) m_vdp->getSpeedValueDbl()*CENTI; // [m/s] to [0.01 m/s]
 		longPV.heading = (uint16_t) m_vdp->getHeadingValueDbl()*DECI;// [degrees] to [0.1 degrees]
+	} else if (m_stationtype == StationType_roadSideUnit)
+	{
+		longPV.latitude = (int32_t) (m_RSU_lat*DOT_ONE_MICRO);
+		longPV.longitude = (int32_t) (m_RSU_lon*DOT_ONE_MICRO);
+		longPV.positionAccuracy = false;
+		longPV.speed = (int16_t) 0*CENTI; // [m/s] to [0.01 m/s]
+		longPV.heading = (uint16_t) 0*DECI;// [degrees] to [0.1 degrees]
 	}
 
 	std::string use_dcc;

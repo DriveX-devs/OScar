@@ -16,6 +16,7 @@
 #define DEN_PORT 2002
 #define CP_PORT 2009
 #define VA_PORT 2018
+#define MC_PORT 2020
 
 class btp {
     public :
@@ -23,7 +24,7 @@ class btp {
         ~btp();
 
         void setGeoNet(GeoNet* geoNet){m_geonet = geoNet;}
-        void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype) {m_geonet->setStationProperties(fixed_stationid,fixed_stationtype);}
+        void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype,double RSU_lat=0.0,double RSU_lon=0.0) {m_geonet->setStationProperties(fixed_stationid,fixed_stationtype,RSU_lat,RSU_lon);}
         void setStationID(unsigned long fixed_stationid) {m_geonet->setStationID(fixed_stationid);}
         void setStationType(long fixed_stationtype) {m_geonet->setStationType(fixed_stationtype);}
         void setVDP(VDPGPSClient* vdp){m_geonet->setVDP(vdp);}

@@ -64,7 +64,7 @@ class GeoNet {
 
 		~GeoNet();
 
-		void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype);
+		void setStationProperties(unsigned long fixed_stationid,long fixed_stationtype,double RSU_lat=0.0,double RSU_lon=0.0);
 		void setStationID(unsigned long fixed_stationid);
 		void setStationType(long fixed_stationtype);
 		void setVDP(VDPGPSClient* vdp);
@@ -205,7 +205,10 @@ class GeoNet {
         std::shared_mutex m_LocT_Mutex;
         std::map<uint64_t, GNLocTE> m_GNLocT;
 
-		std::mutex m_mutex_log_rx; 
+		std::mutex m_mutex_log_rx;
+
+		double m_RSU_lat;
+		double m_RSU_lon;
 };
 
 #endif // OSCAR_GEONET_H
