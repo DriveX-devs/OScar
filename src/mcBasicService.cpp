@@ -24,36 +24,6 @@
 #include "asn_SEQUENCE_OF.h"
 #include "err.h"
 
-MCSpecification::~MCSpecification()
-{
-  for (auto &adv : m_maneuver_advice)
-    {
-        if (adv != nullptr)
-        {
-            ASN_STRUCT_FREE(asn_DEF_ManoeuvreAdvice, adv);
-        }
-    }
-
-    for (auto &subm : m_submaneuver_description)
-    {
-        if (subm != nullptr)
-        {
-            ASN_STRUCT_FREE(asn_DEF_SubmanoeuvreDescription, subm);
-        }
-    }
-}
-
-bool MCSpecification::checkContainers()
-{
-  int count = m_vehicle_advise_container
-              + m_vehicle_maneuver_container
-              + m_vehicle_acknowledgement_container
-              + m_vehicle_response_container
-              + m_vehicle_terminator_container;
-  return count == 1;
-}
-
-
 MCBasicService::~MCBasicService()=default;
 
 MCBasicService::MCBasicService()
@@ -175,38 +145,37 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
   if(m_vehicle==true)
     {
       asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_vehicle);
-      MCM_mandatory_data = m_vdp->getMCMMandatoryData();
-      asn1cpp::setField(MCM_message->payload.basicContainer.position.latitude, MCM_mandatory_data.latitude);
-      asn1cpp::setField(MCM_message->payload.basicContainer.position.longitude, MCM_mandatory_data.longitude);
-      asn1cpp::setField(MCM_message->payload.basicContainer.position.altitude.altitudeValue, MCM_mandatory_data.altitude.getValue());
-      asn1cpp::setField(MCM_message->payload.basicContainer.position.altitude.altitudeConfidence, MCM_mandatory_data.altitude.getConfidence());
-      asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMajorAxisLength, MCM_mandatory_data.posConfidenceEllipse.semiMajorConfidence);
-      asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMinorAxisLength, MCM_mandatory_data.posConfidenceEllipse.semiMinorConfidence);
-      asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMajorAxisOrientation, MCM_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
-      asn1cpp::setField(MCM_message->payload.basicContainer.mcmType, specification->getMCMType());
-      asn1cpp::setField(MCM_message->payload.basicContainer.manoeuvreId, specification->getManeuverID());
-      asn1cpp::setField(MCM_message->payload.basicContainer.concept, specification->getMCMConcept());
-      
-      auto *rational = (ManoeuvreCoordinationRational_t*)CALLOC(1, sizeof(ManoeuvreCoordinationRational_t));
-      if (specification->getMCMConcept() == 0) {
-          asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationGoal);
-          asn1cpp::setField(rational->choice.manoeuvreCooperationGoal, specification->getMCMGoal());
-        } else {
-          asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationCost);
-          asn1cpp::setField(rational->choice.manoeuvreCooperationCost, specification->getMCMCost());
-        }
-      MCM_message->payload.basicContainer.rational = rational;
-      if (specification->getMCMType() == 4 || specification->getMCMType() == 7)
-        {
-          asn1cpp::setField (MCM_message->payload.basicContainer.executionStatus, specification->getMCMStatus());
-        }
     }
   else
     {
-      /* Fill the basicContainer for RSU*/
       asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_roadsideUnit);
-      // TODO
     }
+  
+    MCM_mandatory_data = m_vdp->getMCMMandatoryData();
+    asn1cpp::setField(MCM_message->payload.basicContainer.position.latitude, MCM_mandatory_data.latitude);
+    asn1cpp::setField(MCM_message->payload.basicContainer.position.longitude, MCM_mandatory_data.longitude);
+    asn1cpp::setField(MCM_message->payload.basicContainer.position.altitude.altitudeValue, MCM_mandatory_data.altitude.getValue());
+    asn1cpp::setField(MCM_message->payload.basicContainer.position.altitude.altitudeConfidence, MCM_mandatory_data.altitude.getConfidence());
+    asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMajorAxisLength, MCM_mandatory_data.posConfidenceEllipse.semiMajorConfidence);
+    asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMinorAxisLength, MCM_mandatory_data.posConfidenceEllipse.semiMinorConfidence);
+    asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMajorAxisOrientation, MCM_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
+    asn1cpp::setField(MCM_message->payload.basicContainer.mcmType, specification->getMCMType());
+    asn1cpp::setField(MCM_message->payload.basicContainer.manoeuvreId, specification->getManeuverID());
+    asn1cpp::setField(MCM_message->payload.basicContainer.concept, specification->getMCMConcept());
+    
+    auto *rational = (ManoeuvreCoordinationRational_t*)CALLOC(1, sizeof(ManoeuvreCoordinationRational_t));
+    if (specification->getMCMConcept() == 0) {
+        asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationGoal);
+        asn1cpp::setField(rational->choice.manoeuvreCooperationGoal, specification->getMCMGoal());
+      } else {
+        asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationCost);
+        asn1cpp::setField(rational->choice.manoeuvreCooperationCost, specification->getMCMCost());
+      }
+    MCM_message->payload.basicContainer.rational = rational;
+    if (specification->getMCMType() == 4 || specification->getMCMType() == 7)
+      {
+        asn1cpp::setField (MCM_message->payload.basicContainer.executionStatus, specification->getMCMStatus());
+      }
 
   if (specification->getManeuverContainer())
     {
@@ -225,58 +194,36 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
       asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleHeight, VehicleHeight_unavailable);
       asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleType, specification->getVehicleType());
 
-      for (auto it = specification->getSubmaneuverDescription().begin(); it != specification->getSubmaneuverDescription().end(); ++it)
-        {
-          auto *subd = (SubmanoeuvreDescription *)CALLOC(1, sizeof(SubmanoeuvreDescription));
-          if (asn_copy(&asn_DEF_SubmanoeuvreDescription, (void**)&subd, &(*it)) == 0)
-            {
-              if (ASN_SEQUENCE_ADD (&man.submaneuvres, subd) != 0)
-                {
-                  ASN_STRUCT_FREE (asn_DEF_SubmanoeuvreDescription, subd);
-                }
-            }
-          else
-            {
-              ASN_STRUCT_FREE(asn_DEF_SubmanoeuvreDescription, subd);
-            }
-        }
+      // 1. Loop Submanoeuvres
+    for (auto* subm : specification->getSubmanoeuvreDescriptionList()) {
+          if (ASN_SEQUENCE_ADD(&man.submaneuvres, subm) == 0) {
+              specification->markOwned(subm);
+          } else {
+              specification->free(subm);
+          }
+      }
 
-      for (auto it = specification->getManeuverAdvice().begin(); it != specification->getManeuverAdvice().end(); ++it)
-        {
-          auto *advice = (ManoeuvreAdvice *)CALLOC(1, sizeof(ManoeuvreAdvice));
-          if (asn_copy(&asn_DEF_ManoeuvreAdvice, (void**)&advice, &(*it)) == 0)
-            {
-              if (ASN_SEQUENCE_ADD (&man.manoeuvreAdvice, advice) != 0)
-                {
-                  ASN_STRUCT_FREE (asn_DEF_ManoeuvreAdvice, advice);
-                }
-            }
-          else
-            {
-              ASN_STRUCT_FREE(asn_DEF_ManoeuvreAdvice, advice);
-            }
-        }
+      // 2. Loop ManoeuvreAdvice
+      for (auto* advice : specification->getManeuverAdviceList()) {
+          if (ASN_SEQUENCE_ADD(&man.manoeuvreAdvice, advice) == 0) {
+              specification->markOwned(advice);
+          } else {
+              specification->free(advice);
+          }
+      }
     }
   
   else if (specification->getAdviseContainer())
     {
       asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_advisedManoeuvreContainer);
       auto &adv = MCM_message->payload.mcmContainer.choice.advisedManoeuvreContainer;
-      for (auto it = specification->getManeuverAdvice().begin(); it != specification->getManeuverAdvice().end(); ++it)
-        {
-          auto *advice = (ManoeuvreAdvice *)CALLOC(1, sizeof(ManoeuvreAdvice));
-          if (asn_copy(&asn_DEF_ManoeuvreAdvice, (void**)&advice, *it) == 0)
-            {
-              if (ASN_SEQUENCE_ADD (&adv, advice) != 0)
-                {
-                  ASN_STRUCT_FREE (asn_DEF_ManoeuvreAdvice, advice);
-                }
-            }
-          else
-            {
-              ASN_STRUCT_FREE(asn_DEF_ManoeuvreAdvice, advice);
-            }
-        }
+      for (auto* advice_ptr : specification->getManeuverAdviceList()) {
+          if (ASN_SEQUENCE_ADD(&adv.list, advice_ptr) == 0) {
+              specification->markOwned(advice_ptr); 
+          } else {
+              specification->free(advice_ptr);
+          }
+      }
     }
   else if (specification->getAcknowledgmentContainer())
     {

@@ -65,6 +65,13 @@ enum ManeuverID
   class MCSpecification
   {
   public:
+
+    struct AllocationInfo {
+        void* ptr;
+        asn_TYPE_descriptor_t* type;
+        bool ownedByParent;
+    };
+
     MCSpecification()
         : m_mcm_type(0), m_mcm_its_role(0), m_mcm_status(0),
           m_mcm_concept(0), m_mcm_goal(0), m_maneuver_id(ManeuverID::Undefined), m_mcm_cost(0),
@@ -73,28 +80,99 @@ enum ManeuverID
           m_vehicle_acknowledgement_container(false),
           m_vehicle_response_container(false),
           m_vehicle_terminator_container(false),
-          m_vehicle_type{}, m_mcm_response(0) {}
+          m_vehicle_type{}, m_mcm_response(0), m_creation_error(false), m_creation_error_str("") {}
 
-    ~MCSpecification ();
     template <typename T>
-    T* create()
+    T* create(asn_TYPE_descriptor_t& typeDescriptor)
     {
       T* new_item = (T *)CALLOC(1, sizeof(T));
+      if (new_item)
+      {
+          AllocationInfo info;
+          info.ptr = new_item;
+          info.type = &typeDescriptor;
+          info.ownedByParent = false;
+
+          m_allocations[new_item] = info;
+
+          // Top level types
+          if (&typeDescriptor == &asn_DEF_ManoeuvreAdvice) {
+            m_maneuver_advice_list.push_back((ManoeuvreAdvice*)new_item);
+          } else if (&typeDescriptor == &asn_DEF_Submanoeuvre) {
+            m_submaneuver_description_list.push_back((Submanoeuvre_t*)new_item);
+          }
+      }
       return new_item;
     }
 
     template <typename T, typename Container, typename Item>
-    int add(T type, Container* container, Item* item)
-    {
-      if (ASN_SEQUENCE_ADD(container, item) != 0)
-        {
+    int add(T type, Container* container, Item* item) {
+      if (ASN_SEQUENCE_ADD(container, item) != 0) {
+          unregisterAllocation(item);
           ASN_STRUCT_FREE(type, item);
           return 0;
         }
-      else return 1;
+      else {
+        markOwned(item);
+        return 1;
+      }
     }
 
-    bool checkContainers();
+    template<typename T>
+    void markOwned(T* obj) {
+      auto it = m_allocations.find(obj);
+
+      if (it != m_allocations.end()) {
+          it->second.ownedByParent = true;
+      }
+    }
+
+    template<typename T>
+    void unregisterAllocation(T* obj) {
+      m_allocations.erase(obj);
+    }
+
+    template <typename Q>
+    void free(Q* item) {
+      if (!item) return;
+
+      auto it = m_allocations.find(item);
+      if (it != m_allocations.end()) {
+          // 1. Free the memory using the descriptor we saved earlier
+          ASN_STRUCT_FREE(*it->second.type, it->first);
+          // 2. Remove it from the map so cleanup() doesn't touch it again
+          m_allocations.erase(it);
+      } else {
+      }
+    }
+
+    template<typename T, typename Q>
+    void set(T* container, Q item) {
+      asn1cpp::setField(container, item);
+    }
+
+    void cleanup() {
+      for (auto& [ptr, info] : m_allocations) {
+        if (!info.ownedByParent) {
+            ASN_STRUCT_FREE(*info.type, ptr);
+        }
+      }
+      m_allocations.clear();
+    }
+
+    ~MCSpecification() {
+      cleanup();
+    }
+
+    bool checkContainers() {
+      int count = m_vehicle_advise_container
+                  + m_vehicle_maneuver_container
+                  + m_vehicle_acknowledgement_container
+                  + m_vehicle_response_container
+                  + m_vehicle_terminator_container;
+      return count == 1;
+    }
+
     void setAdviseContainer() {m_vehicle_advise_container = true;};
     bool getAdviseContainer() {return m_vehicle_advise_container;};
     void setManeuverContainer() {m_vehicle_maneuver_container = true;};
@@ -127,22 +205,14 @@ enum ManeuverID
     DeclineReason_t getMCMResponseDeclineReason() {return m_decline_reason;};
     void setVehicleType(Iso3833VehicleType type) { m_vehicle_type = type; };
     Iso3833VehicleType getVehicleType() { return m_vehicle_type; };
-    void pushSubmaneuverDescription(SubmanoeuvreDescription* item)
-    {
-      m_submaneuver_description.push_back(item);
-    };
-    std::vector<SubmanoeuvreDescription*>& getSubmaneuverDescription()
-    {
-      return m_submaneuver_description;
-    };
-    void pushManeuverAdvice(ManoeuvreAdvice* item)
-    {
-      m_maneuver_advice.push_back(item);
-    };
-    std::vector<ManoeuvreAdvice*>& getManeuverAdvice()
-    {
-      return m_maneuver_advice;
-    };
+    const std::vector<ManoeuvreAdvice*>& getManeuverAdviceList() const {
+      return m_maneuver_advice_list;
+    }
+    const std::vector<Submanoeuvre_t*>& getSubmanoeuvreDescriptionList() const {
+      return m_submaneuver_description_list;
+    }
+    void setCreationError(std::string reason) {m_creation_error = true; m_creation_error_str = reason;}
+    std::tuple<bool, std::string> getCreationError() {return {m_creation_error, m_creation_error_str};}
 
   private:
     long m_mcm_type;
@@ -157,6 +227,8 @@ enum ManeuverID
     bool m_vehicle_acknowledgement_container;
     bool m_vehicle_response_container;
     bool m_vehicle_terminator_container;
+    bool m_creation_error;
+    std::string m_creation_error_str;
     std::vector<SubmanoeuvreDescription*> m_submaneuver_description; // For Vehicle Maneuver Container
     std::vector<ManoeuvreAdvice*> m_maneuver_advice; // For Vehicle Maneuver Container and Vehicle Advice Container
     DeclineReason_t m_decline_reason;
@@ -164,7 +236,10 @@ enum ManeuverID
 
     Iso3833VehicleType m_vehicle_type;
     long m_mcm_response;
-    bool m_use_foresee = false;
+
+    std::unordered_map<void*, AllocationInfo> m_allocations;
+    std::vector<ManoeuvreAdvice*> m_maneuver_advice_list;
+    std::vector<Submanoeuvre_t*> m_submaneuver_description_list;
   };
 
 

@@ -833,7 +833,7 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
         }
     } else if(decodedData.type == etsiDecoder::ETSI_DECODED_MCM || decodedData.type == etsiDecoder::ETSI_DECODED_MCM_NOGN)
 	{
-		// TODO
+		// TODO Diego
 	} else {
 		std::cerr << "[WARN] Warning! Only CAM, CPM and VAM messages (and, optionally, DENMs) are supported for the time being!" << std::endl;
 		return;

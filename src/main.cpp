@@ -1789,8 +1789,10 @@ int main (int argc, char *argv[]) {
     btp BTP;
     BTP.setGeoNet(&GN);
     if (ego_station_type != StationType_roadSideUnit) BTP.setStationProperties(vehicleID,ego_station_type);
-    // TODO lat lon
-    else BTP.setStationProperties(vehicleID,ego_station_type, 0, 0);
+    else {
+        if (pos_avail_cnt > 20) BTP.setStationProperties(vehicleID,ego_station_type, 45.014570, 7.568314); // Default at Politecnico di Torino
+        else BTP.setStationProperties(vehicleID,ego_station_type, test_lat, test_lon);
+    }
     if (enable_CAM_dissemination)
     {
         BTP.setVDP(vdpgpsc);

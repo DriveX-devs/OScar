@@ -44,6 +44,7 @@ class JSONserver {
 
 		json11::Json::object handleRequest(const json11::Json &request);
 		json11::Json::object handleDENMRequest(const json11::Json &request);
+		json11::Json::object handleMCMRequest(const json11::Json &request);
 	private:
 		json11::Json::object make_vehicle_standard(uint64_t stationID, 
 			double lat, 
@@ -61,6 +62,8 @@ class JSONserver {
 			);
 
 		static denData fillDenDataFromJson(const json11::Json &request);
+
+		static void fillMCSpecificationFromJson(const json11::Json &request, MCSpecification* specification);
 
 		const double m_range_m_default = 15000.0;
 		double m_range_m;

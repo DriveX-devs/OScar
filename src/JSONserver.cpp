@@ -311,6 +311,8 @@ json11::Json::object JSONserver::handleRequest(const json11::Json &request) {
         return make_AIM_json(lat, lon);
     } else if (request_type == "DENM_trigger" || request_type == "DENM_update" || request_type == "DENM_termination") {
         return handleDENMRequest(request);
+	} else if (request_type == "MCM_trigger") {
+		return handleMCMRequest(request);
     } else {
     	std::cout << "[ERROR] Received unknown JSON request: " << request_type << std::endl;
 
@@ -379,6 +381,77 @@ denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
 	}
 
     return data;
+}
+
+std::string json_for_MCM_is_valid(const json11::Json &request) {
+	// Basic fields
+	auto basic_fields = {"MCMConcept", "MCMCost", "MCMGoal", "MCMType", "MCMManeuverID", "MCMITSRole"};
+    for (const std::string &field : basic_fields) {
+        if (request[field].is_null()) {
+            return "Missing basic field in JSON: " + field;
+        }
+    }
+	auto containers = {"VehicleManeuverContainer", "ManeuverAdviseContainer", "AcknowledgmentContainer", "ResponseContainer", "TerminationContainer"};
+    bool res = false;
+	for (const std::string &container : containers) {
+		if (!request[container].is_null()) {
+			if (!res) {
+				res = true;
+			}
+			else {
+				return "Too many MCM containers in JSON";
+			}
+		}
+	}
+	if (res) return "";
+	else return "Missing field in JSON: a MCM container is required";
+}
+
+void JSONserver::fillMCSpecificationFromJson(const json11::Json &request, MCSpecification* specification) {
+	// Check whether there are some missing fields in the JSON request
+	std::string first_check = json_for_MCM_is_valid(request);
+	if (first_check != "") {
+		specification->setCreationError(first_check);
+		return;
+	}
+	// TODO Diego from here
+}
+
+json11::Json::object JSONserver::handleMCMRequest(const json11::Json &request) {
+    json11::Json::object response;
+
+    if (m_mc_service == nullptr) {
+        response["status"] = MAKE_STR("error");
+        response["message"] = MAKE_STR("MC service is not available");
+        return response;
+    }
+
+    std::string request_type = GET_STR(request, "request_type");
+	MCSpecification specification;
+    fillMCSpecificationFromJson(request, &specification);
+
+	auto ret = specification.getCreationError();
+	bool error = std::get<0>(ret);
+	std::string reason = std::get<1>(ret);
+	if (error) {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR(reason);
+		return response;
+	}
+
+	MCBasicService_error_t result = m_mc_service->generateAndEncodeMCM(&specification);
+
+	if(result != MCM_NO_ERROR) {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR("MC encoding or sending failed");
+        
+	}
+	else {
+		response["status"] = MAKE_STR("ok");
+		response["message"] = MAKE_STR("MCM sent correctly");
+	}
+
+	return response;
 }
 
 json11::Json::object JSONserver::handleDENMRequest(const json11::Json &request) {
