@@ -9,7 +9,23 @@
 #include "LDMmap.h" 
 
 class JSONserver {
+
 	public:
+		enum Container {
+			NotPresent,
+			VehicleManeuverContainer,
+			ManeuverAdviseContainer,
+			AcknowledgmentContainer,
+			ResponseContainer,
+			TerminationContainer,
+		};
+		struct ContainerMapping {
+				std::string name;
+				JSONserver::Container type;
+		};
+		static std::vector<ContainerMapping> m_containers_mapping;
+		static std::vector<std::string> m_basic_fields;
+
 		JSONserver(ldmmap::LDMMap *db_ptr, DENBasicService *den_service) :
 			m_range_m(m_range_m_default), m_db_ptr(db_ptr), m_den_service(den_service) {m_port=49000; m_thread_running=false;};
 
@@ -45,6 +61,7 @@ class JSONserver {
 		json11::Json::object handleRequest(const json11::Json &request);
 		json11::Json::object handleDENMRequest(const json11::Json &request);
 		json11::Json::object handleMCMRequest(const json11::Json &request);
+	
 	private:
 		json11::Json::object make_vehicle_standard(uint64_t stationID, 
 			double lat, 
@@ -64,6 +81,8 @@ class JSONserver {
 		static denData fillDenDataFromJson(const json11::Json &request);
 
 		static void fillMCSpecificationFromJson(const json11::Json &request, MCSpecification* specification);
+
+		static std::tuple<std::string, Container> json_for_MCM_is_valid(const json11::Json &request);
 
 		const double m_range_m_default = 15000.0;
 		double m_range_m;

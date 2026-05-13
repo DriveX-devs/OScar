@@ -16,6 +16,17 @@
 #define GET_NUM(json,key) (json[key].number_value())
 #define GET_INT(json,key) (json[key].int_value())
 #define GET_STR(json,key) (json[key].string_value())
+#define GET_ARR(json, key) (json[key].array_items())
+
+std::vector<JSONserver::ContainerMapping> m_containers_mapping = {{
+	{"VehicleManeuverContainer", JSONserver::Container::VehicleManeuverContainer},
+	{"ManeuverAdviseContainer",    JSONserver::Container::ManeuverAdviseContainer},
+	{"AcknowledgmentContainer",    JSONserver::Container::AcknowledgmentContainer},
+	{"ResponseContainer",          JSONserver::Container::ResponseContainer},
+	{"TerminationContainer",       JSONserver::Container::TerminationContainer}
+}};
+
+std::vector<std::string> m_basic_fields = {"MCMConcept", "MCMCost", "MCMGoal", "MCMType", "MCMManeuverID", "MCMITSRole"};
 
 //static inline double haversineDist(double lat_a, double lon_a, double lat_b, double lon_b) {
 	// 12742000 is the mean Earth radius (6371 km) * 2 * 1000 (to convert from km to m)
@@ -383,44 +394,99 @@ denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
     return data;
 }
 
-std::string json_for_MCM_is_valid(const json11::Json &request) {
+std::tuple<std::string, JSONserver::Container> JSONserver::json_for_MCM_is_valid(const json11::Json &request) {
 	// Basic fields
-	auto basic_fields = {"MCMConcept", "MCMCost", "MCMGoal", "MCMType", "MCMManeuverID", "MCMITSRole"};
-    for (const std::string &field : basic_fields) {
+    for (const auto& field : m_basic_fields) {
         if (request[field].is_null()) {
-            return "Missing basic field in JSON: " + field;
+            return {"Missing basic field in JSON: " + std::string(field), Container::NotPresent};
         }
     }
-	auto containers = {"VehicleManeuverContainer", "ManeuverAdviseContainer", "AcknowledgmentContainer", "ResponseContainer", "TerminationContainer"};
+
+	// Containers, at least and at most one present
+	JSONserver::Container found_container = JSONserver::Container::NotPresent;
     bool res = false;
-	for (const std::string &container : containers) {
-		if (!request[container].is_null()) {
-			if (!res) {
-				res = true;
-			}
-			else {
-				return "Too many MCM containers in JSON";
-			}
-		}
-	}
-	if (res) return "";
-	else return "Missing field in JSON: a MCM container is required";
+    for (const auto& item : m_containers_mapping) {
+        if (!request[item.name].is_null()) {
+            if (!res) {
+                res = true;
+                found_container = item.type;
+            } else {
+                return {"Too many MCM containers in JSON", Container::NotPresent};
+            }
+        }
+    }
+
+    if (res) {
+        return {"", found_container};
+    }
+    return {"Missing field in JSON: a MCM container is required", Container::NotPresent};
 }
 
 void JSONserver::fillMCSpecificationFromJson(const json11::Json &request, MCSpecification* specification) {
 	// Check whether there are some missing fields in the JSON request
-	std::string first_check = json_for_MCM_is_valid(request);
-	if (first_check != "") {
-		specification->setCreationError(first_check);
-		return;
+	auto [error_msg, container_type] = json_for_MCM_is_valid(request);
+    if (!error_msg.empty()) {
+        specification->setCreationError(error_msg); 
+        return;
+    }
+
+	// Set general informaiton for MCM fields
+	specification->setMCMConcept(GET_NUM(request, "MCMConcept"));
+	specification->setMCMCost(GET_NUM(request, "MCMCost"));
+	specification->setMCMGoal(GET_NUM(request, "MCMGoal"));
+	specification->setMCMType(GET_NUM(request, "MCMType"));
+	specification->setMCMType(GET_NUM(request, "MCMManeuverID"));
+	specification->setMCMItsRole(GET_NUM(request, "MCMITSRole"));
+
+	// Fill the required container
+	switch (container_type) {
+		case JSONserver::Container::VehicleManeuverContainer:
+		specification->setManeuverContainer();
+		// TODO Diego
+		break;
+		case JSONserver::Container::ManeuverAdviseContainer:
+		specification->setAdviseContainer();
+		// TODO Diego
+		break;
+		case JSONserver::Container::ResponseContainer:
+		specification->setResponseContainer();
+		if (!request["ResponseContainer"]["MCMResponse"].is_null()) {
+			specification->setMCMResponse(GET_NUM(request["ResponseContainer"], "MCMResponse"));
+			if (specification->getMCMResponse() == 1) {
+				// If the station is sending a refusal, we need to know the reason
+				if (!request["ResponseContainer"]["MCMResponseDeclineReason"].is_null()) {
+					specification->setMCMResponseDeclineReason(GET_NUM(request["ResponseContainer"], "MCMResponseDeclineReason"));
+				} else {
+					// Throw an error
+					specification->setCreationError("ResponseContainer needs a MCMResponseDeclineReason when the maneuver is declined");
+				}
+			}
+
+			// Get the Submanouvers if indicated (optional)
+			if (!request["MCMSubmaneuvers"].is_null()) {
+				// TODO Diego
+			}
+		} else {
+			// Throw an error
+			specification->setCreationError("ResponseContainer always needs a MCMResponse");
+		}
+		break;
+		case JSONserver::Container::AcknowledgmentContainer:
+		specification->setAcknowledgmentContainer(); // Just set the container, no other actions needed
+		break;
+		case JSONserver::Container::TerminationContainer:
+		specification->setTerminatorContainer(); // Just set the container, no other actions needed
+		break;
+		default:
+		break;
 	}
-	// TODO Diego from here
 }
 
 json11::Json::object JSONserver::handleMCMRequest(const json11::Json &request) {
     json11::Json::object response;
 
     if (m_mc_service == nullptr) {
+		// Ensure that the MC Basic Service is available
         response["status"] = MAKE_STR("error");
         response["message"] = MAKE_STR("MC service is not available");
         return response;
@@ -430,23 +496,25 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json &request) {
 	MCSpecification specification;
     fillMCSpecificationFromJson(request, &specification);
 
-	auto ret = specification.getCreationError();
-	bool error = std::get<0>(ret);
-	std::string reason = std::get<1>(ret);
+	auto [error, reason] = specification.getCreationError();
 	if (error) {
+		// In case of creation error during the JSON parsing
 		response["status"] = MAKE_STR("error");
 		response["message"] = MAKE_STR(reason);
 		return response;
 	}
 
+	// The parsing didn't show issues, send the MCM
 	MCBasicService_error_t result = m_mc_service->generateAndEncodeMCM(&specification);
 
 	if(result != MCM_NO_ERROR) {
+		// In case of error during the encoding or sending phases
 		response["status"] = MAKE_STR("error");
 		response["message"] = MAKE_STR("MC encoding or sending failed");
         
 	}
 	else {
+		// MCM correctly sent
 		response["status"] = MAKE_STR("ok");
 		response["message"] = MAKE_STR("MCM sent correctly");
 	}

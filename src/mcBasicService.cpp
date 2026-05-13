@@ -26,8 +26,7 @@
 
 MCBasicService::~MCBasicService()=default;
 
-MCBasicService::MCBasicService()
-{
+MCBasicService::MCBasicService() {
   m_station_id = ULONG_MAX;
   m_stationtype = LONG_MAX;
   m_btp = NULL;
@@ -47,8 +46,7 @@ MCBasicService::MCBasicService()
   m_MCM_sent=0;
 }
 
-MCBasicService::MCBasicService(unsigned long fixed_stationid,long fixed_stationtype,VDPGPSClient* vdp, bool real_time, bool is_vehicle)
-{
+MCBasicService::MCBasicService(unsigned long fixed_stationid,long fixed_stationtype,VDPGPSClient* vdp, bool real_time, bool is_vehicle) {
   m_btp = NULL;
 
   // Setting a default value of m_T_CheckMCMGen_ms equal to 100 ms (i.e. T_GenMCMMin_ms)
@@ -72,15 +70,13 @@ MCBasicService::MCBasicService(unsigned long fixed_stationid,long fixed_stationt
 }
 
 void
-MCBasicService::setStationProperties(unsigned long fixed_stationid,long fixed_stationtype,double latitude_deg,double longitude_deg)
-{
+MCBasicService::setStationProperties(unsigned long fixed_stationid,long fixed_stationtype,double latitude_deg,double longitude_deg) {
   m_station_id=fixed_stationid;
   m_stationtype=fixed_stationtype;
 }
 
 void
-MCBasicService::setFixedPositionRSU(double latitude_deg, double longitude_deg)
-{
+MCBasicService::setFixedPositionRSU(double latitude_deg, double longitude_deg) {
   m_vehicle = false;
   m_RSUlon = longitude_deg;
   m_RSUlat = latitude_deg;
@@ -94,22 +90,19 @@ MCBasicService::setFixedPositionRSU(double latitude_deg, double longitude_deg)
 }
 
 void
-MCBasicService::setStationID(unsigned long fixed_stationid)
-{
+MCBasicService::setStationID(unsigned long fixed_stationid) {
   m_station_id=fixed_stationid;
   m_btp->setStationID(fixed_stationid);
 }
 
 void
-MCBasicService::setStationType(long fixed_stationtype)
-{
+MCBasicService::setStationType(long fixed_stationtype) {
   m_stationtype=fixed_stationtype;
   m_btp->setStationType(fixed_stationtype);
 }
 
 MCBasicService_error_t
-MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
-{
+MCBasicService::generateAndEncodeMCM(MCSpecification* specification) {
   // Only one container must be activated for one message
   specification->checkContainers();
   VDPGPSClient::MCM_mandatory_data_t MCM_mandatory_data;
@@ -119,8 +112,7 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
   /* Collect data for mandatory containers */
   auto MCM_message = asn1cpp::makeSeq(MCM);
 
-  if(bool(MCM_message)==false)
-    {
+  if(bool(MCM_message)==false) {
       return MCM_ALLOC_ERROR;
     }
 
@@ -142,12 +134,10 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
 
   asn1cpp::setField(MCM_message->payload.basicContainer.stationID, m_station_id);
   asn1cpp::setField(MCM_message->payload.basicContainer.itssRole, specification->getMCMItsRole());
-  if(m_vehicle==true)
-    {
+  if(m_vehicle==true) {
       asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_vehicle);
     }
-  else
-    {
+  else {
       asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_roadsideUnit);
     }
   
@@ -163,7 +153,7 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
     asn1cpp::setField(MCM_message->payload.basicContainer.manoeuvreId, specification->getManeuverID());
     asn1cpp::setField(MCM_message->payload.basicContainer.concept, specification->getMCMConcept());
     
-    auto *rational = (ManoeuvreCoordinationRational_t*)CALLOC(1, sizeof(ManoeuvreCoordinationRational_t));
+    ManoeuvreCoordinationRational_t* rational = specification->create<ManoeuvreCoordinationRational_t>(asn_DEF_ManoeuvreCoordinationRational);
     if (specification->getMCMConcept() == 0) {
         asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationGoal);
         asn1cpp::setField(rational->choice.manoeuvreCooperationGoal, specification->getMCMGoal());
@@ -171,14 +161,12 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
         asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationCost);
         asn1cpp::setField(rational->choice.manoeuvreCooperationCost, specification->getMCMCost());
       }
-    MCM_message->payload.basicContainer.rational = rational;
-    if (specification->getMCMType() == 4 || specification->getMCMType() == 7)
-      {
+    specification->setOptional(&MCM_message->payload.basicContainer.rational, rational);
+    if (specification->getMCMType() == 4 || specification->getMCMType() == 7) {
         asn1cpp::setField (MCM_message->payload.basicContainer.executionStatus, specification->getMCMStatus());
       }
 
-  if (specification->getManeuverContainer())
-    {
+  if (specification->getManeuverContainer()) {
       // Select this choice
       asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_vehicleManoeuvreContainer);
 
@@ -194,62 +182,49 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
       asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleHeight, VehicleHeight_unavailable);
       asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleType, specification->getVehicleType());
 
-      // 1. Loop Submanoeuvres
-    for (auto* subm : specification->getSubmanoeuvreDescriptionList()) {
-          if (ASN_SEQUENCE_ADD(&man.submaneuvres, subm) == 0) {
-              specification->markOwned(subm);
-          } else {
-              specification->free(subm);
-          }
+      // Loop Submanoeuvres
+      for (auto* subm : specification->getSubmanoeuvreDescriptionList()) {
+        specification->add(asn_DEF_Submanoeuvre, &man.submaneuvres, subm);
       }
 
-      // 2. Loop ManoeuvreAdvice
+      // Loop ManoeuvreAdvice nel VehicleManoeuvreContainer
+      auto* mac = specification->create<ManoeuvreAdviceContainer_t>(asn_DEF_ManoeuvreAdviceContainer);
       for (auto* advice : specification->getManeuverAdviceList()) {
-          if (ASN_SEQUENCE_ADD(&man.manoeuvreAdvice, advice) == 0) {
-              specification->markOwned(advice);
-          } else {
-              specification->free(advice);
-          }
+        specification->add(asn_DEF_ManoeuvreAdvice, mac, advice);
       }
+      specification->setOptional(&man.manoeuvreAdvice, mac);
     }
-  
-  else if (specification->getAdviseContainer())
-    {
+  else if (specification->getAdviseContainer()) {
       asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_advisedManoeuvreContainer);
       auto &adv = MCM_message->payload.mcmContainer.choice.advisedManoeuvreContainer;
       for (auto* advice_ptr : specification->getManeuverAdviceList()) {
-          if (ASN_SEQUENCE_ADD(&adv.list, advice_ptr) == 0) {
-              specification->markOwned(advice_ptr); 
-          } else {
-              specification->free(advice_ptr);
-          }
+        specification->add(asn_DEF_ManoeuvreAdvice, &adv, advice_ptr);
       }
     }
-  else if (specification->getAcknowledgmentContainer())
-    {
+  else if (specification->getAcknowledgmentContainer()) {
       asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_acknowledgmentContainer);
       asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.acknowledgedType, McmType_acknowledgment);
       asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.generationDeltaTime, compute_timestampIts () % 65536);
     }
-  else if (specification->getResponseContainer())
-    {
+  else if (specification->getResponseContainer()) {
       asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_responseContainer);
-      if (specification->getMCMResponse() == 0)
-        {
-        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_accept);
+      if (specification->getMCMResponse() == 0) {
+          asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_accept);
         }
-      else
-        {
+      else {
           asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_decline);
           asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.declineReason, specification->getMCMResponseDeclineReason());
         }
+      
+      // Loop Submanoeuvres
+      for (auto* subm : specification->getSubmanoeuvreDescriptionList()) {
+        specification->add(asn_DEF_Submanoeuvre, &MCM_message->payload.mcmContainer.choice.responseContainer.submaneuvres, subm);
       }
-  else if (specification->getTerminatorContainer())
-    {
+    }
+  else if (specification->getTerminatorContainer()) {
       asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_terminationContainer);
     }
-  else
-    {
+  else {
       std::cerr << "[ERROR] Fatal error! Cannot create containers for the MCM dissemination" << std::endl;
       terminateDissemination();
       return MCM_CANNOT_SEND;
@@ -257,8 +232,7 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
 
   std::string encode_result = asn1cpp::uper::encode(MCM_message);
 
-  if(encode_result.size()<1)
-  {
+  if(encode_result.size()<1) {
     return MCM_ASN1_UPER_ENC_ERROR;
   }
 
@@ -290,8 +264,7 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification)
 }
 
 uint64_t
-MCBasicService::terminateDissemination()
-{
+MCBasicService::terminateDissemination() {
   if(m_terminateFlag==false) {
     m_terminateFlag=true;
   }
