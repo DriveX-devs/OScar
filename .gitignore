@@ -59,3 +59,5 @@ security.cpp
 .idea/editor.xml
 GN_log_RX.csv
 GN_log_TX.csv
+
+.cache/*

@@ -339,8 +339,6 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		vehdata.speed_ms = decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue/100.0;
 		vehdata.camTimestamp = static_cast<long>(decoded_cam->cam.generationDeltaTime);
 		vehdata.stationType = static_cast<ldmmap::e_StationTypeLDM>(decoded_cam->cam.camParameters.basicContainer.stationType);
-
-        vehdata.stationType = ldmmap::StationType_LDM_passengerCar;
         vehdata.detected = false;
 
 		vehdata.gnTimestamp = gn_timestamp;

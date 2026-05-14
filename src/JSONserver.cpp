@@ -394,6 +394,134 @@ denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
     return data;
 }
 
+void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json, MCSpecification* specification) {
+	for (auto& subm_json : submaneuvers_json) {
+		// --- SubmanoeuvreDescription ---
+		SubmanoeuvreDescription* subm = specification->create<SubmanoeuvreDescription_t>(asn_DEF_SubmanoeuvreDescription);
+		if (!subm) {
+			specification->setCreationError("Failed to allocate SubmanoeuvreDescription");
+			return;
+		}
+	
+		// --- submanoeuvreID ---
+		if (!subm_json["SubmanoeuvreID"].is_null()) {
+			specification->set(&subm->submanoeuvreID, GET_NUM(subm_json, "SubmanoeuvreID"));
+		} else {
+			specification->setCreationError("SubmaneuverDescription needs SubmaneuverID");
+			return;
+		}
+		
+		// --- temporalCharacteristics ---
+		if (!subm_json["TemporalCharacteristics"].is_null()) {
+			specification->set(&subm->temporalCharateristics.tRROccupancyStartTime, GET_NUM(subm_json["TemporalCharacteristics"], "startTime"));
+			specification->set(&subm->temporalCharateristics.tRROccupancyEndTime, GET_NUM(subm_json["TemporalCharacteristics"], "endTime"));
+		} else {
+			specification->setCreationError("SubmaneuverDescription needs TemporalCharacteristics");
+			return;
+		}
+
+		// --- submanoeuvreStrategy (optional) ---
+		if (!subm_json["SubmaneuverStrategy"].is_null()) {
+			auto* strategy = specification->create<SubmanoeuvreStrategy>(asn_DEF_SubmanoeuvreStrategy);
+			if (!strategy) {
+				specification->setCreationError("Failed to allocate SubmaneuverStrategy");
+				return;
+			}
+			specification->set(&strategy->present, GET_NUM(subm_json["SubmaneuverStrategy"], "Strategy"));
+			// TODO Diego choice
+		}
+
+		// --- referenceTrajectory (optional) ---
+		if (!subm_json["ReferenceTrajectory"].is_null()) {
+			auto* traj = specification->create<Trajectory_t>(asn_DEF_Trajectory);
+			if (!traj) {
+				specification->setCreationError("Failed to allocate Trajectory");
+				return;
+			}
+			specification->set(&traj->wayPointType, GET_NUM(subm_json["ReferenceTrajectory"], "WayPointType"));
+			
+			// --- wayPoints ---
+			auto& wps_json = GET_ARR(subm_json["ReferenceTrajectory"], "WayPoints");
+			for (auto& wp_json : wps_json) {
+				auto* wp_created = specification->create<WayPoint_t>(asn_DEF_WayPoint);
+				if (!wp_created) {
+					specification->setCreationError("Failed to allocate WayPoint");
+					return;
+				}
+			
+				for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+					if (wp_json[field].is_null()) {
+						specification->setCreationError(std::string(field) + " in WayPoint not found");
+						return;
+					}
+				}
+				specification->set(&wp_created->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
+				specification->set(&wp_created->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
+				specification->set(&wp_created->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
+			
+				// --- pathDeltaTime (optional) ---
+				if (!wp_json["PathDeltaTime"].is_null()) {
+					auto* pdt = specification->create<PathDeltaTime_t>(asn_DEF_PathDeltaTime);
+					if (!pdt) {
+						specification->setCreationError("Failed to allocate PathDeltaTime");
+						return;
+					}
+					*pdt = GET_NUM(wp_json, "PathDeltaTime");
+					specification->setOptional(&wp_created->pathDeltaTime, pdt);
+				}
+				if (!specification->add(asn_DEF_WayPoint, &traj->wayPoints, wp_created)) {
+					specification->setCreationError("Failed to add WayPoint to trajectory");
+					return;
+				}
+			}
+
+			// --- speed ---
+			json11::Json::array speeds_json;
+			if (!subm_json["ReferenceTrajectory"]["Speeds"].is_null()) {
+				speeds_json = GET_ARR(subm_json["ReferenceTrajectory"], "Speeds");
+			} else {
+				specification->setCreationError("ReferenceTrajectory in SubmaneuverDescription needs Speeds");
+				return;
+			}
+			for (auto& sp_json : speeds_json) {
+				auto* sp_created = specification->create<Speed_t>(asn_DEF_Speed);
+				if (!sp_created) {
+					specification->setCreationError("Failed to allocate Speed");
+					return;
+				}
+				specification->set(&sp_created->speedValue, GET_NUM(sp_json, "SpeedValue"));
+				specification->set(&sp_created->speedConfidence, GET_NUM(sp_json, "SpeedConfidence"));
+				if (!specification->add(asn_DEF_Speed, &traj->speed, sp_created)) {
+					specification->setCreationError("Failed to add Speed to trajectory");
+					return;
+				}
+			}
+			// TODO Diego, add list of latitude, longitude, etc... (optionals)
+			specification->setOptional(&subm->referenceTrajectory, traj);
+		}
+
+		// --- targetRoadResourceIContainer (optional) ---
+		if (!subm_json["TargetRoadResource"].is_null()) {
+			auto* trr = specification->create<TrrDescription_t>(asn_DEF_TrrDescription);
+			if (!trr) {
+				specification->setCreationError("Failed to allocate TrrDescription");
+				return;
+			}
+
+			specification->set(&trr->trrType, GET_NUM(subm_json["TargetRoadResource"], "TrrType"));
+			specification->set(&trr->laneCount, GET_NUM(subm_json["TargetRoadResource"], "LaneCount"));
+			specification->set(&trr->trrWidth, GET_NUM(subm_json["TargetRoadResource"], "TrrWidth"));
+			specification->set(&trr->trrLength, GET_NUM(subm_json["TargetRoadResource"], "TrrLength"));
+			// TODO Diego add optional fields for TRR
+
+			specification->setOptional(&subm->targetRoadResourceIContainer, trr);
+		}
+
+		// --- kinematicsCharacteristics (optional) ---
+		// For the moment the ASN indicates this field as nullptr
+	}
+}
+
 std::tuple<std::string, JSONserver::Container> JSONserver::json_for_MCM_is_valid(const json11::Json &request) {
 	// Basic fields
     for (const auto& field : m_basic_fields) {
@@ -435,163 +563,75 @@ void JSONserver::fillMCSpecificationFromJson(const json11::Json &request, MCSpec
 	specification->setMCMCost(GET_NUM(request, "MCMCost"));
 	specification->setMCMGoal(GET_NUM(request, "MCMGoal"));
 	specification->setMCMType(GET_NUM(request, "MCMType"));
-	specification->setMCMType(GET_NUM(request, "MCMManeuverID"));
+	specification->setManeuverID(static_cast<ManeuverID>(GET_NUM(request, "MCMManeuverID")));
 	specification->setMCMItsRole(GET_NUM(request, "MCMITSRole"));
 
 	// Fill the required container
 	switch (container_type) {
 		case JSONserver::Container::VehicleManeuverContainer:
-		specification->setManeuverContainer();
-		// TODO Diego
-		break;
-		case JSONserver::Container::ManeuverAdviseContainer:
-		specification->setAdviseContainer();
-		// TODO Diego
-		break;
-		case JSONserver::Container::ResponseContainer:
-		specification->setResponseContainer();
-		if (!request["ResponseContainer"]["MCMResponse"].is_null()) {
-			specification->setMCMResponse(GET_NUM(request["ResponseContainer"], "MCMResponse"));
-			if (specification->getMCMResponse() == 1) {
-				// If the station is sending a refusal, we need to know the reason
-				if (!request["ResponseContainer"]["MCMResponseDeclineReason"].is_null()) {
-					specification->setMCMResponseDeclineReason(GET_NUM(request["ResponseContainer"], "MCMResponseDeclineReason"));
-				} else {
-					// Throw an error
-					specification->setCreationError("ResponseContainer needs a MCMResponseDeclineReason when the maneuver is declined");
-				}
-			}
-
-			// Get the Submanouvers if indicated (optional)
+			specification->setManeuverContainer();
+			// Get the Submanouvers
 			if (!request["MCMSubmaneuvers"].is_null()) {
 				auto& submaneuvers_json = GET_ARR(request, "MCMSubmaneuvers");
-				for (auto& subm_json : submaneuvers_json) {
-					// --- SubmanoeuvreDescription ---
-					SubmanoeuvreDescription* subm = specification->create<SubmanoeuvreDescription_t>(asn_DEF_SubmanoeuvreDescription);
-					if (!subm) {
-						specification->setCreationError("Failed to allocate SubmanoeuvreDescription");
-						return;
-					}
-				
-					// --- submanoeuvreID ---
-					specification->set(subm->submanoeuvreID, GET_NUM(subm_json, "SubmanoeuvreID"));
-					
-					// --- temporalCharacteristics ---
-					if (!subm_json["TemporalCharacteristics"].is_null()) {
-						specification->set(subm->temporalCharateristics.tRROccupancyStartTime, GET_NUM(subm_json["TemporalCharacteristics"], "startTime"));
-						specification->set(subm->temporalCharateristics.tRROccupancyEndTime, GET_NUM(subm_json["TemporalCharacteristics"], "endTime"));
-					} else {
-						specification->setCreationError("TemporalCharacteristics not found");
-						return;
-					}
-
-					// --- submanoeuvreStrategy (optional) ---
-					if (!subm_json["SubmaneuverStrategy"].is_null()) {
-						auto* strategy = specification->create<SubmanoeuvreStrategy>(asn_DEF_SubmanoeuvreStrategy);
-						if (!strategy) {
-							specification->setCreationError("Failed to allocate SubmaneuverStrategy");
-							return;
-						}
-						specification->set(strategy->present, GET_NUM(subm_json["SubmaneuverStrategy"], "Strategy"));
-						// TODO Diego choice
-					}
-
-					// --- referenceTrajectory (optional) ---
-					if (!subm_json["ReferenceTrajectory"].is_null()) {
-						auto* traj = specification->create<Trajectory_t>(asn_DEF_Trajectory);
-						if (!traj) {
-							specification->setCreationError("Failed to allocate Trajectory");
-							return;
-						}
-						specification->set(traj->wayPointType, GET_NUM(subm_json["ReferenceTrajectory"], "WayPointType"));
-						
-						// --- wayPoints ---
-						auto& wps_json = GET_ARR(subm_json["ReferenceTrajectory"], "WayPoints");
-						for (auto& wp_json : wps_json) {
-							auto* wp_created = specification->create<WayPoint_t>(asn_DEF_WayPoint);
-							if (!wp_created) {
-								specification->setCreationError("Failed to allocate WayPoint");
-								return;
-							}
-						
-							for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
-								if (wp_json[field].is_null()) {
-									specification->setCreationError(std::string(field) + " in WayPoint not found");
-									return;
-								}
-							}
-							specification->set(wp_created->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
-							specification->set(wp_created->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
-							specification->set(wp_created->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
-							// TODO Diego add PathDeltaTime
-						
-							// --- pathDeltaTime (optional) ---
-							if (!wp_json["PathDeltaTime"].is_null()) {
-								auto* pdt = specification->create<PathDeltaTime_t>(asn_DEF_PathDeltaTime);
-								if (!pdt) {
-									specification->setCreationError("Failed to allocate PathDeltaTime");
-									return;
-								}
-								*pdt = GET_NUM(wp_json, "PathDeltaTime");
-								specification->setOptional(&wp_created->pathDeltaTime, pdt);
-							}
-							if (!specification->add(asn_DEF_WayPoint, &traj->wayPoints, wp_created)) {
-								specification->setCreationError("Failed to add WayPoint to trajectory");
-								return;
-							}
-						}
-						// --- speed ---
-						for (auto& sp_json : subm_json["ReferenceTrajectory"]["Speed"]) {
-							auto* sp_created = specification->create<Speed_t>(asn_DEF_Speed);
-							if (!sp_created) {
-								specification->setCreationError("Failed to allocate Speed");
-								return;
-							}
-							specification->set(sp_created->speedValue, GET_NUM(sp_json, "SpeedValue"));
-							specification->set(sp_created->speedConfidence, GET_NUM(sp_json, "SpeedConfidence"));
-							if (!specification->add(asn_DEF_Speed, &traj->speed, sp_created)) {
-								specification->setCreationError("Failed to add Speed to trajectory");
-								return;
-							}
-						}
-						// TODO Diego, add list of latitude, longitude, etc... (optionals)
-						specification->setOptional(&subm->referenceTrajectory, traj);
-					}
-
-					// --- targetRoadResourceIContainer (optional) ---
-					if (!subm_json["TargetRoadResource"].is_null()) {
-						auto* trr = specification->create<TrrDescription_t>(asn_DEF_TrrDescription);
-						if (!trr) {
-							specification->setCreationError("Failed to allocate TrrDescription");
-							return;
-						}
-
-						specification->set(trr->trrType, GET_NUM(subm_json["TargetRoadResource"], "TrrType"));
-						specification->set(trr->laneCount, GET_NUM(subm_json["TargetRoadResource"], "TaneCount"));
-						specification->set(trr->trrWidth, GET_NUM(subm_json["TargetRoadResource"], "TrrWidth"));
-						specification->set(trr->trrLength, GET_NUM(subm_json["TargetRoadResource"], "TrrLength"));
-						// TODO Diego add optional fields for TRR
-
-						specification->setOptional(&subm->targetRoadResourceIContainer, trr);
-					}
-
-					// --- kinematicsCharacteristics (optional) ---
-					// For the moment the ASN indicates this field as nullptr
+				extractSubmaneuverDescriptions(submaneuvers_json, specification);
+				if (std::get<0>(specification->getCreationError())) {
+					return;
 				}
+			} else {
+				// Throw an error
+				specification->setCreationError("ManeuverContainer needs a MCMSubmaneuvers");
 			}
-		} else {
-			// Throw an error
-			specification->setCreationError("ResponseContainer always needs a MCMResponse");
-		}
-		break;
+			// Get the ManeuverAdvice (optional)
+			if (!request["MCMManeuverAdvice"].is_null()) {
+				auto& advices_json = GET_ARR(request, "MCMManeuverAdvice");
+				// TODO Diego
+			}
+			break;
+		case JSONserver::Container::ManeuverAdviseContainer:
+			specification->setAdviseContainer();
+			// Get the ManeuverAdvice
+			if (!request["MCMManeuverAdvice"].is_null()) {
+				auto& advices_json = GET_ARR(request, "MCMManeuverAdvice");
+				// TODO Diego
+			} else {
+				// Throw an error
+				specification->setCreationError("AdviseContainer needs a MCMManeuverAdvice");
+			}
+			break;
+		case JSONserver::Container::ResponseContainer:
+			specification->setResponseContainer();
+			if (!request["ResponseContainer"]["MCMResponse"].is_null()) {
+				specification->setMCMResponse(GET_NUM(request["ResponseContainer"], "MCMResponse"));
+				if (specification->getMCMResponse() == 1) {
+					// If the station is sending a refusal, we need to know the reason
+					if (!request["ResponseContainer"]["MCMResponseDeclineReason"].is_null()) {
+						specification->setMCMResponseDeclineReason(GET_NUM(request["ResponseContainer"], "MCMResponseDeclineReason"));
+					} else {
+						// Throw an error
+						specification->setCreationError("ResponseContainer needs a MCMResponseDeclineReason when the maneuver is declined");
+					}
+				}
+				// Get the Submanouvers if indicated (optional)
+				if (!request["MCMSubmaneuvers"].is_null()) {
+					auto& submaneuvers_json = GET_ARR(request, "MCMSubmaneuvers");
+					extractSubmaneuverDescriptions(submaneuvers_json, specification);
+					if (std::get<0>(specification->getCreationError())) {
+						return;
+					}
+				}
+			} else {
+				// Throw an error
+				specification->setCreationError("ResponseContainer always needs a MCMResponse");
+			}
+			break;
 		case JSONserver::Container::AcknowledgmentContainer:
-		specification->setAcknowledgmentContainer(); // Just set the container, no other actions needed
-		break;
+			specification->setAcknowledgmentContainer(); // Just set the container, no other actions needed
+			break;
 		case JSONserver::Container::TerminationContainer:
-		specification->setTerminatorContainer(); // Just set the container, no other actions needed
-		break;
+			specification->setTerminatorContainer(); // Just set the container, no other actions needed
+			break;
 		default:
-		break;
+			break;
 	}
 }
 
