@@ -28,6 +28,38 @@ std::vector<JSONserver::ContainerMapping> m_containers_mapping = {{
 
 std::vector<std::string> m_basic_fields = {"MCMConcept", "MCMCost", "MCMGoal", "MCMType", "MCMManeuverID", "MCMITSRole"};
 
+static const std::unordered_map<int, const char*> strategy_json_fields = {
+    { SubmanoeuvreStrategy_PR_undefined,                      "Undefined"                      },
+    { SubmanoeuvreStrategy_PR_transitToHumanDrivenMode,       "TransitToHumanDrivenMode"       },
+    { SubmanoeuvreStrategy_PR_transitToAutomatedDrivingMode,  "TransitToAutomatedDrivingMode"  },
+    { SubmanoeuvreStrategy_PR_driveStraight,                  "DriveStraight"                  },
+    { SubmanoeuvreStrategy_PR_turnLeft,                       "TurnLeft"                       },
+    { SubmanoeuvreStrategy_PR_turnRight,                      "TurnRight"                      },
+    { SubmanoeuvreStrategy_PR_uTurn,                          "UTurn"                          },
+    { SubmanoeuvreStrategy_PR_moveBackward,                   "MoveBackward"                   },
+    { SubmanoeuvreStrategy_PR_overtake,                       "Overtake"                       },
+    { SubmanoeuvreStrategy_PR_accelerate,                     "Accelerate"                     },
+    { SubmanoeuvreStrategy_PR_slowDown,                       "SlowDown"                       },
+    { SubmanoeuvreStrategy_PR_stop,                           "Stop"                           },
+    { SubmanoeuvreStrategy_PR_goToLeftLane,                   "GoToLeftLane"                   },
+    { SubmanoeuvreStrategy_PR_goToRightLane,                  "GoToRightLane"                  },
+    { SubmanoeuvreStrategy_PR_getOnHighway,                   "GetOnHighway"                   },
+    { SubmanoeuvreStrategy_PR_exitHighway,                    "ExitHighway"                    },
+    { SubmanoeuvreStrategy_PR_takeTollingLane,                "TakeTollingLane"                },
+    { SubmanoeuvreStrategy_PR_stopAndWait,                    "StopAndWait"                    },
+    { SubmanoeuvreStrategy_PR_emergencyBrakeAndStop,          "EmergencyBrakeAndStop"          },
+    { SubmanoeuvreStrategy_PR_resetStopAndRestartMoving,      "ResetStopAndRestartMoving"      },
+    { SubmanoeuvreStrategy_PR_stayInLane,                     "StayInLane"                     },
+    { SubmanoeuvreStrategy_PR_resetStayInLane,                "ResetStayInLane"                },
+    { SubmanoeuvreStrategy_PR_stayAway,                       "StayAway"                       },
+    { SubmanoeuvreStrategy_PR_resetStayAway,                  "ResetStayAway"                  },
+    { SubmanoeuvreStrategy_PR_followMe,                       "FollowMe"                       },
+    { SubmanoeuvreStrategy_PR_existingGroup,                  "ExistingGroup"                  },
+    { SubmanoeuvreStrategy_PR_temporarilyDisbandAnExistingGroup, "TemporarilyDisbandAnExistingGroup" },
+    { SubmanoeuvreStrategy_PR_constituteATemporarilyGroup,    "ConstituteATemporarilyGroup"    },
+    { SubmanoeuvreStrategy_PR_disbandATemporarilyGroup,       "DisbandATemporarilyGroup"       },
+};
+
 //static inline double haversineDist(double lat_a, double lon_a, double lat_b, double lon_b) {
 	// 12742000 is the mean Earth radius (6371 km) * 2 * 1000 (to convert from km to m)
 //	return 12742000.0*asin(sqrt(sin(DEG_2_RAD_AIM(lat_b-lat_a)/2)*sin(DEG_2_RAD_AIM(lat_b-lat_a)/2)+cos(DEG_2_RAD_AIM(lat_a))*cos(DEG_2_RAD_AIM(lat_b))*sin(DEG_2_RAD_AIM(lon_b-lon_a)/2)*sin(DEG_2_RAD_AIM(lon_b-lon_a)/2)));
@@ -413,8 +445,14 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 		
 		// --- temporalCharacteristics ---
 		if (!subm_json["TemporalCharacteristics"].is_null()) {
-			specification->set(&subm->temporalCharateristics.tRROccupancyStartTime, GET_NUM(subm_json["TemporalCharacteristics"], "startTime"));
-			specification->set(&subm->temporalCharateristics.tRROccupancyEndTime, GET_NUM(subm_json["TemporalCharacteristics"], "endTime"));
+			for (auto field : {"StartTime", "EndTime"}) {
+				if (subm_json["TemporalCharacteristics"][field].is_null()) {
+					specification->setCreationError(std::string(field) + " in TemporalCharacteristics not found");
+					return;
+				}
+			}
+			specification->set(&subm->temporalCharateristics.tRROccupancyStartTime, GET_NUM(subm_json["TemporalCharacteristics"], "StartTime"));
+			specification->set(&subm->temporalCharateristics.tRROccupancyEndTime, GET_NUM(subm_json["TemporalCharacteristics"], "EndTime"));
 		} else {
 			specification->setCreationError("SubmaneuverDescription needs TemporalCharacteristics");
 			return;
@@ -427,8 +465,16 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 				specification->setCreationError("Failed to allocate SubmaneuverStrategy");
 				return;
 			}
-			specification->set(&strategy->present, GET_NUM(subm_json["SubmaneuverStrategy"], "Strategy"));
-			// TODO Diego choice
+			int present_val = GET_NUM(subm_json["SubmaneuverStrategy"], "Strategy");
+    		specification->set(&strategy->present, present_val);
+			auto it = strategy_json_fields.find(present_val);
+			if (it == strategy_json_fields.end()) {
+				specification->setCreationError("Unknown strategy present value: " + std::to_string(present_val));
+				return;
+			}
+			const char* json_field = it->second;
+			specification->set(reinterpret_cast<long*>(&strategy->choice), GET_NUM(subm_json["SubmaneuverStrategy"], json_field));
+			specification->setOptional(&subm->submanoeuvreStrategy, strategy);
 		}
 
 		// --- referenceTrajectory (optional) ---
@@ -436,6 +482,11 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 			auto* traj = specification->create<Trajectory_t>(asn_DEF_Trajectory);
 			if (!traj) {
 				specification->setCreationError("Failed to allocate Trajectory");
+				return;
+			}
+
+			if (subm_json["ReferenceTrajectory"]["WayPointType"].is_null()) {
+				specification->setCreationError("WayPointType in ReferenceTrajectory not found");
 				return;
 			}
 			specification->set(&traj->wayPointType, GET_NUM(subm_json["ReferenceTrajectory"], "WayPointType"));
@@ -489,6 +540,12 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 					specification->setCreationError("Failed to allocate Speed");
 					return;
 				}
+				for (auto field : {"SpeedValue", "SpeedConfidence"}) {
+					if (sp_json[field].is_null()) {
+						specification->setCreationError(std::string(field) + " in Speed not found");
+						return;
+					}
+				}
 				specification->set(&sp_created->speedValue, GET_NUM(sp_json, "SpeedValue"));
 				specification->set(&sp_created->speedConfidence, GET_NUM(sp_json, "SpeedConfidence"));
 				if (!specification->add(asn_DEF_Speed, &traj->speed, sp_created)) {
@@ -508,11 +565,91 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 				return;
 			}
 
+			for (auto field : {"TrrType", "LaneCount", "TrrWidth", "TrrLength"}) {
+				if (subm_json["TargetRoadResource"][field].is_null()) {
+					specification->setCreationError(std::string(field) + " in TargetRoadResource not found");
+					return;
+				}
+			}
 			specification->set(&trr->trrType, GET_NUM(subm_json["TargetRoadResource"], "TrrType"));
 			specification->set(&trr->laneCount, GET_NUM(subm_json["TargetRoadResource"], "LaneCount"));
 			specification->set(&trr->trrWidth, GET_NUM(subm_json["TargetRoadResource"], "TrrWidth"));
 			specification->set(&trr->trrLength, GET_NUM(subm_json["TargetRoadResource"], "TrrLength"));
-			// TODO Diego add optional fields for TRR
+			
+			if (!subm_json["TargetRoadResource"]["StartingLaneNumber"].is_null()) {
+				auto* starting_lane_number = specification->create<LaneCount_t>(asn_DEF_LaneCount);
+				if (!starting_lane_number) {
+					specification->setCreationError("Failed to allocate StartingLaneNumber");
+					return;
+				}
+				specification->set(&starting_lane_number, GET_NUM(subm_json["TargetRoadResource"], "StartingLaneNumber"));
+				specification->setOptional(&trr->startingLaneNumber, starting_lane_number);
+			}
+			
+			if (!subm_json["TargetRoadResource"]["EndingLaneNumber"].is_null()) {
+				auto* ending_lane_number = specification->create<LaneCount_t>(asn_DEF_LaneCount);
+				if (!ending_lane_number) {
+					specification->setCreationError("Failed to allocate EndingLaneNumber");
+					return;
+				}
+				specification->set(&ending_lane_number, GET_NUM(subm_json["TargetRoadResource"], "EndingLaneNumber"));
+				specification->setOptional(&trr->endingLaneNumber, ending_lane_number);
+			}
+
+			auto& wps_json = GET_ARR(subm_json["TargetRoadResource"], "WayPoints");
+			for (auto& wp_json : wps_json) {
+				auto* wp_created = specification->create<WayPoint_t>(asn_DEF_WayPoint);
+				if (!wp_created) {
+					specification->setCreationError("Failed to allocate WayPoint");
+					return;
+				}
+			
+				for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+					if (wp_json[field].is_null()) {
+						specification->setCreationError(std::string(field) + " in WayPoint not found");
+						return;
+					}
+				}
+				specification->set(&wp_created->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
+				specification->set(&wp_created->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
+				specification->set(&wp_created->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
+			
+				// --- pathDeltaTime (optional) ---
+				if (!wp_json["PathDeltaTime"].is_null()) {
+					auto* pdt = specification->create<PathDeltaTime_t>(asn_DEF_PathDeltaTime);
+					if (!pdt) {
+						specification->setCreationError("Failed to allocate PathDeltaTime");
+						return;
+					}
+					*pdt = GET_NUM(wp_json, "PathDeltaTime");
+					specification->setOptional(&wp_created->pathDeltaTime, pdt);
+				}
+				if (!specification->add(asn_DEF_WayPoint, &trr->waypoints, wp_created)) {
+					specification->setCreationError("Failed to add WayPoint to trajectory");
+					return;
+				}
+			}
+
+			auto& headings_json = GET_ARR(subm_json["TargetRoadResource"], "Heading");
+			for (auto& h_json : headings_json) {
+				auto* h = specification->create<Wgs84Angle>(asn_DEF_Wgs84Angle);
+				if (!h) {
+					specification->setCreationError("Failed to allocate Wgs84Angle");
+					return;
+				}
+				for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+					if (h_json[field].is_null()) {
+						specification->setCreationError(std::string(field) + " in Heading not found");
+						return;
+					}
+				}
+				specification->set(&h->value, GET_NUM(h_json, "HeadingValue"));
+				specification->set(&h->value, GET_NUM(h_json, "HeadingConfidence"));
+				if (!specification->add(asn_DEF_Wgs84Angle, &trr->heading, h)) {
+					specification->setCreationError("Failed to add Wgs84Angle to heading");
+					return;
+				}
+			}
 
 			specification->setOptional(&subm->targetRoadResourceIContainer, trr);
 		}
@@ -584,7 +721,7 @@ void JSONserver::fillMCSpecificationFromJson(const json11::Json &request, MCSpec
 			// Get the ManeuverAdvice (optional)
 			if (!request["MCMManeuverAdvice"].is_null()) {
 				auto& advices_json = GET_ARR(request, "MCMManeuverAdvice");
-				// TODO Diego
+				// TODO Diego (not urgent)
 			}
 			break;
 		case JSONserver::Container::ManeuverAdviseContainer:
@@ -592,7 +729,7 @@ void JSONserver::fillMCSpecificationFromJson(const json11::Json &request, MCSpec
 			// Get the ManeuverAdvice
 			if (!request["MCMManeuverAdvice"].is_null()) {
 				auto& advices_json = GET_ARR(request, "MCMManeuverAdvice");
-				// TODO Diego
+				// TODO Diego (not urgent)
 			} else {
 				// Throw an error
 				specification->setCreationError("AdviseContainer needs a MCMManeuverAdvice");

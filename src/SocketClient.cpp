@@ -831,7 +831,18 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
         }
     } else if(decodedData.type == etsiDecoder::ETSI_DECODED_MCM || decodedData.type == etsiDecoder::ETSI_DECODED_MCM_NOGN)
 	{
-		// TODO Diego
+		// TODO Stefano --> extract the data from MCM, build the JSON (refer to the structure used in JSONserver), send it through JSON-over-TCP
+		MCM_t *decoded_mcm = (MCM_t *) decodedData.decoded_msg;
+		json11::Json json_mcm;
+
+		// Here the creation of JSON structure
+		
+		std::string strjson = json11::Json(json_mcm).dump();
+		int currd = 0; // TODO define a connection like in JSONserver
+		// Send the MCM received through the JSON-over-TCP interface
+		if(send(currd, strjson.c_str(), strjson.length(), 0) != static_cast<ssize_t>(strjson.length())) {
+			perror("[ERROR] Could not send data to connected client. The connection will still remain active.");
+		}
 	} else {
 		std::cerr << "[WARN] Warning! Only CAM, CPM and VAM messages (and, optionally, DENMs) are supported for the time being!" << std::endl;
 		return;
