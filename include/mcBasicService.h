@@ -15,8 +15,7 @@ extern "C" {
 
 //#define CURRENT_VDP_TYPE VDPTraCI
 
-enum ManeuverID
-{
+enum ManeuverID {
   // --- Traffic ---
   Undefined                         = 0x00,
   TransitToHumanDrivenMode          = 0x01,
@@ -242,6 +241,7 @@ enum ManeuverID
     }
     void setCreationError(std::string reason) {m_creation_error = true; m_creation_error_str = reason;}
     std::tuple<bool, std::string> getCreationError() {return {m_creation_error, m_creation_error_str};}
+    json11::Json& getRequest() {return m_request;};
 
   private:
     long m_mcm_type;
@@ -269,6 +269,8 @@ enum ManeuverID
     std::unordered_map<void*, AllocationInfo> m_allocations;
     std::vector<ManoeuvreAdvice*> m_maneuver_advice_list;
     std::vector<Submanoeuvre_t*> m_submaneuver_description_list;
+
+    json11::Json& m_request;
   };
 
 

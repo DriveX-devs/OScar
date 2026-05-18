@@ -431,6 +431,10 @@ void JSONserver::createJSONFromMCM(MCM_t* decoded_mcm) {
 }
 
 void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json, MCSpecification* specification) {
+	auto list_subm = asn1cpp::makeSeq(ListOfSubmanoeuvreDescriptionsContainer);
+	auto subm = asn1cpp::makeSeq(SubmanoeuvreDescription);
+	asn1cpp::sequenceof::pushList(list_subm, subm);
+	asn1cpp::setField(subm->submanoeuvreID, GET_NUM(json_field, "SubmanoeuvreID"));
 	for (auto& subm_json : submaneuvers_json) {
 		// --- SubmanoeuvreDescription ---
 		SubmanoeuvreDescription* subm = specification->create<SubmanoeuvreDescription_t>(asn_DEF_SubmanoeuvreDescription);
