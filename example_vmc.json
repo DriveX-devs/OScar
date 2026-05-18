@@ -1,0 +1,87 @@
+{
+  "VehicleManeuverContainer": true,
+  "MCMCost": 10,
+  "MCMGoal": 2,
+  "MCMType": 3,
+  "MCMManeuverID": 45,
+  "MCMITSRole": 1,
+  "MCMManeuverAdvice": [
+    {
+      "AdviceID": 12
+    }
+  ],
+  "MCMSubmaneuvers": [
+    {
+      "SubmanoeuvreID": 1,
+      "TemporalCharacteristics": {
+        "StartTime": 1716000000,
+        "EndTime": 1716000030
+      },
+      "SubmaneuverStrategy": {
+        "Strategy": 2,
+        "LaneChange": 1
+      },
+      "ReferenceTrajectory": {
+        "WayPointType": 0,
+        "WayPoints": [
+          {
+            "DeltaLatitude": 120,
+            "DeltaLongitude": -450,
+            "DeltaAltitude": 5,
+            "PathDeltaTime": 10
+          }
+        ],
+        "Speed": [
+          {
+            "SpeedValue": 50,
+            "SpeedConfidence": 1
+          }
+        ],
+        "Heading": [
+          {
+            "HeadingValue": 180,
+            "HeadingConfidence": 2
+          }
+        ],
+        "Longitude": [
+          {
+            "LongitudeValue": 450000
+          }
+        ],
+        "Latitude": [
+          {
+            "LatitudeValue": 900000
+          }
+        ],
+        "Altitude": [
+          {
+            "AltitudeValue": 1200,
+            "AltitudeConfidence": 80
+          }
+        ]
+      },
+      "TargetRoadResource": {
+        "TrrType": 1,
+        "LaneCount": 2,
+        "TrrWidth": 350,
+        "TrrLength": 5000,
+        "StartingLaneNumber": 1,
+        "EndingLaneNumber": 2,
+        "WayPoints": [
+          {
+            "DeltaLatitude": 10,
+            "DeltaLongitude": 20,
+            "DeltaAltitude": 0,
+            "PathDeltaTime": 5
+          }
+        ],
+        "Heading": [
+          {
+            "HeadingValue": 90,
+            "HeadingConfidence": 1
+          }
+        ]
+      }
+    }
+  ]
+}

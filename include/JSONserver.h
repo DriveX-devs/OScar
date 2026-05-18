@@ -20,8 +20,8 @@ class JSONserver {
 			TerminationContainer,
 		};
 		struct ContainerMapping {
-				std::string name;
-				JSONserver::Container type;
+			std::string name;
+			JSONserver::Container type;
 		};
 		static std::vector<ContainerMapping> m_containers_mapping;
 		static std::vector<std::string> m_basic_fields;
@@ -61,6 +61,7 @@ class JSONserver {
 		json11::Json::object handleRequest(const json11::Json &request);
 		json11::Json::object handleDENMRequest(const json11::Json &request);
 		json11::Json::object handleMCMRequest(const json11::Json &request);
+		void createJSONFromMCM(MCM_t* decoded_mcm);
 	
 	private:
 		json11::Json::object make_vehicle_standard(uint64_t stationID, 

@@ -83,11 +83,9 @@ enum ManeuverID
           m_vehicle_type{}, m_mcm_response(0), m_creation_error(false), m_creation_error_str("") {}
 
     template <typename T>
-    T* create(asn_TYPE_descriptor_t& typeDescriptor)
-    {
+    T* create(asn_TYPE_descriptor_t& typeDescriptor) {
       T* new_item = (T *)CALLOC(1, sizeof(T));
-      if (new_item)
-      {
+      if (new_item) {
           AllocationInfo info;
           info.ptr = new_item;
           info.type = &typeDescriptor;
@@ -102,6 +100,32 @@ enum ManeuverID
           }
       }
       return new_item;
+    }
+
+    template <typename SeqType, typename Parent>
+    SeqType* getOrCreateSeq(SeqType** seqPtr, Parent* parent) {
+        if (!seqPtr) return nullptr;
+        
+        // If the sequence was previously allocated
+        if (*seqPtr != nullptr) {
+            return *seqPtr;
+        }
+
+        SeqType* new_seq = (SeqType*)CALLOC(1, sizeof(SeqType));
+        if (new_seq) {
+            // Link imediately to the parent
+            *seqPtr = new_seq;
+
+            AllocationInfo info;
+            info.ptr = new_seq;
+            info.type = nullptr; // No descriptor, not needed
+            
+            // Cleanup will ignore it
+            info.ownedByParent = true; 
+            
+            m_allocations[new_seq] = info;
+        }
+        return new_seq;
     }
 
     template <typename T, typename Container, typename Item>

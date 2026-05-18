@@ -1212,8 +1212,7 @@ int main (int argc, char *argv[]) {
         }
 
         // Set the ego station type -> if CAMs are enabled, set it to passenger car, otherwise to pedestrian
-        if (enable_VAM_dissemination && ego_station_type != StationType_pedestrian)
-        {
+        if (enable_VAM_dissemination && ego_station_type != StationType_pedestrian) {
             std::cerr << "[WARN] VAM dissemination enabled but station type is not pedestrian. Switching station type to pedestrian." << std::endl;
             ego_station_type = StationType_pedestrian;
         }
@@ -1303,8 +1302,7 @@ int main (int argc, char *argv[]) {
                     << std::endl;
         }
 
-        if (enable_DCC == true) 
-        {
+        if (enable_DCC == true) {
             if (time_window_DCC <= 0 || time_window_DCC >= MAXIMUM_TIME_WINDOW_DCC) {
                 std::cerr
                         << "[ERROR] Time window for DCC was not correctly set. Remember that it must be an integer value greater than 0 and lower than "
@@ -1445,8 +1443,7 @@ int main (int argc, char *argv[]) {
     }
 
     uint8_t srcmac[6] = {0};
-    if (mac_address == "")
-    {
+    if (mac_address == "") {
         // Get the MAC address of the dissemination interface and store it inside "srcmac"
         struct ifreq ifreq;
 
@@ -1656,20 +1653,16 @@ int main (int argc, char *argv[]) {
 
     DCC *dcc = new DCC();
     dcc->setBitRate(bitrate * 1e6);
-    if (enable_DCC)
-    {
+    if (enable_DCC) {
         dcc->setupDCC(time_window_DCC, modality_DCC, dissem_vif, cbr_target, 0.01f, verbose_DCC, queue_length, queue_lifetime, log_filename_DCC, profile_DCC);
         dcc->setMetricSupervisor(&metric_supervisor);
-        if (enable_CAM_dissemination)
-        {
+        if (enable_CAM_dissemination) {
             cabs.setPriority(CAMs_priority);
         }
-        if (enable_CPM_dissemination)
-        {
+        if (enable_CPM_dissemination) {
             cpbs.setPriority(CPMs_priority);
         }
-        if (enable_VAM_dissemination)
-        {
+        if (enable_VAM_dissemination) {
             vrubs.setPriority(VAMs_priority);
         }
         // TODO: implement DENM priority for DCC
@@ -1678,8 +1671,7 @@ int main (int argc, char *argv[]) {
         } */
        // TODO: implement MCM priority for DCC
     }
-    else
-    {
+    else {
 	    dcc = nullptr;
     }
 
@@ -1709,8 +1701,7 @@ int main (int argc, char *argv[]) {
     {
         // GN.setStationProperties(vehicleID, ego_station_type); Already done by BTP
         GN.setVDP(vdpgpsc);
-        if (enable_CAM_dissemination)
-        {
+        if (enable_CAM_dissemination) {
             int cnt_CAM = 0;
             while (true) {
                 VDPGPSClient::CAM_mandatory_data_t CAMdata;
@@ -1735,8 +1726,7 @@ int main (int argc, char *argv[]) {
             }
             GN.setMessageType(MessageId_cam);
         }
-        else
-        {
+        else {
             GN.setMessageType(MessageId_cpm);
         }
     }
@@ -1793,18 +1783,17 @@ int main (int argc, char *argv[]) {
         if (pos_avail_cnt > 20) BTP.setStationProperties(vehicleID,ego_station_type, 45.014570, 7.568314); // Default at Politecnico di Torino
         else BTP.setStationProperties(vehicleID,ego_station_type, test_lat, test_lon);
     }
-    if (enable_CAM_dissemination)
-    {
+    if (enable_CAM_dissemination) {
         BTP.setVDP(vdpgpsc);
     }
-    else if (enable_CPM_dissemination)
-    {
+    else if (enable_CPM_dissemination) {
         BTP.setVDP(vdpgpsc);
     }
-    else if (enable_VAM_dissemination)
-    {
+    else if (enable_VAM_dissemination) {
         BTP.setVRUdp(vdpgpsc);
     }
+
+    JSONserver jsonsrv(db_ptr,nullptr);
 
     if(terminatorFlag) {
         goto exit_failure;
@@ -1896,10 +1885,15 @@ int main (int argc, char *argv[]) {
         serialParser.showDebugAgeInfo();
     }
 
-    if(enable_DCC)
-    {
+    if(enable_DCC) {
         dcc->startDCC();
     }
+    
+    jsonsrv.setServerPort(json_over_tcp_port);
+    if(jsonsrv.startServer()!=true) {
+        fprintf(stderr,"[ERROR] Critical error: cannot start the JSON server for the client data retrieval.\n");
+        terminatorFlag=true;
+	}
 
 	// Reception loop (using the main thread)
 	if(enable_reception==true) {
@@ -1932,22 +1926,14 @@ int main (int argc, char *argv[]) {
 			logginggpsc.openConnection();
 			mainRecvClient->setLoggingGNSSClient(&logginggpsc);
 
-			// Before starting the data reception, create a new JSONserver object for client to retrieve the DB data
-			JSONserver jsonsrv(db_ptr,nullptr);
-
 		    if (enable_DENM_tx) {
                 jsonsrv.setDENService(denbs_ptr);
 		    }
 
             if (enable_MCM_tx) {
                 jsonsrv.setMCService(mcbs_ptr);
+                mainRecvClient->setJSONServer(&jsonsrv);
 		    }
-
-			jsonsrv.setServerPort(json_over_tcp_port);
-			if(jsonsrv.startServer()!=true) {
-				fprintf(stderr,"[ERROR] Critical error: cannot start the JSON server for the client data retrieval.\n");
-				terminatorFlag=true;
-			}
 
             if(!terminatorFlag) {
                 fprintf(stdout, "Reception is going to start very soon...\n");

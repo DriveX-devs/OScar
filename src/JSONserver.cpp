@@ -18,7 +18,7 @@
 #define GET_STR(json,key) (json[key].string_value())
 #define GET_ARR(json, key) (json[key].array_items())
 
-std::vector<JSONserver::ContainerMapping> m_containers_mapping = {{
+std::vector<JSONserver::ContainerMapping> JSONserver::m_containers_mapping = {{
 	{"VehicleManeuverContainer", JSONserver::Container::VehicleManeuverContainer},
 	{"ManeuverAdviseContainer",    JSONserver::Container::ManeuverAdviseContainer},
 	{"AcknowledgmentContainer",    JSONserver::Container::AcknowledgmentContainer},
@@ -26,7 +26,7 @@ std::vector<JSONserver::ContainerMapping> m_containers_mapping = {{
 	{"TerminationContainer",       JSONserver::Container::TerminationContainer}
 }};
 
-std::vector<std::string> m_basic_fields = {"MCMConcept", "MCMCost", "MCMGoal", "MCMType", "MCMManeuverID", "MCMITSRole"};
+std::vector<std::string> JSONserver::m_basic_fields = {"MCMConcept", "MCMCost", "MCMGoal", "MCMType", "MCMManeuverID", "MCMITSRole"};
 
 static const std::unordered_map<int, const char*> strategy_json_fields = {
     { SubmanoeuvreStrategy_PR_undefined,                      "Undefined"                      },
@@ -426,6 +426,10 @@ denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
     return data;
 }
 
+void JSONserver::createJSONFromMCM(MCM_t* decoded_mcm) {
+	// TODO Stefano --> extract the data from MCM, build the JSON (refer to the structure used in JSONserver), send it through JSON-over-TCP
+}
+
 void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json, MCSpecification* specification) {
 	for (auto& subm_json : submaneuvers_json) {
 		// --- SubmanoeuvreDescription ---
@@ -466,7 +470,7 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 				return;
 			}
 			int present_val = GET_NUM(subm_json["SubmaneuverStrategy"], "Strategy");
-    		specification->set(&strategy->present, present_val);
+    		specification->set(&strategy->present, static_cast<SubmanoeuvreStrategy_PR>(present_val));
 			auto it = strategy_json_fields.find(present_val);
 			if (it == strategy_json_fields.end()) {
 				specification->setCreationError("Unknown strategy present value: " + std::to_string(present_val));
@@ -517,7 +521,7 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 						specification->setCreationError("Failed to allocate PathDeltaTime");
 						return;
 					}
-					*pdt = GET_NUM(wp_json, "PathDeltaTime");
+					specification->set(pdt, GET_NUM(wp_json, "PathDeltaTime"));
 					specification->setOptional(&wp_created->pathDeltaTime, pdt);
 				}
 				if (!specification->add(asn_DEF_WayPoint, &traj->wayPoints, wp_created)) {
@@ -528,8 +532,8 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 
 			// --- speed ---
 			json11::Json::array speeds_json;
-			if (!subm_json["ReferenceTrajectory"]["Speeds"].is_null()) {
-				speeds_json = GET_ARR(subm_json["ReferenceTrajectory"], "Speeds");
+			if (!subm_json["ReferenceTrajectory"]["Speed"].is_null()) {
+				speeds_json = GET_ARR(subm_json["ReferenceTrajectory"], "Speed");
 			} else {
 				specification->setCreationError("ReferenceTrajectory in SubmaneuverDescription needs Speeds");
 				return;
@@ -553,7 +557,119 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 					return;
 				}
 			}
-			// TODO Diego, add list of latitude, longitude, etc... (optionals)
+
+			// --- heading for referenceTrajectory (optional) ---
+			auto& headings_json = GET_ARR(subm_json["ReferenceTrajectory"], "Heading");
+			if (!headings_json.empty()) {
+                auto* headings_container = specification->getOrCreateSeq(&traj->headings, traj);
+                if (!headings_container) {
+                    specification->setCreationError("Failed to allocate headings container");
+                    return;
+                }
+
+                for (auto& head_json : headings_json) {
+                    auto* head = specification->create<Wgs84Angle>(asn_DEF_Wgs84Angle);
+                    if (!head) {
+                        specification->setCreationError("Failed to allocate Wgs84Angle");
+                        return;
+                    }
+                    for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+                        if (head_json[field].is_null()) {
+                            specification->setCreationError(std::string(field) + " in Heading not found");
+                            return;
+                        }
+                    }
+                    specification->set(&head->value, GET_NUM(head_json, "HeadingValue"));
+                    specification->set(&head->confidence, GET_NUM(head_json, "HeadingConfidence"));
+                    
+                    if (!specification->add(asn_DEF_Wgs84Angle, headings_container, head)) {
+                        specification->setCreationError("Failed to add Wgs84Angle to heading");
+                        return;
+                    }
+                }
+            }
+
+			// --- longitudePositions for referenceTrajectory (optional) ---
+			auto& longitudes_json = GET_ARR(subm_json["ReferenceTrajectory"], "Longitude");
+			if (!longitudes_json.empty()) {
+				auto* longitudes_container = specification->getOrCreateSeq(&traj->longitudePositions, traj);
+                if (!longitudes_container) {
+                    specification->setCreationError("Failed to allocate longitudePositions container");
+                    return;
+                }
+				for (auto& longi_json : longitudes_json) {
+					auto* longi = specification->create<Longitude_t>(asn_DEF_Longitude);
+					if (!longi) {
+						specification->setCreationError("Failed to allocate Longitude");
+						return;
+					}
+					if (longi_json["LongitudeValue"].is_null()) {
+						specification->setCreationError("LongitudeValue in Longitude not found");
+						return;
+					}
+					specification->set(longi, GET_NUM(longi_json, "LongitudeValue"));
+					if (!specification->add(asn_DEF_Longitude, longitudes_container, longi)) {
+						specification->setCreationError("Failed to add Longitude");
+						return;
+					}
+				}
+			}
+
+			// --- latitudePositions for referenceTrajectory (optional) ---
+			auto& latitudes_json = GET_ARR(subm_json["ReferenceTrajectory"], "Latitude");
+			if (!latitudes_json.empty()) {
+				auto* latitudes_container = specification->getOrCreateSeq(&traj->latitudePositions, traj);
+                if (!latitudes_container) {
+                    specification->setCreationError("Failed to allocate latitudePositions container");
+                    return;
+                }
+				for (auto& lati_json : latitudes_json) {
+					auto* lati = specification->create<Latitude_t>(asn_DEF_Latitude);
+					if (!lati) {
+						specification->setCreationError("Failed to allocate Latitude");
+						return;
+					}
+					if (lati_json["LatitudeValue"].is_null()) {
+						specification->setCreationError("LatitudeValue in Latitude not found");
+						return;
+					}
+					specification->set(lati, GET_NUM(lati_json, "LatitudeValue"));
+					if (!specification->add(asn_DEF_Latitude, latitudes_container, lati)) {
+						specification->setCreationError("Failed to add Latitude");
+						return;
+					}
+				}
+			}
+
+			// --- altitudePositions for referenceTrajectory (optional) ---
+			auto& altitudes_json = GET_ARR(subm_json["ReferenceTrajectory"], "Altitude");
+			if (!altitudes_json.empty()) {
+				auto* altitudes_container = specification->getOrCreateSeq(&traj->altitudePositions, traj);
+                if (!altitudes_container) {
+                    specification->setCreationError("Failed to allocate altitudePositions container");
+                    return;
+                }
+				for (auto& alti_json : altitudes_json) {
+					auto* alti = specification->create<Altitude_t>(asn_DEF_Altitude);
+					if (!alti) {
+						specification->setCreationError("Failed to allocate Altitude");
+						return;
+					}
+					for (auto field : {"AltitudeValue", "AltitudeConfidence"}) {
+                        if (alti_json[field].is_null()) {
+                            specification->setCreationError(std::string(field) + " in Altitude not found");
+                            return;
+                        }
+                    }
+					specification->set(&alti->altitudeValue, GET_NUM(alti_json, "AltitudeValue"));
+					specification->set(&alti->altitudeConfidence, GET_NUM(alti_json, "AltitudeConfidence"));
+					if (!specification->add(asn_DEF_Altitude, altitudes_container, alti)) {
+						specification->setCreationError("Failed to add Latitude");
+						return;
+					}
+				}
+			}
+
 			specification->setOptional(&subm->referenceTrajectory, traj);
 		}
 
@@ -576,78 +692,98 @@ void extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json
 			specification->set(&trr->trrWidth, GET_NUM(subm_json["TargetRoadResource"], "TrrWidth"));
 			specification->set(&trr->trrLength, GET_NUM(subm_json["TargetRoadResource"], "TrrLength"));
 			
+			// --- startingLaneNumber for targetRoadResource (optional) ---
 			if (!subm_json["TargetRoadResource"]["StartingLaneNumber"].is_null()) {
 				auto* starting_lane_number = specification->create<LaneCount_t>(asn_DEF_LaneCount);
 				if (!starting_lane_number) {
 					specification->setCreationError("Failed to allocate StartingLaneNumber");
 					return;
 				}
-				specification->set(&starting_lane_number, GET_NUM(subm_json["TargetRoadResource"], "StartingLaneNumber"));
+				specification->set(starting_lane_number, GET_NUM(subm_json["TargetRoadResource"], "StartingLaneNumber"));
 				specification->setOptional(&trr->startingLaneNumber, starting_lane_number);
 			}
 			
+			// --- endingLaneNumber for targetRoadResource (optional) ---
 			if (!subm_json["TargetRoadResource"]["EndingLaneNumber"].is_null()) {
 				auto* ending_lane_number = specification->create<LaneCount_t>(asn_DEF_LaneCount);
 				if (!ending_lane_number) {
 					specification->setCreationError("Failed to allocate EndingLaneNumber");
 					return;
 				}
-				specification->set(&ending_lane_number, GET_NUM(subm_json["TargetRoadResource"], "EndingLaneNumber"));
+				specification->set(ending_lane_number, GET_NUM(subm_json["TargetRoadResource"], "EndingLaneNumber"));
 				specification->setOptional(&trr->endingLaneNumber, ending_lane_number);
 			}
 
+			// --- waypoints for targetRoadResource (optional) ---
 			auto& wps_json = GET_ARR(subm_json["TargetRoadResource"], "WayPoints");
-			for (auto& wp_json : wps_json) {
-				auto* wp_created = specification->create<WayPoint_t>(asn_DEF_WayPoint);
-				if (!wp_created) {
-					specification->setCreationError("Failed to allocate WayPoint");
-					return;
-				}
-			
-				for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
-					if (wp_json[field].is_null()) {
-						specification->setCreationError(std::string(field) + " in WayPoint not found");
+			if (!wps_json.empty()) {
+				auto* wps_container = specification->getOrCreateSeq(&trr->waypoints, trr);
+                if (!wps_container) {
+                    specification->setCreationError("Failed to allocate waypoints container");
+                    return;
+                }
+
+				for (auto& wp_json : wps_json) {
+					auto* wp_created = specification->create<WayPoint_t>(asn_DEF_WayPoint);
+					if (!wp_created) {
+						specification->setCreationError("Failed to allocate WayPoint");
 						return;
 					}
-				}
-				specification->set(&wp_created->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
-				specification->set(&wp_created->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
-				specification->set(&wp_created->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
-			
-				// --- pathDeltaTime (optional) ---
-				if (!wp_json["PathDeltaTime"].is_null()) {
-					auto* pdt = specification->create<PathDeltaTime_t>(asn_DEF_PathDeltaTime);
-					if (!pdt) {
-						specification->setCreationError("Failed to allocate PathDeltaTime");
+				
+					for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+						if (wp_json[field].is_null()) {
+							specification->setCreationError(std::string(field) + " in WayPoint not found");
+							return;
+						}
+					}
+					specification->set(&wp_created->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
+					specification->set(&wp_created->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
+					specification->set(&wp_created->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
+				
+					// --- pathDeltaTime (optional) ---
+					if (!wp_json["PathDeltaTime"].is_null()) {
+						auto* pdt = specification->create<PathDeltaTime_t>(asn_DEF_PathDeltaTime);
+						if (!pdt) {
+							specification->setCreationError("Failed to allocate PathDeltaTime");
+							return;
+						}
+						specification->set(pdt, GET_NUM(wp_json, "PathDeltaTime"));
+						specification->setOptional(&wp_created->pathDeltaTime, pdt);
+					}
+					if (!specification->add(asn_DEF_WayPoint, wps_container, wp_created)) {
+						specification->setCreationError("Failed to add WayPoint to trajectory");
 						return;
 					}
-					*pdt = GET_NUM(wp_json, "PathDeltaTime");
-					specification->setOptional(&wp_created->pathDeltaTime, pdt);
-				}
-				if (!specification->add(asn_DEF_WayPoint, &trr->waypoints, wp_created)) {
-					specification->setCreationError("Failed to add WayPoint to trajectory");
-					return;
 				}
 			}
+			
 
+			// --- heading for targetRoadResource (optional) ---
 			auto& headings_json = GET_ARR(subm_json["TargetRoadResource"], "Heading");
-			for (auto& h_json : headings_json) {
-				auto* h = specification->create<Wgs84Angle>(asn_DEF_Wgs84Angle);
-				if (!h) {
-					specification->setCreationError("Failed to allocate Wgs84Angle");
-					return;
-				}
-				for (auto field : {"HeadingValue", "HeadingConfidence"}) {
-					if (h_json[field].is_null()) {
-						specification->setCreationError(std::string(field) + " in Heading not found");
+			if (!headings_json.empty()) {
+				auto* head_container = specification->getOrCreateSeq(&trr->heading, trr);
+                if (!head_container) {
+                    specification->setCreationError("Failed to allocate heading container");
+                    return;
+                }
+				for (auto& head_json : headings_json) {
+					auto* head = specification->create<Wgs84Angle>(asn_DEF_Wgs84Angle);
+					if (!head) {
+						specification->setCreationError("Failed to allocate Wgs84Angle");
 						return;
 					}
-				}
-				specification->set(&h->value, GET_NUM(h_json, "HeadingValue"));
-				specification->set(&h->value, GET_NUM(h_json, "HeadingConfidence"));
-				if (!specification->add(asn_DEF_Wgs84Angle, &trr->heading, h)) {
-					specification->setCreationError("Failed to add Wgs84Angle to heading");
-					return;
+					for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+						if (head_json[field].is_null()) {
+							specification->setCreationError(std::string(field) + " in Heading not found");
+							return;
+						}
+					}
+					specification->set(&head->value, GET_NUM(head_json, "HeadingValue"));
+					specification->set(&head->confidence, GET_NUM(head_json, "HeadingConfidence"));
+					if (!specification->add(asn_DEF_Wgs84Angle, head_container, head)) {
+						specification->setCreationError("Failed to add Wgs84Angle to heading");
+						return;
+					}
 				}
 			}
 
