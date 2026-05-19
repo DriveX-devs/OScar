@@ -324,9 +324,7 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 					asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
 				}
 
-				// asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
-        WayPoint_t* wp_raw = reinterpret_cast<WayPoint_t*>(&(*wp));
-        asn1cpp::sequenceof::pushList(traj->wayPoints, wp_raw);
+				asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
 			}
 
 			// --- speed ---
@@ -451,9 +449,7 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 					asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
 				}
 
-				// asn1cpp::sequenceof::pushList(trr->waypoints, wp);
-        WayPoint_t* wp_raw = reinterpret_cast<WayPoint_t*>(&(*wp));
-        asn1cpp::sequenceof::pushList(trr->waypoints, wp_raw);
+				asn1cpp::sequenceof::pushList(trr->waypoints, wp);
 			}
 
 			// --- heading for targetRoadResource (optional) ---
@@ -555,9 +551,7 @@ std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool> extractManeuverAdvice(c
 						asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
 					}
 
-					//asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
-          WayPoint_t* wp_raw = reinterpret_cast<WayPoint_t*>(&(*wp));
-          asn1cpp::sequenceof::pushList(traj->wayPoints, wp_raw);
+					asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
 				}
 
 				// --- speed ---
@@ -604,8 +598,8 @@ std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool> extractManeuverAdvice(c
 						std::cerr << "LongitudeValue in Longitude not found" << std::endl;
 						return {nullptr, false};
 					}
-					asn1cpp::setField(*longi, GET_NUM(longi_json, "LongitudeValue"));
-					asn1cpp::sequenceof::pushList(traj->longitudePositions, longi);
+					// asn1cpp::setField(*longi, GET_NUM(longi_json, "LongitudeValue"));
+					asn1cpp::sequenceof::pushList(traj->longitudePositions, GET_NUM(longi_json, "LongitudeValue"));
 				}
 
 				// --- latitudePositions (optional) ---
@@ -616,8 +610,8 @@ std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool> extractManeuverAdvice(c
 						std::cerr << "LatitudeValue in Latitude not found" << std::endl;
 						return {nullptr, false};
 					}
-					asn1cpp::setField(*lati, GET_NUM(lati_json, "LatitudeValue"));
-					asn1cpp::sequenceof::pushList(traj->latitudePositions, lati);
+					//asn1cpp::setField(*lati, GET_NUM(lati_json, "LatitudeValue"));
+					asn1cpp::sequenceof::pushList(traj->latitudePositions, GET_NUM(lati_json, "LatitudeValue"));
 				}
 
 				// --- altitudePositions (optional) ---
@@ -680,9 +674,7 @@ std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool> extractManeuverAdvice(c
               if (!wp_json["PathDeltaTime"].is_null()) {
                   asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
               }
-              //asn1cpp::sequenceof::pushList(atrr->trrDescription.waypoints, wp);
-              WayPoint_t* wp_raw = reinterpret_cast<WayPoint_t*>(&(*wp));
-              asn1cpp::sequenceof::pushList(atrr->trrDescription.waypoints, wp_raw);
+              asn1cpp::sequenceof::pushList(atrr->trrDescription.waypoints, wp);
           }
 
           // --- heading (optional) ---
@@ -747,6 +739,10 @@ std::tuple<std::string, Container> checkContainer(const json11::Json &request) {
   return {"Missing field in JSON: a MCM container is required", Container::NotPresent};
 }
 
+std::tuple<std::string, Container> checkContainer(mcData mcmData) {
+	
+}
+
 MCBasicService_error_t
 MCBasicService::generateAndEncodeMCM(const json11::Json& request) {
   // Only one container must be activated for one message
@@ -806,8 +802,9 @@ MCBasicService::generateAndEncodeMCM(const json11::Json& request) {
     asn1cpp::setField(rational->choice.manoeuvreCooperationGoal, GET_NUM(request, "MCMGoal"));
   } else {
     asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationCost);
-    asn1cpp::setField(rational->choice.manoeuvreCooperationCost,  GET_NUM(request, "MCMCost"));
+    asn1cpp::setField(rational->choice.manoeuvreCooperationCost, GET_NUM(request, "MCMCost"));
   }
+  asn1cpp::setField(MCM_message->payload.basicContainer.rational, rational);
 
   if (type == 4 || type == 7) {
     asn1cpp::setField (MCM_message->payload.basicContainer.executionStatus, GET_NUM(request, "MCMStatus"));

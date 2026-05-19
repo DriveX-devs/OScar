@@ -440,8 +440,6 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json &request) {
         return response;
     }
 
-    std::string request_type = GET_STR(request, "request_type");
-
 	auto err = m_mc_service->generateAndEncodeMCM(request);
 
 	if (err != MCM_NO_ERROR) {

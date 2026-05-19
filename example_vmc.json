@@ -1,15 +1,10 @@
 {
   "VehicleManeuverContainer": true,
-  "MCMCost": 10,
+  "MCMCost": 1,
   "MCMGoal": 2,
   "MCMType": 3,
   "MCMManeuverID": 45,
   "MCMITSRole": 1,
-  "MCMManeuverAdvice": [
-    {
-      "AdviceID": 12
-    }
-  ],
   "MCMSubmaneuvers": [
     {
       "SubmanoeuvreID": 1,
