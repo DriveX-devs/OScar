@@ -61,6 +61,23 @@ static const std::unordered_map<int, const char*> strategy_json_fields = {
     { SubmanoeuvreStrategy_PR_disbandATemporarilyGroup,       "DisbandATemporarilyGroup"       },
 };
 
+enum Container {
+    NotPresent,
+    VehicleManeuverContainer,
+    ManeuverAdviseContainer,
+    AcknowledgmentContainer,
+    ResponseContainer,
+    TerminationContainer,
+  };
+
+std::unordered_map<std::string, Container> containers_mapping = {
+	{"VehicleManeuverContainer", Container::VehicleManeuverContainer},
+	{"ManeuverAdviseContainer", Container::ManeuverAdviseContainer},
+	{"AcknowledgmentContainer", Container::AcknowledgmentContainer},
+	{"ResponseContainer", Container::ResponseContainer},
+	{"TerminationContainer", Container::TerminationContainer}
+};
+
 MCBasicService::~MCBasicService()=default;
 
 MCBasicService::MCBasicService() {
@@ -175,13 +192,106 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 			asn1cpp::setField(strategy->present, static_cast<SubmanoeuvreStrategy_PR>(present_val));
 
 			auto it = strategy_json_fields.find(present_val);
-			if (it == strategy_json_fields.end()) {
-				std::cerr << "Unknown strategy present value: " + std::to_string(present_val) << std::endl;;
-				return {nullptr, false};
-			}
-			const char* json_field = it->second;
-			asn1cpp::setField(strategy->choice, GET_NUM(subm_json["SubmaneuverStrategy"], json_field));
-			asn1cpp::setField(subm->submanoeuvreStrategy, strategy);
+      if (it == strategy_json_fields.end()) {
+          std::cerr << "Unknown strategy present value: " + std::to_string(present_val) << std::endl;
+          return {nullptr, false};
+      }
+
+      const char* json_field = it->second;
+      double val = GET_NUM(subm_json["SubmaneuverStrategy"], json_field);
+
+      switch (static_cast<SubmanoeuvreStrategy_PR>(present_val)) {
+          case SubmanoeuvreStrategy_PR_undefined:
+              asn1cpp::setField(strategy->choice.undefined, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_transitToHumanDrivenMode:
+              asn1cpp::setField(strategy->choice.transitToHumanDrivenMode, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_transitToAutomatedDrivingMode:
+              asn1cpp::setField(strategy->choice.transitToAutomatedDrivingMode, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_driveStraight:
+              asn1cpp::setField(strategy->choice.driveStraight, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_turnLeft:
+              asn1cpp::setField(strategy->choice.turnLeft, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_turnRight:
+              asn1cpp::setField(strategy->choice.turnRight, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_uTurn:
+              asn1cpp::setField(strategy->choice.uTurn, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_moveBackward:
+              asn1cpp::setField(strategy->choice.moveBackward, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_overtake:
+              asn1cpp::setField(strategy->choice.overtake, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_accelerate:
+              asn1cpp::setField(strategy->choice.accelerate, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_slowDown:
+              asn1cpp::setField(strategy->choice.slowDown, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_stop:
+              asn1cpp::setField(strategy->choice.stop, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_goToLeftLane:
+              asn1cpp::setField(strategy->choice.goToLeftLane, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_goToRightLane:
+              asn1cpp::setField(strategy->choice.goToRightLane, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_getOnHighway:
+              asn1cpp::setField(strategy->choice.getOnHighway, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_exitHighway:
+              asn1cpp::setField(strategy->choice.exitHighway, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_takeTollingLane:
+              asn1cpp::setField(strategy->choice.takeTollingLane, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_stopAndWait:
+              asn1cpp::setField(strategy->choice.stopAndWait, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_emergencyBrakeAndStop:
+              asn1cpp::setField(strategy->choice.emergencyBrakeAndStop, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_resetStopAndRestartMoving:
+              asn1cpp::setField(strategy->choice.resetStopAndRestartMoving, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_stayInLane:
+              asn1cpp::setField(strategy->choice.stayInLane, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_resetStayInLane:
+              asn1cpp::setField(strategy->choice.resetStayInLane, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_stayAway:
+              asn1cpp::setField(strategy->choice.stayAway, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_resetStayAway:
+              asn1cpp::setField(strategy->choice.resetStayAway, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_followMe:
+              asn1cpp::setField(strategy->choice.followMe, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_existingGroup:
+              asn1cpp::setField(strategy->choice.existingGroup, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_temporarilyDisbandAnExistingGroup:
+              asn1cpp::setField(strategy->choice.temporarilyDisbandAnExistingGroup, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_constituteATemporarilyGroup:
+              asn1cpp::setField(strategy->choice.constituteATemporarilyGroup, (long)val);
+              break;
+          case SubmanoeuvreStrategy_PR_disbandATemporarilyGroup:
+              asn1cpp::setField(strategy->choice.disbandATemporarilyGroup, (long)val);
+              break;
+          default:
+              std::cerr << "Unhandled strategy present value: " + std::to_string(present_val) << std::endl;
+              return {nullptr, false};
+      }
 		}
 
 		// --- referenceTrajectory (optional) ---
@@ -214,7 +324,9 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 					asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
 				}
 
-				asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
+				// asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
+        WayPoint_t* wp_raw = reinterpret_cast<WayPoint_t*>(&(*wp));
+        asn1cpp::sequenceof::pushList(traj->wayPoints, wp_raw);
 			}
 
 			// --- speed ---
@@ -232,7 +344,7 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 						return {nullptr, false};
 					}
 				}
-				asn1cpp::setField(sp->speedValue,      GET_NUM(sp_json, "SpeedValue"));
+				asn1cpp::setField(sp->speedValue, GET_NUM(sp_json, "SpeedValue"));
 				asn1cpp::setField(sp->speedConfidence, GET_NUM(sp_json, "SpeedConfidence"));
 				asn1cpp::sequenceof::pushList(traj->speed, sp);
 			}
@@ -248,7 +360,7 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 						return {nullptr, false};
 					}
 				}
-				asn1cpp::setField(head->value,      GET_NUM(head_json, "HeadingValue"));
+				asn1cpp::setField(head->value, GET_NUM(head_json, "HeadingValue"));
 				asn1cpp::setField(head->confidence, GET_NUM(head_json, "HeadingConfidence"));
 				asn1cpp::sequenceof::pushList(traj->headings, head);
 			}
@@ -261,8 +373,7 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 					std::cerr << "LongitudeValue in Longitude not found" << std::endl;
 					return {nullptr, false};
 				}
-				asn1cpp::setField(*longi, GET_NUM(longi_json, "LongitudeValue"));
-				asn1cpp::sequenceof::pushList(traj->longitudePositions, longi);
+				asn1cpp::sequenceof::pushList(traj->longitudePositions, (long) GET_NUM(longi_json, "LongitudeValue"));
 			}
 
 			// --- latitudePositions for referenceTrajectory (optional) ---
@@ -273,8 +384,7 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 					std::cerr << "LatitudeValue in Latitude not found" << std::endl;
 					return {nullptr, false};
 				}
-				asn1cpp::setField(*lati, GET_NUM(lati_json, "LatitudeValue"));
-				asn1cpp::sequenceof::pushList(traj->latitudePositions, lati);
+				asn1cpp::sequenceof::pushList(traj->latitudePositions, (long) GET_NUM(lati_json, "LatitudeValue"));
 			}
 
 			// --- altitudePositions for referenceTrajectory (optional) ---
@@ -288,7 +398,7 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 						return {nullptr, false};
 					}
 				}
-				asn1cpp::setField(alti->altitudeValue,      GET_NUM(alti_json, "AltitudeValue"));
+				asn1cpp::setField(alti->altitudeValue, GET_NUM(alti_json, "AltitudeValue"));
 				asn1cpp::setField(alti->altitudeConfidence, GET_NUM(alti_json, "AltitudeConfidence"));
 				asn1cpp::sequenceof::pushList(traj->altitudePositions, alti);
 			}
@@ -306,10 +416,10 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 					return {nullptr, false};
 				}
 			}
-			asn1cpp::setField(trr->trrType,    GET_NUM(subm_json["TargetRoadResource"], "TrrType"));
-			asn1cpp::setField(trr->laneCount,  GET_NUM(subm_json["TargetRoadResource"], "LaneCount"));
-			asn1cpp::setField(trr->trrWidth,   GET_NUM(subm_json["TargetRoadResource"], "TrrWidth"));
-			asn1cpp::setField(trr->trrLength,  GET_NUM(subm_json["TargetRoadResource"], "TrrLength"));
+			asn1cpp::setField(trr->trrType, GET_NUM(subm_json["TargetRoadResource"], "TrrType"));
+			asn1cpp::setField(trr->laneCount, GET_NUM(subm_json["TargetRoadResource"], "LaneCount"));
+			asn1cpp::setField(trr->trrWidth, GET_NUM(subm_json["TargetRoadResource"], "TrrWidth"));
+			asn1cpp::setField(trr->trrLength, GET_NUM(subm_json["TargetRoadResource"], "TrrLength"));
 
 			// --- startingLaneNumber (optional) ---
 			if (!subm_json["TargetRoadResource"]["StartingLaneNumber"].is_null()) {
@@ -332,16 +442,18 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 						return {nullptr, false};
 					}
 				}
-				asn1cpp::setField(wp->pathPosition.deltaLatitude,  GET_NUM(wp_json, "DeltaLatitude"));
+				asn1cpp::setField(wp->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
 				asn1cpp::setField(wp->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
-				asn1cpp::setField(wp->pathPosition.deltaAltitude,  GET_NUM(wp_json, "DeltaAltitude"));
+				asn1cpp::setField(wp->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
 
 				// --- pathDeltaTime (optional) ---
 				if (!wp_json["PathDeltaTime"].is_null()) {
 					asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
 				}
 
-				asn1cpp::sequenceof::pushList(trr->waypoints, wp);
+				// asn1cpp::sequenceof::pushList(trr->waypoints, wp);
+        WayPoint_t* wp_raw = reinterpret_cast<WayPoint_t*>(&(*wp));
+        asn1cpp::sequenceof::pushList(trr->waypoints, wp_raw);
 			}
 
 			// --- heading for targetRoadResource (optional) ---
@@ -355,7 +467,7 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 						return {nullptr, false};
 					}
 				}
-				asn1cpp::setField(head->value,      GET_NUM(head_json, "HeadingValue"));
+				asn1cpp::setField(head->value, GET_NUM(head_json, "HeadingValue"));
 				asn1cpp::setField(head->confidence, GET_NUM(head_json, "HeadingConfidence"));
 				asn1cpp::sequenceof::pushList(trr->heading, head);
 			}
@@ -366,16 +478,278 @@ std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractS
 		// --- kinematicsCharacteristics (optional) ---
 		// For the moment the ASN indicates this field as nullptr
 
-		asn1cpp::sequenceof::pushList(list_subm, subm);
+		asn1cpp::sequenceof::pushList(*list_subm, subm);
 	}
   return {list_subm, true};
 }
 
+std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool> extractManeuverAdvice(const json11::Json::array &advices_json) {
+	auto list_adv = asn1cpp::makeSeq(ManoeuvreAdviceContainer);
+
+	for (auto& adv_json : advices_json) {
+		auto adv = asn1cpp::makeSeq(ManoeuvreAdvice);
+
+		// --- executantID (mandatory) ---
+		if (!adv_json["ExecutantID"].is_null()) {
+			asn1cpp::setField(adv->executantID, GET_NUM(adv_json, "ExecutantID"));
+		} else {
+			std::cerr << "ManoeuvreAdvice needs ExecutantID" << std::endl;
+			return {nullptr, false};
+		}
+
+		// --- currentStateAdvisedChange (optional) ---
+		if (!adv_json["CurrentStateAdvisedChange"].is_null()) {
+			auto csac = asn1cpp::makeSeq(CurrentStateAdvisedChange);
+
+			int present_val = GET_NUM(adv_json["CurrentStateAdvisedChange"], "Present");
+			asn1cpp::setField(csac->present, static_cast<CurrentStateAdvisedChange_PR>(present_val));
+
+			asn1cpp::setField(adv->currentStateAdvisedChange, csac);
+		}
+
+		// --- submaneuvres (mandatory) ---
+		if (adv_json["Submaneuvres"].is_null()) {
+			std::cerr << "ManoeuvreAdvice needs Submaneuvres" << std::endl;
+			return {nullptr, false};
+		}
+
+		auto& subms_json = GET_ARR(adv_json, "Submaneuvres");
+		for (auto& subm_json : subms_json) {
+			auto subm = asn1cpp::makeSeq(Submanoeuvre);
+
+			// --- submanoeuvreId (mandatory) ---
+			if (!subm_json["SubmanoeuvreId"].is_null()) {
+				asn1cpp::setField(subm->submanoeuvreId, GET_NUM(subm_json, "SubmanoeuvreId"));
+			} else {
+				std::cerr << "Submanoeuvre needs SubmanoeuvreId" << std::endl;
+				return {nullptr, false};
+			}
+
+			// --- advisedTrajectory (optional) ---
+			if (!subm_json["AdvisedTrajectory"].is_null()) {
+				auto traj = asn1cpp::makeSeq(Trajectory);
+
+				if (subm_json["AdvisedTrajectory"]["WayPointType"].is_null()) {
+					std::cerr << "WayPointType in AdvisedTrajectory not found" << std::endl;
+					return {nullptr, false};
+				}
+				asn1cpp::setField(traj->wayPointType, GET_NUM(subm_json["AdvisedTrajectory"], "WayPointType"));
+
+				// --- wayPoints ---
+				auto& wps_json = GET_ARR(subm_json["AdvisedTrajectory"], "WayPoints");
+				for (auto& wp_json : wps_json) {
+					auto wp = asn1cpp::makeSeq(PathPoint);
+
+					for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+						if (wp_json[field].is_null()) {
+							std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
+							return {nullptr, false};
+						}
+					}
+					asn1cpp::setField(wp->pathPosition.deltaLatitude,  GET_NUM(wp_json, "DeltaLatitude"));
+					asn1cpp::setField(wp->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
+					asn1cpp::setField(wp->pathPosition.deltaAltitude,  GET_NUM(wp_json, "DeltaAltitude"));
+
+					// --- pathDeltaTime (optional) ---
+					if (!wp_json["PathDeltaTime"].is_null()) {
+						asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
+					}
+
+					//asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
+          WayPoint_t* wp_raw = reinterpret_cast<WayPoint_t*>(&(*wp));
+          asn1cpp::sequenceof::pushList(traj->wayPoints, wp_raw);
+				}
+
+				// --- speed ---
+				if (subm_json["AdvisedTrajectory"]["Speed"].is_null()) {
+					std::cerr << "AdvisedTrajectory in Submanoeuvre needs Speeds" << std::endl;
+					return {nullptr, false};
+				}
+				auto& speeds_json = GET_ARR(subm_json["AdvisedTrajectory"], "Speed");
+				for (auto& sp_json : speeds_json) {
+					auto sp = asn1cpp::makeSeq(Speed);
+
+					for (auto field : {"SpeedValue", "SpeedConfidence"}) {
+						if (sp_json[field].is_null()) {
+							std::cerr << std::string(field) + " in Speed not found" << std::endl;
+							return {nullptr, false};
+						}
+					}
+					asn1cpp::setField(sp->speedValue, GET_NUM(sp_json, "SpeedValue"));
+					asn1cpp::setField(sp->speedConfidence, GET_NUM(sp_json, "SpeedConfidence"));
+					asn1cpp::sequenceof::pushList(traj->speed, sp);
+				}
+
+				// --- headings (optional) ---
+				auto& headings_json = GET_ARR(subm_json["AdvisedTrajectory"], "Heading");
+				for (auto& head_json : headings_json) {
+					auto head = asn1cpp::makeSeq(Wgs84Angle);
+
+					for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+						if (head_json[field].is_null()) {
+							std::cerr << std::string(field) + " in Heading not found" << std::endl;
+							return {nullptr, false};
+						}
+					}
+					asn1cpp::setField(head->value, GET_NUM(head_json, "HeadingValue"));
+					asn1cpp::setField(head->confidence, GET_NUM(head_json, "HeadingConfidence"));
+					asn1cpp::sequenceof::pushList(traj->headings, head);
+				}
+
+				// --- longitudePositions (optional) ---
+				auto& longitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Longitude");
+				for (auto& longi_json : longitudes_json) {
+					auto longi = asn1cpp::makeSeq(Longitude);
+					if (longi_json["LongitudeValue"].is_null()) {
+						std::cerr << "LongitudeValue in Longitude not found" << std::endl;
+						return {nullptr, false};
+					}
+					asn1cpp::setField(*longi, GET_NUM(longi_json, "LongitudeValue"));
+					asn1cpp::sequenceof::pushList(traj->longitudePositions, longi);
+				}
+
+				// --- latitudePositions (optional) ---
+				auto& latitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Latitude");
+				for (auto& lati_json : latitudes_json) {
+					auto lati = asn1cpp::makeSeq(Latitude);
+					if (lati_json["LatitudeValue"].is_null()) {
+						std::cerr << "LatitudeValue in Latitude not found" << std::endl;
+						return {nullptr, false};
+					}
+					asn1cpp::setField(*lati, GET_NUM(lati_json, "LatitudeValue"));
+					asn1cpp::sequenceof::pushList(traj->latitudePositions, lati);
+				}
+
+				// --- altitudePositions (optional) ---
+				auto& altitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Altitude");
+				for (auto& alti_json : altitudes_json) {
+					auto alti = asn1cpp::makeSeq(Altitude);
+
+					for (auto field : {"AltitudeValue", "AltitudeConfidence"}) {
+						if (alti_json[field].is_null()) {
+							std::cerr << std::string(field) + " in Altitude not found" << std::endl;
+							return {nullptr, false};
+						}
+					}
+					asn1cpp::setField(alti->altitudeValue, GET_NUM(alti_json, "AltitudeValue"));
+					asn1cpp::setField(alti->altitudeConfidence, GET_NUM(alti_json, "AltitudeConfidence"));
+					asn1cpp::sequenceof::pushList(traj->altitudePositions, alti);
+				}
+
+				asn1cpp::setField(subm->advisedTrajectory, traj);
+			}
+
+			// --- advisedTargetRoadResource (optional) ---
+      if (!subm_json["AdvisedTargetRoadResource"].is_null()) {
+          auto atrr = asn1cpp::makeSeq(AdvisedTrrContainer);
+
+          // --- trrDescription (mandatory) ---
+          for (auto field : {"TrrType", "LaneCount", "TrrWidth", "TrrLength"}) {
+              if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
+                  std::cerr << std::string(field) + " in AdvisedTargetRoadResource not found" << std::endl;
+                  return {nullptr, false};
+              }
+          }
+          asn1cpp::setField(atrr->trrDescription.trrType, GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrType"));
+          asn1cpp::setField(atrr->trrDescription.laneCount, GET_NUM(subm_json["AdvisedTargetRoadResource"], "LaneCount"));
+          asn1cpp::setField(atrr->trrDescription.trrWidth, GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrWidth"));
+          asn1cpp::setField(atrr->trrDescription.trrLength, GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrLength"));
+
+          if (!subm_json["AdvisedTargetRoadResource"]["StartingLaneNumber"].is_null()) {
+              asn1cpp::setField(atrr->trrDescription.startingLaneNumber, GET_NUM(subm_json["AdvisedTargetRoadResource"], "StartingLaneNumber"));
+          }
+          if (!subm_json["AdvisedTargetRoadResource"]["EndingLaneNumber"].is_null()) {
+              asn1cpp::setField(atrr->trrDescription.endingLaneNumber, GET_NUM(subm_json["AdvisedTargetRoadResource"], "EndingLaneNumber"));
+          }
+
+          // --- waypoints (optional) ---
+          auto& wps_json = GET_ARR(subm_json["AdvisedTargetRoadResource"], "WayPoints");
+          for (auto& wp_json : wps_json) {
+              auto wp = asn1cpp::makeSeq(PathPoint);
+
+              for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+                  if (wp_json[field].is_null()) {
+                      std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
+                      return {nullptr, false};
+                  }
+              }
+              asn1cpp::setField(wp->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
+              asn1cpp::setField(wp->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
+              asn1cpp::setField(wp->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
+
+              if (!wp_json["PathDeltaTime"].is_null()) {
+                  asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
+              }
+              //asn1cpp::sequenceof::pushList(atrr->trrDescription.waypoints, wp);
+              WayPoint_t* wp_raw = reinterpret_cast<WayPoint_t*>(&(*wp));
+              asn1cpp::sequenceof::pushList(atrr->trrDescription.waypoints, wp_raw);
+          }
+
+          // --- heading (optional) ---
+          auto& headings_json = GET_ARR(subm_json["AdvisedTargetRoadResource"], "Heading");
+          for (auto& head_json : headings_json) {
+              auto head = asn1cpp::makeSeq(Wgs84Angle);
+
+              for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+                  if (head_json[field].is_null()) {
+                      std::cerr << std::string(field) + " in Heading not found" << std::endl;
+                      return {nullptr, false};
+                  }
+              }
+              asn1cpp::setField(head->value, GET_NUM(head_json, "HeadingValue"));
+              asn1cpp::setField(head->confidence, GET_NUM(head_json, "HeadingConfidence"));
+              asn1cpp::sequenceof::pushList(atrr->trrDescription.heading, head);
+          }
+
+          // --- temporalCharacteristics (mandatory) ---
+          for (auto field : {"StartTime", "EndTime"}) {
+              if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
+                  std::cerr << std::string(field) + " in AdvisedTargetRoadResource TemporalCharacteristics not found" << std::endl;
+                  return {nullptr, false};
+              }
+          }
+          asn1cpp::setField(atrr->temporalCharacteristics.tRROccupancyStartTime, GET_NUM(subm_json["AdvisedTargetRoadResource"], "StartTime"));
+          asn1cpp::setField(atrr->temporalCharacteristics.tRROccupancyEndTime, GET_NUM(subm_json["AdvisedTargetRoadResource"], "EndTime"));
+
+          // --- kinematicsCharacteristics (optional, currently NULL type) ---
+          // Skipped as KinematicsCharacteristics_t is defined as NULL_t
+
+          asn1cpp::setField(subm->advisedTargetRoadResource, atrr);
+      }
+
+			asn1cpp::sequenceof::pushList(adv->submaneuvres, subm);
+		}
+
+		asn1cpp::sequenceof::pushList(*list_adv, adv);
+	}
+
+	return {list_adv, true};
+}
+
+std::tuple<std::string, Container> checkContainer(const json11::Json &request) {
+	// Containers, at least and at most one present
+  Container found_container = Container::NotPresent;
+  bool res = false;
+  for (const auto& item : containers_mapping) {
+      if (!request[item.first].is_null()) {
+          if (!res) {
+              res = true;
+              found_container = item.second;
+          } else {
+              return {"Too many MCM containers in JSON", Container::NotPresent};
+          }
+      }
+  }
+
+  if (res) {
+      return {"", found_container};
+  }
+  return {"Missing field in JSON: a MCM container is required", Container::NotPresent};
+}
+
 MCBasicService_error_t
-MCBasicService::generateAndEncodeMCM(MCSpecification* specification) {
+MCBasicService::generateAndEncodeMCM(const json11::Json& request) {
   // Only one container must be activated for one message
-  specification->checkContainers();
-  auto request = specification->getRequest();
   VDPGPSClient::MCM_mandatory_data_t MCM_mandatory_data;
 
   BTPDataRequest_t dataRequest = {};
@@ -384,8 +758,8 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification) {
   auto MCM_message = asn1cpp::makeSeq(MCM);
 
   if(bool(MCM_message)==false) {
-      return MCM_ALLOC_ERROR;
-    }
+    return MCM_ALLOC_ERROR;
+  }
 
   /* Fill the header */
   asn1cpp::setField(MCM_message->header.messageId, FIX_MCMID);
@@ -411,8 +785,9 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification) {
       asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_roadsideUnit);
   }
   
-  long type = GET_NUM(request, "MCMType");
   MCM_mandatory_data = m_vdp->getMCMMandatoryData();
+  long type = GET_NUM(request, "MCMType");
+  long concept = GET_NUM(request, "MCMConcept");
   asn1cpp::setField(MCM_message->payload.basicContainer.position.latitude, MCM_mandatory_data.latitude);
   asn1cpp::setField(MCM_message->payload.basicContainer.position.longitude, MCM_mandatory_data.longitude);
   asn1cpp::setField(MCM_message->payload.basicContainer.position.altitude.altitudeValue, MCM_mandatory_data.altitude.getValue());
@@ -422,83 +797,119 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification) {
   asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMajorAxisOrientation, MCM_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
   asn1cpp::setField(MCM_message->payload.basicContainer.mcmType, type);
   asn1cpp::setField(MCM_message->payload.basicContainer.manoeuvreId, GET_NUM(request, "MCMManeuverID"));
-  asn1cpp::setField(MCM_message->payload.basicContainer.concept, GET_NUM(request, "MCMConcept"));
+  asn1cpp::setField(MCM_message->payload.basicContainer.concept, concept);
     
   // ManoeuvreCoordinationRational_t* rational = specification->create<ManoeuvreCoordinationRational_t>(asn_DEF_ManoeuvreCoordinationRational);
   auto rational = asn1cpp::makeSeq(ManoeuvreCoordinationRational);
-  if (specification->getMCMConcept() == 0) {
-      asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationGoal);
-      asn1cpp::setField(rational->choice.manoeuvreCooperationGoal, GET_NUM(request, "MCMGoal"));
+  if (concept == 0) {
+    asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationGoal);
+    asn1cpp::setField(rational->choice.manoeuvreCooperationGoal, GET_NUM(request, "MCMGoal"));
   } else {
-      asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationCost);
-      asn1cpp::setField(rational->choice.manoeuvreCooperationCost,  GET_NUM(request, "MCMCost"));
+    asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationCost);
+    asn1cpp::setField(rational->choice.manoeuvreCooperationCost,  GET_NUM(request, "MCMCost"));
   }
 
   if (type == 4 || type == 7) {
-      asn1cpp::setField (MCM_message->payload.basicContainer.executionStatus, specification->getMCMStatus());
+    asn1cpp::setField (MCM_message->payload.basicContainer.executionStatus, GET_NUM(request, "MCMStatus"));
   }
 
-  if (specification->getManeuverContainer()) {
-    // Select this choice
-    asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_vehicleManoeuvreContainer);
+  auto [err, container] = checkContainer(request);
+  if (err != "") {
+    std::cerr << err << std::endl;
+    return MCM_JSON_ERROR;
+  }
 
-    // Allocate + fill VehicleManoeuvreContainer
-    auto &man = MCM_message->payload.mcmContainer.choice.vehicleManoeuvreContainer;
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleHeading.value, MCM_mandatory_data.heading.getValue());
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleHeading.confidence, MCM_mandatory_data.heading.getConfidence());
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSpeed.speedValue, MCM_mandatory_data.speed.getValue());
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSpeed.speedConfidence, MCM_mandatory_data.speed.getConfidence());
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleWidth, MCM_mandatory_data.VehicleWidth);
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleLenth.vehicleLengthValue, MCM_mandatory_data.VehicleLength.getValue());
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleLenth.vehicleLengthConfidenceIndication, MCM_mandatory_data.VehicleLength.getConfidence());
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleHeight, VehicleHeight_unavailable);
-    asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleType, GET_NUM(request, "MCMVehicleType"));
+  switch (container) {
+    case Container::VehicleManeuverContainer: {
+      // Select this choice
+      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_vehicleManoeuvreContainer);
 
-    // Loop Submanoeuvres
-    auto& submaneuvers_json = GET_ARR(specification->getRequest(), "MCMSubmaneuvers");
-    std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> ret = extractSubmaneuverDescriptions(submaneuvers_json);
-    bool ret_bool = std::get<1>(ret);
-    if (ret_bool) {
-      asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer> subms = std::get<0>(ret);
-      asn1cpp::setField(man.submaneuvres, subms);
-    }
+      // Allocate + fill VehicleManoeuvreContainer
+      auto &man = MCM_message->payload.mcmContainer.choice.vehicleManoeuvreContainer;
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleHeading.value, MCM_mandatory_data.heading.getValue());
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleHeading.confidence, MCM_mandatory_data.heading.getConfidence());
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSpeed.speedValue, MCM_mandatory_data.speed.getValue());
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSpeed.speedConfidence, MCM_mandatory_data.speed.getConfidence());
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleWidth, MCM_mandatory_data.VehicleWidth);
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleLenth.vehicleLengthValue, MCM_mandatory_data.VehicleLength.getValue());
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleLenth.vehicleLengthConfidenceIndication, MCM_mandatory_data.VehicleLength.getConfidence());
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleHeight, VehicleHeight_unavailable);
+      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleType, GET_NUM(request, "MCMVehicleType"));
 
-    // Loop ManoeuvreAdvice
-    auto* mac = specification->create<ManoeuvreAdviceContainer_t>(asn_DEF_ManoeuvreAdviceContainer);
-    for (auto* advice : specification->getManeuverAdviceList()) {
-      specification->add(asn_DEF_ManoeuvreAdvice, mac, advice);
-    }
-    specification->setOptional(&man.manoeuvreAdvice, mac);
-  } else if (specification->getAdviseContainer()) {
-    asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_advisedManoeuvreContainer);
-    auto &adv = MCM_message->payload.mcmContainer.choice.advisedManoeuvreContainer;
-    for (auto* advice_ptr : specification->getManeuverAdviceList()) {
-      specification->add(asn_DEF_ManoeuvreAdvice, &adv, advice_ptr);
-    }
-  } else if (specification->getAcknowledgmentContainer()) {
-      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_acknowledgmentContainer);
-      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.acknowledgedType, McmType_acknowledgment);
-      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.generationDeltaTime, compute_timestampIts () % 65536);
-  } else if (specification->getResponseContainer()) {
-      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_responseContainer);
-      if (specification->getMCMResponse() == 0) {
-          asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_accept);
+      // Loop Submanoeuvres
+      auto& submaneuvers_json = GET_ARR(request, "MCMSubmaneuvers");
+      auto [subms, ret_subm_bool] = extractSubmaneuverDescriptions(submaneuvers_json);
+      if (ret_subm_bool) {
+        asn1cpp::setField(man.submaneuvres, subms);
       } else {
-          asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_decline);
-          asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.declineReason, specification->getMCMResponseDeclineReason());
+        std::cerr << "Failed to extract Submaneuvers" << std::endl;
+      }
+
+      // Loop ManoeuvreAdvice
+      auto& advices_json = GET_ARR(request, "MCMManeuverAdvices");
+      auto [advices, ret_adv_bool] = extractManeuverAdvice(advices_json);
+      if (ret_adv_bool) {
+        asn1cpp::setField(man.manoeuvreAdvice, advices);
+      } else {
+        std::cerr << "Failed to extract ManeuverAdvices" << std::endl;
+      }
+      break;
+    }
+
+    case Container::ManeuverAdviseContainer: {
+      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_advisedManoeuvreContainer);
+
+      // Loop ManoeuvreAdvice
+      auto& advices_json = GET_ARR(request, "MCMManeuverAdvices");
+      auto [advices, ret_adv_bool] = extractManeuverAdvice(advices_json);
+      if (ret_adv_bool) {
+        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.advisedManoeuvreContainer, advices);
+      } else {
+        std::cerr << "Failed to extract ManeuverAdvices" << std::endl;
+      }
+      break;
+    }
+
+    case Container::ResponseContainer: {
+      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_responseContainer);
+      if (request["MCMResponse"].is_null()) {
+        std::cerr << "Response Container needs MCMResponse" << std::endl;
+        return MCM_JSON_ERROR;
+      }
+      long response = GET_NUM(request, "MCMResponse");
+      if (response == 0) {
+        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_accept);
+      } else {
+        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_decline);
+        if (request["MCMDeclineReason"].is_null()) {
+          std::cerr << "Response Container with negative MCMResponse needs MCMDeclineReason" << std::endl;
+          return MCM_JSON_ERROR;
+        }
+        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.declineReason, GET_NUM(request, "MCMDeclineReason"));
       }
       
       // Loop Submanoeuvres
-      for (auto* subm : specification->getSubmanoeuvreDescriptionList()) {
-        specification->add(asn_DEF_Submanoeuvre, &MCM_message->payload.mcmContainer.choice.responseContainer.submaneuvres, subm);
+      auto& submaneuvers_json = GET_ARR(request, "MCMSubmaneuvers");
+      auto [subms, ret_bool] = extractSubmaneuverDescriptions(submaneuvers_json);
+      if (ret_bool) {
+        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.submaneuvres, subms);
       }
-  }
-  else if (specification->getTerminatorContainer()) {
+      break;
+    }
+
+    case Container::AcknowledgmentContainer:
+      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_acknowledgmentContainer);
+      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.acknowledgedType, McmType_acknowledgment);
+      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.generationDeltaTime, compute_timestampIts () % 65536);
+      break;
+
+    case Container::TerminationContainer:
       asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_terminationContainer);
-  } else {
+      break;
+
+    default:
       std::cerr << "[ERROR] Fatal error! Cannot create containers for the MCM dissemination" << std::endl;
-      terminateDissemination();
-      return MCM_CANNOT_SEND;
+      return MCM_JSON_ERROR;
   }
 
   std::string encode_result = asn1cpp::uper::encode(MCM_message);
@@ -512,8 +923,8 @@ MCBasicService::generateAndEncodeMCM(MCSpecification* specification) {
   dataRequest.destPInfo = 0;
   dataRequest.GNType = TSB;
   dataRequest.GNCommProfile = UNSPECIFIED;
-  dataRequest.GNRepInt =0;
-  dataRequest.GNMaxRepInt=0;
+  dataRequest.GNRepInt = 0;
+  dataRequest.GNMaxRepInt = 0;
   dataRequest.GNMaxLife = 1;
   dataRequest.GNMaxHL = 1;
   dataRequest.GNTraClass = 0x02;

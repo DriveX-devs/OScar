@@ -81,10 +81,6 @@ class JSONserver {
 
 		static denData fillDenDataFromJson(const json11::Json &request);
 
-		static void fillMCSpecificationFromJson(const json11::Json &request, MCSpecification* specification);
-
-		static std::tuple<std::string, Container> json_for_MCM_is_valid(const json11::Json &request);
-
 		const double m_range_m_default = 15000.0;
 		double m_range_m;
 		ldmmap::LDMMap *m_db_ptr;
