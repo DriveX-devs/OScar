@@ -10,6 +10,11 @@
 #include "utils.h"
 #include "asn_utils.h"
 
+#include "mcData.h"
+#include <iostream>
+#include <string>
+#include <tuple>
+
 #define MAKE_NUM(num) json11::Json(num)
 #define MAKE_STR(str) json11::Json(str)
 #define MAKE_INT(num) json11::Json(static_cast<int>(num))
@@ -430,6 +435,427 @@ void JSONserver::createJSONFromMCM(MCM_t* decoded_mcm) {
 	// TODO Stefano --> extract the data from MCM, build the JSON (refer to the structure used in JSONserver), send it through JSON-over-TCP
 }
 
+// Utility function to encapsulate the JSON parsing logic into native mcData structures
+bool extractManeuverAdvice(const json11::Json::array &advices_json, std::vector<mcData::MCManeuverAdvice>& out_advices) {
+	std::vector<mcData::MCManeuverAdvice> parsed_adv;
+
+    for (const auto& adv_json : advices_json) {
+        mcData::MCManeuverAdvice adv;
+
+        // --- executantID (mandatory) ---
+        if (!adv_json["ExecutantID"].is_null()) {
+            adv.executantID = GET_NUM(adv_json, "ExecutantID");
+        } else {
+            std::cerr << "ManoeuvreAdvice needs ExecutantID" << std::endl;
+            return false;
+        }
+
+        // --- currentStateAdvisedChange (optional) ---
+        if (!adv_json["CurrentStateAdvisedChange"].is_null()) {
+            int present_val = GET_NUM(adv_json["CurrentStateAdvisedChange"], "Present");
+            adv.currentStateAdvisedChange.setData(present_val);
+        }
+
+        // --- submaneuvres (mandatory) ---
+        if (adv_json["Submaneuvres"].is_null()) {
+            std::cerr << "ManoeuvreAdvice needs Submaneuvres" << std::endl;
+            return false;
+        }
+
+        auto& subms_json = GET_ARR(adv_json, "Submaneuvres");
+        for (const auto& subm_json : subms_json) {
+            mcData::MCSubmaneuvers subm;
+
+            // --- submanoeuvreId (mandatory) ---
+            if (!subm_json["SubmanoeuvreId"].is_null()) {
+                subm.submanoeuvreId = GET_NUM(subm_json, "SubmanoeuvreId");
+            } else {
+                std::cerr << "Submanoeuvre needs SubmanoeuvreId" << std::endl;
+                return false;
+            }
+
+            // --- advisedTrajectory (optional) ---
+            if (!subm_json["AdvisedTrajectory"].is_null()) {
+                mcData::Trajectory traj;
+
+                if (subm_json["AdvisedTrajectory"]["WayPointType"].is_null()) {
+                    std::cerr << "WayPointType in AdvisedTrajectory not found" << std::endl;
+                    return false;
+                }
+                traj.wayPointType = GET_NUM(subm_json["AdvisedTrajectory"], "WayPointType");
+
+                // --- wayPoints ---
+                auto& wps_json = GET_ARR(subm_json["AdvisedTrajectory"], "WayPoints");
+                for (const auto& wp_json : wps_json) {
+                    mcData::PathPoint wp;
+
+                    for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+                        if (wp_json[field].is_null()) {
+                            std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
+                            return false;
+                        }
+                    }
+                    wp.deltaLatitude = GET_NUM(wp_json, "DeltaLatitude");
+                    wp.deltaLongitude = GET_NUM(wp_json, "DeltaLongitude");
+                    wp.deltaAltitude = GET_NUM(wp_json, "DeltaAltitude");
+
+                    // --- pathDeltaTime (optional) ---
+                    if (!wp_json["PathDeltaTime"].is_null()) {
+                        wp.pathDeltaTime.setData(GET_NUM(wp_json, "PathDeltaTime"));
+                    }
+
+                    traj.wayPoints.push_back(wp);
+                }
+
+                // --- speed ---
+                if (subm_json["AdvisedTrajectory"]["Speed"].is_null()) {
+                    std::cerr << "AdvisedTrajectory in Submanoeuvre needs Speeds" << std::endl;
+                    return false;
+                }
+                auto& speeds_json = GET_ARR(subm_json["AdvisedTrajectory"], "Speed");
+                for (const auto& sp_json : speeds_json) {
+                    for (auto field : {"SpeedValue", "SpeedConfidence"}) {
+                        if (sp_json[field].is_null()) {
+                            std::cerr << std::string(field) + " in Speed not found" << std::endl;
+                            return false;
+                        }
+                    }
+                    traj.speed.emplace_back(
+                        GET_NUM(sp_json, "SpeedValue"),
+                        GET_NUM(sp_json, "SpeedConfidence")
+                    );
+                }
+
+                // --- headings (optional) ---
+                auto& headings_json = GET_ARR(subm_json["AdvisedTrajectory"], "Heading");
+                for (const auto& head_json : headings_json) {
+                    for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+                        if (head_json[field].is_null()) {
+                            std::cerr << std::string(field) + " in Heading not found" << std::endl;
+                            return false;
+                        }
+                    }
+                    traj.headings.emplace_back(
+                        GET_NUM(head_json, "HeadingValue"),
+                        GET_NUM(head_json, "HeadingConfidence")
+                    );
+                }
+
+                // --- longitudePositions (optional) ---
+                auto& longitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Longitude");
+                for (const auto& longi_json : longitudes_json) {
+                    if (longi_json["LongitudeValue"].is_null()) {
+                        std::cerr << "LongitudeValue in Longitude not found" << std::endl;
+                        return false;
+                    }
+                    traj.longitudePositions.push_back(GET_NUM(longi_json, "LongitudeValue"));
+                }
+
+                // --- latitudePositions (optional) ---
+                auto& latitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Latitude");
+                for (const auto& lati_json : latitudes_json) {
+                    if (lati_json["LatitudeValue"].is_null()) {
+                        std::cerr << "LatitudeValue in Latitude not found" << std::endl;
+                        return false;
+                    }
+                    traj.latitudePositions.push_back(GET_NUM(lati_json, "LatitudeValue"));
+                }
+
+                // --- altitudePositions (optional) ---
+                auto& altitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Altitude");
+                for (const auto& alti_json : altitudes_json) {
+                    for (auto field : {"AltitudeValue", "AltitudeConfidence"}) {
+                        if (alti_json[field].is_null()) {
+                            std::cerr << std::string(field) + " in Altitude not found" << std::endl;
+                            return false;
+                        }
+                    }
+                    traj.altitudePositions.emplace_back(
+                        GET_NUM(alti_json, "AltitudeValue"),
+                        GET_NUM(alti_json, "AltitudeConfidence")
+                    );
+                }
+
+                subm.advisedTrajectory.setData(traj);
+            }
+
+            // --- advisedTargetRoadResource (optional) ---
+            if (!subm_json["AdvisedTargetRoadResource"].is_null()) {
+                mcData::AdvisedTargetRoadResource atrr;
+
+                // --- trrDescription (mandatory) ---
+                for (auto field : {"TrrType", "LaneCount", "TrrWidth", "TrrLength"}) {
+                    if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
+                        std::cerr << std::string(field) + " in AdvisedTargetRoadResource not found" << std::endl;
+                        return false;
+                    }
+                }
+                atrr.trrDescription.trrType = GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrType");
+                atrr.trrDescription.laneCount = GET_NUM(subm_json["AdvisedTargetRoadResource"], "LaneCount");
+                atrr.trrDescription.trrWidth = GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrWidth");
+                atrr.trrDescription.trrLength = GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrLength");
+
+                if (!subm_json["AdvisedTargetRoadResource"]["StartingLaneNumber"].is_null()) {
+                    atrr.trrDescription.startingLaneNumber.setData(GET_NUM(subm_json["AdvisedTargetRoadResource"], "StartingLaneNumber"));
+                }
+                if (!subm_json["AdvisedTargetRoadResource"]["EndingLaneNumber"].is_null()) {
+                    atrr.trrDescription.endingLaneNumber.setData(GET_NUM(subm_json["AdvisedTargetRoadResource"], "EndingLaneNumber"));
+                }
+
+                // --- waypoints (optional) ---
+                auto& wps_json = GET_ARR(subm_json["AdvisedTargetRoadResource"], "WayPoints");
+                for (const auto& wp_json : wps_json) {
+                    mcData::PathPoint wp;
+
+                    for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+                        if (wp_json[field].is_null()) {
+                            std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
+                            return false;
+                        }
+                    }
+                    wp.deltaLatitude = GET_NUM(wp_json, "DeltaLatitude");
+                    wp.deltaLongitude = GET_NUM(wp_json, "DeltaLongitude");
+                    wp.deltaAltitude = GET_NUM(wp_json, "DeltaAltitude");
+
+                    if (!wp_json["PathDeltaTime"].is_null()) {
+                        wp.pathDeltaTime.setData(GET_NUM(wp_json, "PathDeltaTime"));
+                    }
+                    atrr.trrDescription.waypoints.push_back(wp);
+                }
+
+                // --- heading (optional) ---
+                auto& headings_json = GET_ARR(subm_json["AdvisedTargetRoadResource"], "Heading");
+                for (const auto& head_json : headings_json) {
+                    for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+                        if (head_json[field].is_null()) {
+                            std::cerr << std::string(field) + " in Heading not found" << std::endl;
+                            return false;
+                        }
+                    }
+                    atrr.trrDescription.heading.emplace_back(
+                        GET_NUM(head_json, "HeadingValue"),
+                        GET_NUM(head_json, "HeadingConfidence")
+                    );
+                }
+
+                // --- temporalCharacteristics (mandatory) ---
+                for (auto field : {"StartTime", "EndTime"}) {
+                    if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
+                        std::cerr << std::string(field) + " in AdvisedTargetRoadResource TemporalCharacteristics not found" << std::endl;
+                        return false;
+                    }
+                }
+                atrr.temporalCharacteristics.tRROccupancyStartTime = GET_NUM(subm_json["AdvisedTargetRoadResource"], "StartTime");
+                atrr.temporalCharacteristics.tRROccupancyEndTime = GET_NUM(subm_json["AdvisedTargetRoadResource"], "EndTime");
+
+                subm.advisedTargetRoadResource.setData(atrr);
+            }
+
+            adv.submaneuvres.push_back(subm);
+        }
+
+        out_advices.push_back(adv);
+    }
+
+    return true;
+}
+
+// Parses an independent JSON array of Submaneuvers natively into mcData structures
+bool extractSubmaneuvers(const json11::Json::array &subms_json, std::vector<mcData::MCSubmaneuvers>& out_subms) {
+    for (const auto& subm_json : subms_json) {
+        mcData::MCSubmaneuvers subm;
+
+        // --- submanoeuvreId (mandatory) ---
+        if (!subm_json["SubmanoeuvreId"].is_null()) {
+            subm.submanoeuvreId = GET_NUM(subm_json, "SubmanoeuvreId");
+        } else {
+            std::cerr << "Submanoeuvre needs SubmanoeuvreId" << std::endl;
+            return false;
+        }
+
+        // --- advisedTrajectory (optional) ---
+        if (!subm_json["AdvisedTrajectory"].is_null()) {
+            mcData::Trajectory traj;
+
+            if (subm_json["AdvisedTrajectory"]["WayPointType"].is_null()) {
+                std::cerr << "WayPointType in AdvisedTrajectory not found" << std::endl;
+                return false;
+            }
+            traj.wayPointType = GET_NUM(subm_json["AdvisedTrajectory"], "WayPointType");
+
+            // --- wayPoints ---
+            auto& wps_json = GET_ARR(subm_json["AdvisedTrajectory"], "WayPoints");
+            for (const auto& wp_json : wps_json) {
+                mcData::PathPoint wp;
+
+                for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+                    if (wp_json[field].is_null()) {
+                        std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
+                        return false;
+                    }
+                }
+                wp.deltaLatitude = GET_NUM(wp_json, "DeltaLatitude");
+                wp.deltaLongitude = GET_NUM(wp_json, "DeltaLongitude");
+                wp.deltaAltitude = GET_NUM(wp_json, "DeltaAltitude");
+
+                // --- pathDeltaTime (optional) ---
+                if (!wp_json["PathDeltaTime"].is_null()) {
+                    wp.pathDeltaTime.setData(GET_NUM(wp_json, "PathDeltaTime"));
+                }
+
+                traj.wayPoints.push_back(wp);
+            }
+
+            // --- speed ---
+            if (subm_json["AdvisedTrajectory"]["Speed"].is_null()) {
+                std::cerr << "AdvisedTrajectory in Submanoeuvre needs Speeds" << std::endl;
+                return false;
+            }
+            auto& speeds_json = GET_ARR(subm_json["AdvisedTrajectory"], "Speed");
+            for (const auto& sp_json : speeds_json) {
+                for (auto field : {"SpeedValue", "SpeedConfidence"}) {
+                    if (sp_json[field].is_null()) {
+                        std::cerr << std::string(field) + " in Speed not found" << std::endl;
+                        return false;
+                    }
+                }
+                traj.speed.emplace_back(
+                    GET_NUM(sp_json, "SpeedValue"),
+                    GET_NUM(sp_json, "SpeedConfidence")
+                );
+            }
+
+            // --- headings (optional) ---
+            auto& headings_json = GET_ARR(subm_json["AdvisedTrajectory"], "Heading");
+            for (const auto& head_json : headings_json) {
+                for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+                    if (head_json[field].is_null()) {
+                        std::cerr << std::string(field) + " in Heading not found" << std::endl;
+                        return false;
+                    }
+                }
+                traj.headings.emplace_back(
+                    GET_NUM(head_json, "HeadingValue"),
+                    GET_NUM(head_json, "HeadingConfidence")
+                );
+            }
+
+            // --- longitudePositions (optional) ---
+            auto& longitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Longitude");
+            for (const auto& longi_json : longitudes_json) {
+                if (longi_json["LongitudeValue"].is_null()) {
+                    std::cerr << "LongitudeValue in Longitude not found" << std::endl;
+                    return false;
+                }
+                traj.longitudePositions.push_back(GET_NUM(longi_json, "LongitudeValue"));
+            }
+
+            // --- latitudePositions (optional) ---
+            auto& latitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Latitude");
+            for (const auto& lati_json : latitudes_json) {
+                if (lati_json["LatitudeValue"].is_null()) {
+                    std::cerr << "LatitudeValue in Latitude not found" << std::endl;
+                    return false;
+                }
+                traj.latitudePositions.push_back(GET_NUM(lati_json, "LatitudeValue"));
+            }
+
+            // --- altitudePositions (optional) ---
+            auto& altitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Altitude");
+            for (const auto& alti_json : altitudes_json) {
+                for (auto field : {"AltitudeValue", "AltitudeConfidence"}) {
+                    if (alti_json[field].is_null()) {
+                        std::cerr << std::string(field) + " in Altitude not found" << std::endl;
+                        return false;
+                    }
+                }
+                traj.altitudePositions.emplace_back(
+                    GET_NUM(alti_json, "AltitudeValue"),
+                    GET_NUM(alti_json, "AltitudeConfidence")
+                );
+            }
+
+            subm.advisedTrajectory.setData(traj);
+        }
+
+        // --- advisedTargetRoadResource (optional) ---
+        if (!subm_json["AdvisedTargetRoadResource"].is_null()) {
+            mcData::AdvisedTargetRoadResource atrr;
+
+            // --- trrDescription (mandatory) ---
+            for (auto field : {"TrrType", "LaneCount", "TrrWidth", "TrrLength"}) {
+                if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
+                    std::cerr << std::string(field) + " in AdvisedTargetRoadResource not found" << std::endl;
+                    return false;
+                }
+            }
+            atrr.trrDescription.trrType = GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrType");
+            atrr.trrDescription.laneCount = GET_NUM(subm_json["AdvisedTargetRoadResource"], "LaneCount");
+            atrr.trrDescription.trrWidth = GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrWidth");
+            atrr.trrDescription.trrLength = GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrLength");
+
+            if (!subm_json["AdvisedTargetRoadResource"]["StartingLaneNumber"].is_null()) {
+                atrr.trrDescription.startingLaneNumber.setData(GET_NUM(subm_json["AdvisedTargetRoadResource"], "StartingLaneNumber"));
+            }
+            if (!subm_json["AdvisedTargetRoadResource"]["EndingLaneNumber"].is_null()) {
+                atrr.trrDescription.endingLaneNumber.setData(GET_NUM(subm_json["AdvisedTargetRoadResource"], "EndingLaneNumber"));
+            }
+
+            // --- waypoints (optional) ---
+            auto& wps_json = GET_ARR(subm_json["AdvisedTargetRoadResource"], "WayPoints");
+            for (const auto& wp_json : wps_json) {
+                mcData::PathPoint wp;
+
+                for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
+                    if (wp_json[field].is_null()) {
+                        std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
+                        return false;
+                    }
+                }
+                wp.deltaLatitude = GET_NUM(wp_json, "DeltaLatitude");
+                wp.deltaLongitude = GET_NUM(wp_json, "DeltaLongitude");
+                wp.deltaAltitude = GET_NUM(wp_json, "DeltaAltitude");
+
+                if (!wp_json["PathDeltaTime"].is_null()) {
+                    wp.pathDeltaTime.setData(GET_NUM(wp_json, "PathDeltaTime"));
+                }
+                atrr.trrDescription.waypoints.push_back(wp);
+            }
+
+            // --- heading (optional) ---
+            auto& headings_json = GET_ARR(subm_json["AdvisedTargetRoadResource"], "Heading");
+            for (const auto& head_json : headings_json) {
+                for (auto field : {"HeadingValue", "HeadingConfidence"}) {
+                    if (head_json[field].is_null()) {
+                        std::cerr << std::string(field) + " in Heading not found" << std::endl;
+                        return false;
+                    }
+                }
+                atrr.trrDescription.heading.emplace_back(
+                    GET_NUM(head_json, "HeadingValue"),
+                    GET_NUM(head_json, "HeadingConfidence")
+                );
+            }
+
+            // --- temporalCharacteristics (mandatory) ---
+            for (auto field : {"StartTime", "EndTime"}) {
+                if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
+                    std::cerr << std::string(field) + " in AdvisedTargetRoadResource TemporalCharacteristics not found" << std::endl;
+                    return false;
+                }
+            }
+            atrr.temporalCharacteristics.tRROccupancyStartTime = GET_NUM(subm_json["AdvisedTargetRoadResource"], "StartTime");
+            atrr.temporalCharacteristics.tRROccupancyEndTime = GET_NUM(subm_json["AdvisedTargetRoadResource"], "EndTime");
+
+            subm.advisedTargetRoadResource.setData(atrr);
+        }
+
+        out_subms.push_back(subm);
+	}
+
+    return true;
+}
+
 json11::Json::object JSONserver::handleMCMRequest(const json11::Json &request) {
     json11::Json::object response;
 
@@ -440,7 +866,45 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json &request) {
         return response;
     }
 
-	auto err = m_mc_service->generateAndEncodeMCM(request);
+	mcData mcmData;
+	if (!request["MCManeuverAdviceContainer"].is_null() && !request["MCManeuverAdvices"].is_null() && GET_ARR(request, "MCManeuverAdvices").size() > 0) {
+		std::vector<mcData::MCManeuverAdvice> parsed_advices;
+		if (extractManeuverAdvice(request["MCManeuverAdvices"].array_items(), parsed_advices)) {
+			mcData::mcAdviceContainer advice_container;
+			advice_container.advices.setData(parsed_advices);
+			
+			// Updates mcData via the safe setter method
+			mcmData.setAdviceContainer(advice_container);
+		}
+	} else if (!request["MCVehicleManeuverContainer"].is_null()) {
+		mcData::mcManeuverContainer maneuver_container;
+		if (!request["MCManeuverAdvices"].is_null() && GET_ARR(request, "MCManeuverAdvices").size() > 0) {
+			std::vector<mcData::MCManeuverAdvice> parsed_advices;
+			maneuver_container.advices.setData(parsed_advices);
+		}
+		if (!request["MCSubmaneuvers"].is_null() && GET_ARR(request, "MCSubmaneuvers").size() > 0) {
+			std::vector<mcData::MCSubmaneuvers> parsed_subms;
+			if (extractSubmaneuvers(request["MCSubmaneuvers"].array_items(), parsed_subms)) {
+				maneuver_container.submaneuvers.setData(parsed_subms);
+			}
+		}
+		mcmData.setManeuverContainer(maneuver_container);
+	} else if (!request["MCResponseContainer"].is_null()) {
+		mcData::mcResponseContainer resp_container;
+		if (!request["MCSubmaneuvers"].is_null() && GET_ARR(request, "MCSubmaneuvers").size() > 0) {
+			std::vector<mcData::MCSubmaneuvers> parsed_subms;
+			if (extractSubmaneuvers(request["MCSubmaneuvers"].array_items(), parsed_subms)) {
+				resp_container.submaneuvers.setData(parsed_subms);
+			}
+		}
+		// TODO response
+	} else if (!request["MCAcknowledgmentContainer"].is_null()) {
+		// TODO
+	} else if (!request["MCTerminationContainer"].is_null()) {
+		// TODO
+	}
+
+	auto err = m_mc_service->generateAndEncodeMCM(&mcmData);
 
 	if (err != MCM_NO_ERROR) {
 		// In case of creation error during the JSON parsing

@@ -942,6 +942,10 @@ MCBasicService::generateAndEncodeMCM(const json11::Json& request) {
   else return MCM_CANNOT_SEND;
 }
 
+MCBasicService_error_t MCBasicService::generateAndEncodeMCM(const mcData& mcmData) {
+  return MCM_NO_ERROR;
+}
+
 uint64_t
 MCBasicService::terminateDissemination() {
   if(m_terminateFlag==false) {

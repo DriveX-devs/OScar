@@ -10,7 +10,6 @@ extern "C" {
 
 class mcData {
 public:
-
     template<class T>
     class MCDataItem {
         private:
@@ -26,15 +25,15 @@ public:
                 m_dataitem = {};
             }
 
-            T getData() { return m_dataitem; }
-            bool isAvailable() { return m_available; }
+            T getData() const { return m_dataitem; }
+            bool isAvailable() const { return m_available; }
 
             void setData(T data) {
                 m_dataitem = data;
                 m_available = true;
             }
 
-            T getDataRef() { return &m_dataitem; }
+            T* getDataRef() { return &m_dataitem; }
     };
 
     template<class V = int, class C = int>
@@ -44,14 +43,11 @@ public:
             C m_confidence;
 
         public:
-            MCValueConfidence() {
-            }
+            MCValueConfidence() : m_value(0), m_confidence(0) {}
+            MCValueConfidence(V value, C confidence) : m_value(value), m_confidence(confidence) {}
 
-            MCValueConfidence(V value, C confidence) : m_value(value), m_confidence(confidence) {
-            }
-
-            V getValue() { return m_value; }
-            C getConfidence() { return m_confidence; }
+            V getValue() const { return m_value; }
+            C getConfidence() const { return m_confidence; }
             void setValue(V value) { m_value = value; }
             void setConfidence(C confidence) { m_confidence = confidence; }
     };
@@ -86,13 +82,59 @@ public:
         MCDataItem<long> executionStatus;
     } mcBasicContainer;
 
-    typedef struct MCSubmaneuvers {
+    // --- Added Structures for Submaneuvers and Advice ---
 
+    typedef struct _PathPoint {
+        long deltaLatitude;
+        long deltaLongitude;
+        long deltaAltitude;
+        MCDataItem<long> pathDeltaTime;
+    } PathPoint;
+
+    typedef struct _Trajectory {
+        long wayPointType;
+        std::vector<PathPoint> wayPoints;
+        std::vector<MCValueConfidence<long, long>> speed;
+        std::vector<MCValueConfidence<long, long>> headings;
+        std::vector<long> longitudePositions;
+        std::vector<long> latitudePositions;
+        std::vector<MCValueConfidence<long, long>> altitudePositions;
+    } Trajectory;
+
+    typedef struct _TrrDescription {
+        long trrType;
+        long laneCount;
+        long trrWidth;
+        long trrLength;
+        MCDataItem<long> startingLaneNumber;
+        MCDataItem<long> endingLaneNumber;
+        std::vector<PathPoint> waypoints;
+        std::vector<MCValueConfidence<long, long>> heading;
+    } TrrDescription;
+
+    typedef struct _TemporalCharacteristics {
+        long tRROccupancyStartTime;
+        long tRROccupancyEndTime;
+    } TemporalCharacteristics;
+
+    typedef struct _AdvisedTargetRoadResource {
+        TrrDescription trrDescription;
+        TemporalCharacteristics temporalCharacteristics;
+    } AdvisedTargetRoadResource;
+
+    typedef struct MCSubmaneuvers {
+        long submanoeuvreId;
+        MCDataItem<Trajectory> advisedTrajectory;
+        MCDataItem<AdvisedTargetRoadResource> advisedTargetRoadResource;
     } MCSubmaneuvers;
 
     typedef struct MCManeuverAdvice {
-
+        long executantID;
+        MCDataItem<long> currentStateAdvisedChange; 
+        std::vector<MCSubmaneuvers> submaneuvres;
     } MCManeuverAdvice;
+
+    // ----------------------------------------------------
 
     typedef struct _maneuverContainer {
         long vehicleType;
@@ -115,20 +157,31 @@ public:
     } mcAcknowledgeContainer;
 
     typedef struct _terminationContainer {
+        // Add fields if necessary based on ASN.1
     } mcTerminationContainer;
 
     mcData()=default;
     ~mcData()=default;
 
-    MCDataItem<mcDataHeader> getHeader() {return m_header;};
-    MCDataItem<mcBasicContainer> getBasicContainer() {return m_basic_container;};
-    MCDataItem<mcManeuverContainer> getManeuverContainer() {return m_maneuver_container;};
-    MCDataItem<mcAdviceContainer> getAdviceContainer() {return m_advice_container;};
-    MCDataItem<mcResponseContainer> getResponseContainer() {return m_response_container;};
-    MCDataItem<mcAcknowledgeContainer> getAcknowledgmentContainer() (return m_acknowledgment_container;);
-    MCDataItem<mcTerminationContainer>
+    // Fixed Getter Syntax
+    MCDataItem<mcDataHeader> getHeader() { return m_header; }
+    MCDataItem<mcBasicContainer> getBasicContainer() { return m_basic_container; }
+    MCDataItem<mcManeuverContainer> getManeuverContainer() { return m_maneuver_container; }
+    MCDataItem<mcAdviceContainer> getAdviceContainer() { return m_advice_container; }
+    MCDataItem<mcResponseContainer> getResponseContainer() { return m_response_container; }
+    MCDataItem<mcAcknowledgeContainer> getAcknowledgmentContainer() { return m_acknowledgment_container; }
+    MCDataItem<mcTerminationContainer> getTerminationContainer() { return m_termination_container; }
 
-    private:
+    // Setters
+    void setHeader(const mcDataHeader& v) { m_header.setData(v); }
+    void setBasicContainer(const mcBasicContainer& v) { m_basic_container.setData(v); }
+    void setManeuverContainer(const mcManeuverContainer& v) { m_maneuver_container.setData(v); }
+    void setAdviceContainer(const mcAdviceContainer& v) { m_advice_container.setData(v); }
+    void setResponseContainer(const mcResponseContainer& v) { m_response_container.setData(v); }
+    void setAcknowledgmentContainer(const mcAcknowledgeContainer& v) { m_acknowledgment_container.setData(v); }
+    void setTerminationContainer(const mcTerminationContainer& v) { m_termination_container.setData(v); }
+
+private:
     MCDataItem<mcDataHeader> m_header;
     MCDataItem<mcBasicContainer> m_basic_container;
     MCDataItem<mcManeuverContainer> m_maneuver_container;

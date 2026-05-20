@@ -175,7 +175,7 @@ enum ManeuverID {
      * @return MCBasicService_error_t   The error code
      */
     MCBasicService_error_t generateAndEncodeMCM(const json11::Json& request);
-    MCBasicService_error_t generateAndEncodeMCM(const mcData mcmData);
+    MCBasicService_error_t generateAndEncodeMCM(const mcData& mcmData);
 
     void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
 
