@@ -718,42 +718,357 @@ std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool> extractManeuverAdvice(c
 	return {list_adv, true};
 }
 
-std::tuple<std::string, Container> checkContainer(const json11::Json &request) {
-	// Containers, at least and at most one present
-  Container found_container = Container::NotPresent;
-  bool res = false;
-  for (const auto& item : containers_mapping) {
-      if (!request[item.first].is_null()) {
-          if (!res) {
-              res = true;
-              found_container = item.second;
-          } else {
-              return {"Too many MCM containers in JSON", Container::NotPresent};
-          }
-      }
-  }
+std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool>
+convertSubmaneuversToAsn1(const std::vector<mcData::MCSubmaneuvers>& native_subms) {
+    auto asn_list = asn1cpp::makeSeq(ListOfSubmanoeuvreDescriptionsContainer);
 
-  if (res) {
-      return {"", found_container};
-  }
-  return {"Missing field in JSON: a MCM container is required", Container::NotPresent};
+    for (const auto& native_subm : native_subms) {
+        auto asn_subm = asn1cpp::makeSeq(SubmanoeuvreDescription);
+
+        // --- submanoeuvreID ---
+        asn1cpp::setField(asn_subm->submanoeuvreID, native_subm.submanoeuvreId);
+
+        // --- temporalCharacteristics ---
+        asn1cpp::setField(asn_subm->temporalCharateristics.tRROccupancyStartTime,
+                          native_subm.targetRoadResource.getData().temporalCharacteristics.tRROccupancyStartTime);
+        asn1cpp::setField(asn_subm->temporalCharateristics.tRROccupancyEndTime,
+                          native_subm.targetRoadResource.getData().temporalCharacteristics.tRROccupancyEndTime);
+
+        // --- submanoeuvreStrategy (optional) ---
+        if (native_subm.submanoeuvreStrategy.isAvailable()) {
+            const auto& native_strategy = native_subm.submanoeuvreStrategy.getData();
+            auto strategy = asn1cpp::makeSeq(SubmanoeuvreStrategy);
+
+            asn1cpp::setField(strategy->present,
+                              static_cast<SubmanoeuvreStrategy_PR>(native_strategy.present));
+
+            switch (static_cast<SubmanoeuvreStrategy_PR>(native_strategy.present)) {
+                case SubmanoeuvreStrategy_PR_undefined:
+                    asn1cpp::setField(strategy->choice.undefined, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_transitToHumanDrivenMode:
+                    asn1cpp::setField(strategy->choice.transitToHumanDrivenMode, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_transitToAutomatedDrivingMode:
+                    asn1cpp::setField(strategy->choice.transitToAutomatedDrivingMode, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_driveStraight:
+                    asn1cpp::setField(strategy->choice.driveStraight, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_turnLeft:
+                    asn1cpp::setField(strategy->choice.turnLeft, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_turnRight:
+                    asn1cpp::setField(strategy->choice.turnRight, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_uTurn:
+                    asn1cpp::setField(strategy->choice.uTurn, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_moveBackward:
+                    asn1cpp::setField(strategy->choice.moveBackward, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_overtake:
+                    asn1cpp::setField(strategy->choice.overtake, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_accelerate:
+                    asn1cpp::setField(strategy->choice.accelerate, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_slowDown:
+                    asn1cpp::setField(strategy->choice.slowDown, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_stop:
+                    asn1cpp::setField(strategy->choice.stop, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_goToLeftLane:
+                    asn1cpp::setField(strategy->choice.goToLeftLane, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_goToRightLane:
+                    asn1cpp::setField(strategy->choice.goToRightLane, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_getOnHighway:
+                    asn1cpp::setField(strategy->choice.getOnHighway, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_exitHighway:
+                    asn1cpp::setField(strategy->choice.exitHighway, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_takeTollingLane:
+                    asn1cpp::setField(strategy->choice.takeTollingLane, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_stopAndWait:
+                    asn1cpp::setField(strategy->choice.stopAndWait, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_emergencyBrakeAndStop:
+                    asn1cpp::setField(strategy->choice.emergencyBrakeAndStop, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_resetStopAndRestartMoving:
+                    asn1cpp::setField(strategy->choice.resetStopAndRestartMoving, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_stayInLane:
+                    asn1cpp::setField(strategy->choice.stayInLane, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_resetStayInLane:
+                    asn1cpp::setField(strategy->choice.resetStayInLane, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_stayAway:
+                    asn1cpp::setField(strategy->choice.stayAway, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_resetStayAway:
+                    asn1cpp::setField(strategy->choice.resetStayAway, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_followMe:
+                    asn1cpp::setField(strategy->choice.followMe, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_existingGroup:
+                    asn1cpp::setField(strategy->choice.existingGroup, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_temporarilyDisbandAnExistingGroup:
+                    asn1cpp::setField(strategy->choice.temporarilyDisbandAnExistingGroup, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_constituteATemporarilyGroup:
+                    asn1cpp::setField(strategy->choice.constituteATemporarilyGroup, native_strategy.value);
+                    break;
+                case SubmanoeuvreStrategy_PR_disbandATemporarilyGroup:
+                    asn1cpp::setField(strategy->choice.disbandATemporarilyGroup, native_strategy.value);
+                    break;
+                default:
+                    std::cerr << "Unhandled strategy present value: "
+                              << std::to_string(native_strategy.present) << std::endl;
+                    return {nullptr, false};
+            }
+            asn1cpp::setField(asn_subm->submanoeuvreStrategy, strategy);
+        }
+
+        // --- referenceTrajectory (optional) ---
+        if (native_subm.referenceTrajectory.isAvailable()) {
+            const auto& native_traj = native_subm.referenceTrajectory.getData();
+            auto traj = asn1cpp::makeSeq(Trajectory);
+
+            asn1cpp::setField(traj->wayPointType, native_traj.wayPointType);
+
+            for (const auto& wp : native_traj.wayPoints) {
+                auto asn_wp = asn1cpp::makeSeq(PathPoint);
+                asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
+                asn1cpp::setField(asn_wp->pathPosition.deltaLongitude, wp.deltaLongitude);
+                asn1cpp::setField(asn_wp->pathPosition.deltaAltitude,  wp.deltaAltitude);
+                if (wp.pathDeltaTime.isAvailable()) {
+                    asn1cpp::setField(asn_wp->pathDeltaTime, wp.pathDeltaTime.getData());
+                }
+                asn1cpp::sequenceof::pushList(traj->wayPoints, asn_wp);
+            }
+
+            for (const auto& sp : native_traj.speed) {
+                auto asn_sp = asn1cpp::makeSeq(Speed);
+                asn1cpp::setField(asn_sp->speedValue,      sp.getValue());
+                asn1cpp::setField(asn_sp->speedConfidence, sp.getConfidence());
+                asn1cpp::sequenceof::pushList(traj->speed, asn_sp);
+            }
+
+            for (const auto& hd : native_traj.headings) {
+                auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
+                asn1cpp::setField(asn_hd->value,      hd.getValue());
+                asn1cpp::setField(asn_hd->confidence, hd.getConfidence());
+                asn1cpp::sequenceof::pushList(traj->headings, asn_hd);
+            }
+
+            for (const auto& lon : native_traj.longitudePositions) {
+                asn1cpp::sequenceof::pushList(traj->longitudePositions, (long)lon);
+            }
+
+            for (const auto& lat : native_traj.latitudePositions) {
+                asn1cpp::sequenceof::pushList(traj->latitudePositions, (long)lat);
+            }
+
+            for (const auto& alt : native_traj.altitudePositions) {
+                auto asn_alt = asn1cpp::makeSeq(Altitude);
+                asn1cpp::setField(asn_alt->altitudeValue,      alt.getValue());
+                asn1cpp::setField(asn_alt->altitudeConfidence, alt.getConfidence());
+                asn1cpp::sequenceof::pushList(traj->altitudePositions, asn_alt);
+            }
+
+            asn1cpp::setField(asn_subm->referenceTrajectory, traj);
+        }
+
+        // --- targetRoadResourceIContainer (optional) ---
+        if (native_subm.targetRoadResource.isAvailable()) {
+            const auto& native_trr = native_subm.targetRoadResource.getData();
+            auto trr = asn1cpp::makeSeq(TrrDescription);
+
+            asn1cpp::setField(trr->trrType,   native_trr.trrDescription.trrType);
+            asn1cpp::setField(trr->laneCount, native_trr.trrDescription);
+            asn1cpp::setField(trr->trrWidth,  native_trr.trrDescription);
+            asn1cpp::setField(trr->trrLength, native_trr.trrDescription);
+
+            if (native_trr.trrDescription.startingLaneNumber.isAvailable()) {
+                asn1cpp::setField(trr->startingLaneNumber, native_trr.trrDescription.startingLaneNumber.getData());
+            }
+            if (native_trr.trrDescription.endingLaneNumber.isAvailable()) {
+                asn1cpp::setField(trr->endingLaneNumber, native_trr.trrDescription.endingLaneNumber.getData());
+            }
+
+            for (const auto& wp : native_trr.trrDescription.waypoints) {
+                auto asn_wp = asn1cpp::makeSeq(PathPoint);
+                asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
+                asn1cpp::setField(asn_wp->pathPosition.deltaLongitude, wp.deltaLongitude);
+                asn1cpp::setField(asn_wp->pathPosition.deltaAltitude,  wp.deltaAltitude);
+                if (wp.pathDeltaTime.isAvailable()) {
+                    asn1cpp::setField(asn_wp->pathDeltaTime, wp.pathDeltaTime.getData());
+                }
+                asn1cpp::sequenceof::pushList(trr->waypoints, asn_wp);
+            }
+
+            for (const auto& hd : native_trr.trrDescription.heading) {
+                auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
+                asn1cpp::setField(asn_hd->value,      hd.getValue());
+                asn1cpp::setField(asn_hd->confidence, hd.getConfidence());
+                asn1cpp::sequenceof::pushList(trr->heading, asn_hd);
+            }
+
+            asn1cpp::setField(asn_subm->targetRoadResourceIContainer, trr);
+        }
+
+        asn1cpp::sequenceof::pushList(*asn_list, asn_subm);
+    }
+
+    return {asn_list, true};
 }
 
-std::tuple<std::string, Container> checkContainer(mcData mcmData) {
-	
+
+std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool>
+convertAdvicesToAsn1(const std::vector<mcData::MCManeuverAdvice>& native_advices) {
+    auto asn_list = asn1cpp::makeSeq(ManoeuvreAdviceContainer);
+
+    for (const auto& native_adv : native_advices) {
+        auto asn_adv = asn1cpp::makeSeq(ManoeuvreAdvice);
+
+        // --- executantID ---
+        asn1cpp::setField(asn_adv->executantID, native_adv.executantID);
+
+        // --- currentStateAdvisedChange (optional) ---
+        if (native_adv.currentStateAdvisedChange.isAvailable()) {
+            auto csac = asn1cpp::makeSeq(CurrentStateAdvisedChange);
+            asn1cpp::setField(csac->present,
+                              static_cast<CurrentStateAdvisedChange_PR>(
+                                  native_adv.currentStateAdvisedChange.getData()));
+            asn1cpp::setField(asn_adv->currentStateAdvisedChange, csac);
+        }
+
+        // --- submaneuvres ---
+        for (const auto& native_subm : native_adv.submaneuvres) {
+            auto asn_subm = asn1cpp::makeSeq(Submanoeuvre);
+
+            asn1cpp::setField(asn_subm->submanoeuvreId, native_subm.submanoeuvreId);
+
+            // --- advisedTrajectory (optional) ---
+            if (native_subm.referenceTrajectory.isAvailable()) {
+                const auto& native_traj = native_subm.referenceTrajectory.getData();
+                auto traj = asn1cpp::makeSeq(Trajectory);
+
+                asn1cpp::setField(traj->wayPointType, native_traj.wayPointType);
+
+                for (const auto& wp : native_traj.wayPoints) {
+                    auto asn_wp = asn1cpp::makeSeq(PathPoint);
+                    asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
+                    asn1cpp::setField(asn_wp->pathPosition.deltaLongitude, wp.deltaLongitude);
+                    asn1cpp::setField(asn_wp->pathPosition.deltaAltitude,  wp.deltaAltitude);
+                    if (wp.pathDeltaTime.isAvailable()) {
+                        asn1cpp::setField(asn_wp->pathDeltaTime, wp.pathDeltaTime.getData());
+                    }
+                    asn1cpp::sequenceof::pushList(traj->wayPoints, asn_wp);
+                }
+
+                for (const auto& sp : native_traj.speed) {
+                    auto asn_sp = asn1cpp::makeSeq(Speed);
+                    asn1cpp::setField(asn_sp->speedValue,      sp.getValue());
+                    asn1cpp::setField(asn_sp->speedConfidence, sp.getConfidence());
+                    asn1cpp::sequenceof::pushList(traj->speed, asn_sp);
+                }
+
+                for (const auto& hd : native_traj.headings) {
+                    auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
+                    asn1cpp::setField(asn_hd->value,      hd.getValue());
+                    asn1cpp::setField(asn_hd->confidence, hd.getConfidence());
+                    asn1cpp::sequenceof::pushList(traj->headings, asn_hd);
+                }
+
+                for (const auto& lon : native_traj.longitudePositions) {
+                    asn1cpp::sequenceof::pushList(traj->longitudePositions, (long)lon);
+                }
+
+                for (const auto& lat : native_traj.latitudePositions) {
+                    asn1cpp::sequenceof::pushList(traj->latitudePositions, (long)lat);
+                }
+
+                for (const auto& alt : native_traj.altitudePositions) {
+                    auto asn_alt = asn1cpp::makeSeq(Altitude);
+                    asn1cpp::setField(asn_alt->altitudeValue,      alt.getValue());
+                    asn1cpp::setField(asn_alt->altitudeConfidence, alt.getConfidence());
+                    asn1cpp::sequenceof::pushList(traj->altitudePositions, asn_alt);
+                }
+
+                asn1cpp::setField(asn_subm->advisedTrajectory, traj);
+            }
+
+            // --- advisedTargetRoadResource (optional) ---
+            if (native_subm.targetRoadResource.isAvailable()) {
+                const auto& native_atrr = native_subm.targetRoadResource.getData();
+                auto atrr = asn1cpp::makeSeq(AdvisedTrrContainer);
+
+                asn1cpp::setField(atrr->trrDescription.trrType,   native_atrr.trrDescription.trrType);
+                asn1cpp::setField(atrr->trrDescription.laneCount, native_atrr.trrDescription.laneCount);
+                asn1cpp::setField(atrr->trrDescription.trrWidth,  native_atrr.trrDescription.trrWidth);
+                asn1cpp::setField(atrr->trrDescription.trrLength, native_atrr.trrDescription.trrLength);
+
+                if (native_atrr.trrDescription.startingLaneNumber.isAvailable()) {
+                    asn1cpp::setField(atrr->trrDescription.startingLaneNumber,
+                                      native_atrr.trrDescription.startingLaneNumber.getData());
+                }
+                if (native_atrr.trrDescription.endingLaneNumber.isAvailable()) {
+                    asn1cpp::setField(atrr->trrDescription.endingLaneNumber,
+                                      native_atrr.trrDescription.endingLaneNumber.getData());
+                }
+
+                for (const auto& wp : native_atrr.trrDescription.waypoints) {
+                    auto asn_wp = asn1cpp::makeSeq(PathPoint);
+                    asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
+                    asn1cpp::setField(asn_wp->pathPosition.deltaLongitude, wp.deltaLongitude);
+                    asn1cpp::setField(asn_wp->pathPosition.deltaAltitude,  wp.deltaAltitude);
+                    if (wp.pathDeltaTime.isAvailable()) {
+                        asn1cpp::setField(asn_wp->pathDeltaTime, wp.pathDeltaTime.getData());
+                    }
+                    asn1cpp::sequenceof::pushList(atrr->trrDescription.waypoints, asn_wp);
+                }
+
+                for (const auto& hd : native_atrr.trrDescription.heading) {
+                    auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
+                    asn1cpp::setField(asn_hd->value,      hd.getValue());
+                    asn1cpp::setField(asn_hd->confidence, hd.getConfidence());
+                    asn1cpp::sequenceof::pushList(atrr->trrDescription.heading, asn_hd);
+                }
+
+                asn1cpp::setField(atrr->temporalCharacteristics.tRROccupancyStartTime,
+                                  native_atrr.temporalCharacteristics.tRROccupancyStartTime);
+                asn1cpp::setField(atrr->temporalCharacteristics.tRROccupancyEndTime,
+                                  native_atrr.temporalCharacteristics.tRROccupancyEndTime);
+
+                asn1cpp::setField(asn_subm->advisedTargetRoadResource, atrr);
+            }
+
+            asn1cpp::sequenceof::pushList(asn_adv->submaneuvres, asn_subm);
+        }
+
+        asn1cpp::sequenceof::pushList(*asn_list, asn_adv);
+    }
+
+    return {asn_list, true};
 }
 
 MCBasicService_error_t
-MCBasicService::generateAndEncodeMCM(const json11::Json& request) {
-  // Only one container must be activated for one message
+MCBasicService::generateAndEncodeMCM(const mcData& mcmData) {
   VDPGPSClient::MCM_mandatory_data_t MCM_mandatory_data;
-
   BTPDataRequest_t dataRequest = {};
 
-  /* Collect data for mandatory containers */
   auto MCM_message = asn1cpp::makeSeq(MCM);
-
-  if(bool(MCM_message)==false) {
+  if (bool(MCM_message) == false) {
     return MCM_ALLOC_ERROR;
   }
 
@@ -763,27 +1078,20 @@ MCBasicService::generateAndEncodeMCM(const json11::Json& request) {
   asn1cpp::setField(MCM_message->header.stationId, m_station_id);
 
   /* Fill the basicContainer */
-
-  /*
-    * Compute the generationDeltaTime, "computed as the time corresponding to the
-    * time of the reference position in the MCM, considered as time of the MCM generation.
-    * The value of the generationDeltaTime shall be wrapped to 65 536. This value shall be set as the
-    * remainder of the corresponding value of TimestampIts divided by 65 536 as below:
-    * generationDeltaTime = TimestampIts mod 65 536"
-  */
-  asn1cpp::setField(MCM_message->payload.basicContainer.generationDeltaTime, compute_timestampIts () % 65536);
-
+  asn1cpp::setField(MCM_message->payload.basicContainer.generationDeltaTime, compute_timestampIts() % 65536);
   asn1cpp::setField(MCM_message->payload.basicContainer.stationID, m_station_id);
-  asn1cpp::setField(MCM_message->payload.basicContainer.itssRole, GET_NUM(request, "MCMITSRole"));
-  if(m_vehicle==true) {
-      asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_vehicle);
+  asn1cpp::setField(MCM_message->payload.basicContainer.itssRole, mcmData.getITSRole());
+
+  if (m_vehicle == true) {
+    asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_vehicle);
   } else {
-      asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_roadsideUnit);
+    asn1cpp::setField(MCM_message->payload.basicContainer.stationType, McmStationType_roadsideUnit);
   }
-  
+
   MCM_mandatory_data = m_vdp->getMCMMandatoryData();
-  long type = GET_NUM(request, "MCMType");
-  long concept = GET_NUM(request, "MCMConcept");
+  long type    = mcmData.getMCMType();
+  long concept = mcmData.getConcept();
+
   asn1cpp::setField(MCM_message->payload.basicContainer.position.latitude, MCM_mandatory_data.latitude);
   asn1cpp::setField(MCM_message->payload.basicContainer.position.longitude, MCM_mandatory_data.longitude);
   asn1cpp::setField(MCM_message->payload.basicContainer.position.altitude.altitudeValue, MCM_mandatory_data.altitude.getValue());
@@ -792,158 +1100,142 @@ MCBasicService::generateAndEncodeMCM(const json11::Json& request) {
   asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMinorAxisLength, MCM_mandatory_data.posConfidenceEllipse.semiMinorConfidence);
   asn1cpp::setField(MCM_message->payload.basicContainer.position.positionConfidenceEllipse.semiMajorAxisOrientation, MCM_mandatory_data.posConfidenceEllipse.semiMajorOrientation);
   asn1cpp::setField(MCM_message->payload.basicContainer.mcmType, type);
-  asn1cpp::setField(MCM_message->payload.basicContainer.manoeuvreId, GET_NUM(request, "MCMManeuverID"));
+  asn1cpp::setField(MCM_message->payload.basicContainer.manoeuvreId, mcmData.getManeuverID());
   asn1cpp::setField(MCM_message->payload.basicContainer.concept, concept);
-    
-  // ManoeuvreCoordinationRational_t* rational = specification->create<ManoeuvreCoordinationRational_t>(asn_DEF_ManoeuvreCoordinationRational);
+
   auto rational = asn1cpp::makeSeq(ManoeuvreCoordinationRational);
   if (concept == 0) {
     asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationGoal);
-    asn1cpp::setField(rational->choice.manoeuvreCooperationGoal, GET_NUM(request, "MCMGoal"));
+    asn1cpp::setField(rational->choice.manoeuvreCooperationGoal, mcmData.getGoal());
   } else {
     asn1cpp::setField(rational->present, ManoeuvreCoordinationRational_PR_manoeuvreCooperationCost);
-    asn1cpp::setField(rational->choice.manoeuvreCooperationCost, GET_NUM(request, "MCMCost"));
+    asn1cpp::setField(rational->choice.manoeuvreCooperationCost, mcmData.getCost());
   }
   asn1cpp::setField(MCM_message->payload.basicContainer.rational, rational);
 
   if (type == 4 || type == 7) {
-    asn1cpp::setField (MCM_message->payload.basicContainer.executionStatus, GET_NUM(request, "MCMStatus"));
+    asn1cpp::setField(MCM_message->payload.basicContainer.executionStatus, mcmData.getExecutionStatus().getData());
   }
 
-  auto [err, container] = checkContainer(request);
-  if (err != "") {
-    std::cerr << err << std::endl;
+  /* Identify and fill the active container variant */
+  if (mcmData.getManeuverContainer().isAvailable()) {
+    asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_vehicleManoeuvreContainer);
+
+    auto& man_ctx       = MCM_message->payload.mcmContainer.choice.vehicleManoeuvreContainer;
+    const auto& man_data = mcmData.getManeuverContainer().getData();
+
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleHeading.value, MCM_mandatory_data.heading.getValue());
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleHeading.confidence, MCM_mandatory_data.heading.getConfidence());
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSpeed.speedValue, MCM_mandatory_data.speed.getValue());
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSpeed.speedConfidence, MCM_mandatory_data.speed.getConfidence());
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSize.vehicleWidth, MCM_mandatory_data.VehicleWidth);
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSize.vehicleLenth.vehicleLengthValue, MCM_mandatory_data.VehicleLength.getValue());
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSize.vehicleLenth.vehicleLengthConfidenceIndication, MCM_mandatory_data.VehicleLength.getConfidence());
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSize.vehicleHeight, VehicleHeight_unavailable);
+    asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSize.vehicleType, man_data.vehicleType);
+
+    // submaneuvers è mandatory nel vehicleManoeuvreContainer
+    if (!man_data.submaneuvers.isAvailable()) {
+      std::cerr << "[ERROR] vehicleManoeuvreContainer requires submaneuvers." << std::endl;
+      return MCM_JSON_ERROR;
+    }
+    auto [asn_subms, subms_ok] = convertSubmaneuversToAsn1(man_data.submaneuvers.getData());
+    if (!subms_ok) {
+      std::cerr << "[ERROR] Failed to convert submaneuvers." << std::endl;
+      return MCM_JSON_ERROR;
+    }
+    asn1cpp::setField(man_ctx.submaneuvres, asn_subms);
+
+    if (man_data.advices.isAvailable()) {
+      auto [asn_advs, advs_ok] = convertAdvicesToAsn1(man_data.advices.getData());
+      if (!advs_ok) {
+        std::cerr << "[ERROR] Failed to convert manoeuvre advices." << std::endl;
+        return MCM_JSON_ERROR;
+      }
+      asn1cpp::setField(man_ctx.manoeuvreAdvice, asn_advs);
+    }
+
+  } else if (mcmData.getAdviceContainer().isAvailable()) {
+    asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_advisedManoeuvreContainer);
+    const auto& adv_data = mcmData.getAdviceContainer().getData();
+
+    if (!adv_data.advices.isAvailable()) {
+      std::cerr << "[ERROR] advisedManoeuvreContainer requires advices." << std::endl;
+      return MCM_JSON_ERROR;
+    }
+    auto [asn_advs, advs_ok] = convertAdvicesToAsn1(adv_data.advices.getData());
+    if (!advs_ok) {
+      std::cerr << "[ERROR] Failed to convert advised manoeuvre advices." << std::endl;
+      return MCM_JSON_ERROR;
+    }
+    asn1cpp::setField(MCM_message->payload.mcmContainer.choice.advisedManoeuvreContainer, asn_advs);
+
+  } else if (mcmData.getResponseContainer().isAvailable()) {
+    asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_responseContainer);
+    const auto& resp_data = mcmData.getResponseContainer().getData();
+
+    if (resp_data.response == 0) {
+      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_accept);
+    } else {
+      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_decline);
+      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.declineReason, resp_data.declineReason);
+    }
+
+    if (resp_data.submaneuvers.isAvailable()) {
+      auto [asn_subms, subms_ok] = convertSubmaneuversToAsn1(resp_data.submaneuvers.getData());
+      if (!subms_ok) {
+        std::cerr << "[ERROR] Failed to convert response submaneuvers." << std::endl;
+        return MCM_JSON_ERROR;
+      }
+      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.submaneuvres, asn_subms);
+    }
+
+  } else if (mcmData.getAcknowledgmentContainer().isAvailable()) {
+    asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_acknowledgmentContainer);
+    const auto& ack_data = mcmData.getAcknowledgmentContainer().getData();
+
+    asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.acknowledgedType, ack_data.type);
+    asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.generationDeltaTime, compute_timestampIts() % 65536);
+
+  } else if (mcmData.getTerminationContainer().isAvailable()) {
+    asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_terminationContainer);
+
+  } else {
+    std::cerr << "[ERROR] No valid active container variation found in mcData block." << std::endl;
     return MCM_JSON_ERROR;
   }
 
-  switch (container) {
-    case Container::VehicleManeuverContainer: {
-      // Select this choice
-      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_vehicleManoeuvreContainer);
-
-      // Allocate + fill VehicleManoeuvreContainer
-      auto &man = MCM_message->payload.mcmContainer.choice.vehicleManoeuvreContainer;
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleHeading.value, MCM_mandatory_data.heading.getValue());
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleHeading.confidence, MCM_mandatory_data.heading.getConfidence());
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSpeed.speedValue, MCM_mandatory_data.speed.getValue());
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSpeed.speedConfidence, MCM_mandatory_data.speed.getConfidence());
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleWidth, MCM_mandatory_data.VehicleWidth);
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleLenth.vehicleLengthValue, MCM_mandatory_data.VehicleLength.getValue());
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleLenth.vehicleLengthConfidenceIndication, MCM_mandatory_data.VehicleLength.getConfidence());
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleHeight, VehicleHeight_unavailable);
-      asn1cpp::setField(man.vehicleCurrentStateContainer.vehicleSize.vehicleType, GET_NUM(request, "MCMVehicleType"));
-
-      // Loop Submanoeuvres
-      auto& submaneuvers_json = GET_ARR(request, "MCMSubmaneuvers");
-      auto [subms, ret_subm_bool] = extractSubmaneuverDescriptions(submaneuvers_json);
-      if (ret_subm_bool) {
-        asn1cpp::setField(man.submaneuvres, subms);
-      } else {
-        std::cerr << "Failed to extract Submaneuvers" << std::endl;
-      }
-
-      // Loop ManoeuvreAdvice
-      auto& advices_json = GET_ARR(request, "MCMManeuverAdvices");
-      auto [advices, ret_adv_bool] = extractManeuverAdvice(advices_json);
-      if (ret_adv_bool) {
-        asn1cpp::setField(man.manoeuvreAdvice, advices);
-      } else {
-        std::cerr << "Failed to extract ManeuverAdvices" << std::endl;
-      }
-      break;
-    }
-
-    case Container::ManeuverAdviseContainer: {
-      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_advisedManoeuvreContainer);
-
-      // Loop ManoeuvreAdvice
-      auto& advices_json = GET_ARR(request, "MCMManeuverAdvices");
-      auto [advices, ret_adv_bool] = extractManeuverAdvice(advices_json);
-      if (ret_adv_bool) {
-        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.advisedManoeuvreContainer, advices);
-      } else {
-        std::cerr << "Failed to extract ManeuverAdvices" << std::endl;
-      }
-      break;
-    }
-
-    case Container::ResponseContainer: {
-      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_responseContainer);
-      if (request["MCMResponse"].is_null()) {
-        std::cerr << "Response Container needs MCMResponse" << std::endl;
-        return MCM_JSON_ERROR;
-      }
-      long response = GET_NUM(request, "MCMResponse");
-      if (response == 0) {
-        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_accept);
-      } else {
-        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_decline);
-        if (request["MCMDeclineReason"].is_null()) {
-          std::cerr << "Response Container with negative MCMResponse needs MCMDeclineReason" << std::endl;
-          return MCM_JSON_ERROR;
-        }
-        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.declineReason, GET_NUM(request, "MCMDeclineReason"));
-      }
-      
-      // Loop Submanoeuvres
-      auto& submaneuvers_json = GET_ARR(request, "MCMSubmaneuvers");
-      auto [subms, ret_bool] = extractSubmaneuverDescriptions(submaneuvers_json);
-      if (ret_bool) {
-        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.submaneuvres, subms);
-      }
-      break;
-    }
-
-    case Container::AcknowledgmentContainer:
-      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_acknowledgmentContainer);
-      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.acknowledgedType, McmType_acknowledgment);
-      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.acknowledgmentContainer.generationDeltaTime, compute_timestampIts () % 65536);
-      break;
-
-    case Container::TerminationContainer:
-      asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_terminationContainer);
-      break;
-
-    default:
-      std::cerr << "[ERROR] Fatal error! Cannot create containers for the MCM dissemination" << std::endl;
-      return MCM_JSON_ERROR;
-  }
-
+  /* Serialization & Network Transport */
   std::string encode_result = asn1cpp::uper::encode(MCM_message);
-
-  if(encode_result.size()<1) {
+  if (encode_result.size() < 1) {
     return MCM_ASN1_UPER_ENC_ERROR;
   }
 
-  dataRequest.BTPType = BTP_B;
-  dataRequest.destPort = MC_PORT;
-  dataRequest.destPInfo = 0;
-  dataRequest.GNType = TSB;
+  dataRequest.BTPType       = BTP_B;
+  dataRequest.destPort      = MC_PORT;
+  dataRequest.destPInfo     = 0;
+  dataRequest.GNType        = TSB;
   dataRequest.GNCommProfile = UNSPECIFIED;
-  dataRequest.GNRepInt = 0;
-  dataRequest.GNMaxRepInt = 0;
-  dataRequest.GNMaxLife = 1;
-  dataRequest.GNMaxHL = 1;
-  dataRequest.GNTraClass = 0x02;
-  dataRequest.lenght = encode_result.size();
-  /* Create the packet and the BTP header */
-  packetBuffer pktbuf(encode_result.c_str(),static_cast<unsigned int>(encode_result.size()));
+  dataRequest.GNRepInt      = 0;
+  dataRequest.GNMaxRepInt   = 0;
+  dataRequest.GNMaxLife     = 1;
+  dataRequest.GNMaxHL       = 1;
+  dataRequest.GNTraClass    = 0x02;
+  dataRequest.lenght        = encode_result.size();
+
+  packetBuffer pktbuf(encode_result.c_str(), static_cast<unsigned int>(encode_result.size()));
   dataRequest.data = pktbuf;
+
   std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_cam);
   GNDataConfirm_t dataConfirm = std::get<0>(status);
-  MessageId_t message_id = std::get<1>(status);
-  /* Update the CAM statistics */
-  if(m_met_sup_ptr!=nullptr && dataConfirm == ACCEPTED) {
+  MessageId_t     message_id  = std::get<1>(status);
+
+  if (m_met_sup_ptr != nullptr && dataConfirm == ACCEPTED) {
     if (message_id == MessageId_cam) m_MCM_sent++;
     m_met_sup_ptr->signalSentPacket(message_id);
   }
 
-  if (dataConfirm == ACCEPTED) return MCM_NO_ERROR;
-  else return MCM_CANNOT_SEND;
-}
-
-MCBasicService_error_t MCBasicService::generateAndEncodeMCM(const mcData& mcmData) {
-  return MCM_NO_ERROR;
+  return (dataConfirm == ACCEPTED) ? MCM_NO_ERROR : MCM_CANNOT_SEND;
 }
 
 uint64_t

@@ -71,14 +71,8 @@ public:
         long mcmType;
         long maneuverID;
         long concept;
-        MCValueConfidence<long, long> altitude;
-        MC_PosConfidenceEllipse_t posConfidenceEllipse;
-        MCDataItem<long> relevanceDistance;
-        MCDataItem<long> relevanceTrafficDirection;
-        MCDataItem<long> validityDuration;
-        MCDataItem<long> transmissionInterval;
-        MCDataItem<long> cost;
-        MCDataItem<long> goal;
+        long cost;
+        long goal;
         MCDataItem<long> executionStatus;
     } mcBasicContainer;
 
@@ -120,12 +114,18 @@ public:
     typedef struct _AdvisedTargetRoadResource {
         TrrDescription trrDescription;
         TemporalCharacteristics temporalCharacteristics;
-    } AdvisedTargetRoadResource;
+    } TargetRoadResource;
+
+    typedef struct _SubmanoeuvreStrategy {
+        int present;  // SubmanoeuvreStrategy_PR enum value
+        long value;   // il valore del choice corrispondente
+    } MCSubmanoeuvreStrategy;
 
     typedef struct MCSubmaneuvers {
         long submanoeuvreId;
-        MCDataItem<Trajectory> advisedTrajectory;
-        MCDataItem<AdvisedTargetRoadResource> advisedTargetRoadResource;
+        MCDataItem<Trajectory> referenceTrajectory;
+        MCDataItem<MCSubmanoeuvreStrategy> submanoeuvreStrategy;
+        MCDataItem<TargetRoadResource> targetRoadResource;
     } MCSubmaneuvers;
 
     typedef struct MCManeuverAdvice {
@@ -163,14 +163,23 @@ public:
     mcData()=default;
     ~mcData()=default;
 
-    // Fixed Getter Syntax
-    MCDataItem<mcDataHeader> getHeader() { return m_header; }
-    MCDataItem<mcBasicContainer> getBasicContainer() { return m_basic_container; }
-    MCDataItem<mcManeuverContainer> getManeuverContainer() { return m_maneuver_container; }
-    MCDataItem<mcAdviceContainer> getAdviceContainer() { return m_advice_container; }
-    MCDataItem<mcResponseContainer> getResponseContainer() { return m_response_container; }
-    MCDataItem<mcAcknowledgeContainer> getAcknowledgmentContainer() { return m_acknowledgment_container; }
-    MCDataItem<mcTerminationContainer> getTerminationContainer() { return m_termination_container; }
+    MCDataItem<mcDataHeader> getHeader() const { return m_header; }
+    MCDataItem<mcBasicContainer> getBasicContainer() const { return m_basic_container; }
+    MCDataItem<mcManeuverContainer> getManeuverContainer() const { return m_maneuver_container; }
+    MCDataItem<mcAdviceContainer> getAdviceContainer() const { return m_advice_container; }
+    MCDataItem<mcResponseContainer> getResponseContainer() const { return m_response_container; }
+    MCDataItem<mcAcknowledgeContainer> getAcknowledgmentContainer() const { return m_acknowledgment_container; }
+    MCDataItem<mcTerminationContainer> getTerminationContainer() const { return m_termination_container; }
+    long getStationID() const { return m_basic_container.getData().stationID; }
+    long getITSRole() const { return m_basic_container.getData().itsRole; }
+    long getStationType() const { return m_basic_container.getData().stationType; }
+    long getMCMType() const { return m_basic_container.getData().mcmType; }
+    long getManeuverID() const { return m_basic_container.getData().maneuverID; }
+    long getConcept() const { return m_basic_container.getData().concept; }
+    long getCost() const { return m_basic_container.getData().cost; }
+    long getGoal() const { return m_basic_container.getData().goal; }
+    const MCDataItem<long>& getExecutionStatus() const { return m_basic_container.getData().executionStatus; }
+
 
     // Setters
     void setHeader(const mcDataHeader& v) { m_header.setData(v); }

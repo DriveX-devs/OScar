@@ -867,44 +867,116 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json &request) {
     }
 
 	mcData mcmData;
-	if (!request["MCManeuverAdviceContainer"].is_null() && !request["MCManeuverAdvices"].is_null() && GET_ARR(request, "MCManeuverAdvices").size() > 0) {
-		std::vector<mcData::MCManeuverAdvice> parsed_advices;
-		if (extractManeuverAdvice(request["MCManeuverAdvices"].array_items(), parsed_advices)) {
-			mcData::mcAdviceContainer advice_container;
-			advice_container.advices.setData(parsed_advices);
-			
-			// Updates mcData via the safe setter method
-			mcmData.setAdviceContainer(advice_container);
+
+	if (!request["MCManeuverAdviceContainer"].is_null() && !request["MCManeuverAdviceContainer"]["MCManeuverAdvices"].is_null()) {
+		auto adv_array = GET_ARR(request["MCManeuverAdviceContainer"], "MCManeuverAdvices");
+		if (adv_array.size() > 0) {
+			std::vector<mcData::MCManeuverAdvice> parsed_advices;
+			if (extractManeuverAdvice(adv_array, parsed_advices)) {
+				mcData::mcAdviceContainer advice_container;
+				advice_container.advices.setData(parsed_advices);
+				
+				// Updates mcData via the safe setter method
+				mcmData.setAdviceContainer(advice_container);
+			} else {
+				std::cerr << "Error: Failed to parse MCManeuverAdvices array inside MCManeuverAdviceContainer." << std::endl;
+				response["status"] = MAKE_STR("error");
+				response["message"] = MAKE_STR("Failed to parse MCManeuverAdvices content.");
+				return response;
+			}
+		} else {
+			std::cerr << "Error: MCManeuverAdvices array inside MCManeuverAdviceContainer is empty." << std::endl;
+			response["status"] = MAKE_STR("error");
+			response["message"] = MAKE_STR("MCManeuverAdvices array cannot be empty.");
+			return response;
 		}
 	} else if (!request["MCVehicleManeuverContainer"].is_null()) {
 		mcData::mcManeuverContainer maneuver_container;
-		if (!request["MCManeuverAdvices"].is_null() && GET_ARR(request, "MCManeuverAdvices").size() > 0) {
-			std::vector<mcData::MCManeuverAdvice> parsed_advices;
-			maneuver_container.advices.setData(parsed_advices);
-		}
-		if (!request["MCSubmaneuvers"].is_null() && GET_ARR(request, "MCSubmaneuvers").size() > 0) {
-			std::vector<mcData::MCSubmaneuvers> parsed_subms;
-			if (extractSubmaneuvers(request["MCSubmaneuvers"].array_items(), parsed_subms)) {
-				maneuver_container.submaneuvers.setData(parsed_subms);
+		
+		if (!request["MCVehicleManeuverContainer"]["MCManeuverAdvices"].is_null()) {
+			auto adv_array = GET_ARR(request["MCVehicleManeuverContainer"], "MCManeuverAdvices");
+			if (adv_array.size() > 0) {
+				std::vector<mcData::MCManeuverAdvice> parsed_advices;
+				if (extractManeuverAdvice(adv_array, parsed_advices)) {
+					maneuver_container.advices.setData(parsed_advices);
+				} else {
+					std::cerr << "Error: Failed to parse MCManeuverAdvices array inside MCVehicleManeuverContainer." << std::endl;
+					response["status"] = MAKE_STR("error");
+					response["message"] = MAKE_STR("Failed to parse MCManeuverAdvices inside vehicle container.");
+					return response;
+				}
 			}
+		}
+		
+		if (!request["MCVehicleManeuverContainer"]["MCSubmaneuvers"].is_null()) {
+			auto sub_array = GET_ARR(request["MCVehicleManeuverContainer"], "MCSubmaneuvers");
+			if (sub_array.size() > 0) {
+				std::vector<mcData::MCSubmaneuvers> parsed_subms;
+				if (extractSubmaneuvers(sub_array, parsed_subms)) {
+					maneuver_container.submaneuvers.setData(parsed_subms);
+				} else {
+					std::cerr << "Error: Failed to parse MCSubmaneuvers array inside MCVehicleManeuverContainer." << std::endl;
+					response["status"] = MAKE_STR("error");
+					response["message"] = MAKE_STR("Failed to parse submaneuvers structure inside vehicle container.");
+					return response;
+				}
+			} else {
+				std::cerr << "Error: MCSubmaneuvers array inside MCVehicleManeuverContainer is empty." << std::endl;
+				response["status"] = MAKE_STR("error");
+				response["message"] = MAKE_STR("MCSubmaneuvers array cannot be empty.");
+				return response;
+			}
+		} else {
+			std::cerr << "Error: Missing mandatory field MCSubmaneuvers inside MCVehicleManeuverContainer." << std::endl;
+			response["status"] = MAKE_STR("error");
+			response["message"] = MAKE_STR("MCSubmaneuvers is required inside MCVehicleManeuverContainer.");
+			return response;
 		}
 		mcmData.setManeuverContainer(maneuver_container);
 	} else if (!request["MCResponseContainer"].is_null()) {
 		mcData::mcResponseContainer resp_container;
-		if (!request["MCSubmaneuvers"].is_null() && GET_ARR(request, "MCSubmaneuvers").size() > 0) {
-			std::vector<mcData::MCSubmaneuvers> parsed_subms;
-			if (extractSubmaneuvers(request["MCSubmaneuvers"].array_items(), parsed_subms)) {
-				resp_container.submaneuvers.setData(parsed_subms);
+		if (!request["MCResponseContainer"]["MCSubmaneuvers"].is_null()) {
+			auto sub_array = GET_ARR(request["MCResponseContainer"], "MCSubmaneuvers");
+			if (sub_array.size() > 0) {
+				std::vector<mcData::MCSubmaneuvers> parsed_subms;
+				if (extractSubmaneuvers(sub_array, parsed_subms)) {
+					resp_container.submaneuvers.setData(parsed_subms);
+				}
+			} else {
+				std::cerr << "Error: MCSubmaneuvers array inside MCResponseContainer is empty." << std::endl;
+				response["status"] = MAKE_STR("error");
+				response["message"] = MAKE_STR("MCSubmaneuvers array in MCResponseContainer cannot be empty.");
+				return response;
 			}
 		}
-		// TODO response
+		
+		if (!request["MCResponseContainer"]["MCResponse"].is_null()) {
+			long resp = GET_NUM(request["MCResponseContainer"], "MCResponse");
+			resp_container.response = resp;
+		} else {
+			std::cerr << "Error: Missing mandatory field MCResponse inside MCResponseContainer." << std::endl;
+			response["status"] = MAKE_STR("error");
+			response["message"] = MAKE_STR("MCResponse value is missing.");
+			return response;
+		}
+		mcmData.setResponseContainer(resp_container);
 	} else if (!request["MCAcknowledgmentContainer"].is_null()) {
-		// TODO
+		mcData::mcAcknowledgeContainer ack_container;
+		if (!request["MCAcknowledgmentContainer"]["MCAcknowledgmentType"].is_null()) {
+			ack_container.type = GET_NUM(request["MCAcknowledgmentContainer"], "MCAcknowledgmentType");
+		} else {
+			std::cerr << "Error: Missing mandatory field MCAcknowledgmentType inside MCAcknowledgmentContainer." << std::endl;
+			response["status"] = MAKE_STR("error");
+			response["message"] = MAKE_STR("MCAcknowledgmentType value is missing.");
+			return response;
+		}
+		mcmData.setAcknowledgmentContainer(ack_container);
 	} else if (!request["MCTerminationContainer"].is_null()) {
-		// TODO
+		mcData::mcTerminationContainer term_container;
+		mcmData.setTerminationContainer(term_container);
 	}
 
-	auto err = m_mc_service->generateAndEncodeMCM(&mcmData);
+	auto err = m_mc_service->generateAndEncodeMCM(mcmData);
 
 	if (err != MCM_NO_ERROR) {
 		// In case of creation error during the JSON parsing
