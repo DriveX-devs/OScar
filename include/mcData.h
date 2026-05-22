@@ -52,11 +52,76 @@ public:
             void setConfidence(C confidence) { m_confidence = confidence; }
     };
 
-    typedef struct MC_PosConfidenceEllipse {
-        long semiMajorConfidence;
-        long semiMinorConfidence;
-        long semiMajorOrientation;
-    } MC_PosConfidenceEllipse_t;
+    // --- Added Structures for Submaneuvers and Advice ---
+
+    typedef struct _mcDataPathPoint {
+        long deltaLatitude;
+        long deltaLongitude;
+        long deltaAltitude;
+        MCDataItem<long> pathDeltaTime;
+    } mcDataPathPoint;
+
+    typedef struct _mcDataTrajectory {
+        long wayPointType;
+        std::vector<mcDataPathPoint> wayPoints;
+        std::vector<MCValueConfidence<long, long>> speed;
+        std::vector<MCValueConfidence<long, long>> headings;
+        std::vector<long> longitudePositions;
+        std::vector<long> latitudePositions;
+        std::vector<MCValueConfidence<long, long>> altitudePositions;
+    } mcDataTrajectory;
+
+    typedef struct _mcDataTrrDescription {
+        long trrType;
+        long laneCount;
+        long trrWidth;
+        long trrLength;
+        MCDataItem<long> startingLaneNumber;
+        MCDataItem<long> endingLaneNumber;
+        std::vector<mcDataPathPoint> waypoints;
+        std::vector<MCValueConfidence<long, long>> heading;
+    } mcDataTrrDescription;
+
+    typedef struct _mcDataTemporalCharacteristics {
+        long tRROccupancyStartTime;
+        long tRROccupancyEndTime;
+    } mcDataTemporalCharacteristics;
+
+    typedef struct _mcDataSubmanoeuvreStrategy {
+        int present;  // SubmanoeuvreStrategy_PR enum value
+        long value;   // il valore del choice corrispondente
+    } mcDataSubmanoeuvreStrategy;
+
+    // Submaneuver Description is used by VehicleManueverContainer and ResponseContainer
+    typedef struct _mcDataSubmaneuversDescription {
+        long submanoeuvreId;
+        MCDataItem<mcDataSubmanoeuvreStrategy> submanoeuvreStrategy;
+        MCDataItem<mcDataTrajectory> referenceTrajectory;
+        MCDataItem<mcDataTrrDescription> targetRoadResource;
+        mcDataTemporalCharacteristics temporalCharacteristics;
+        MCDataItem<long> kinematicsCharacteristics;
+    } mcDataSubmaneuverDescription;
+
+    typedef struct _mcDataAdvisedTrrContainer {
+        mcDataTrrDescription trrDescription;
+        mcDataTemporalCharacteristics temporalCharacteristics;
+        MCDataItem<long> kinematicsCharacteristics;
+    } mcDataAdvisedTrrContainer;
+
+    // Advised Submaneuver is used by AdviceManeuverContainer
+    typedef struct _mcDataAdvisedSubmaneuver {
+        long submaneuverID;
+        MCDataItem<mcDataTrajectory> advisedTrajectory;
+        MCDataItem<mcDataAdvisedTrrContainer> advisedTrrContainer;
+    } mcDataAdvisedSubmaneuver;
+
+    typedef struct _mcDataManeuverAdvice {
+        long executantID;
+        MCDataItem<long> currentStateAdvisedChange; 
+        std::vector<mcDataAdvisedSubmaneuver> submaneuvres;
+    } mcDataManeuverAdvice;
+
+    // --- Containers ---
 
     typedef struct _header {
         long messageID;
@@ -76,80 +141,20 @@ public:
         MCDataItem<long> executionStatus;
     } mcBasicContainer;
 
-    // --- Added Structures for Submaneuvers and Advice ---
-
-    typedef struct _PathPoint {
-        long deltaLatitude;
-        long deltaLongitude;
-        long deltaAltitude;
-        MCDataItem<long> pathDeltaTime;
-    } PathPoint;
-
-    typedef struct _Trajectory {
-        long wayPointType;
-        std::vector<PathPoint> wayPoints;
-        std::vector<MCValueConfidence<long, long>> speed;
-        std::vector<MCValueConfidence<long, long>> headings;
-        std::vector<long> longitudePositions;
-        std::vector<long> latitudePositions;
-        std::vector<MCValueConfidence<long, long>> altitudePositions;
-    } Trajectory;
-
-    typedef struct _TrrDescription {
-        long trrType;
-        long laneCount;
-        long trrWidth;
-        long trrLength;
-        MCDataItem<long> startingLaneNumber;
-        MCDataItem<long> endingLaneNumber;
-        std::vector<PathPoint> waypoints;
-        std::vector<MCValueConfidence<long, long>> heading;
-    } TrrDescription;
-
-    typedef struct _TemporalCharacteristics {
-        long tRROccupancyStartTime;
-        long tRROccupancyEndTime;
-    } TemporalCharacteristics;
-
-    typedef struct _AdvisedTargetRoadResource {
-        TrrDescription trrDescription;
-        TemporalCharacteristics temporalCharacteristics;
-    } TargetRoadResource;
-
-    typedef struct _SubmanoeuvreStrategy {
-        int present;  // SubmanoeuvreStrategy_PR enum value
-        long value;   // il valore del choice corrispondente
-    } MCSubmanoeuvreStrategy;
-
-    typedef struct MCSubmaneuvers {
-        long submanoeuvreId;
-        MCDataItem<Trajectory> referenceTrajectory;
-        MCDataItem<MCSubmanoeuvreStrategy> submanoeuvreStrategy;
-        MCDataItem<TargetRoadResource> targetRoadResource;
-    } MCSubmaneuvers;
-
-    typedef struct MCManeuverAdvice {
-        long executantID;
-        MCDataItem<long> currentStateAdvisedChange; 
-        std::vector<MCSubmaneuvers> submaneuvres;
-    } MCManeuverAdvice;
-
-    // ----------------------------------------------------
-
     typedef struct _maneuverContainer {
         long vehicleType;
-        MCDataItem<std::vector<MCSubmaneuvers>> submaneuvers;
-        MCDataItem<std::vector<MCManeuverAdvice>> advices;
+        std::vector<mcDataSubmaneuverDescription> submaneuvers;
+        MCDataItem<std::vector<mcDataManeuverAdvice>> advices;
     } mcManeuverContainer;
 
     typedef struct _adviceContainer {
-        MCDataItem<std::vector<MCManeuverAdvice>> advices;
+        std::vector<mcDataManeuverAdvice> advices;
     } mcAdviceContainer;
 
     typedef struct _responseContainer {
         long response;
         MCDataItem<long> declineReason;
-        MCDataItem<std::vector<MCSubmaneuvers>> submaneuvers;
+        MCDataItem<std::vector<mcDataSubmaneuverDescription>> submaneuvers;
     } mcResponseContainer;
 
     typedef struct _acknowledgmentContainer {

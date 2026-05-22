@@ -155,571 +155,8 @@ MCBasicService::setStationType(long fixed_stationtype) {
   m_btp->setStationType(fixed_stationtype);
 }
 
-std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool> extractSubmaneuverDescriptions(const json11::Json::array &submaneuvers_json) {
-	auto list_subm = asn1cpp::makeSeq(ListOfSubmanoeuvreDescriptionsContainer);
-
-	for (auto& subm_json : submaneuvers_json) {
-		auto subm = asn1cpp::makeSeq(SubmanoeuvreDescription);
-
-		// --- submanoeuvreID ---
-		if (!subm_json["SubmanoeuvreID"].is_null()) {
-			asn1cpp::setField(subm->submanoeuvreID, GET_NUM(subm_json, "SubmanoeuvreID"));
-		} else {
-			std::cerr << "SubmaneuverDescription needs SubmaneuverID" << std::endl;
-			return {nullptr, false};
-		}
-
-		// --- temporalCharacteristics ---
-		if (!subm_json["TemporalCharacteristics"].is_null()) {
-			for (auto field : {"StartTime", "EndTime"}) {
-				if (subm_json["TemporalCharacteristics"][field].is_null()) {
-					std::cerr << std::string(field) + " in TemporalCharacteristics not found" << std::endl;
-					return {nullptr, false};
-				}
-			}
-			asn1cpp::setField(subm->temporalCharateristics.tRROccupancyStartTime, GET_NUM(subm_json["TemporalCharacteristics"], "StartTime"));
-			asn1cpp::setField(subm->temporalCharateristics.tRROccupancyEndTime, GET_NUM(subm_json["TemporalCharacteristics"], "EndTime"));
-		} else {
-			std::cerr << "SubmaneuverDescription needs TemporalCharacteristics" << std::endl;
-			return {nullptr, false};
-		}
-
-		// --- submanoeuvreStrategy (optional) ---
-		if (!subm_json["SubmaneuverStrategy"].is_null()) {
-			auto strategy = asn1cpp::makeSeq(SubmanoeuvreStrategy);
-
-			int present_val = GET_NUM(subm_json["SubmaneuverStrategy"], "Strategy");
-			asn1cpp::setField(strategy->present, static_cast<SubmanoeuvreStrategy_PR>(present_val));
-
-			auto it = strategy_json_fields.find(present_val);
-      if (it == strategy_json_fields.end()) {
-          std::cerr << "Unknown strategy present value: " + std::to_string(present_val) << std::endl;
-          return {nullptr, false};
-      }
-
-      const char* json_field = it->second;
-      double val = GET_NUM(subm_json["SubmaneuverStrategy"], json_field);
-
-      switch (static_cast<SubmanoeuvreStrategy_PR>(present_val)) {
-          case SubmanoeuvreStrategy_PR_undefined:
-              asn1cpp::setField(strategy->choice.undefined, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_transitToHumanDrivenMode:
-              asn1cpp::setField(strategy->choice.transitToHumanDrivenMode, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_transitToAutomatedDrivingMode:
-              asn1cpp::setField(strategy->choice.transitToAutomatedDrivingMode, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_driveStraight:
-              asn1cpp::setField(strategy->choice.driveStraight, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_turnLeft:
-              asn1cpp::setField(strategy->choice.turnLeft, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_turnRight:
-              asn1cpp::setField(strategy->choice.turnRight, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_uTurn:
-              asn1cpp::setField(strategy->choice.uTurn, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_moveBackward:
-              asn1cpp::setField(strategy->choice.moveBackward, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_overtake:
-              asn1cpp::setField(strategy->choice.overtake, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_accelerate:
-              asn1cpp::setField(strategy->choice.accelerate, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_slowDown:
-              asn1cpp::setField(strategy->choice.slowDown, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_stop:
-              asn1cpp::setField(strategy->choice.stop, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_goToLeftLane:
-              asn1cpp::setField(strategy->choice.goToLeftLane, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_goToRightLane:
-              asn1cpp::setField(strategy->choice.goToRightLane, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_getOnHighway:
-              asn1cpp::setField(strategy->choice.getOnHighway, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_exitHighway:
-              asn1cpp::setField(strategy->choice.exitHighway, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_takeTollingLane:
-              asn1cpp::setField(strategy->choice.takeTollingLane, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_stopAndWait:
-              asn1cpp::setField(strategy->choice.stopAndWait, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_emergencyBrakeAndStop:
-              asn1cpp::setField(strategy->choice.emergencyBrakeAndStop, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_resetStopAndRestartMoving:
-              asn1cpp::setField(strategy->choice.resetStopAndRestartMoving, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_stayInLane:
-              asn1cpp::setField(strategy->choice.stayInLane, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_resetStayInLane:
-              asn1cpp::setField(strategy->choice.resetStayInLane, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_stayAway:
-              asn1cpp::setField(strategy->choice.stayAway, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_resetStayAway:
-              asn1cpp::setField(strategy->choice.resetStayAway, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_followMe:
-              asn1cpp::setField(strategy->choice.followMe, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_existingGroup:
-              asn1cpp::setField(strategy->choice.existingGroup, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_temporarilyDisbandAnExistingGroup:
-              asn1cpp::setField(strategy->choice.temporarilyDisbandAnExistingGroup, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_constituteATemporarilyGroup:
-              asn1cpp::setField(strategy->choice.constituteATemporarilyGroup, (long)val);
-              break;
-          case SubmanoeuvreStrategy_PR_disbandATemporarilyGroup:
-              asn1cpp::setField(strategy->choice.disbandATemporarilyGroup, (long)val);
-              break;
-          default:
-              std::cerr << "Unhandled strategy present value: " + std::to_string(present_val) << std::endl;
-              return {nullptr, false};
-      }
-		}
-
-		// --- referenceTrajectory (optional) ---
-		if (!subm_json["ReferenceTrajectory"].is_null()) {
-			auto traj = asn1cpp::makeSeq(Trajectory);
-
-			if (subm_json["ReferenceTrajectory"]["WayPointType"].is_null()) {
-				std::cerr << "WayPointType in ReferenceTrajectory not found" << std::endl;
-				return {nullptr, false};
-			}
-			asn1cpp::setField(traj->wayPointType, GET_NUM(subm_json["ReferenceTrajectory"], "WayPointType"));
-
-			// --- wayPoints ---
-			auto& wps_json = GET_ARR(subm_json["ReferenceTrajectory"], "WayPoints");
-			for (auto& wp_json : wps_json) {
-				auto wp = asn1cpp::makeSeq(PathPoint);
-
-				for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
-					if (wp_json[field].is_null()) {
-						std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
-						return {nullptr, false};
-					}
-				}
-				asn1cpp::setField(wp->pathPosition.deltaLatitude,  GET_NUM(wp_json, "DeltaLatitude"));
-				asn1cpp::setField(wp->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
-				asn1cpp::setField(wp->pathPosition.deltaAltitude,  GET_NUM(wp_json, "DeltaAltitude"));
-
-				// --- pathDeltaTime (optional) ---
-				if (!wp_json["PathDeltaTime"].is_null()) {
-					asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
-				}
-
-				asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
-			}
-
-			// --- speed ---
-			if (subm_json["ReferenceTrajectory"]["Speed"].is_null()) {
-				std::cerr << "ReferenceTrajectory in SubmaneuverDescription needs Speeds" << std::endl;
-				return {nullptr, false};
-			}
-			auto& speeds_json = GET_ARR(subm_json["ReferenceTrajectory"], "Speed");
-			for (auto& sp_json : speeds_json) {
-				auto sp = asn1cpp::makeSeq(Speed);
-
-				for (auto field : {"SpeedValue", "SpeedConfidence"}) {
-					if (sp_json[field].is_null()) {
-						std::cerr << std::string(field) + " in Speed not found" << std::endl;
-						return {nullptr, false};
-					}
-				}
-				asn1cpp::setField(sp->speedValue, GET_NUM(sp_json, "SpeedValue"));
-				asn1cpp::setField(sp->speedConfidence, GET_NUM(sp_json, "SpeedConfidence"));
-				asn1cpp::sequenceof::pushList(traj->speed, sp);
-			}
-
-			// --- headings for referenceTrajectory (optional) ---
-			auto& headings_json = GET_ARR(subm_json["ReferenceTrajectory"], "Heading");
-			for (auto& head_json : headings_json) {
-				auto head = asn1cpp::makeSeq(Wgs84Angle);
-
-				for (auto field : {"HeadingValue", "HeadingConfidence"}) {
-					if (head_json[field].is_null()) {
-						std::cerr << std::string(field) + " in Heading not found" << std::endl;
-						return {nullptr, false};
-					}
-				}
-				asn1cpp::setField(head->value, GET_NUM(head_json, "HeadingValue"));
-				asn1cpp::setField(head->confidence, GET_NUM(head_json, "HeadingConfidence"));
-				asn1cpp::sequenceof::pushList(traj->headings, head);
-			}
-
-			// --- longitudePositions for referenceTrajectory (optional) ---
-			auto& longitudes_json = GET_ARR(subm_json["ReferenceTrajectory"], "Longitude");
-			for (auto& longi_json : longitudes_json) {
-				auto longi = asn1cpp::makeSeq(Longitude);
-				if (longi_json["LongitudeValue"].is_null()) {
-					std::cerr << "LongitudeValue in Longitude not found" << std::endl;
-					return {nullptr, false};
-				}
-				asn1cpp::sequenceof::pushList(traj->longitudePositions, (long) GET_NUM(longi_json, "LongitudeValue"));
-			}
-
-			// --- latitudePositions for referenceTrajectory (optional) ---
-			auto& latitudes_json = GET_ARR(subm_json["ReferenceTrajectory"], "Latitude");
-			for (auto& lati_json : latitudes_json) {
-				auto lati = asn1cpp::makeSeq(Latitude);
-				if (lati_json["LatitudeValue"].is_null()) {
-					std::cerr << "LatitudeValue in Latitude not found" << std::endl;
-					return {nullptr, false};
-				}
-				asn1cpp::sequenceof::pushList(traj->latitudePositions, (long) GET_NUM(lati_json, "LatitudeValue"));
-			}
-
-			// --- altitudePositions for referenceTrajectory (optional) ---
-			auto& altitudes_json = GET_ARR(subm_json["ReferenceTrajectory"], "Altitude");
-			for (auto& alti_json : altitudes_json) {
-				auto alti = asn1cpp::makeSeq(Altitude);
-
-				for (auto field : {"AltitudeValue", "AltitudeConfidence"}) {
-					if (alti_json[field].is_null()) {
-						std::cerr << std::string(field) + " in Altitude not found" << std::endl;
-						return {nullptr, false};
-					}
-				}
-				asn1cpp::setField(alti->altitudeValue, GET_NUM(alti_json, "AltitudeValue"));
-				asn1cpp::setField(alti->altitudeConfidence, GET_NUM(alti_json, "AltitudeConfidence"));
-				asn1cpp::sequenceof::pushList(traj->altitudePositions, alti);
-			}
-
-			asn1cpp::setField(subm->referenceTrajectory, traj);
-		}
-
-		// --- targetRoadResourceIContainer (optional) ---
-		if (!subm_json["TargetRoadResource"].is_null()) {
-			auto trr = asn1cpp::makeSeq(TrrDescription);
-
-			for (auto field : {"TrrType", "LaneCount", "TrrWidth", "TrrLength"}) {
-				if (subm_json["TargetRoadResource"][field].is_null()) {
-					std::cerr << std::string(field) + " in TargetRoadResource not found" << std::endl;
-					return {nullptr, false};
-				}
-			}
-			asn1cpp::setField(trr->trrType, GET_NUM(subm_json["TargetRoadResource"], "TrrType"));
-			asn1cpp::setField(trr->laneCount, GET_NUM(subm_json["TargetRoadResource"], "LaneCount"));
-			asn1cpp::setField(trr->trrWidth, GET_NUM(subm_json["TargetRoadResource"], "TrrWidth"));
-			asn1cpp::setField(trr->trrLength, GET_NUM(subm_json["TargetRoadResource"], "TrrLength"));
-
-			// --- startingLaneNumber (optional) ---
-			if (!subm_json["TargetRoadResource"]["StartingLaneNumber"].is_null()) {
-				asn1cpp::setField(trr->startingLaneNumber, GET_NUM(subm_json["TargetRoadResource"], "StartingLaneNumber"));
-			}
-
-			// --- endingLaneNumber (optional) ---
-			if (!subm_json["TargetRoadResource"]["EndingLaneNumber"].is_null()) {
-				asn1cpp::setField(trr->endingLaneNumber, GET_NUM(subm_json["TargetRoadResource"], "EndingLaneNumber"));
-			}
-
-			// --- waypoints for targetRoadResource (optional) ---
-			auto& wps_json = GET_ARR(subm_json["TargetRoadResource"], "WayPoints");
-			for (auto& wp_json : wps_json) {
-				auto wp = asn1cpp::makeSeq(PathPoint);
-
-				for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
-					if (wp_json[field].is_null()) {
-						std::cerr << std::string(field) + " in WayPoint not found"<< std::endl;
-						return {nullptr, false};
-					}
-				}
-				asn1cpp::setField(wp->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
-				asn1cpp::setField(wp->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
-				asn1cpp::setField(wp->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
-
-				// --- pathDeltaTime (optional) ---
-				if (!wp_json["PathDeltaTime"].is_null()) {
-					asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
-				}
-
-				asn1cpp::sequenceof::pushList(trr->waypoints, wp);
-			}
-
-			// --- heading for targetRoadResource (optional) ---
-			auto& headings_json = GET_ARR(subm_json["TargetRoadResource"], "Heading");
-			for (auto& head_json : headings_json) {
-				auto head = asn1cpp::makeSeq(Wgs84Angle);
-
-				for (auto field : {"HeadingValue", "HeadingConfidence"}) {
-					if (head_json[field].is_null()) {
-						std::cerr << std::string(field) + " in Heading not found" << std::endl;
-						return {nullptr, false};
-					}
-				}
-				asn1cpp::setField(head->value, GET_NUM(head_json, "HeadingValue"));
-				asn1cpp::setField(head->confidence, GET_NUM(head_json, "HeadingConfidence"));
-				asn1cpp::sequenceof::pushList(trr->heading, head);
-			}
-
-			asn1cpp::setField(subm->targetRoadResourceIContainer, trr);
-		}
-
-		// --- kinematicsCharacteristics (optional) ---
-		// For the moment the ASN indicates this field as nullptr
-
-		asn1cpp::sequenceof::pushList(*list_subm, subm);
-	}
-  return {list_subm, true};
-}
-
-std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool> extractManeuverAdvice(const json11::Json::array &advices_json) {
-	auto list_adv = asn1cpp::makeSeq(ManoeuvreAdviceContainer);
-
-	for (auto& adv_json : advices_json) {
-		auto adv = asn1cpp::makeSeq(ManoeuvreAdvice);
-
-		// --- executantID (mandatory) ---
-		if (!adv_json["ExecutantID"].is_null()) {
-			asn1cpp::setField(adv->executantID, GET_NUM(adv_json, "ExecutantID"));
-		} else {
-			std::cerr << "ManoeuvreAdvice needs ExecutantID" << std::endl;
-			return {nullptr, false};
-		}
-
-		// --- currentStateAdvisedChange (optional) ---
-		if (!adv_json["CurrentStateAdvisedChange"].is_null()) {
-			auto csac = asn1cpp::makeSeq(CurrentStateAdvisedChange);
-
-			int present_val = GET_NUM(adv_json["CurrentStateAdvisedChange"], "Present");
-			asn1cpp::setField(csac->present, static_cast<CurrentStateAdvisedChange_PR>(present_val));
-
-			asn1cpp::setField(adv->currentStateAdvisedChange, csac);
-		}
-
-		// --- submaneuvres (mandatory) ---
-		if (adv_json["Submaneuvres"].is_null()) {
-			std::cerr << "ManoeuvreAdvice needs Submaneuvres" << std::endl;
-			return {nullptr, false};
-		}
-
-		auto& subms_json = GET_ARR(adv_json, "Submaneuvres");
-		for (auto& subm_json : subms_json) {
-			auto subm = asn1cpp::makeSeq(Submanoeuvre);
-
-			// --- submanoeuvreId (mandatory) ---
-			if (!subm_json["SubmanoeuvreId"].is_null()) {
-				asn1cpp::setField(subm->submanoeuvreId, GET_NUM(subm_json, "SubmanoeuvreId"));
-			} else {
-				std::cerr << "Submanoeuvre needs SubmanoeuvreId" << std::endl;
-				return {nullptr, false};
-			}
-
-			// --- advisedTrajectory (optional) ---
-			if (!subm_json["AdvisedTrajectory"].is_null()) {
-				auto traj = asn1cpp::makeSeq(Trajectory);
-
-				if (subm_json["AdvisedTrajectory"]["WayPointType"].is_null()) {
-					std::cerr << "WayPointType in AdvisedTrajectory not found" << std::endl;
-					return {nullptr, false};
-				}
-				asn1cpp::setField(traj->wayPointType, GET_NUM(subm_json["AdvisedTrajectory"], "WayPointType"));
-
-				// --- wayPoints ---
-				auto& wps_json = GET_ARR(subm_json["AdvisedTrajectory"], "WayPoints");
-				for (auto& wp_json : wps_json) {
-					auto wp = asn1cpp::makeSeq(PathPoint);
-
-					for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
-						if (wp_json[field].is_null()) {
-							std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
-							return {nullptr, false};
-						}
-					}
-					asn1cpp::setField(wp->pathPosition.deltaLatitude,  GET_NUM(wp_json, "DeltaLatitude"));
-					asn1cpp::setField(wp->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
-					asn1cpp::setField(wp->pathPosition.deltaAltitude,  GET_NUM(wp_json, "DeltaAltitude"));
-
-					// --- pathDeltaTime (optional) ---
-					if (!wp_json["PathDeltaTime"].is_null()) {
-						asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
-					}
-
-					asn1cpp::sequenceof::pushList(traj->wayPoints, wp);
-				}
-
-				// --- speed ---
-				if (subm_json["AdvisedTrajectory"]["Speed"].is_null()) {
-					std::cerr << "AdvisedTrajectory in Submanoeuvre needs Speeds" << std::endl;
-					return {nullptr, false};
-				}
-				auto& speeds_json = GET_ARR(subm_json["AdvisedTrajectory"], "Speed");
-				for (auto& sp_json : speeds_json) {
-					auto sp = asn1cpp::makeSeq(Speed);
-
-					for (auto field : {"SpeedValue", "SpeedConfidence"}) {
-						if (sp_json[field].is_null()) {
-							std::cerr << std::string(field) + " in Speed not found" << std::endl;
-							return {nullptr, false};
-						}
-					}
-					asn1cpp::setField(sp->speedValue, GET_NUM(sp_json, "SpeedValue"));
-					asn1cpp::setField(sp->speedConfidence, GET_NUM(sp_json, "SpeedConfidence"));
-					asn1cpp::sequenceof::pushList(traj->speed, sp);
-				}
-
-				// --- headings (optional) ---
-				auto& headings_json = GET_ARR(subm_json["AdvisedTrajectory"], "Heading");
-				for (auto& head_json : headings_json) {
-					auto head = asn1cpp::makeSeq(Wgs84Angle);
-
-					for (auto field : {"HeadingValue", "HeadingConfidence"}) {
-						if (head_json[field].is_null()) {
-							std::cerr << std::string(field) + " in Heading not found" << std::endl;
-							return {nullptr, false};
-						}
-					}
-					asn1cpp::setField(head->value, GET_NUM(head_json, "HeadingValue"));
-					asn1cpp::setField(head->confidence, GET_NUM(head_json, "HeadingConfidence"));
-					asn1cpp::sequenceof::pushList(traj->headings, head);
-				}
-
-				// --- longitudePositions (optional) ---
-				auto& longitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Longitude");
-				for (auto& longi_json : longitudes_json) {
-					auto longi = asn1cpp::makeSeq(Longitude);
-					if (longi_json["LongitudeValue"].is_null()) {
-						std::cerr << "LongitudeValue in Longitude not found" << std::endl;
-						return {nullptr, false};
-					}
-					// asn1cpp::setField(*longi, GET_NUM(longi_json, "LongitudeValue"));
-					asn1cpp::sequenceof::pushList(traj->longitudePositions, GET_NUM(longi_json, "LongitudeValue"));
-				}
-
-				// --- latitudePositions (optional) ---
-				auto& latitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Latitude");
-				for (auto& lati_json : latitudes_json) {
-					auto lati = asn1cpp::makeSeq(Latitude);
-					if (lati_json["LatitudeValue"].is_null()) {
-						std::cerr << "LatitudeValue in Latitude not found" << std::endl;
-						return {nullptr, false};
-					}
-					//asn1cpp::setField(*lati, GET_NUM(lati_json, "LatitudeValue"));
-					asn1cpp::sequenceof::pushList(traj->latitudePositions, GET_NUM(lati_json, "LatitudeValue"));
-				}
-
-				// --- altitudePositions (optional) ---
-				auto& altitudes_json = GET_ARR(subm_json["AdvisedTrajectory"], "Altitude");
-				for (auto& alti_json : altitudes_json) {
-					auto alti = asn1cpp::makeSeq(Altitude);
-
-					for (auto field : {"AltitudeValue", "AltitudeConfidence"}) {
-						if (alti_json[field].is_null()) {
-							std::cerr << std::string(field) + " in Altitude not found" << std::endl;
-							return {nullptr, false};
-						}
-					}
-					asn1cpp::setField(alti->altitudeValue, GET_NUM(alti_json, "AltitudeValue"));
-					asn1cpp::setField(alti->altitudeConfidence, GET_NUM(alti_json, "AltitudeConfidence"));
-					asn1cpp::sequenceof::pushList(traj->altitudePositions, alti);
-				}
-
-				asn1cpp::setField(subm->advisedTrajectory, traj);
-			}
-
-			// --- advisedTargetRoadResource (optional) ---
-      if (!subm_json["AdvisedTargetRoadResource"].is_null()) {
-          auto atrr = asn1cpp::makeSeq(AdvisedTrrContainer);
-
-          // --- trrDescription (mandatory) ---
-          for (auto field : {"TrrType", "LaneCount", "TrrWidth", "TrrLength"}) {
-              if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
-                  std::cerr << std::string(field) + " in AdvisedTargetRoadResource not found" << std::endl;
-                  return {nullptr, false};
-              }
-          }
-          asn1cpp::setField(atrr->trrDescription.trrType, GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrType"));
-          asn1cpp::setField(atrr->trrDescription.laneCount, GET_NUM(subm_json["AdvisedTargetRoadResource"], "LaneCount"));
-          asn1cpp::setField(atrr->trrDescription.trrWidth, GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrWidth"));
-          asn1cpp::setField(atrr->trrDescription.trrLength, GET_NUM(subm_json["AdvisedTargetRoadResource"], "TrrLength"));
-
-          if (!subm_json["AdvisedTargetRoadResource"]["StartingLaneNumber"].is_null()) {
-              asn1cpp::setField(atrr->trrDescription.startingLaneNumber, GET_NUM(subm_json["AdvisedTargetRoadResource"], "StartingLaneNumber"));
-          }
-          if (!subm_json["AdvisedTargetRoadResource"]["EndingLaneNumber"].is_null()) {
-              asn1cpp::setField(atrr->trrDescription.endingLaneNumber, GET_NUM(subm_json["AdvisedTargetRoadResource"], "EndingLaneNumber"));
-          }
-
-          // --- waypoints (optional) ---
-          auto& wps_json = GET_ARR(subm_json["AdvisedTargetRoadResource"], "WayPoints");
-          for (auto& wp_json : wps_json) {
-              auto wp = asn1cpp::makeSeq(PathPoint);
-
-              for (auto field : {"DeltaLatitude", "DeltaLongitude", "DeltaAltitude"}) {
-                  if (wp_json[field].is_null()) {
-                      std::cerr << std::string(field) + " in WayPoint not found" << std::endl;
-                      return {nullptr, false};
-                  }
-              }
-              asn1cpp::setField(wp->pathPosition.deltaLatitude, GET_NUM(wp_json, "DeltaLatitude"));
-              asn1cpp::setField(wp->pathPosition.deltaLongitude, GET_NUM(wp_json, "DeltaLongitude"));
-              asn1cpp::setField(wp->pathPosition.deltaAltitude, GET_NUM(wp_json, "DeltaAltitude"));
-
-              if (!wp_json["PathDeltaTime"].is_null()) {
-                  asn1cpp::setField(wp->pathDeltaTime, GET_NUM(wp_json, "PathDeltaTime"));
-              }
-              asn1cpp::sequenceof::pushList(atrr->trrDescription.waypoints, wp);
-          }
-
-          // --- heading (optional) ---
-          auto& headings_json = GET_ARR(subm_json["AdvisedTargetRoadResource"], "Heading");
-          for (auto& head_json : headings_json) {
-              auto head = asn1cpp::makeSeq(Wgs84Angle);
-
-              for (auto field : {"HeadingValue", "HeadingConfidence"}) {
-                  if (head_json[field].is_null()) {
-                      std::cerr << std::string(field) + " in Heading not found" << std::endl;
-                      return {nullptr, false};
-                  }
-              }
-              asn1cpp::setField(head->value, GET_NUM(head_json, "HeadingValue"));
-              asn1cpp::setField(head->confidence, GET_NUM(head_json, "HeadingConfidence"));
-              asn1cpp::sequenceof::pushList(atrr->trrDescription.heading, head);
-          }
-
-          // --- temporalCharacteristics (mandatory) ---
-          for (auto field : {"StartTime", "EndTime"}) {
-              if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
-                  std::cerr << std::string(field) + " in AdvisedTargetRoadResource TemporalCharacteristics not found" << std::endl;
-                  return {nullptr, false};
-              }
-          }
-          asn1cpp::setField(atrr->temporalCharacteristics.tRROccupancyStartTime, GET_NUM(subm_json["AdvisedTargetRoadResource"], "StartTime"));
-          asn1cpp::setField(atrr->temporalCharacteristics.tRROccupancyEndTime, GET_NUM(subm_json["AdvisedTargetRoadResource"], "EndTime"));
-
-          // --- kinematicsCharacteristics (optional, currently NULL type) ---
-          // Skipped as KinematicsCharacteristics_t is defined as NULL_t
-
-          asn1cpp::setField(subm->advisedTargetRoadResource, atrr);
-      }
-
-			asn1cpp::sequenceof::pushList(adv->submaneuvres, subm);
-		}
-
-		asn1cpp::sequenceof::pushList(*list_adv, adv);
-	}
-
-	return {list_adv, true};
-}
-
-std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool>
-convertSubmaneuversToAsn1(const std::vector<mcData::MCSubmaneuvers>& native_subms) {
+static std::tuple<asn1cpp::Seq<ListOfSubmanoeuvreDescriptionsContainer>, bool>
+convertSubmaneuversToAsn1(const std::vector<mcData::mcDataSubmaneuverDescription>& native_subms) {
     auto asn_list = asn1cpp::makeSeq(ListOfSubmanoeuvreDescriptionsContainer);
 
     for (const auto& native_subm : native_subms) {
@@ -730,9 +167,9 @@ convertSubmaneuversToAsn1(const std::vector<mcData::MCSubmaneuvers>& native_subm
 
         // --- temporalCharacteristics ---
         asn1cpp::setField(asn_subm->temporalCharateristics.tRROccupancyStartTime,
-                          native_subm.targetRoadResource.getData().temporalCharacteristics.tRROccupancyStartTime);
+                          native_subm.temporalCharacteristics.tRROccupancyStartTime);
         asn1cpp::setField(asn_subm->temporalCharateristics.tRROccupancyEndTime,
-                          native_subm.targetRoadResource.getData().temporalCharacteristics.tRROccupancyEndTime);
+                          native_subm.temporalCharacteristics.tRROccupancyEndTime);
 
         // --- submanoeuvreStrategy (optional) ---
         if (native_subm.submanoeuvreStrategy.isAvailable()) {
@@ -744,95 +181,66 @@ convertSubmaneuversToAsn1(const std::vector<mcData::MCSubmaneuvers>& native_subm
 
             switch (static_cast<SubmanoeuvreStrategy_PR>(native_strategy.present)) {
                 case SubmanoeuvreStrategy_PR_undefined:
-                    asn1cpp::setField(strategy->choice.undefined, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.undefined, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_transitToHumanDrivenMode:
-                    asn1cpp::setField(strategy->choice.transitToHumanDrivenMode, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.transitToHumanDrivenMode, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_transitToAutomatedDrivingMode:
-                    asn1cpp::setField(strategy->choice.transitToAutomatedDrivingMode, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.transitToAutomatedDrivingMode, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_driveStraight:
-                    asn1cpp::setField(strategy->choice.driveStraight, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.driveStraight, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_turnLeft:
-                    asn1cpp::setField(strategy->choice.turnLeft, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.turnLeft, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_turnRight:
-                    asn1cpp::setField(strategy->choice.turnRight, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.turnRight, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_uTurn:
-                    asn1cpp::setField(strategy->choice.uTurn, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.uTurn, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_moveBackward:
-                    asn1cpp::setField(strategy->choice.moveBackward, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.moveBackward, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_overtake:
-                    asn1cpp::setField(strategy->choice.overtake, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.overtake, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_accelerate:
-                    asn1cpp::setField(strategy->choice.accelerate, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.accelerate, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_slowDown:
-                    asn1cpp::setField(strategy->choice.slowDown, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.slowDown, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_stop:
-                    asn1cpp::setField(strategy->choice.stop, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.stop, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_goToLeftLane:
-                    asn1cpp::setField(strategy->choice.goToLeftLane, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.goToLeftLane, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_goToRightLane:
-                    asn1cpp::setField(strategy->choice.goToRightLane, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.goToRightLane, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_getOnHighway:
-                    asn1cpp::setField(strategy->choice.getOnHighway, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.getOnHighway, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_exitHighway:
-                    asn1cpp::setField(strategy->choice.exitHighway, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.exitHighway, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_takeTollingLane:
-                    asn1cpp::setField(strategy->choice.takeTollingLane, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.takeTollingLane, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_stopAndWait:
-                    asn1cpp::setField(strategy->choice.stopAndWait, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.stopAndWait, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_emergencyBrakeAndStop:
-                    asn1cpp::setField(strategy->choice.emergencyBrakeAndStop, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.emergencyBrakeAndStop, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_resetStopAndRestartMoving:
-                    asn1cpp::setField(strategy->choice.resetStopAndRestartMoving, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.resetStopAndRestartMoving, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_stayInLane:
-                    asn1cpp::setField(strategy->choice.stayInLane, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.stayInLane, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_resetStayInLane:
-                    asn1cpp::setField(strategy->choice.resetStayInLane, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.resetStayInLane, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_stayAway:
-                    asn1cpp::setField(strategy->choice.stayAway, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.stayAway, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_resetStayAway:
-                    asn1cpp::setField(strategy->choice.resetStayAway, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.resetStayAway, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_followMe:
-                    asn1cpp::setField(strategy->choice.followMe, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.followMe, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_existingGroup:
-                    asn1cpp::setField(strategy->choice.existingGroup, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.existingGroup, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_temporarilyDisbandAnExistingGroup:
-                    asn1cpp::setField(strategy->choice.temporarilyDisbandAnExistingGroup, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.temporarilyDisbandAnExistingGroup, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_constituteATemporarilyGroup:
-                    asn1cpp::setField(strategy->choice.constituteATemporarilyGroup, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.constituteATemporarilyGroup, native_strategy.value); break;
                 case SubmanoeuvreStrategy_PR_disbandATemporarilyGroup:
-                    asn1cpp::setField(strategy->choice.disbandATemporarilyGroup, native_strategy.value);
-                    break;
+                    asn1cpp::setField(strategy->choice.disbandATemporarilyGroup, native_strategy.value); break;
                 default:
-                    std::cerr << "Unhandled strategy present value: "
-                              << std::to_string(native_strategy.present) << std::endl;
+                    std::cerr << "[ERROR] Unhandled strategy present value: "
+                              << native_strategy.present << std::endl;
                     return {nullptr, false};
             }
             asn1cpp::setField(asn_subm->submanoeuvreStrategy, strategy);
@@ -855,36 +263,30 @@ convertSubmaneuversToAsn1(const std::vector<mcData::MCSubmaneuvers>& native_subm
                 }
                 asn1cpp::sequenceof::pushList(traj->wayPoints, asn_wp);
             }
-
             for (const auto& sp : native_traj.speed) {
                 auto asn_sp = asn1cpp::makeSeq(Speed);
                 asn1cpp::setField(asn_sp->speedValue,      sp.getValue());
                 asn1cpp::setField(asn_sp->speedConfidence, sp.getConfidence());
                 asn1cpp::sequenceof::pushList(traj->speed, asn_sp);
             }
-
             for (const auto& hd : native_traj.headings) {
                 auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
                 asn1cpp::setField(asn_hd->value,      hd.getValue());
                 asn1cpp::setField(asn_hd->confidence, hd.getConfidence());
                 asn1cpp::sequenceof::pushList(traj->headings, asn_hd);
             }
-
             for (const auto& lon : native_traj.longitudePositions) {
                 asn1cpp::sequenceof::pushList(traj->longitudePositions, (long)lon);
             }
-
             for (const auto& lat : native_traj.latitudePositions) {
                 asn1cpp::sequenceof::pushList(traj->latitudePositions, (long)lat);
             }
-
             for (const auto& alt : native_traj.altitudePositions) {
                 auto asn_alt = asn1cpp::makeSeq(Altitude);
                 asn1cpp::setField(asn_alt->altitudeValue,      alt.getValue());
                 asn1cpp::setField(asn_alt->altitudeConfidence, alt.getConfidence());
                 asn1cpp::sequenceof::pushList(traj->altitudePositions, asn_alt);
             }
-
             asn1cpp::setField(asn_subm->referenceTrajectory, traj);
         }
 
@@ -893,19 +295,17 @@ convertSubmaneuversToAsn1(const std::vector<mcData::MCSubmaneuvers>& native_subm
             const auto& native_trr = native_subm.targetRoadResource.getData();
             auto trr = asn1cpp::makeSeq(TrrDescription);
 
-            asn1cpp::setField(trr->trrType,   native_trr.trrDescription.trrType);
-            asn1cpp::setField(trr->laneCount, native_trr.trrDescription);
-            asn1cpp::setField(trr->trrWidth,  native_trr.trrDescription);
-            asn1cpp::setField(trr->trrLength, native_trr.trrDescription);
-
-            if (native_trr.trrDescription.startingLaneNumber.isAvailable()) {
-                asn1cpp::setField(trr->startingLaneNumber, native_trr.trrDescription.startingLaneNumber.getData());
+            asn1cpp::setField(trr->trrType,   native_trr.trrType);
+            asn1cpp::setField(trr->laneCount, native_trr.laneCount);
+            asn1cpp::setField(trr->trrWidth,  native_trr.trrWidth);
+            asn1cpp::setField(trr->trrLength, native_trr.trrLength);
+            if (native_trr.startingLaneNumber.isAvailable()) {
+                asn1cpp::setField(trr->startingLaneNumber, native_trr.startingLaneNumber.getData());
             }
-            if (native_trr.trrDescription.endingLaneNumber.isAvailable()) {
-                asn1cpp::setField(trr->endingLaneNumber, native_trr.trrDescription.endingLaneNumber.getData());
+            if (native_trr.endingLaneNumber.isAvailable()) {
+                asn1cpp::setField(trr->endingLaneNumber, native_trr.endingLaneNumber.getData());
             }
-
-            for (const auto& wp : native_trr.trrDescription.waypoints) {
+            for (const auto& wp : native_trr.waypoints) {
                 auto asn_wp = asn1cpp::makeSeq(PathPoint);
                 asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
                 asn1cpp::setField(asn_wp->pathPosition.deltaLongitude, wp.deltaLongitude);
@@ -915,14 +315,12 @@ convertSubmaneuversToAsn1(const std::vector<mcData::MCSubmaneuvers>& native_subm
                 }
                 asn1cpp::sequenceof::pushList(trr->waypoints, asn_wp);
             }
-
-            for (const auto& hd : native_trr.trrDescription.heading) {
+            for (const auto& hd : native_trr.heading) {
                 auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
                 asn1cpp::setField(asn_hd->value,      hd.getValue());
                 asn1cpp::setField(asn_hd->confidence, hd.getConfidence());
                 asn1cpp::sequenceof::pushList(trr->heading, asn_hd);
             }
-
             asn1cpp::setField(asn_subm->targetRoadResourceIContainer, trr);
         }
 
@@ -933,8 +331,8 @@ convertSubmaneuversToAsn1(const std::vector<mcData::MCSubmaneuvers>& native_subm
 }
 
 
-std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool>
-convertAdvicesToAsn1(const std::vector<mcData::MCManeuverAdvice>& native_advices) {
+static std::tuple<asn1cpp::Seq<ManoeuvreAdviceContainer>, bool>
+convertAdvicesToAsn1(const std::vector<mcData::mcDataManeuverAdvice>& native_advices) {
     auto asn_list = asn1cpp::makeSeq(ManoeuvreAdviceContainer);
 
     for (const auto& native_adv : native_advices) {
@@ -952,15 +350,15 @@ convertAdvicesToAsn1(const std::vector<mcData::MCManeuverAdvice>& native_advices
             asn1cpp::setField(asn_adv->currentStateAdvisedChange, csac);
         }
 
-        // --- submaneuvres ---
+        // --- submaneuvres (da mcDataAdvisedSubmaneuver) ---
         for (const auto& native_subm : native_adv.submaneuvres) {
             auto asn_subm = asn1cpp::makeSeq(Submanoeuvre);
 
-            asn1cpp::setField(asn_subm->submanoeuvreId, native_subm.submanoeuvreId);
+            asn1cpp::setField(asn_subm->submanoeuvreId, native_subm.submaneuverID);
 
             // --- advisedTrajectory (optional) ---
-            if (native_subm.referenceTrajectory.isAvailable()) {
-                const auto& native_traj = native_subm.referenceTrajectory.getData();
+            if (native_subm.advisedTrajectory.isAvailable()) {
+                const auto& native_traj = native_subm.advisedTrajectory.getData();
                 auto traj = asn1cpp::makeSeq(Trajectory);
 
                 asn1cpp::setField(traj->wayPointType, native_traj.wayPointType);
@@ -975,49 +373,42 @@ convertAdvicesToAsn1(const std::vector<mcData::MCManeuverAdvice>& native_advices
                     }
                     asn1cpp::sequenceof::pushList(traj->wayPoints, asn_wp);
                 }
-
                 for (const auto& sp : native_traj.speed) {
                     auto asn_sp = asn1cpp::makeSeq(Speed);
                     asn1cpp::setField(asn_sp->speedValue,      sp.getValue());
                     asn1cpp::setField(asn_sp->speedConfidence, sp.getConfidence());
                     asn1cpp::sequenceof::pushList(traj->speed, asn_sp);
                 }
-
                 for (const auto& hd : native_traj.headings) {
                     auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
                     asn1cpp::setField(asn_hd->value,      hd.getValue());
                     asn1cpp::setField(asn_hd->confidence, hd.getConfidence());
                     asn1cpp::sequenceof::pushList(traj->headings, asn_hd);
                 }
-
                 for (const auto& lon : native_traj.longitudePositions) {
                     asn1cpp::sequenceof::pushList(traj->longitudePositions, (long)lon);
                 }
-
                 for (const auto& lat : native_traj.latitudePositions) {
                     asn1cpp::sequenceof::pushList(traj->latitudePositions, (long)lat);
                 }
-
                 for (const auto& alt : native_traj.altitudePositions) {
                     auto asn_alt = asn1cpp::makeSeq(Altitude);
                     asn1cpp::setField(asn_alt->altitudeValue,      alt.getValue());
                     asn1cpp::setField(asn_alt->altitudeConfidence, alt.getConfidence());
                     asn1cpp::sequenceof::pushList(traj->altitudePositions, asn_alt);
                 }
-
                 asn1cpp::setField(asn_subm->advisedTrajectory, traj);
             }
 
             // --- advisedTargetRoadResource (optional) ---
-            if (native_subm.targetRoadResource.isAvailable()) {
-                const auto& native_atrr = native_subm.targetRoadResource.getData();
+            if (native_subm.advisedTrrContainer.isAvailable()) {
+                const auto& native_atrr = native_subm.advisedTrrContainer.getData();
                 auto atrr = asn1cpp::makeSeq(AdvisedTrrContainer);
 
                 asn1cpp::setField(atrr->trrDescription.trrType,   native_atrr.trrDescription.trrType);
                 asn1cpp::setField(atrr->trrDescription.laneCount, native_atrr.trrDescription.laneCount);
                 asn1cpp::setField(atrr->trrDescription.trrWidth,  native_atrr.trrDescription.trrWidth);
                 asn1cpp::setField(atrr->trrDescription.trrLength, native_atrr.trrDescription.trrLength);
-
                 if (native_atrr.trrDescription.startingLaneNumber.isAvailable()) {
                     asn1cpp::setField(atrr->trrDescription.startingLaneNumber,
                                       native_atrr.trrDescription.startingLaneNumber.getData());
@@ -1026,7 +417,6 @@ convertAdvicesToAsn1(const std::vector<mcData::MCManeuverAdvice>& native_advices
                     asn1cpp::setField(atrr->trrDescription.endingLaneNumber,
                                       native_atrr.trrDescription.endingLaneNumber.getData());
                 }
-
                 for (const auto& wp : native_atrr.trrDescription.waypoints) {
                     auto asn_wp = asn1cpp::makeSeq(PathPoint);
                     asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
@@ -1037,14 +427,12 @@ convertAdvicesToAsn1(const std::vector<mcData::MCManeuverAdvice>& native_advices
                     }
                     asn1cpp::sequenceof::pushList(atrr->trrDescription.waypoints, asn_wp);
                 }
-
                 for (const auto& hd : native_atrr.trrDescription.heading) {
                     auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
                     asn1cpp::setField(asn_hd->value,      hd.getValue());
                     asn1cpp::setField(asn_hd->confidence, hd.getConfidence());
                     asn1cpp::sequenceof::pushList(atrr->trrDescription.heading, asn_hd);
                 }
-
                 asn1cpp::setField(atrr->temporalCharacteristics.tRROccupancyStartTime,
                                   native_atrr.temporalCharacteristics.tRROccupancyStartTime);
                 asn1cpp::setField(atrr->temporalCharacteristics.tRROccupancyEndTime,
@@ -1134,39 +522,38 @@ MCBasicService::generateAndEncodeMCM(const mcData& mcmData) {
     asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSize.vehicleHeight, VehicleHeight_unavailable);
     asn1cpp::setField(man_ctx.vehicleCurrentStateContainer.vehicleSize.vehicleType, man_data.vehicleType);
 
-    // submaneuvers è mandatory nel vehicleManoeuvreContainer
-    if (!man_data.submaneuvers.isAvailable()) {
-      std::cerr << "[ERROR] vehicleManoeuvreContainer requires submaneuvers." << std::endl;
-      return MCM_JSON_ERROR;
+    if (man_data.submaneuvers.empty()) {
+        std::cerr << "[ERROR] vehicleManoeuvreContainer requires submaneuvers." << std::endl;
+        return MCM_JSON_ERROR;
     }
-    auto [asn_subms, subms_ok] = convertSubmaneuversToAsn1(man_data.submaneuvers.getData());
+    auto [asn_subms, subms_ok] = convertSubmaneuversToAsn1(man_data.submaneuvers);
     if (!subms_ok) {
-      std::cerr << "[ERROR] Failed to convert submaneuvers." << std::endl;
-      return MCM_JSON_ERROR;
+        std::cerr << "[ERROR] Failed to convert submaneuvers." << std::endl;
+        return MCM_JSON_ERROR;
     }
     asn1cpp::setField(man_ctx.submaneuvres, asn_subms);
 
     if (man_data.advices.isAvailable()) {
-      auto [asn_advs, advs_ok] = convertAdvicesToAsn1(man_data.advices.getData());
-      if (!advs_ok) {
-        std::cerr << "[ERROR] Failed to convert manoeuvre advices." << std::endl;
-        return MCM_JSON_ERROR;
-      }
-      asn1cpp::setField(man_ctx.manoeuvreAdvice, asn_advs);
+        auto [asn_advs, advs_ok] = convertAdvicesToAsn1(man_data.advices.getData());
+        if (!advs_ok) {
+            std::cerr << "[ERROR] Failed to convert manoeuvre advices." << std::endl;
+            return MCM_JSON_ERROR;
+        }
+        asn1cpp::setField(man_ctx.manoeuvreAdvice, asn_advs);
     }
 
   } else if (mcmData.getAdviceContainer().isAvailable()) {
     asn1cpp::setField(MCM_message->payload.mcmContainer.present, McmContainer_PR_advisedManoeuvreContainer);
     const auto& adv_data = mcmData.getAdviceContainer().getData();
 
-    if (!adv_data.advices.isAvailable()) {
-      std::cerr << "[ERROR] advisedManoeuvreContainer requires advices." << std::endl;
-      return MCM_JSON_ERROR;
+    if (adv_data.advices.empty()) {
+        std::cerr << "[ERROR] advisedManoeuvreContainer requires advices." << std::endl;
+        return MCM_JSON_ERROR;
     }
-    auto [asn_advs, advs_ok] = convertAdvicesToAsn1(adv_data.advices.getData());
+    auto [asn_advs, advs_ok] = convertAdvicesToAsn1(adv_data.advices);
     if (!advs_ok) {
-      std::cerr << "[ERROR] Failed to convert advised manoeuvre advices." << std::endl;
-      return MCM_JSON_ERROR;
+        std::cerr << "[ERROR] Failed to convert advised manoeuvre advices." << std::endl;
+        return MCM_JSON_ERROR;
     }
     asn1cpp::setField(MCM_message->payload.mcmContainer.choice.advisedManoeuvreContainer, asn_advs);
 
@@ -1178,16 +565,21 @@ MCBasicService::generateAndEncodeMCM(const mcData& mcmData) {
       asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_accept);
     } else {
       asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.manouevreResponse, ManouevreResponse_decline);
-      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.declineReason, resp_data.declineReason);
+      if (resp_data.declineReason.isAvailable()) {
+        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.declineReason, resp_data.declineReason.getData());
+      } else {
+        std::cerr << "[ERROR] A Refusal need a Decline Reason." << std::endl;
+        return MCM_JSON_ERROR;
+      }
     }
 
     if (resp_data.submaneuvers.isAvailable()) {
-      auto [asn_subms, subms_ok] = convertSubmaneuversToAsn1(resp_data.submaneuvers.getData());
-      if (!subms_ok) {
-        std::cerr << "[ERROR] Failed to convert response submaneuvers." << std::endl;
-        return MCM_JSON_ERROR;
-      }
-      asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.submaneuvres, asn_subms);
+        auto [asn_subms, subms_ok] = convertSubmaneuversToAsn1(resp_data.submaneuvers.getData());
+        if (!subms_ok) {
+            std::cerr << "[ERROR] Failed to convert response submaneuvers." << std::endl;
+            return MCM_JSON_ERROR;
+        }
+        asn1cpp::setField(MCM_message->payload.mcmContainer.choice.responseContainer.submaneuvres, asn_subms);
     }
 
   } else if (mcmData.getAcknowledgmentContainer().isAvailable()) {
