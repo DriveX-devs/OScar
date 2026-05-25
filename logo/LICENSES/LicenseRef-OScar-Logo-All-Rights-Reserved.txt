@@ -1,0 +1,8 @@
+The logo and branding assets in this directory are not licensed under
+Apache-2.0.
+
+Copyright 2026 DriveX-devs. All rights reserved.
+
+No permission is granted to copy, modify, redistribute, or use these assets as
+branding for derived products without prior written permission, except where
+permitted by law.

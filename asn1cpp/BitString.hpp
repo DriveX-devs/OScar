@@ -1,22 +1,13 @@
 /*
- *  Extension module for asn1cpp, implementing the support to asn1c BIT_STRING_t
- *   Copyright (C) 2021 Francesco Raviglione (francescorav.es483@gmail.com)
- *                      Marco Malinverno (marco.malinverno1@gmail.com)
- *   asn1cpp project by Eugenio Bargiacchi: https://github.com/Svalorzen/asn1cpp 
+ * Extension module for asn1cpp, implementing support for asn1c BIT_STRING_t.
  *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
+ * Copyright 2021 Francesco Raviglione
+ * Copyright 2021 Marco Malinverno
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * asn1cpp project by Eugenio Bargiacchi: https://github.com/Svalorzen/asn1cpp
  *
- *  You should have received a copy of the GNU General Public License
- *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
+ * SPDX-License-Identifier: LGPL-3.0-or-later
+ */
 
 #ifndef ASN1CPP_BITSTRING_HEADER_FILE
 #define ASN1CPP_BITSTRING_HEADER_FILE
