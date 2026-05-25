@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Derived from earlier GPLv2-licensed code by the same copyright holder.
+// Relicensed to Apache-2.0 by the copyright holder.
+
 /**
  * This file contains the server logic. The server should always be launched with Node.js (i.e. node server.js).
  * The goal of the Node.js server script is to read the object information from OScar (via UDP/dgram socket) and

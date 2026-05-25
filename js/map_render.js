@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// Derived from earlier GPLv2-licensed code by the same copyright holder.
+// Relicensed to Apache-2.0 by the copyright holder.
+
 /**
  * This file contains the client JavaScript logic, in charge of receiving the coordinates of the objects
  * (i.e. the vehicles) and their heading from the server (which in turn receives them from OScar via UDP).

@@ -11,6 +11,7 @@ Maintainers and Contects:
 - Diego GASCO [diego.gasco99@gmail.com, diego.gasco@polito.it]
 - Giuseppe Perrone [giuseppe.perrone@polito.it]
 - Marco RAPELLI [rapelli.m@libero.it]
+- Stefano ALLUCI [supersteca@gmail.com, stefanoalluci00@gmail.com]
 - Claudio CASETTI [claudio.casetti@polito.it]
 
 Other Contributors
@@ -18,7 +19,26 @@ Other Contributors
 - Alessandro GIACCAGLINI
 - Mauro VITTORIO
 
-This project is licensed under a GPL-2.0 License. Please see also the `LICENSE` file for more details.
+
+## License
+
+Except where otherwise noted, OScar is licensed under the Apache License, Version 2.0.
+Please see also the `LICENSE` file for more details.
+
+The `asn1cpp` module remains licensed under the GNU Lesser General Public License version 3. See `asn1cpp/LICENSE`.
+
+Bundled third-party components retain their original licenses. 
+See `THIRD_PARTY_NOTICES.md` and the license files in the relevant subdirectories.
+
+## Logo and name
+
+The OScar name, logo, icons, and branding assets are not licensed under the 
+Apache License, Version 2.0, unless otherwise stated.
+
+All rights in the OScar logo and branding assets are reserved by their
+respective owner. They may not be copied, modified, redistributed, or used to
+identify or promote derived products without prior written permission, except
+where permitted by law.
 
 ## How to cite OScar
 
@@ -240,7 +260,7 @@ logread
 To manage the command-line parameters, this project uses internally the _TCLAP - Templatized Command Line Argument Parser_ library (v1.2), available [here](https://tclap.sourceforge.net/), and included in the `tclap` directory.
 
 It also includes:
-- in the `asn1cpp` directory, an extension of the [_asn1cpp_](https://github.com/Svalorzen/asn1cpp) C++ wrapper, originally written by Eugenio Bargiacchi (Svalorzen).
+- in the `asn1cpp` directory, an extension and enhanced version of the [_asn1cpp_](https://github.com/Svalorzen/asn1cpp) C++ wrapper, originally written by Eugenio Bargiacchi (Svalorzen).
 - in the `ceSerial` directory, the ceSerial C++ open-source serial port library, by Yan Naing Aye (yan9a), whose original repository is available [here](https://github.com/yan9a).
 - in the `geographiclib-port` directory, a porting and C adaptation of a part of [_GeographicLib_](https://geographiclib.sourceforge.io/) for the computation of Transverse Mercator projections.
 - in the `httpRest` directory, the HTTPRequest single-header C++ library by Elviss Strazdins, available [here](https://github.com/elnormous/HTTPRequest).
