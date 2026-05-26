@@ -173,6 +173,8 @@ void *JSONthread_callback(void *arg) {
 
 						++currd_it;
 					}
+				} else {
+					++currd_it;
 				}
 			}
 		}
@@ -704,6 +706,71 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
 
     mcData mcmData;
 
+	mcData::mcBasicContainer mcBasicContainer;
+
+	bool set_rational = false;
+	if (!request["MCMCost"].is_null()) {
+		mcBasicContainer.cost = GET_NUM(request, "MCMCost");
+		mcBasicContainer.concept = 1;
+		set_rational = true;
+	}
+	if (!request["MCMGoal"].is_null()) {
+		mcBasicContainer.goal = GET_NUM(request, "MCMGoal");
+		mcBasicContainer.concept = 0;
+		set_rational = true;
+	}
+	if (!set_rational) {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR("MCMGoal and MCMCost cannot be both empty.");
+		return response;
+	}
+	if (!request["MCMManeuverID"].is_null()) {
+		mcBasicContainer.maneuverID = GET_NUM(request, "MCMManeuverID");
+	} else {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR("MCMManeuverID cannot be empty.");
+		return response;
+	}
+	if (!request["MCMITSRole"].is_null()) {
+		mcBasicContainer.itsRole = GET_NUM(request, "MCMITSRole");
+	} else {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR("MCMITSRole cannot be empty.");
+		return response;
+	}
+	if (!request["MCMType"].is_null()) {
+		mcBasicContainer.mcmType = GET_NUM(request, "MCMType");
+		if (mcBasicContainer.mcmType == 4 || mcBasicContainer.mcmType == 7) {
+			if (!request["MCMExecutionStatus"].is_null()) {
+				mcBasicContainer.executionStatus.setData(GET_NUM(request, "MCMExecutionStatus"));
+			} else {
+				response["status"] = MAKE_STR("error");
+				response["message"] = MAKE_STR("MCMExecutionStatus cannot be empty in case MCMType is 4 or 7.");
+				return response;
+			}
+		}
+	} else {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR("MCMType cannot be empty.");
+		return response;
+	}
+	if (!request["MCMStationType"].is_null()) {
+		mcBasicContainer.stationType = GET_NUM(request, "MCMStationType");
+	} else {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR("MCMStationType cannot be empty.");
+		return response;
+	}
+	if (!request["MCMStationID"].is_null()) {
+		mcBasicContainer.stationID = GET_NUM(request, "MCMStationID");
+	} else {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR("MCMStationID cannot be empty.");
+		return response;
+	}
+	mcmData.setBasicContainer(mcBasicContainer);
+
+
     if (!request["MCManeuverAdviceContainer"].is_null() &&
         !request["MCManeuverAdviceContainer"]["MCManeuverAdvices"].is_null()) {
 
@@ -724,7 +791,7 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
         }
 
         mcData::mcAdviceContainer advice_container;
-        advice_container.advices = parsed_advices;  // vector diretto, no setData
+        advice_container.advices = parsed_advices;
         mcmData.setAdviceContainer(advice_container);
 
     } else if (!request["MCVehicleManeuverContainer"].is_null()) {
@@ -778,7 +845,15 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
             return response;
         }
         resp_container.response = GET_NUM(request["MCResponseContainer"], "MCResponse");
-
+		if (resp_container.response == 1) {
+			if (!request["MCResponseContainer"]["MCDeclineReason"].is_null()) {
+				resp_container.declineReason.setData(GET_NUM(request["MCResponseContainer"], "MCDeclineReason"));
+			} else {
+				response["status"] = MAKE_STR("error");
+				response["message"] = MAKE_STR("A declined maneuver needs a MCDeclineReason.");
+				return response;
+			}
+		}
         if (!request["MCResponseContainer"]["MCSubmaneuvers"].is_null()) {
             auto sub_array = GET_ARR(request["MCResponseContainer"], "MCSubmaneuvers");
             if (sub_array.empty()) {

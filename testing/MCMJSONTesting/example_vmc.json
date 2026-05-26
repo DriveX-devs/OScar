@@ -5,6 +5,8 @@
   "MCMType": 3,
   "MCMManeuverID": 45,
   "MCMITSRole": 1,
+  "MCMStationType": 3,
+  "MCMStationID": 1,
   "MCVehicleManeuverContainer": {
     "MCSubmaneuvers": [
       {
@@ -56,8 +58,8 @@
         "TargetRoadResource": {
           "TrrType": 1,
           "LaneCount": 2,
-          "TrrWidth": 350,
-          "TrrLength": 5000,
+          "TrrWidth": 15,
+          "TrrLength": 4000,
           "StartingLaneNumber": 1,
           "EndingLaneNumber": 2,
           "WayPoints": [
@@ -65,10 +67,17 @@
               "DeltaLatitude": 100,
               "DeltaLongitude": 200,
               "DeltaAltitude": 0
+            },
+            {
+              "DeltaLatitude": 200,
+              "DeltaLongitude": 300,
+              "DeltaAltitude": 30,
+              "PathDeltaTime": 50
             }
           ],
           "Heading": [
-            { "HeadingValue": 900, "HeadingConfidence": 1 }
+            { "HeadingValue": 900, "HeadingConfidence": 1 },
+            { "HeadingValue": 800, "HeadingConfidence": 1 }
           ]
         }
       }
@@ -90,13 +99,19 @@
                   "DeltaLongitude": 200,
                   "DeltaAltitude": 0,
                   "PathDeltaTime": 50
+                },
+                {
+                  "DeltaLatitude": 100,
+                  "DeltaLongitude": 200,
+                  "DeltaAltitude": 40
                 }
               ],
               "Speed": [
                 { "SpeedValue": 1400, "SpeedConfidence": 1 }
               ],
               "Heading": [
-                { "HeadingValue": 900, "HeadingConfidence": 1 }
+                { "HeadingValue": 900, "HeadingConfidence": 1 },
+                { "HeadingValue": 800, "HeadingConfidence": 1 }
               ],
               "Longitude": [],
               "Latitude": [],
@@ -105,8 +120,8 @@
             "AdvisedTargetRoadResource": {
               "TrrType": 1,
               "LaneCount": 2,
-              "TrrWidth": 350,
-              "TrrLength": 5000,
+              "TrrWidth": 15,
+              "TrrLength": 4000,
               "WayPoints": [],
               "Heading": [],
               "StartTime": 1000,

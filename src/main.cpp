@@ -1792,6 +1792,9 @@ int main (int argc, char *argv[]) {
     else if (enable_VAM_dissemination) {
         BTP.setVRUdp(vdpgpsc);
     }
+    else if (enable_MCM_tx) {
+        BTP.setVDP(vdpgpsc);
+    }
 
     JSONserver jsonsrv(db_ptr,nullptr);
 

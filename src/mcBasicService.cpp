@@ -253,6 +253,11 @@ convertSubmaneuversToAsn1(const std::vector<mcData::mcDataSubmaneuverDescription
 
             asn1cpp::setField(traj->wayPointType, native_traj.wayPointType);
 
+            if (native_traj.wayPoints.size() < 2) {
+                std::cerr << "[ERROR] WayPoints should be at least 2."<< std::endl;
+                return {nullptr, false};
+            }
+
             for (const auto& wp : native_traj.wayPoints) {
                 auto asn_wp = asn1cpp::makeSeq(PathPoint);
                 asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
@@ -263,11 +268,21 @@ convertSubmaneuversToAsn1(const std::vector<mcData::mcDataSubmaneuverDescription
                 }
                 asn1cpp::sequenceof::pushList(traj->wayPoints, asn_wp);
             }
+
+            if (native_traj.speed.size() < 2) {
+                std::cerr << "[ERROR] Speeds should be at least 2."<< std::endl;
+                return {nullptr, false};
+            }
             for (const auto& sp : native_traj.speed) {
                 auto asn_sp = asn1cpp::makeSeq(Speed);
                 asn1cpp::setField(asn_sp->speedValue,      sp.getValue());
                 asn1cpp::setField(asn_sp->speedConfidence, sp.getConfidence());
                 asn1cpp::sequenceof::pushList(traj->speed, asn_sp);
+            }
+
+            if (native_traj.headings.size() < 2) {
+                std::cerr << "[ERROR] Headings should be at least 2."<< std::endl;
+                return {nullptr, false};
             }
             for (const auto& hd : native_traj.headings) {
                 auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
@@ -297,7 +312,15 @@ convertSubmaneuversToAsn1(const std::vector<mcData::mcDataSubmaneuverDescription
 
             asn1cpp::setField(trr->trrType,   native_trr.trrType);
             asn1cpp::setField(trr->laneCount, native_trr.laneCount);
+            if (native_trr.trrWidth > 15 || native_trr.trrWidth < 0) {
+                std::cerr << "[ERROR] TrrWidth must not be negative or greater than 15."<< std::endl;
+                return {nullptr, false};
+            }
             asn1cpp::setField(trr->trrWidth,  native_trr.trrWidth);
+            if (native_trr.trrLength > 4900 || native_trr.trrLength < 0) {
+                std::cerr << "[ERROR] TrrLength must not be negative or greater than 4900."<< std::endl;
+                return {nullptr, false};
+            }
             asn1cpp::setField(trr->trrLength, native_trr.trrLength);
             if (native_trr.startingLaneNumber.isAvailable()) {
                 asn1cpp::setField(trr->startingLaneNumber, native_trr.startingLaneNumber.getData());
@@ -305,6 +328,7 @@ convertSubmaneuversToAsn1(const std::vector<mcData::mcDataSubmaneuverDescription
             if (native_trr.endingLaneNumber.isAvailable()) {
                 asn1cpp::setField(trr->endingLaneNumber, native_trr.endingLaneNumber.getData());
             }
+
             for (const auto& wp : native_trr.waypoints) {
                 auto asn_wp = asn1cpp::makeSeq(PathPoint);
                 asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
@@ -315,6 +339,7 @@ convertSubmaneuversToAsn1(const std::vector<mcData::mcDataSubmaneuverDescription
                 }
                 asn1cpp::sequenceof::pushList(trr->waypoints, asn_wp);
             }
+
             for (const auto& hd : native_trr.heading) {
                 auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
                 asn1cpp::setField(asn_hd->value,      hd.getValue());
@@ -363,6 +388,10 @@ convertAdvicesToAsn1(const std::vector<mcData::mcDataManeuverAdvice>& native_adv
 
                 asn1cpp::setField(traj->wayPointType, native_traj.wayPointType);
 
+                if (native_traj.wayPoints.size() < 2) {
+                    std::cerr << "[ERROR] WayPoints should be at least 2."<< std::endl;
+                    return {nullptr, false};
+                }
                 for (const auto& wp : native_traj.wayPoints) {
                     auto asn_wp = asn1cpp::makeSeq(PathPoint);
                     asn1cpp::setField(asn_wp->pathPosition.deltaLatitude,  wp.deltaLatitude);
@@ -373,11 +402,17 @@ convertAdvicesToAsn1(const std::vector<mcData::mcDataManeuverAdvice>& native_adv
                     }
                     asn1cpp::sequenceof::pushList(traj->wayPoints, asn_wp);
                 }
+
                 for (const auto& sp : native_traj.speed) {
                     auto asn_sp = asn1cpp::makeSeq(Speed);
                     asn1cpp::setField(asn_sp->speedValue,      sp.getValue());
                     asn1cpp::setField(asn_sp->speedConfidence, sp.getConfidence());
                     asn1cpp::sequenceof::pushList(traj->speed, asn_sp);
+                }
+
+                if (native_traj.headings.size() < 2) {
+                    std::cerr << "[ERROR] Headings should be at least 2."<< std::endl;
+                    return {nullptr, false};
                 }
                 for (const auto& hd : native_traj.headings) {
                     auto asn_hd = asn1cpp::makeSeq(Wgs84Angle);
@@ -407,7 +442,15 @@ convertAdvicesToAsn1(const std::vector<mcData::mcDataManeuverAdvice>& native_adv
 
                 asn1cpp::setField(atrr->trrDescription.trrType,   native_atrr.trrDescription.trrType);
                 asn1cpp::setField(atrr->trrDescription.laneCount, native_atrr.trrDescription.laneCount);
+                if (native_atrr.trrDescription.trrWidth > 15 || native_atrr.trrDescription.trrWidth < 0) {
+                    std::cerr << "[ERROR] TrrWidth must not be negative or greater than 15"<< std::endl;
+                    return {nullptr, false};
+                }
                 asn1cpp::setField(atrr->trrDescription.trrWidth,  native_atrr.trrDescription.trrWidth);
+                if (native_atrr.trrDescription.trrLength > 4900 || native_atrr.trrDescription.trrLength < 0) {
+                    std::cerr << "[ERROR] TrrLength must not be negative or greater than 4900"<< std::endl;
+                    return {nullptr, false};
+                }
                 asn1cpp::setField(atrr->trrDescription.trrLength, native_atrr.trrDescription.trrLength);
                 if (native_atrr.trrDescription.startingLaneNumber.isAvailable()) {
                     asn1cpp::setField(atrr->trrDescription.startingLaneNumber,
@@ -502,7 +545,11 @@ MCBasicService::generateAndEncodeMCM(const mcData& mcmData) {
   asn1cpp::setField(MCM_message->payload.basicContainer.rational, rational);
 
   if (type == 4 || type == 7) {
-    asn1cpp::setField(MCM_message->payload.basicContainer.executionStatus, mcmData.getExecutionStatus().getData());
+    if (mcmData.getExecutionStatus().isAvailable()) {
+        asn1cpp::setField(MCM_message->payload.basicContainer.executionStatus, mcmData.getExecutionStatus().getData());
+    } else {
+        return MCM_JSON_ERROR;
+    }
   }
 
   /* Identify and fill the active container variant */
@@ -618,12 +665,12 @@ MCBasicService::generateAndEncodeMCM(const mcData& mcmData) {
   packetBuffer pktbuf(encode_result.c_str(), static_cast<unsigned int>(encode_result.size()));
   dataRequest.data = pktbuf;
 
-  std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_cam);
+  std::tuple<GNDataConfirm_t, MessageId_t> status = m_btp->sendBTP(dataRequest, m_priority, MessageId_mcm);
   GNDataConfirm_t dataConfirm = std::get<0>(status);
   MessageId_t     message_id  = std::get<1>(status);
 
   if (m_met_sup_ptr != nullptr && dataConfirm == ACCEPTED) {
-    if (message_id == MessageId_cam) m_MCM_sent++;
+    if (message_id == MessageId_mcm) m_MCM_sent++;
     m_met_sup_ptr->signalSentPacket(message_id);
   }
 
