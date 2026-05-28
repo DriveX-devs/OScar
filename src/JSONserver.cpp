@@ -735,6 +735,7 @@ static json11::Json::object convertToJson(const mcData& mcmData) {
 
 
 void JSONserver::createJSONFromMCM(MCM_t* decoded_mcm) {
+	std::cout << " [INFO] MCM received, forwarding information via JSON-over-TCP to " << m_mcm_subscribers.size() << " subscribers." << std::endl;
     mcData mcmData = m_mc_service->convertASN1IntoMcData(decoded_mcm);
     json11::Json::object mcm_json = convertToJson(mcmData);
     std::string strjson = json11::Json(mcm_json).dump();

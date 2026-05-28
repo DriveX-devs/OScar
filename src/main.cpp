@@ -1941,7 +1941,7 @@ int main (int argc, char *argv[]) {
                 jsonsrv.setDENService(denbs_ptr);
 		    }
 
-            if (enable_MCM_tx) {
+            if (enable_MCM_tx || enable_MCM_decoding) {
                 jsonsrv.setMCService(mcbs_ptr);
                 mainRecvClient->setJSONServer(&jsonsrv);
 		    }
