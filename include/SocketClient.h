@@ -78,6 +78,7 @@ class SocketClient {
 		// std::atomic<bool> m_terminate_routeros_rssi_flag;
 
 		bool denm_decoding_enabled;
+		bool mcm_decoding_enabled;
 
 		VDPGPSClient *m_gpsc_ptr;
 
@@ -89,6 +90,8 @@ class SocketClient {
 
         // Metric Supervisor pointer
         MetricSupervisor *m_met_sup_ptr = nullptr;
+
+
 
 	public:
 		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn, JSONserver* json_server=nullptr);
@@ -105,6 +108,9 @@ class SocketClient {
 
 		void enableDENMdecoding() {denm_decoding_enabled=true;}
 		void disableDENMdecoding() {denm_decoding_enabled=false;}
+
+		void enableMCMdecoding() {mcm_decoding_enabled=true;}
+		void disableMCMdecoding() {mcm_decoding_enabled=false;}
 
 		void startReception(void);
 		void stopReception(void);

@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <cstring>
-#include <set>
 
 #include "JSONserver.h"
 #include "utils.h"
@@ -24,7 +23,7 @@
 #define GET_ARR(json, key) (json[key].array_items())
 
 std::vector<JSONserver::ContainerMapping> JSONserver::m_containers_mapping = {{
-	{"VehicleManeuverContainer", JSONserver::Container::VehicleManeuverContainer},
+	{"VehicleManeuverContainer",   JSONserver::Container::VehicleManeuverContainer},
 	{"ManeuverAdviseContainer",    JSONserver::Container::ManeuverAdviseContainer},
 	{"AcknowledgmentContainer",    JSONserver::Container::AcknowledgmentContainer},
 	{"ResponseContainer",          JSONserver::Container::ResponseContainer},
@@ -135,6 +134,7 @@ void *JSONthread_callback(void *arg) {
 					// Connection is closing
 					if(readbytes==0) {
 						fprintf(stdout,"[INFO] Client with descriptor %d disconnected.\n",currd);
+                        srvObj->handleMCMDisconnection(currd);
 						close(currd);
 						sockdescrs_set.erase(currd_it++);
 						FD_CLR(currd,&sockdescrs);
@@ -147,7 +147,7 @@ void *JSONthread_callback(void *arg) {
 						json11::Json request = json11::Json::parse(rx_str,err);
 
 						if(err=="") {
-							json11::Json::object response = srvObj->handleRequest(request);
+							json11::Json::object response = srvObj->handleRequest(request, currd);
 							std::string strjson = json11::Json(response).dump();
 
 							if(send(currd,strjson.c_str(),strjson.length(),0)!=static_cast<ssize_t>(strjson.length())) {
@@ -349,7 +349,7 @@ bool JSONserver::startServer(void) {
 	return true;
 }
 
-json11::Json::object JSONserver::handleRequest(const json11::Json &request) {
+json11::Json::object JSONserver::handleRequest(const json11::Json &request, int client_fd) {
     std::string request_type = GET_STR(request, "request_type");
 
 	std::cout << "[INFO] Received JSON request: " << request_type << std::endl;
@@ -363,7 +363,12 @@ json11::Json::object JSONserver::handleRequest(const json11::Json &request) {
         return handleDENMRequest(request);
 	} else if (request_type == "MCM_trigger") {
 		return handleMCMRequest(request);
-    } else {
+    } else if (request_type == "MCM_subscribe") {
+        return handleMCMConnection(client_fd);
+    } else if (request_type == "MCM_unsubscribe") {
+        return handleMCMDisconnection(client_fd);
+    }
+    else {
     	std::cout << "[ERROR] Received unknown JSON request: " << request_type << std::endl;
 
         json11::Json::object response;
@@ -372,6 +377,27 @@ json11::Json::object JSONserver::handleRequest(const json11::Json &request) {
         return response;
     }
 }
+
+json11::Json::object JSONserver::handleMCMConnection(int client_fd) {
+    std::lock_guard<std::mutex> lk(m_mcm_mtx);
+    m_mcm_subscribers.insert(client_fd);
+
+    json11::Json::object response;
+    response["status"]  = MAKE_STR("ok");
+    response["message"] = MAKE_STR("Subscribed to MCM stream");
+    return response;
+}
+
+json11::Json::object JSONserver::handleMCMDisconnection(int client_fd) {
+    std::lock_guard<std::mutex> lk(m_mcm_mtx);
+    m_mcm_subscribers.erase(client_fd);
+
+    json11::Json::object response;
+    response["status"]  = MAKE_STR("ok");
+    response["message"] = MAKE_STR("Unsubscribed from MCM stream");
+    return response;
+}
+
 
 // TODO: this function should be significantly extended to consider many different DENMs
 denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
@@ -433,8 +459,293 @@ denData JSONserver::fillDenDataFromJson(const json11::Json &request) {
     return data;
 }
 
+// --- native → JSON serializers (inverse dei parser sottostanti) ---
+
+// Helper: long → JSON number (cast esplicito a double per evitare
+// l'ambiguità Json(int)/Json(double) e la troncatura di MAKE_INT su
+// StationID a 32 bit unsigned).
+
+static inline json11::Json numberToJson(long value) {
+    return json11::Json(static_cast<double>(value));
+}
+
+static json11::Json::object pathPointToJson(const mcData::mcDataPathPoint& pathPoint) {
+    json11::Json::object pathPointJson;
+    pathPointJson["DeltaLatitude"]  = numberToJson(pathPoint.deltaLatitude);
+    pathPointJson["DeltaLongitude"] = numberToJson(pathPoint.deltaLongitude);
+    pathPointJson["DeltaAltitude"]  = numberToJson(pathPoint.deltaAltitude);
+    if (pathPoint.pathDeltaTime.isAvailable()) {
+        pathPointJson["PathDeltaTime"] = numberToJson(pathPoint.pathDeltaTime.getData());
+    }
+    return pathPointJson;
+}
+
+static json11::Json::object trajectoryToJson(const mcData::mcDataTrajectory& trajectory) {
+    json11::Json::object trajectoryJson;
+    trajectoryJson["WayPointType"] = numberToJson(trajectory.wayPointType);
+
+    json11::Json::array waypointsJson;
+    for (const auto& waypoint : trajectory.wayPoints) {
+        waypointsJson.push_back(pathPointToJson(waypoint));
+    }
+    trajectoryJson["WayPoints"] = waypointsJson;
+
+    json11::Json::array speedsJson;
+    for (const auto& speedSample : trajectory.speed) {
+        speedsJson.push_back(json11::Json::object{
+            {"SpeedValue",      numberToJson(speedSample.getValue())},
+            {"SpeedConfidence", numberToJson(speedSample.getConfidence())}
+        });
+    }
+    trajectoryJson["Speed"] = speedsJson;
+
+    json11::Json::array headingsJson;
+    for (const auto& headingSample : trajectory.headings) {
+        headingsJson.push_back(json11::Json::object{
+            {"HeadingValue",      numberToJson(headingSample.getValue())},
+            {"HeadingConfidence", numberToJson(headingSample.getConfidence())}
+        });
+    }
+    trajectoryJson["Heading"] = headingsJson;
+
+    json11::Json::array longitudesJson;
+    for (long longitudeValue : trajectory.longitudePositions) {
+        longitudesJson.push_back(json11::Json::object{
+            {"LongitudeValue", numberToJson(longitudeValue)}
+        });
+    }
+    trajectoryJson["Longitude"] = longitudesJson;
+
+    json11::Json::array latitudesJson;
+    for (long latitudeValue : trajectory.latitudePositions) {
+        latitudesJson.push_back(json11::Json::object{
+            {"LatitudeValue", numberToJson(latitudeValue)}
+        });
+    }
+    trajectoryJson["Latitude"] = latitudesJson;
+
+    json11::Json::array altitudesJson;
+    for (const auto& altitudeSample : trajectory.altitudePositions) {
+        altitudesJson.push_back(json11::Json::object{
+            {"AltitudeValue",      numberToJson(altitudeSample.getValue())},
+            {"AltitudeConfidence", numberToJson(altitudeSample.getConfidence())}
+        });
+    }
+    trajectoryJson["Altitude"] = altitudesJson;
+
+    return trajectoryJson;
+}
+
+static json11::Json::object trrDescriptionToJson(const mcData::mcDataTrrDescription& trrDescription) {
+    json11::Json::object trrJson;
+    trrJson["TrrType"]   = numberToJson(trrDescription.trrType);
+    trrJson["LaneCount"] = numberToJson(trrDescription.laneCount);
+    trrJson["TrrWidth"]  = numberToJson(trrDescription.trrWidth);
+    trrJson["TrrLength"] = numberToJson(trrDescription.trrLength);
+
+    if (trrDescription.startingLaneNumber.isAvailable()) {
+        trrJson["StartingLaneNumber"] = numberToJson(trrDescription.startingLaneNumber.getData());
+    }
+    if (trrDescription.endingLaneNumber.isAvailable()) {
+        trrJson["EndingLaneNumber"] = numberToJson(trrDescription.endingLaneNumber.getData());
+    }
+
+    json11::Json::array waypointsJson;
+    for (const auto& waypoint : trrDescription.waypoints) {
+        waypointsJson.push_back(pathPointToJson(waypoint));
+    }
+    trrJson["WayPoints"] = waypointsJson;
+
+    json11::Json::array headingsJson;
+    for (const auto& headingSample : trrDescription.heading) {
+        headingsJson.push_back(json11::Json::object{
+            {"HeadingValue",      numberToJson(headingSample.getValue())},
+            {"HeadingConfidence", numberToJson(headingSample.getConfidence())}
+        });
+    }
+    trrJson["Heading"] = headingsJson;
+
+    return trrJson;
+}
+
+static json11::Json::object submaneuverToJson(const mcData::mcDataSubmaneuverDescription& submaneuver) {
+    json11::Json::object submaneuverJson;
+    submaneuverJson["SubmaneuverID"] = numberToJson(submaneuver.submaneuverID);
+
+    submaneuverJson["TemporalCharacteristics"] = json11::Json::object{
+        {"StartTime", numberToJson(submaneuver.temporalCharacteristics.tRROccupancyStartTime)},
+        {"EndTime",   numberToJson(submaneuver.temporalCharacteristics.tRROccupancyEndTime)}
+    };
+
+    if (submaneuver.submaneuverStrategy.isAvailable()) {
+        const auto& strategy = submaneuver.submaneuverStrategy.getData();
+        auto strategyNameIt = strategy_json_fields.find(strategy.present);
+        if (strategyNameIt != strategy_json_fields.end()) {
+            submaneuverJson["SubmaneuverStrategy"] = json11::Json::object{
+                {"Strategy",             numberToJson(strategy.present)},
+                {strategyNameIt->second, numberToJson(strategy.value)}
+            };
+        } else {
+            std::cerr << "[WARN] convertToJson: unknown strategy.present="
+                      << strategy.present << ", skipping" << std::endl;
+        }
+    }
+    if (submaneuver.referenceTrajectory.isAvailable()) {
+        submaneuverJson["ReferenceTrajectory"] =
+            trajectoryToJson(submaneuver.referenceTrajectory.getData());
+    }
+    if (submaneuver.targetRoadResource.isAvailable()) {
+        submaneuverJson["TargetRoadResource"] =
+            trrDescriptionToJson(submaneuver.targetRoadResource.getData());
+    }
+
+    return submaneuverJson;
+}
+
+static json11::Json::object maneuverAdviceToJson(const mcData::mcDataManeuverAdvice& maneuverAdvice) {
+    json11::Json::object adviceJson;
+    adviceJson["ExecutantID"] = numberToJson(maneuverAdvice.executantID);
+
+    if (maneuverAdvice.currentStateAdvisedChange.isAvailable()) {
+        adviceJson["CurrentStateAdvisedChange"] = json11::Json::object{
+            {"Present", numberToJson(maneuverAdvice.currentStateAdvisedChange.getData())}
+        };
+    }
+
+    json11::Json::array advisedSubmaneuversJson;
+    for (const auto& advisedSubmaneuver : maneuverAdvice.submaneuvers) {
+        json11::Json::object advisedSubmaneuverJson;
+        advisedSubmaneuverJson["SubmaneuverID"] = numberToJson(advisedSubmaneuver.submaneuverID);
+
+        if (advisedSubmaneuver.advisedTrajectory.isAvailable()) {
+            advisedSubmaneuverJson["AdvisedTrajectory"] =
+                trajectoryToJson(advisedSubmaneuver.advisedTrajectory.getData());
+        }
+
+        if (advisedSubmaneuver.advisedTrrContainer.isAvailable()) {
+            const auto& advisedTrr = advisedSubmaneuver.advisedTrrContainer.getData();
+            // parseTrrDescription + StartTime/EndTime "mischiati" allo stesso livello
+            json11::Json::object advisedTrrJson = trrDescriptionToJson(advisedTrr.trrDescription);
+            advisedTrrJson["StartTime"] =
+                numberToJson(advisedTrr.temporalCharacteristics.tRROccupancyStartTime);
+            advisedTrrJson["EndTime"]   =
+                numberToJson(advisedTrr.temporalCharacteristics.tRROccupancyEndTime);
+            advisedSubmaneuverJson["AdvisedTargetRoadResource"] = advisedTrrJson;
+        }
+        advisedSubmaneuversJson.push_back(advisedSubmaneuverJson);
+    }
+    adviceJson["Submaneuvres"] = advisedSubmaneuversJson;
+
+    return adviceJson;
+}
+
+static json11::Json::object convertToJson(const mcData& mcmData) {
+    json11::Json::object mcmJson;
+
+    // --- Basic container: campi al top-level, come fa handleMCMRequest ---
+    if (mcmData.getBasicContainer().isAvailable()) {
+        const auto& basicContainer = mcmData.getBasicContainer().getData();
+        mcmJson["MCMStationID"]   = numberToJson(basicContainer.stationID);
+        mcmJson["MCMITSRole"]     = numberToJson(basicContainer.itsRole);
+        mcmJson["MCMStationType"] = numberToJson(basicContainer.stationType);
+        mcmJson["MCMType"]        = numberToJson(basicContainer.mcmType);
+        mcmJson["MCMManeuverID"]  = numberToJson(basicContainer.maneuverID);
+        mcmJson["MCMConcept"]     = numberToJson(basicContainer.concept);
+
+        // concept: 1 = cost, 0 = goal (cfr. handleMCMRequest:750-764)
+        if (basicContainer.concept == 1) {
+            mcmJson["MCMCost"] = numberToJson(basicContainer.cost);
+        } else {
+            mcmJson["MCMGoal"] = numberToJson(basicContainer.goal);
+        }
+
+        // ExecutionStatus richiesto solo per MCMType ∈ {4,7}, ma scriviamolo
+        // ogni volta che è disponibile (è il dato più informativo per il client)
+        if (basicContainer.executionStatus.isAvailable()) {
+            mcmJson["MCMExecutionStatus"] =
+                numberToJson(basicContainer.executionStatus.getData());
+        }
+    }
+
+    // --- Esattamente uno dei container (cfr. cascata in handleMCMRequest) ---
+    if (mcmData.getAdviceContainer().isAvailable()) {
+        const auto& adviceContainer = mcmData.getAdviceContainer().getData();
+        json11::Json::array maneuverAdvicesJson;
+        for (const auto& maneuverAdvice : adviceContainer.advices) {
+            maneuverAdvicesJson.push_back(maneuverAdviceToJson(maneuverAdvice));
+        }
+        mcmJson["MCManeuverAdviceContainer"] = json11::Json::object{
+            {"MCManeuverAdvices", maneuverAdvicesJson}
+        };
+
+    } else if (mcmData.getManeuverContainer().isAvailable()) {
+        const auto& maneuverContainer = mcmData.getManeuverContainer().getData();
+        json11::Json::object vehicleContainerJson;
+
+        if (maneuverContainer.advices.isAvailable()) {
+            json11::Json::array maneuverAdvicesJson;
+            for (const auto& maneuverAdvice : maneuverContainer.advices.getData()) {
+                maneuverAdvicesJson.push_back(maneuverAdviceToJson(maneuverAdvice));
+            }
+            vehicleContainerJson["MCManeuverAdvices"] = maneuverAdvicesJson;
+        }
+
+        json11::Json::array submaneuversJson;
+        for (const auto& submaneuver : maneuverContainer.submaneuvers) {
+            submaneuversJson.push_back(submaneuverToJson(submaneuver));
+        }
+        vehicleContainerJson["MCSubmaneuvers"] = submaneuversJson;
+
+        mcmJson["MCVehicleManeuverContainer"] = vehicleContainerJson;
+
+    } else if (mcmData.getResponseContainer().isAvailable()) {
+        const auto& responseContainer = mcmData.getResponseContainer().getData();
+        json11::Json::object responseJson;
+        responseJson["MCResponse"] = numberToJson(responseContainer.response);
+
+        if (responseContainer.response == 1 && responseContainer.declineReason.isAvailable()) {
+            responseJson["MCDeclineReason"] =
+                numberToJson(responseContainer.declineReason.getData());
+        }
+        if (responseContainer.submaneuvers.isAvailable()) {
+            json11::Json::array submaneuversJson;
+            for (const auto& submaneuver : responseContainer.submaneuvers.getData()) {
+                submaneuversJson.push_back(submaneuverToJson(submaneuver));
+            }
+            responseJson["MCSubmaneuvers"] = submaneuversJson;
+        }
+        mcmJson["MCResponseContainer"] = responseJson;
+
+    } else if (mcmData.getAcknowledgmentContainer().isAvailable()) {
+        const auto& acknowledgmentContainer = mcmData.getAcknowledgmentContainer().getData();
+        mcmJson["MCAcknowledgmentContainer"] = json11::Json::object{
+            {"MCAcknowledgmentType", numberToJson(acknowledgmentContainer.type)}
+        };
+
+    } else if (mcmData.getTerminationContainer().isAvailable()) {
+        mcmJson["MCTerminationContainer"] = json11::Json::object{};
+
+    } else {
+        std::cerr << "[WARN] convertToJson: no container set on mcData" << std::endl;
+    }
+
+    return mcmJson;
+}
+
+
+
 void JSONserver::createJSONFromMCM(MCM_t* decoded_mcm) {
-	// TODO Stefano --> extract the data from MCM, build the JSON (refer to the structure used in JSONserver), send it through JSON-over-TCP
+    mcData mcmData = m_mc_service->convertASN1IntoMcData(decoded_mcm);
+    json11::Json::object mcm_json = convertToJson(mcmData);
+    std::string strjson = json11::Json(mcm_json).dump();
+
+    std::lock_guard<std::mutex> lk(m_mcm_mtx);
+    for (int fd : m_mcm_subscribers) {
+        if (send(fd, strjson.c_str(), strjson.length(), MSG_NOSIGNAL)
+                != static_cast<ssize_t>(strjson.length())) {
+            perror("[ERROR] Could not send MCM JSON to subscriber");
+        }
+    }
 }
 
 // Utility function to encapsulate the JSON parsing logic into native mcData structures
@@ -552,9 +863,9 @@ static bool parseTrrDescription(const json11::Json& trr_json, mcData::mcDataTrrD
         out.waypoints.push_back(wp);
     }
 
-    for (const auto& hd_json : GET_ARR(trr_json, "Heading")) {
-        for (const auto field : {"HeadingValue", "HeadingConfidence"}) {
-            if (hd_json[field].is_null()) {
+    for(const auto& hd_json : GET_ARR(trr_json, "Heading")) {
+        for(const auto field : {"HeadingValue", "HeadingConfidence"}) {
+            if(hd_json[field].is_null()) {
                 std::cerr << "[ERROR] " << field << " in Heading not found" << std::endl;
                 return false;
             }
@@ -568,22 +879,22 @@ static bool parseTrrDescription(const json11::Json& trr_json, mcData::mcDataTrrD
 
 static bool extractSubmaneuvers(const json11::Json::array& subms_json,
                                  std::vector<mcData::mcDataSubmaneuverDescription>& out) {
-    for (const auto& subm_json : subms_json) {
+    for(const auto& subm_json : subms_json) {
         mcData::mcDataSubmaneuverDescription subm;
 
-        if (subm_json["SubmanoeuvreID"].is_null()) {
-            std::cerr << "[ERROR] SubmanoeuvreID is required in SubmaneuverDescription" << std::endl;
+        if(subm_json["SubmaneuverID"].is_null()) {
+            std::cerr << "[ERROR] SubmaneuverID is required in SubmaneuverDescription" << std::endl;
             return false;
         }
-        subm.submanoeuvreId = GET_NUM(subm_json, "SubmanoeuvreID");
+        subm.submaneuverID = GET_NUM(subm_json, "SubmaneuverID");
 
         // --- temporalCharacteristics (mandatory) ---
-        if (subm_json["TemporalCharacteristics"].is_null()) {
+        if(subm_json["TemporalCharacteristics"].is_null()) {
             std::cerr << "[ERROR] TemporalCharacteristics is required in SubmaneuverDescription" << std::endl;
             return false;
         }
-        for (const auto field : {"StartTime", "EndTime"}) {
-            if (subm_json["TemporalCharacteristics"][field].is_null()) {
+        for(const auto field : {"StartTime", "EndTime"}) {
+            if(subm_json["TemporalCharacteristics"][field].is_null()) {
                 std::cerr << "[ERROR] " << field << " in TemporalCharacteristics not found" << std::endl;
                 return false;
             }
@@ -593,30 +904,30 @@ static bool extractSubmaneuvers(const json11::Json::array& subms_json,
         subm.temporalCharacteristics.tRROccupancyEndTime =
             GET_NUM(subm_json["TemporalCharacteristics"], "EndTime");
 
-        // --- submanoeuvreStrategy (optional) ---
-        if (!subm_json["SubmaneuverStrategy"].is_null()) {
-            mcData::mcDataSubmanoeuvreStrategy strategy;
+        // --- submaneuverStrategy (optional) ---
+        if(!subm_json["SubmaneuverStrategy"].is_null()) {
+            mcData::mcDataSubmaneuverStrategy strategy;
             strategy.present = GET_NUM(subm_json["SubmaneuverStrategy"], "Strategy");
 
             auto it = strategy_json_fields.find(strategy.present);
-            if (it == strategy_json_fields.end()) {
+            if(it == strategy_json_fields.end()) {
                 std::cerr << "[ERROR] Unknown strategy present value: "
                           << strategy.present << std::endl;
                 return false;
             }
             strategy.value = GET_NUM(subm_json["SubmaneuverStrategy"], it->second);
-            subm.submanoeuvreStrategy.setData(strategy);
+            subm.submaneuverStrategy.setData(strategy);
         }
 
         // --- referenceTrajectory (optional) ---
-        if (!subm_json["ReferenceTrajectory"].is_null()) {
+        if(!subm_json["ReferenceTrajectory"].is_null()) {
             mcData::mcDataTrajectory traj;
             if (!parseTrajectory(subm_json["ReferenceTrajectory"], traj)) return false;
             subm.referenceTrajectory.setData(traj);
         }
 
         // --- targetRoadResource (optional) ---
-        if (!subm_json["TargetRoadResource"].is_null()) {
+        if(!subm_json["TargetRoadResource"].is_null()) {
             mcData::mcDataTrrDescription trr;
             if (!parseTrrDescription(subm_json["TargetRoadResource"], trr)) return false;
             subm.targetRoadResource.setData(trr);
@@ -629,51 +940,51 @@ static bool extractSubmaneuvers(const json11::Json::array& subms_json,
 
 static bool extractManeuverAdvice(const json11::Json::array& advs_json,
                                    std::vector<mcData::mcDataManeuverAdvice>& out) {
-    for (const auto& adv_json : advs_json) {
+    for(const auto& adv_json : advs_json) {
         mcData::mcDataManeuverAdvice adv;
 
-        if (adv_json["ExecutantID"].is_null()) {
+        if(adv_json["ExecutantID"].is_null()) {
             std::cerr << "[ERROR] ExecutantID is required in ManeuverAdvice" << std::endl;
             return false;
         }
         adv.executantID = GET_NUM(adv_json, "ExecutantID");
 
         // --- currentStateAdvisedChange (optional) ---
-        if (!adv_json["CurrentStateAdvisedChange"].is_null()) {
+        if(!adv_json["CurrentStateAdvisedChange"].is_null()) {
             adv.currentStateAdvisedChange.setData(
                 GET_NUM(adv_json["CurrentStateAdvisedChange"], "Present"));
         }
 
         // --- submaneuvres (mandatory) ---
-        if (adv_json["Submaneuvres"].is_null()) {
+        if(adv_json["Submaneuvres"].is_null()) {
             std::cerr << "[ERROR] Submaneuvres is required in ManeuverAdvice" << std::endl;
             return false;
         }
-        for (const auto& subm_json : GET_ARR(adv_json, "Submaneuvres")) {
+        for(const auto& subm_json : GET_ARR(adv_json, "Submaneuvres")) {
             mcData::mcDataAdvisedSubmaneuver subm;
 
-            if (subm_json["SubmanoeuvreId"].is_null()) {
-                std::cerr << "[ERROR] SubmanoeuvreId is required in Submanoeuvre" << std::endl;
+            if(subm_json["SubmaneuverID"].is_null()) {
+                std::cerr << "[ERROR] SubmaneuverID is required in Submanoeuvre" << std::endl;
                 return false;
             }
-            subm.submaneuverID = GET_NUM(subm_json, "SubmanoeuvreId");
+            subm.submaneuverID = GET_NUM(subm_json, "SubmaneuverID");
 
             // --- advisedTrajectory (optional) ---
-            if (!subm_json["AdvisedTrajectory"].is_null()) {
+            if(!subm_json["AdvisedTrajectory"].is_null()) {
                 mcData::mcDataTrajectory traj;
-                if (!parseTrajectory(subm_json["AdvisedTrajectory"], traj)) return false;
+                if(!parseTrajectory(subm_json["AdvisedTrajectory"], traj)) return false;
                 subm.advisedTrajectory.setData(traj);
             }
 
             // --- advisedTrrContainer (optional) ---
-            if (!subm_json["AdvisedTargetRoadResource"].is_null()) {
+            if(!subm_json["AdvisedTargetRoadResource"].is_null()) {
                 mcData::mcDataAdvisedTrrContainer atrr;
 
-                if (!parseTrrDescription(subm_json["AdvisedTargetRoadResource"],
+                if(!parseTrrDescription(subm_json["AdvisedTargetRoadResource"],
                                          atrr.trrDescription)) return false;
 
-                for (const auto field : {"StartTime", "EndTime"}) {
-                    if (subm_json["AdvisedTargetRoadResource"][field].is_null()) {
+                for(const auto field : {"StartTime", "EndTime"}) {
+                    if(subm_json["AdvisedTargetRoadResource"][field].is_null()) {
                         std::cerr << "[ERROR] " << field
                                   << " in AdvisedTargetRoadResource not found" << std::endl;
                         return false;
@@ -687,7 +998,7 @@ static bool extractManeuverAdvice(const json11::Json::array& advs_json,
                 subm.advisedTrrContainer.setData(atrr);
             }
 
-            adv.submaneuvres.push_back(subm);
+            adv.submaneuvers.push_back(subm);
         }
 
         out.push_back(adv);
@@ -698,7 +1009,7 @@ static bool extractManeuverAdvice(const json11::Json::array& advs_json,
 json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
     json11::Json::object response;
 
-    if (m_mc_service == nullptr) {
+    if(m_mc_service == nullptr) {
         response["status"] = MAKE_STR("error");
         response["message"] = MAKE_STR("MC service is not available");
         return response;
@@ -706,42 +1017,44 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
 
     mcData mcmData;
 
-	mcData::mcBasicContainer mcBasicContainer;
+	mcData::mcBasicContainer mcBasicContainer{};
 
-	bool set_rational = false;
-	if (!request["MCMCost"].is_null()) {
-		mcBasicContainer.cost = GET_NUM(request, "MCMCost");
-		mcBasicContainer.concept = 1;
-		set_rational = true;
+	// MCMCost and MCMGoal map to an ASN.1 CHOICE — exactly one must be present.
+	if(!request["MCMCost"].is_null() && !request["MCMGoal"].is_null()) {
+		response["status"] = MAKE_STR("error");
+		response["message"] = MAKE_STR("MCMCost and MCMGoal are mutually exclusive; only one can be provided.");
+		return response;
 	}
-	if (!request["MCMGoal"].is_null()) {
-		mcBasicContainer.goal = GET_NUM(request, "MCMGoal");
-		mcBasicContainer.concept = 0;
-		set_rational = true;
-	}
-	if (!set_rational) {
+	if(request["MCMCost"].is_null() && request["MCMGoal"].is_null()) {
 		response["status"] = MAKE_STR("error");
 		response["message"] = MAKE_STR("MCMGoal and MCMCost cannot be both empty.");
 		return response;
 	}
-	if (!request["MCMManeuverID"].is_null()) {
+	if(!request["MCMCost"].is_null()) {
+		mcBasicContainer.cost = GET_NUM(request, "MCMCost");
+		mcBasicContainer.concept = 1;
+	} else {
+		mcBasicContainer.goal = GET_NUM(request, "MCMGoal");
+		mcBasicContainer.concept = 0;
+	}
+	if(!request["MCMManeuverID"].is_null()) {
 		mcBasicContainer.maneuverID = GET_NUM(request, "MCMManeuverID");
 	} else {
 		response["status"] = MAKE_STR("error");
 		response["message"] = MAKE_STR("MCMManeuverID cannot be empty.");
 		return response;
 	}
-	if (!request["MCMITSRole"].is_null()) {
+	if(!request["MCMITSRole"].is_null()) {
 		mcBasicContainer.itsRole = GET_NUM(request, "MCMITSRole");
 	} else {
 		response["status"] = MAKE_STR("error");
 		response["message"] = MAKE_STR("MCMITSRole cannot be empty.");
 		return response;
 	}
-	if (!request["MCMType"].is_null()) {
+	if(!request["MCMType"].is_null()) {
 		mcBasicContainer.mcmType = GET_NUM(request, "MCMType");
-		if (mcBasicContainer.mcmType == 4 || mcBasicContainer.mcmType == 7) {
-			if (!request["MCMExecutionStatus"].is_null()) {
+		if(mcBasicContainer.mcmType == 4 || mcBasicContainer.mcmType == 7) {
+			if(!request["MCMExecutionStatus"].is_null()) {
 				mcBasicContainer.executionStatus.setData(GET_NUM(request, "MCMExecutionStatus"));
 			} else {
 				response["status"] = MAKE_STR("error");
@@ -754,14 +1067,14 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
 		response["message"] = MAKE_STR("MCMType cannot be empty.");
 		return response;
 	}
-	if (!request["MCMStationType"].is_null()) {
+	if(!request["MCMStationType"].is_null()) {
 		mcBasicContainer.stationType = GET_NUM(request, "MCMStationType");
 	} else {
 		response["status"] = MAKE_STR("error");
 		response["message"] = MAKE_STR("MCMStationType cannot be empty.");
 		return response;
 	}
-	if (!request["MCMStationID"].is_null()) {
+	if(!request["MCMStationID"].is_null()) {
 		mcBasicContainer.stationID = GET_NUM(request, "MCMStationID");
 	} else {
 		response["status"] = MAKE_STR("error");
@@ -771,11 +1084,11 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
 	mcmData.setBasicContainer(mcBasicContainer);
 
 
-    if (!request["MCManeuverAdviceContainer"].is_null() &&
+    if(!request["MCManeuverAdviceContainer"].is_null() &&
         !request["MCManeuverAdviceContainer"]["MCManeuverAdvices"].is_null()) {
 
         auto adv_array = GET_ARR(request["MCManeuverAdviceContainer"], "MCManeuverAdvices");
-        if (adv_array.empty()) {
+        if(adv_array.empty()) {
             std::cerr << "[ERROR] MCManeuverAdvices array is empty." << std::endl;
             response["status"] = MAKE_STR("error");
             response["message"] = MAKE_STR("MCManeuverAdvices array cannot be empty.");
@@ -783,7 +1096,7 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
         }
 
         std::vector<mcData::mcDataManeuverAdvice> parsed_advices;
-        if (!extractManeuverAdvice(adv_array, parsed_advices)) {
+        if(!extractManeuverAdvice(adv_array, parsed_advices)) {
             std::cerr << "[ERROR] Failed to parse MCManeuverAdvices." << std::endl;
             response["status"] = MAKE_STR("error");
             response["message"] = MAKE_STR("Failed to parse MCManeuverAdvices content.");
@@ -794,14 +1107,14 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
         advice_container.advices = parsed_advices;
         mcmData.setAdviceContainer(advice_container);
 
-    } else if (!request["MCVehicleManeuverContainer"].is_null()) {
+    } else if(!request["MCVehicleManeuverContainer"].is_null()) {
         mcData::mcManeuverContainer maneuver_container;
 
-        if (!request["MCVehicleManeuverContainer"]["MCManeuverAdvices"].is_null()) {
+        if(!request["MCVehicleManeuverContainer"]["MCManeuverAdvices"].is_null()) {
             auto adv_array = GET_ARR(request["MCVehicleManeuverContainer"], "MCManeuverAdvices");
-            if (!adv_array.empty()) {
+            if(!adv_array.empty()) {
                 std::vector<mcData::mcDataManeuverAdvice> parsed_advices;
-                if (!extractManeuverAdvice(adv_array, parsed_advices)) {
+                if(!extractManeuverAdvice(adv_array, parsed_advices)) {
                     std::cerr << "[ERROR] Failed to parse MCManeuverAdvices in vehicle container." << std::endl;
                     response["status"] = MAKE_STR("error");
                     response["message"] = MAKE_STR("Failed to parse MCManeuverAdvices inside vehicle container.");
@@ -811,7 +1124,7 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
             }
         }
 
-        if (request["MCVehicleManeuverContainer"]["MCSubmaneuvers"].is_null()) {
+        if(request["MCVehicleManeuverContainer"]["MCSubmaneuvers"].is_null()) {
             std::cerr << "[ERROR] MCSubmaneuvers is required in MCVehicleManeuverContainer." << std::endl;
             response["status"] = MAKE_STR("error");
             response["message"] = MAKE_STR("MCSubmaneuvers is required inside MCVehicleManeuverContainer.");
@@ -819,14 +1132,14 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
         }
 
         auto sub_array = GET_ARR(request["MCVehicleManeuverContainer"], "MCSubmaneuvers");
-        if (sub_array.empty()) {
+        if(sub_array.empty()) {
             std::cerr << "[ERROR] MCSubmaneuvers array is empty." << std::endl;
             response["status"] = MAKE_STR("error");
             response["message"] = MAKE_STR("MCSubmaneuvers array cannot be empty.");
             return response;
         }
 
-        if (!extractSubmaneuvers(sub_array, maneuver_container.submaneuvers)) {
+        if(!extractSubmaneuvers(sub_array, maneuver_container.submaneuvers)) {
             std::cerr << "[ERROR] Failed to parse MCSubmaneuvers in vehicle container." << std::endl;
             response["status"] = MAKE_STR("error");
             response["message"] = MAKE_STR("Failed to parse submaneuvers inside vehicle container.");
@@ -835,18 +1148,18 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
 
         mcmData.setManeuverContainer(maneuver_container);
 
-    } else if (!request["MCResponseContainer"].is_null()) {
+    } else if(!request["MCResponseContainer"].is_null()) {
         mcData::mcResponseContainer resp_container;
 
-        if (request["MCResponseContainer"]["MCResponse"].is_null()) {
+        if(request["MCResponseContainer"]["MCResponse"].is_null()) {
             std::cerr << "[ERROR] MCResponse is required in MCResponseContainer." << std::endl;
             response["status"] = MAKE_STR("error");
             response["message"] = MAKE_STR("MCResponse value is missing.");
             return response;
         }
         resp_container.response = GET_NUM(request["MCResponseContainer"], "MCResponse");
-		if (resp_container.response == 1) {
-			if (!request["MCResponseContainer"]["MCDeclineReason"].is_null()) {
+		if(resp_container.response == 1) {
+			if(!request["MCResponseContainer"]["MCDeclineReason"].is_null()) {
 				resp_container.declineReason.setData(GET_NUM(request["MCResponseContainer"], "MCDeclineReason"));
 			} else {
 				response["status"] = MAKE_STR("error");
@@ -856,14 +1169,14 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
 		}
         if (!request["MCResponseContainer"]["MCSubmaneuvers"].is_null()) {
             auto sub_array = GET_ARR(request["MCResponseContainer"], "MCSubmaneuvers");
-            if (sub_array.empty()) {
+            if(sub_array.empty()) {
                 std::cerr << "[ERROR] MCSubmaneuvers array in MCResponseContainer is empty." << std::endl;
                 response["status"] = MAKE_STR("error");
                 response["message"] = MAKE_STR("MCSubmaneuvers array in MCResponseContainer cannot be empty.");
                 return response;
             }
             std::vector<mcData::mcDataSubmaneuverDescription> parsed_subms;
-            if (!extractSubmaneuvers(sub_array, parsed_subms)) {
+            if(!extractSubmaneuvers(sub_array, parsed_subms)) {
                 std::cerr << "[ERROR] Failed to parse MCSubmaneuvers in response container." << std::endl;
                 response["status"] = MAKE_STR("error");
                 response["message"] = MAKE_STR("Failed to parse submaneuvers in response container.");
@@ -874,8 +1187,8 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
 
         mcmData.setResponseContainer(resp_container);
 
-    } else if (!request["MCAcknowledgmentContainer"].is_null()) {
-        if (request["MCAcknowledgmentContainer"]["MCAcknowledgmentType"].is_null()) {
+    } else if(!request["MCAcknowledgmentContainer"].is_null()) {
+        if(request["MCAcknowledgmentContainer"]["MCAcknowledgmentType"].is_null()) {
             std::cerr << "[ERROR] MCAcknowledgmentType is required." << std::endl;
             response["status"] = MAKE_STR("error");
             response["message"] = MAKE_STR("MCAcknowledgmentType value is missing.");
@@ -885,7 +1198,7 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
         ack_container.type = GET_NUM(request["MCAcknowledgmentContainer"], "MCAcknowledgmentType");
         mcmData.setAcknowledgmentContainer(ack_container);
 
-    } else if (!request["MCTerminationContainer"].is_null()) {
+    } else if(!request["MCTerminationContainer"].is_null()) {
         mcmData.setTerminationContainer(mcData::mcTerminationContainer{});
 
     } else {
@@ -897,7 +1210,7 @@ json11::Json::object JSONserver::handleMCMRequest(const json11::Json& request) {
 
     auto err = m_mc_service->generateAndEncodeMCM(mcmData);
 
-	if (err != MCM_NO_ERROR) {
+	if(err != MCM_NO_ERROR) {
 		// In case of creation error during the JSON parsing
 		response["status"] = MAKE_STR("error");
 		if (err == MCM_JSON_ERROR) response["message"] = MAKE_STR("Error during the JSON parsing");

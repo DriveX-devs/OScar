@@ -11,7 +11,7 @@
     "MCResponse": 1,
     "MCSubmaneuvers": [
       {
-        "SubmanoeuvreID": 1,
+        "SubmaneuverID": 1,
         "TemporalCharacteristics": {
           "StartTime": 1000,
           "EndTime": 2000

@@ -87,15 +87,15 @@ public:
         long tRROccupancyEndTime;
     } mcDataTemporalCharacteristics;
 
-    typedef struct _mcDataSubmanoeuvreStrategy {
+    typedef struct _mcDataSubmaneuverStrategy {
         int present;  // SubmanoeuvreStrategy_PR enum value
         long value;   // il valore del choice corrispondente
-    } mcDataSubmanoeuvreStrategy;
+    } mcDataSubmaneuverStrategy;
 
     // Submaneuver Description is used by VehicleManueverContainer and ResponseContainer
-    typedef struct _mcDataSubmaneuversDescription {
-        long submanoeuvreId;
-        MCDataItem<mcDataSubmanoeuvreStrategy> submanoeuvreStrategy;
+    typedef struct _mcDataSubmaneuverDescription {
+        long submaneuverID;
+        MCDataItem<mcDataSubmaneuverStrategy> submaneuverStrategy;
         MCDataItem<mcDataTrajectory> referenceTrajectory;
         MCDataItem<mcDataTrrDescription> targetRoadResource;
         mcDataTemporalCharacteristics temporalCharacteristics;
@@ -117,8 +117,8 @@ public:
 
     typedef struct _mcDataManeuverAdvice {
         long executantID;
-        MCDataItem<long> currentStateAdvisedChange; 
-        std::vector<mcDataAdvisedSubmaneuver> submaneuvres;
+        MCDataItem<long> currentStateAdvisedChange;
+        std::vector<mcDataAdvisedSubmaneuver> submaneuvers;
     } mcDataManeuverAdvice;
 
     // --- Containers ---
@@ -183,7 +183,7 @@ public:
     long getConcept() const { return m_basic_container.getData().concept; }
     long getCost() const { return m_basic_container.getData().cost; }
     long getGoal() const { return m_basic_container.getData().goal; }
-    const MCDataItem<long>& getExecutionStatus() const { return m_basic_container.getData().executionStatus; }
+    MCDataItem<long> getExecutionStatus() const { return m_basic_container.getData().executionStatus; }
 
 
     // Setters

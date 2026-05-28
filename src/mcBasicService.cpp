@@ -163,7 +163,7 @@ convertSubmaneuversToAsn1(const std::vector<mcData::mcDataSubmaneuverDescription
         auto asn_subm = asn1cpp::makeSeq(SubmanoeuvreDescription);
 
         // --- submanoeuvreID ---
-        asn1cpp::setField(asn_subm->submanoeuvreID, native_subm.submanoeuvreId);
+        asn1cpp::setField(asn_subm->submanoeuvreID, native_subm.submaneuverID);
 
         // --- temporalCharacteristics ---
         asn1cpp::setField(asn_subm->temporalCharateristics.tRROccupancyStartTime,
@@ -172,8 +172,8 @@ convertSubmaneuversToAsn1(const std::vector<mcData::mcDataSubmaneuverDescription
                           native_subm.temporalCharacteristics.tRROccupancyEndTime);
 
         // --- submanoeuvreStrategy (optional) ---
-        if (native_subm.submanoeuvreStrategy.isAvailable()) {
-            const auto& native_strategy = native_subm.submanoeuvreStrategy.getData();
+        if (native_subm.submaneuverStrategy.isAvailable()) {
+            const auto& native_strategy = native_subm.submaneuverStrategy.getData();
             auto strategy = asn1cpp::makeSeq(SubmanoeuvreStrategy);
 
             asn1cpp::setField(strategy->present,
@@ -375,8 +375,8 @@ convertAdvicesToAsn1(const std::vector<mcData::mcDataManeuverAdvice>& native_adv
             asn1cpp::setField(asn_adv->currentStateAdvisedChange, csac);
         }
 
-        // --- submaneuvres (da mcDataAdvisedSubmaneuver) ---
-        for (const auto& native_subm : native_adv.submaneuvres) {
+        // --- submaneuvers (da mcDataAdvisedSubmaneuver) ---
+        for (const auto& native_subm : native_adv.submaneuvers) {
             auto asn_subm = asn1cpp::makeSeq(Submanoeuvre);
 
             asn1cpp::setField(asn_subm->submanoeuvreId, native_subm.submaneuverID);
@@ -491,6 +491,268 @@ convertAdvicesToAsn1(const std::vector<mcData::mcDataManeuverAdvice>& native_adv
     }
 
     return {asn_list, true};
+}
+
+// ============================================================================
+//  ASN.1 → mcData (decoder helpers, inverse of generateAndEncodeMCM)
+// ============================================================================
+
+static mcData::mcDataPathPoint pathPointFromAsn1(const PathPoint_t* asn_wp) {
+    mcData::mcDataPathPoint wp;
+    wp.deltaLatitude  = asn1cpp::getField(asn_wp->pathPosition.deltaLatitude,  long);
+    wp.deltaLongitude = asn1cpp::getField(asn_wp->pathPosition.deltaLongitude, long);
+    wp.deltaAltitude  = asn1cpp::getField(asn_wp->pathPosition.deltaAltitude,  long);
+    if (asn_wp->pathDeltaTime != nullptr) {
+        wp.pathDeltaTime.setData(asn1cpp::getField(*asn_wp->pathDeltaTime, long));
+    }
+    return wp;
+}
+
+static mcData::mcDataTrajectory trajectoryFromAsn1(const Trajectory_t* asn_traj) {
+    mcData::mcDataTrajectory traj;
+    traj.wayPointType = asn1cpp::getField(asn_traj->wayPointType, long);
+
+    for (int i = 0; i < asn_traj->wayPoints.list.count; ++i) {
+        traj.wayPoints.push_back(pathPointFromAsn1(asn_traj->wayPoints.list.array[i]));
+    }
+    for (int i = 0; i < asn_traj->speed.list.count; ++i) {
+        const auto* sp = asn_traj->speed.list.array[i];
+        traj.speed.emplace_back(asn1cpp::getField(sp->speedValue,      long),
+                                asn1cpp::getField(sp->speedConfidence, long));
+    }
+    if (asn_traj->headings != nullptr) {
+        for (int i = 0; i < asn_traj->headings->list.count; ++i) {
+            const auto* hd = asn_traj->headings->list.array[i];
+            traj.headings.emplace_back(asn1cpp::getField(hd->value,      long),
+                                       asn1cpp::getField(hd->confidence, long));
+        }
+    }
+    if (asn_traj->longitudePositions != nullptr) {
+        for (int i = 0; i < asn_traj->longitudePositions->list.count; ++i) {
+            traj.longitudePositions.push_back(*asn_traj->longitudePositions->list.array[i]);
+        }
+    }
+    if (asn_traj->latitudePositions != nullptr) {
+        for (int i = 0; i < asn_traj->latitudePositions->list.count; ++i) {
+            traj.latitudePositions.push_back(*asn_traj->latitudePositions->list.array[i]);
+        }
+    }
+    if (asn_traj->altitudePositions != nullptr) {
+        for (int i = 0; i < asn_traj->altitudePositions->list.count; ++i) {
+            const auto* alt = asn_traj->altitudePositions->list.array[i];
+            traj.altitudePositions.emplace_back(asn1cpp::getField(alt->altitudeValue,      long),
+                                                asn1cpp::getField(alt->altitudeConfidence, long));
+        }
+    }
+    return traj;
+}
+
+static mcData::mcDataTrrDescription trrFromAsn1(const TrrDescription_t* asn_trr) {
+    mcData::mcDataTrrDescription trr;
+    trr.trrType   = asn1cpp::getField(asn_trr->trrType,   long);
+    trr.laneCount = asn1cpp::getField(asn_trr->laneCount, long);
+    trr.trrWidth  = asn1cpp::getField(asn_trr->trrWidth,  long);
+    trr.trrLength = asn1cpp::getField(asn_trr->trrLength, long);
+
+    if (asn_trr->startingLaneNumber != nullptr) {
+        trr.startingLaneNumber.setData(asn1cpp::getField(*asn_trr->startingLaneNumber, long));
+    }
+    if (asn_trr->endingLaneNumber != nullptr) {
+        trr.endingLaneNumber.setData(asn1cpp::getField(*asn_trr->endingLaneNumber, long));
+    }
+    if (asn_trr->waypoints != nullptr) {
+        for (int i = 0; i < asn_trr->waypoints->list.count; ++i) {
+            trr.waypoints.push_back(pathPointFromAsn1(asn_trr->waypoints->list.array[i]));
+        }
+    }
+    if (asn_trr->heading != nullptr) {
+        for (int i = 0; i < asn_trr->heading->list.count; ++i) {
+            const auto* hd = asn_trr->heading->list.array[i];
+            trr.heading.emplace_back(asn1cpp::getField(hd->value,      long),
+                                     asn1cpp::getField(hd->confidence, long));
+        }
+    }
+    return trr;
+}
+
+static std::vector<mcData::mcDataSubmaneuverDescription>
+submaneuversFromAsn1(const ListOfSubmanoeuvreDescriptionsContainer_t& asn_list) {
+    std::vector<mcData::mcDataSubmaneuverDescription> result;
+
+    for (int i = 0; i < asn_list.list.count; ++i) {
+        const auto* asn_subm = asn_list.list.array[i];
+        mcData::mcDataSubmaneuverDescription subm;
+
+        subm.submaneuverID = asn1cpp::getField(asn_subm->submanoeuvreID, long);
+        subm.temporalCharacteristics.tRROccupancyStartTime =
+            asn1cpp::getField(asn_subm->temporalCharateristics.tRROccupancyStartTime, long);
+        subm.temporalCharacteristics.tRROccupancyEndTime =
+            asn1cpp::getField(asn_subm->temporalCharateristics.tRROccupancyEndTime,   long);
+
+        if (asn_subm->submanoeuvreStrategy != nullptr) {
+            mcData::mcDataSubmaneuverStrategy strategy;
+            strategy.present = static_cast<int>(asn_subm->submanoeuvreStrategy->present);
+            // Only takeTollingLane carries a meaningful long; the other choices are NULL.
+            if (asn_subm->submanoeuvreStrategy->present == SubmanoeuvreStrategy_PR_takeTollingLane) {
+                strategy.value = asn_subm->submanoeuvreStrategy->choice.takeTollingLane;
+            } else {
+                strategy.value = 0;
+            }
+            subm.submaneuverStrategy.setData(strategy);
+        }
+        if (asn_subm->referenceTrajectory != nullptr) {
+            subm.referenceTrajectory.setData(trajectoryFromAsn1(asn_subm->referenceTrajectory));
+        }
+        if (asn_subm->targetRoadResourceIContainer != nullptr) {
+            subm.targetRoadResource.setData(trrFromAsn1(asn_subm->targetRoadResourceIContainer));
+        }
+        if (asn_subm->kinematicsCharacteristics != nullptr) {
+            // KinematicsCharacteristics_t is ASN.1 NULL → presence-only flag.
+            subm.kinematicsCharacteristics.setData(1);
+        }
+
+        result.push_back(subm);
+    }
+    return result;
+}
+
+static std::vector<mcData::mcDataManeuverAdvice>
+advicesFromAsn1(const ManoeuvreAdviceContainer_t& asn_list) {
+    std::vector<mcData::mcDataManeuverAdvice> result;
+
+    for (int i = 0; i < asn_list.list.count; ++i) {
+        const auto* asn_adv = asn_list.list.array[i];
+        mcData::mcDataManeuverAdvice adv;
+
+        adv.executantID = asn1cpp::getField(asn_adv->executantID, long);
+
+        if (asn_adv->currentStateAdvisedChange != nullptr) {
+            adv.currentStateAdvisedChange.setData(
+                static_cast<long>(asn_adv->currentStateAdvisedChange->present));
+        }
+
+        for (int j = 0; j < asn_adv->submaneuvres.list.count; ++j) {
+            const auto* asn_sm = asn_adv->submaneuvres.list.array[j];
+            mcData::mcDataAdvisedSubmaneuver sm;
+            sm.submaneuverID = asn1cpp::getField(asn_sm->submanoeuvreId, long);
+
+            if (asn_sm->advisedTrajectory != nullptr) {
+                sm.advisedTrajectory.setData(trajectoryFromAsn1(asn_sm->advisedTrajectory));
+            }
+            if (asn_sm->advisedTargetRoadResource != nullptr) {
+                mcData::mcDataAdvisedTrrContainer atrr;
+                atrr.trrDescription = trrFromAsn1(&asn_sm->advisedTargetRoadResource->trrDescription);
+                atrr.temporalCharacteristics.tRROccupancyStartTime = asn1cpp::getField(
+                    asn_sm->advisedTargetRoadResource->temporalCharacteristics.tRROccupancyStartTime, long);
+                atrr.temporalCharacteristics.tRROccupancyEndTime = asn1cpp::getField(
+                    asn_sm->advisedTargetRoadResource->temporalCharacteristics.tRROccupancyEndTime,   long);
+                if (asn_sm->advisedTargetRoadResource->kinematicsCharacteristics != nullptr) {
+                    // KinematicsCharacteristics_t is ASN.1 NULL → presence-only flag.
+                    atrr.kinematicsCharacteristics.setData(1);
+                }
+                sm.advisedTrrContainer.setData(atrr);
+            }
+
+            adv.submaneuvers.push_back(sm);
+        }
+
+        result.push_back(adv);
+    }
+    return result;
+}
+
+mcData
+MCBasicService::convertASN1IntoMcData(MCM_t* decoded_mcm) {
+    mcData mcmData;
+
+    if (decoded_mcm == nullptr) {
+        std::cerr << "[ERROR] convertASN1IntoMcData: null MCM pointer." << std::endl;
+        return mcmData;
+    }
+
+    // --- Header ---
+    mcData::mcDataHeader hdr;
+    hdr.messageID       = asn1cpp::getField(decoded_mcm->header.messageId,       long);
+    hdr.protocolVersion = asn1cpp::getField(decoded_mcm->header.protocolVersion, long);
+    hdr.stationID       = asn1cpp::getField(decoded_mcm->header.stationId,       unsigned long);
+    mcmData.setHeader(hdr);
+
+    // --- Basic container ---
+    const auto& asn_bc = decoded_mcm->payload.basicContainer;
+    mcData::mcBasicContainer bc;
+    bc.stationID   = asn1cpp::getField(asn_bc.stationID,   long);
+    bc.itsRole     = asn1cpp::getField(asn_bc.itssRole,    long);
+    bc.stationType = asn1cpp::getField(asn_bc.stationType, long);
+    bc.mcmType     = asn1cpp::getField(asn_bc.mcmType,     long);
+    bc.maneuverID  = asn1cpp::getField(asn_bc.manoeuvreId, long);
+    bc.concept     = asn1cpp::getField(asn_bc.concept,     long);
+    bc.cost        = 0;
+    bc.goal        = 0;
+    if (asn_bc.rational != nullptr) {
+        if (asn_bc.rational->present == ManoeuvreCoordinationRational_PR_manoeuvreCooperationCost) {
+            bc.cost    = asn1cpp::getField(asn_bc.rational->choice.manoeuvreCooperationCost, long);
+            bc.concept = 1;
+        } else if (asn_bc.rational->present == ManoeuvreCoordinationRational_PR_manoeuvreCooperationGoal) {
+            bc.goal    = asn1cpp::getField(asn_bc.rational->choice.manoeuvreCooperationGoal, long);
+            bc.concept = 0;
+        }
+    }
+    if (asn_bc.executionStatus != nullptr) {
+        bc.executionStatus.setData(asn1cpp::getField(*asn_bc.executionStatus, long));
+    }
+    mcmData.setBasicContainer(bc);
+
+    // --- Active container variant (CHOICE) ---
+    const auto& asn_mcmc = decoded_mcm->payload.mcmContainer;
+    switch (asn_mcmc.present) {
+        case McmContainer_PR_vehicleManoeuvreContainer: {
+            const auto& asn_man = asn_mcmc.choice.vehicleManoeuvreContainer;
+            mcData::mcManeuverContainer man;
+            man.vehicleType = asn1cpp::getField(
+                asn_man.vehicleCurrentStateContainer.vehicleSize.vehicleType, long);
+            man.submaneuvers = submaneuversFromAsn1(asn_man.submaneuvres);
+            if (asn_man.manoeuvreAdvice != nullptr) {
+                man.advices.setData(advicesFromAsn1(*asn_man.manoeuvreAdvice));
+            }
+            mcmData.setManeuverContainer(man);
+            break;
+        }
+        case McmContainer_PR_advisedManoeuvreContainer: {
+            mcData::mcAdviceContainer ac;
+            ac.advices = advicesFromAsn1(asn_mcmc.choice.advisedManoeuvreContainer);
+            mcmData.setAdviceContainer(ac);
+            break;
+        }
+        case McmContainer_PR_responseContainer: {
+            const auto& asn_resp = asn_mcmc.choice.responseContainer;
+            mcData::mcResponseContainer rc;
+            rc.response = asn1cpp::getField(asn_resp.manouevreResponse, long);
+            if (asn_resp.declineReason != nullptr) {
+                rc.declineReason.setData(asn1cpp::getField(*asn_resp.declineReason, long));
+            }
+            if (asn_resp.submaneuvres != nullptr) {
+                rc.submaneuvers.setData(submaneuversFromAsn1(*asn_resp.submaneuvres));
+            }
+            mcmData.setResponseContainer(rc);
+            break;
+        }
+        case McmContainer_PR_acknowledgmentContainer: {
+            mcData::mcAcknowledgeContainer ack;
+            ack.type = asn1cpp::getField(
+                asn_mcmc.choice.acknowledgmentContainer.acknowledgedType, long);
+            mcmData.setAcknowledgmentContainer(ack);
+            break;
+        }
+        case McmContainer_PR_terminationContainer:
+            mcmData.setTerminationContainer(mcData::mcTerminationContainer{});
+            break;
+        case McmContainer_PR_NOTHING:
+        default:
+            std::cerr << "[WARN] convertASN1IntoMcData: no container present in MCM." << std::endl;
+            break;
+    }
+
+    return mcmData;
 }
 
 MCBasicService_error_t

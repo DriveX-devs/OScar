@@ -8,6 +8,9 @@
 #include "mcBasicService.h"
 #include "LDMmap.h" 
 
+#include <set>
+#include <mutex>
+
 class JSONserver {
 
 	public:
@@ -58,11 +61,13 @@ class JSONserver {
 
 		void setMCService(MCBasicService *mcbs_ptr) {m_mc_service = mcbs_ptr;}
 
-		json11::Json::object handleRequest(const json11::Json &request);
+		json11::Json::object handleRequest(const json11::Json &request, int client_fd);
 		json11::Json::object handleDENMRequest(const json11::Json &request);
 		json11::Json::object handleMCMRequest(const json11::Json &request);
+		json11::Json::object handleMCMConnection(int client_fd);
+		json11::Json::object handleMCMDisconnection(int client_fd);
 		void createJSONFromMCM(MCM_t* decoded_mcm);
-	
+
 	private:
 		json11::Json::object make_vehicle_standard(uint64_t stationID, 
 			double lat, 
@@ -85,7 +90,7 @@ class JSONserver {
 		double m_range_m;
 		ldmmap::LDMMap *m_db_ptr;
 		DENBasicService *m_den_service;
-		MCBasicService *m_mc_service;
+		MCBasicService *m_mc_service=nullptr;
 		long m_port;
 		std::atomic<bool> m_thread_running;
 
@@ -93,6 +98,9 @@ class JSONserver {
 
 		int m_sockd = -1;
 		pthread_t m_tid = -1;
+
+		std::set<int> m_mcm_subscribers;
+		std::mutex   m_mcm_mtx;
 };
 
 #endif // AIM_JSONSERVER_H

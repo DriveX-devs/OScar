@@ -16,7 +16,7 @@
         },
         "Submaneuvres": [
           {
-            "SubmanoeuvreId": 1,
+            "SubmaneuverID": 1,
             "AdvisedTrajectory": {
               "WayPointType": 1,
               "WayPoints": [

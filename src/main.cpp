@@ -794,6 +794,9 @@ int main (int argc, char *argv[]) {
         TCLAP::SwitchArg DENMsDecArg("d", "enable-DENMs-decoding", "Enable the decoding of DENMs", false);
         cmd.add(DENMsDecArg);
 
+        TCLAP::SwitchArg MCMsDecArg("", "enable-MCMs-decoding", "Enable the decoding of MCMs", false);
+        cmd.add(MCMsDecArg);
+
         TCLAP::ValueArg<std::string> GNSSDevArg("D", "gnss-device",
                                                 "[Considered only if -g is specified] GNSS device to be used (i.e., where gpsd is currently running - this is not the /dev/ttyACM* device, which is already being used by gpsd, which in turn can provide the GNSS data to OScar). Default: localhost.",
                                                 false, "localhost", "string");
@@ -1139,6 +1142,7 @@ int main (int argc, char *argv[]) {
         enable_CPM_dissemination = CPMsDissArg.getValue();
         CPMs_priority = CPMsPriority.getValue();
         enable_DENM_decoding = DENMsDecArg.getValue();
+        enable_MCM_decoding = MCMsDecArg.getValue();
         enable_security = SecurityArg.getValue();
         enable_DENM_tx = DENMsTxArg.getValue();
         DENMs_priority = DENMsPriority.getValue();
@@ -1908,6 +1912,10 @@ int main (int argc, char *argv[]) {
 
 			if(enable_DENM_decoding) {
 				mainRecvClient->enableDENMdecoding();
+			}
+
+			if(enable_MCM_decoding) {
+				mainRecvClient->enableMCMdecoding();
 			}
 
             if(enable_metric_supervisor) {

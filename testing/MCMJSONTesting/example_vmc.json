@@ -10,7 +10,7 @@
   "MCVehicleManeuverContainer": {
     "MCSubmaneuvers": [
       {
-        "SubmanoeuvreID": 1,
+        "SubmaneuverID": 1,
         "TemporalCharacteristics": {
           "StartTime": 1000,
           "EndTime": 2000
@@ -90,7 +90,7 @@
         },
         "Submaneuvres": [
           {
-            "SubmanoeuvreId": 1,
+            "SubmaneuverID": 1,
             "AdvisedTrajectory": {
               "WayPointType": 1,
               "WayPoints": [

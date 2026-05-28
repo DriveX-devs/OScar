@@ -176,7 +176,22 @@ enum ManeuverID {
      */
     MCBasicService_error_t generateAndEncodeMCM(const mcData& mcmData);
 
+    /**
+     * @brief Convert a decoded ASN.1 MCM into the native mcData representation.
+     *
+     * Inverse of generateAndEncodeMCM(): reads an MCM_t* (already decoded from UPER)
+     * and produces a populated mcData. Header, basic container, and the active
+     * container variant (vehicle / advice / response / acknowledgment / termination)
+     * are filled. Ownership of decoded_mcm is not changed.
+     *
+     * @param decoded_mcm   Pointer to a decoded ASN.1 MCM
+     * @return mcData       The native representation
+     */
+    mcData convertASN1IntoMcData(MCM_t* decoded_mcm);
+
     void setMetricSupervisor(MetricSupervisor *met_sup_ptr) {m_met_sup_ptr = met_sup_ptr;}
+
+    
 
 
   private:
