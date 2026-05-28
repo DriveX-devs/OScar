@@ -1,7 +1,6 @@
 {
   "request_type": "MCM_trigger",
   "MCMCost": 1,
-  "MCMGoal": 2,
   "MCMType": 3,
   "MCMManeuverID": 45,
   "MCMITSRole": 1,

@@ -66,8 +66,11 @@ btp::decodeBTP(GNDataIndication_t dataIndication, BTPDataIndication_t* btpDataIn
 
 	btpDataIndication->BTPType = dataIndication.upperProtocol;
 
-	if((header.getDestPort ()!= CA_PORT) && (header.getDestPort ()!= DEN_PORT) && (header.getDestPort () != VA_PORT) && (header.getDestPort () != CP_PORT))
-	{
+	if(header.getDestPort ()!= CA_PORT &&
+		header.getDestPort ()!= DEN_PORT &&
+		header.getDestPort () != VA_PORT &&
+		header.getDestPort () != CP_PORT &&
+		header.getDestPort () != MC_PORT) {
 		std::cerr << "[ERROR] [Decoder] BTP port not supported" << std::endl;
 		return BTP_ERROR;
 	}
