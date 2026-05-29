@@ -639,7 +639,39 @@ static json11::Json::object maneuverAdviceToJson(const mcData::mcDataManeuverAdv
     return adviceJson;
 }
 
-static json11::Json::object convertToJson(const mcData& mcmData) {
+
+static json11::Json::object currentStateContainerToJson(const MCM_t* decoded_mcm) {
+    json11::Json::object currentState;
+
+    const auto& mcmContainer = decoded_mcm->payload.mcmContainer;
+    if (mcmContainer.present != McmContainer_PR_vehicleManoeuvreContainer) {
+        return currentState;
+    }
+    const auto& vcs = mcmContainer.choice.vehicleManoeuvreContainer.vehicleCurrentStateContainer;
+
+    currentState["vehicleHeading"] = json11::Json::object{
+        {"value",      numberToJson(vcs.vehicleHeading.value)},
+        {"confidence", numberToJson(vcs.vehicleHeading.confidence)}
+    };
+
+    currentState["vehicleSpeed"] = json11::Json::object{
+        {"speedValue",      numberToJson(vcs.vehicleSpeed.speedValue)},
+        {"speedConfidence", numberToJson(vcs.vehicleSpeed.speedConfidence)}
+    };
+
+    currentState["vehicleSize"] = json11::Json::object{
+        {"vehicleWidth",            numberToJson(vcs.vehicleSize.vehicleWidth)},
+        {"vehicleLengthValue",      numberToJson(vcs.vehicleSize.vehicleLenth.vehicleLengthValue)},
+        {"vehicleLengthConfidence", numberToJson(vcs.vehicleSize.vehicleLenth.vehicleLengthConfidenceIndication)},
+        {"vehicleHeight",           numberToJson(vcs.vehicleSize.vehicleHeight)},
+        {"vehicleType",             numberToJson(vcs.vehicleSize.vehicleType)}
+    };
+
+    return currentState;
+}
+
+
+static json11::Json::object convertMCDataToJson(const mcData& mcmData) {
     json11::Json::object mcmJson;
 
     // --- Basic container: campi al top-level, come fa handleMCMRequest ---
@@ -734,10 +766,14 @@ static json11::Json::object convertToJson(const mcData& mcmData) {
 
 
 
+
 void JSONserver::createJSONFromMCM(MCM_t* decoded_mcm) {
 	std::cout << " [INFO] MCM received, forwarding information via JSON-over-TCP to " << m_mcm_subscribers.size() << " subscribers." << std::endl;
     mcData mcmData = m_mc_service->convertASN1IntoMcData(decoded_mcm);
-    json11::Json::object mcm_json = convertToJson(mcmData);
+
+    json11::Json::object mcm_json = convertMCDataToJson(mcmData);
+    mcm_json["MCVehicleCurrentStateContainer"] = currentStateContainerToJson(decoded_mcm);
+
     std::string strjson = json11::Json(mcm_json).dump();
 
     std::lock_guard<std::mutex> lk(m_mcm_mtx);
