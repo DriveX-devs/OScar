@@ -42,7 +42,7 @@ def main():
                 except json.JSONDecodeError:
                     break
 
-                print("Ricevuto JSON:")
+                print("Received JSON:")
                 print(json.dumps(obj, indent=2, sort_keys=False))
                 print("-" * 60)
 
