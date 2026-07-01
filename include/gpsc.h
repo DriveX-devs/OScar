@@ -164,6 +164,8 @@ class VDPGPSClient {
         double getParserCourseOverGroundUbx();
         double getParserCourseOverGroundNmea();
         double getParserAltitude(); // add getParserAltitude() for UBX and NMEA, if needed
+        double getParserHorizontalAccuracyUbx(); // hAcc from UBX-NAV-PVT, in meters
+        double getParserVerticalAccuracyUbx();  // vAcc from UBX-NAV-PVT, in meters
         double getParserYawRate();
         double getParserLongitudinalAcceleration();
         std::string getParserFixMode();
