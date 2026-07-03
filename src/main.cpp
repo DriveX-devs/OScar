@@ -106,10 +106,20 @@ void clearVisualizerObject(uint64_t id,void *vizObjVoidPtr) {
     }
 }
 
-void updateVisualizer(ldmmap::vehicleData_t vehdata,void *vizObjVoidPtr) {
-	vehicleVisualizer *vizObjPtr = static_cast<vehicleVisualizer *>(vizObjVoidPtr);
+// Context passed to updateVisualizer() when iterating over the LDM contents: it carries the visualizer object
+// pointer and the current station ID, needed to tell the ego vehicle apart from the remote ones on the map
+typedef struct vehVizUpdateContext {
+	vehicleVisualizer *vizObjPtr;
+	uint64_t ego_station_id;
+} vehVizUpdateContext_t;
 
-	vizObjPtr->sendObjectUpdate(std::to_string(vehdata.stationID),vehdata.lat,vehdata.lon,static_cast<int>(vehdata.stationType),vehdata.heading);
+void updateVisualizer(ldmmap::vehicleData_t vehdata,void *vizCtxVoidPtr) {
+	vehVizUpdateContext_t *ctx = static_cast<vehVizUpdateContext_t *>(vizCtxVoidPtr);
+
+	// The ego vehicle (i.e., the vehicle running OScar) is the LDM entry whose station ID matches the ego station ID
+	bool isEgo = (vehdata.stationID == ctx->ego_station_id);
+
+	ctx->vizObjPtr->sendObjectUpdate(std::to_string(vehdata.stationID),vehdata.lat,vehdata.lon,static_cast<int>(vehdata.stationType),vehdata.heading,isEgo);
 }
 
 // Thread function for updating the objects displayed in the web-based vehicle visualizer GUI of OScar
@@ -173,7 +183,8 @@ void *VehVizUpdater_callback(void *arg) {
             db_ptr->updateEgoPosition(vizopts_ptr->ego_station_type);
             ////////////////////////////////////////
 
-			db_ptr->executeOnAllContents(&updateVisualizer, static_cast<void *>(&vehicleVisObj));
+			vehVizUpdateContext_t vehVizCtx = {&vehicleVisObj, static_cast<uint64_t>(db_ptr->getStationID())};
+			db_ptr->executeOnAllContents(&updateVisualizer, static_cast<void *>(&vehVizCtx));
 
 			// --------
 
@@ -757,7 +768,7 @@ int main (int argc, char *argv[]) {
 
     // Parse the command line options with the TCLAP library
     try {
-        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "11.1");
+        TCLAP::CmdLine cmd("OScar: the open ETSI C-ITS implementation", ' ', "11.2");
 
         // TCLAP arguments: short option (can be left empty for long-only options), long option, description, is it mandatory?, default value, type indication (just a string to help the user)
         // All options should be added here in alphabetical order. Long-only options should be added after the sequence of short+long options.

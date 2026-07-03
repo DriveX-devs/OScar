@@ -48,8 +48,10 @@ class vehicleVisualizer
 		// These functions will update the position on the map of the object with unique id "objID" (the vehicle ID can be used here, for instance)
 		// If the object does not exist yet on the map, it will be first added
 		// If no "heading" is specified, VIS_HEADING_INVALID (i.e. no heading available) will be sent to the server
+		// "isEgo" should be set to true only for the ego vehicle (i.e., the vehicle running OScar), so that the web-based
+		// HMI can render it with a dedicated icon; it defaults to false for any remote/detected object
 		int sendObjectUpdate(std::string objID, double lat, double lon, int stationType);
-		int sendObjectUpdate(std::string objID, double lat, double lon, int stationType, double heading);
+		int sendObjectUpdate(std::string objID, double lat, double lon, int stationType, double heading, bool isEgo = false);
 
 		// This function will remove an object from the map, given its unique "objID"
 		int sendObjectClean(std::string objID);
