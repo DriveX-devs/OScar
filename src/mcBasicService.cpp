@@ -22,7 +22,6 @@
 #include <cmath>
 
 #include "asn_SEQUENCE_OF.h"
-#include "err.h"
 
 #define GET_NUM(json,key) (json[key].number_value())
 #define GET_INT(json,key) (json[key].int_value())
