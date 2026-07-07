@@ -158,6 +158,20 @@ double VDPGPSClient::getParserAltitude() {
     return m_serialParserPtr->getAltitude(nullptr,false);
 }
 
+double VDPGPSClient::getParserHorizontalAccuracyUbx() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
+    return m_serialParserPtr->getHorizontalAccuracyUbx(nullptr,false);
+}
+
+double VDPGPSClient::getParserVerticalAccuracyUbx() {
+    if(m_serialParserPtr==nullptr) {
+        throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
+    }
+    return m_serialParserPtr->getVerticalAccuracyUbx(nullptr,false);
+}
+
 double VDPGPSClient::getParserYawRate() {
     if(m_serialParserPtr==nullptr) {
         throw std::runtime_error(std::string(__FUNCTION__) + "() failed. Invalid pointer to a serial parser object.");
@@ -1113,22 +1127,56 @@ VDPGPSClient::getYawRateDbl() {
     } else {
         std::string fixModeUbx = m_serialParserPtr->getFixModeUbx();
         std::string fixModeNmea = m_serialParserPtr->getFixModeNmea();
-        if (fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
+        if(fixModeUbx != "Invalid" && fixModeUbx != "NoFix" && fixModeUbx != "Unknown/Invalid" &&
             fixModeNmea != "NoFix (V)" && fixModeNmea != "NoFix" &&
             fixModeNmea != "Unknown/Invalid (V)" && fixModeNmea != "Unknown/Invalid") {
 
-            if (m_serialParserPtr->getYawRateValidity(false) == true) {
+            if(m_serialParserPtr->getYawRateValidity(false) == true) {
                 return m_serialParserPtr->getYawRate(nullptr, false);
-            }
-            else {
+            } else {
                 return YawRateValue_unavailable;
             }
-        }
-        else {
+        } else {
             return YawRateValue_unavailable;
         }
     }
     return YawRateValue_unavailable;
+}
+
+// This static function maps a vertical position accuracy estimate (in meters - should be already expressed at the 95% confidence level foressen by ETSI)
+// to the closest ETSI AltitudeConfidence enumerated value, as defined in the ETSI CDD. The chosen bucket is the smallest one whose upper bound is greater
+// than or equal to the provided accuracy (i.e., the accuracy is guaranteed to be within the reported confidence bucket)
+static long verticalAccuracyToAltitudeConfidence(double vacc_m) {
+    // Upper bound, in meters,of each AltitudeConfidence enumerated value, in increasing order
+    static const std::pair<double,long> altConfidenceBuckets[] = {
+        {0.01, AltitudeConfidence_alt_000_01},
+        {0.02, AltitudeConfidence_alt_000_02},
+        {0.05, AltitudeConfidence_alt_000_05},
+        {0.10, AltitudeConfidence_alt_000_10},
+        {0.20, AltitudeConfidence_alt_000_20},
+        {0.50, AltitudeConfidence_alt_000_50},
+        {1.00, AltitudeConfidence_alt_001_00},
+        {2.00, AltitudeConfidence_alt_002_00},
+        {5.00, AltitudeConfidence_alt_005_00},
+        {10.00, AltitudeConfidence_alt_010_00},
+        {20.00, AltitudeConfidence_alt_020_00},
+        {50.00, AltitudeConfidence_alt_050_00},
+        {100.00, AltitudeConfidence_alt_100_00},
+        {200.00, AltitudeConfidence_alt_200_00}
+    };
+
+    if(vacc_m < 0) {
+        return AltitudeConfidence_unavailable;
+    }
+
+    for(const auto &bucket : altConfidenceBuckets) {
+        if(vacc_m <= bucket.first) {
+            return bucket.second;
+        }
+    }
+
+    // Return an out of range value if vAcc is larger than the largest defined bucket (200 m)
+    return AltitudeConfidence_outOfRange;
 }
 
 // This function returns the main kinematic data to be inserted into CAM messages in ETSI units
@@ -1289,7 +1337,14 @@ VDPGPSClient::getCAMMandatoryData() {
             if (m_serialParserPtr->getAltitudeValidity(false) == true) {
                 double altitude = m_serialParserPtr->getAltitude(nullptr, false);
                 if (altitude * CENTI >= -100000 && altitude * CENTI <= 800000) {
-                    CAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, AltitudeConfidence_unavailable);
+                    // Derive the ETSI altitudeConfidence from the UBX vertical accuracy estimate (vAcc)
+                    // vAcc is assumed to be a 1-sigma estimate, therefore it is scaled by 2 (~2-sigma) to express it at
+                    // the ETSI 95% confidence level before being mapped to the closest AltitudeConfidence bucket
+                    // Scaling by 2 actually lets us consider the 2DRMS (2-Dimensional Root Mean Square) error, which is a common metric for GNSS accuracy,
+                    // spanning from around 95% to around 98%
+                    double vacc = m_serialParserPtr->getVerticalAccuracyUbx(nullptr, false);
+                    long altConfidence = (vacc > 0) ? verticalAccuracyToAltitudeConfidence(vacc * 2.0) : AltitudeConfidence_unavailable;
+                    CAMdata.altitude = VDPValueConfidence<>(altitude * CENTI, altConfidence);
                 } else {
                     CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
                 }
@@ -1297,9 +1352,36 @@ VDPGPSClient::getCAMMandatoryData() {
                 CAMdata.altitude = VDPValueConfidence<>(AltitudeValue_unavailable, AltitudeConfidence_unavailable);
             }
 
-            CAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
-            CAMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
-            CAMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+            // Derive the ETSI position confidence ellipse from the UBX-NAV-PVT horizontal accuracy estimate (hAcc)
+            // hAcc is a scalar (circular) horizontal accuracy, hence the confidence ellipse degenerates to a circle
+            // (semiMajorConfidence==semiMinorConfidence) and its orientation is left unavailable. hAcc is assumed to be a 1-sigma
+            // estimate, therefore it is scaled by 2 (~2-sigma) to express the semi-axes at the ETSI 95% confidence level
+            // Scaling by 2 actually lets us consider the 2DRMS (2-Dimensional Root Mean Square) error, which is a common metric for GNSS accuracy,
+            // spanning from around 95% to around 98%
+            // SemiAxisLength is expressed in units of 0.01 m
+            if (m_serialParserPtr->getPositionValidity(false) > 0) {
+                double hacc = m_serialParserPtr->getHorizontalAccuracyUbx(nullptr, false);
+                if (hacc > 0) {
+                    long semiAxis = static_cast<long>(hacc * 2.0 * CENTI + 0.5); // 0.01 m units; we add 0.5 to round to the nearest integer instead of truncating
+                    if (semiAxis < 1) {
+                        semiAxis = 1; // 0 is reserved (doNotUse, according to the ETSI CDD)
+                    } else if (semiAxis > 4093) {
+                        semiAxis = SemiAxisLength_outOfRange;
+                    }
+
+                    CAMdata.posConfidenceEllipse.semiMajorConfidence = semiAxis;
+                    CAMdata.posConfidenceEllipse.semiMinorConfidence = semiAxis;
+                    CAMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+                } else {
+                    CAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+                    CAMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+                    CAMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+                }
+            } else {
+                CAMdata.posConfidenceEllipse.semiMajorConfidence = SemiAxisLength_unavailable;
+                CAMdata.posConfidenceEllipse.semiMinorConfidence = SemiAxisLength_unavailable;
+                CAMdata.posConfidenceEllipse.semiMajorOrientation = HeadingValue_unavailable;
+            }
 
             if (m_serialParserPtr->getAccelerationsValidity(false) == true) {
                 double long_acc = m_serialParserPtr->getLongitudinalAcceleration(nullptr, false);

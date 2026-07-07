@@ -355,6 +355,8 @@ CABasicService::checkCamConditions()
       std::string data_lon_nmea = "";
       std::string data_sog_ubx = "";
       std::string data_sog_nmea = "";
+      std::string data_hacc_ubx = "";
+      std::string data_vacc_ubx = "";
 
       // If no initial CAM has been triggered before checkCamConditions() has been called, throw an error
       if(m_prev_heading == -1 || m_prev_speed == -1 || m_prev_pos.first == -DBL_MAX || m_prev_pos.second == -DBL_MAX)
@@ -502,6 +504,11 @@ CABasicService::checkCamConditions()
           data_lon_ubx = " Lon(UBX)=" + std::to_string(pos_ubx.second);
           data_lat_nmea = " Lat(NMEA)=" + std::to_string(pos_nmea.first);
           data_lon_nmea = " Lon(NMEA)=" + std::to_string(pos_nmea.second);
+
+          double hacc_ubx = m_vdp->getParserHorizontalAccuracyUbx();
+          double vacc_ubx = m_vdp->getParserVerticalAccuracyUbx();
+          data_hacc_ubx = " hAcc_m(UBX)=" + std::to_string(hacc_ubx);
+          data_vacc_ubx = " vAcc_m(UBX)=" + std::to_string(vacc_ubx);
       }
 
       // If the position difference with the previous CAM sent is more than 4m, then generate the CAM
@@ -705,6 +712,7 @@ CABasicService::checkCamConditions()
         else {
             parser_log_data = parser_log_data + data_fix + data_cog_ubx + data_cog_nmea
                     + data_lat_ubx + data_lon_ubx + data_lat_nmea + data_lon_nmea
+                    + data_hacc_ubx + data_vacc_ubx
                     + data_sog_ubx + data_sog_nmea + data_accs + data_att + data_longit_acc
                     + data_yaw_rate;
             data = data + parser_log_data + data_gen_time + "\n\n";

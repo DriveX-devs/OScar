@@ -94,6 +94,7 @@ namespace ldmmap {
             void setLoggingGNSSClient(VDPGPSClient *gpsc_ptr) {m_gpsc_ptr=gpsc_ptr;}
             LDMMap_error_t updateEgoPosition(StationType_t stationType); // For vehicles or pedestrians; other station types will raise an error for the time being
             void setStationID(unsigned long fixed_stationid) {m_station_id=fixed_stationid;}
+            StationId_t getStationID() {return m_station_id;}
 
 
 		private:

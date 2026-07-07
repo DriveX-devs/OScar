@@ -147,7 +147,7 @@ vehicleVisualizer::sendMapDraw(double lat, double lon, double minlat, double min
 }
 
 int
-vehicleVisualizer::sendObjectUpdate(std::string objID, double lat, double lon, int stationType, double heading)
+vehicleVisualizer::sendObjectUpdate(std::string objID, double lat, double lon, int stationType, double heading, bool isEgo)
 {
 	if(m_is_connected==false) {
 		std::cerr << "Error: attempted to use a non-connected vehicle visualizer client." << std::endl;
@@ -165,7 +165,8 @@ vehicleVisualizer::sendObjectUpdate(std::string objID, double lat, double lon, i
 	oss.precision(7);
 	oss<<"object,"<<objID<<","<<lat<<","<<lon<<","<<stationType<<",";
 	oss.precision(3);
-	oss<<heading;
+	
+	oss<<heading<<","<<(isEgo?1:0);
 
 	std::string msg_string = oss.str();
 	char *msg_buffer = new char[msg_string.length()+1];

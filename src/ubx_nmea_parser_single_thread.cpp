@@ -185,6 +185,9 @@ UBXNMEAParserSingleThread::clearBuffer() {
 	tmp.lu_sog_cog_nmea = 0;
     tmp.lu_fix_nmea_rmc = 0;
 
+    tmp.hacc_ubx = 0;
+    tmp.vacc_ubx = 0;
+
 	m_outBuffer.store(tmp);
 }
 
@@ -804,6 +807,56 @@ UBXNMEAParserSingleThread::getAltitudeNmea(long *age_us, bool print_timestamp_an
     if (age_us != nullptr) *age_us = local_age_us;
 
     return tmp.alt_nmea;
+}
+
+/** getHorizontalAccuracyUbx() provides the latest horizontal accuracy estimate (hAcc) parsed from UBX-NAV-PVT
+ * The value is returned in meters. As hAcc is provided together with the position solution, its age is computed
+ * with respect to the UBX position last update (lu_pos_ubx)
+ */
+double
+UBXNMEAParserSingleThread::getHorizontalAccuracyUbx(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_pos_ubx;
+
+    if (print_timestamp_and_age == true) std::cout << "[Horizontal accuracy(UBX) timestamp] - " <<  tmp.ts_pos_ubx
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.hacc_ubx;
+}
+
+/** getVerticalAccuracyUbx() provides the latest vertical accuracy estimate (vAcc) parsed from UBX-NAV-PVT
+ * The value is returned in meters. As vAcc is provided together with the position solution, its age is computed
+ * with respect to the UBX position last update (lu_pos_ubx)
+ */
+double
+UBXNMEAParserSingleThread::getVerticalAccuracyUbx(long *age_us, bool print_timestamp_and_age) {
+    if(m_parser_started == false) {
+        std::cerr << "Error: The parser has not been started. Call startUBXNMEAParser() first." << std::endl;
+        return 0;
+    }
+
+    out_t tmp = m_outBuffer.load();
+
+    auto now = time_point_cast<microseconds>(system_clock::now());
+    auto epoch_ts = now.time_since_epoch().count(); // Convert the chrono time_point to microseconds in epoch time
+    long local_age_us = epoch_ts - tmp.lu_pos_ubx;
+
+    if (print_timestamp_and_age == true) std::cout << "[Vertical accuracy(UBX) timestamp] - " <<  tmp.ts_pos_ubx
+                                                   << "Age of information: " << local_age_us << " us"
+                                                   << std::endl << std::endl;
+    if (age_us != nullptr) *age_us = local_age_us;
+
+    return tmp.vacc_ubx;
 }
 
 /** getAccelerations() provides the compensated accelerations (without the gravity acceleration) and
@@ -1776,8 +1829,13 @@ void UBXNMEAParserSingleThread::showDebugAgeInfo() {
 
         std::cout << "Altitude:                " << buf.alt << " [m]" << "\tAge[us]: " << COMPUTE_EPOCH_TS_VALIDITY(buf.lu_alt) << '\n';
         std::cout << "Altitude(UBX):           " << buf.alt_ubx << " [m]" << "\tAge[us]: " << COMPUTE_EPOCH_TS_VALIDITY(buf.lu_alt_ubx) << '\n';
-        std::cout << "Altitude(NMEA):          " << buf.alt_nmea << " [m]" << "\tAge[us]: " << COMPUTE_EPOCH_TS_VALIDITY(buf.lu_alt_nmea) << '\n';
-        line_counter += 3;
+        std::cout << "Altitude(NMEA):          " << buf.alt_nmea << " [m]" << "\tAge[us]: " << COMPUTE_EPOCH_TS_VALIDITY(buf.lu_alt_nmea) << '\n' << '\n';
+        line_counter += 4;
+
+        // Horizontal and vertical accuracy estimates are provided by UBX-NAV-PVT together with the position solution,
+        // therefore the UBX position last update (lu_pos_ubx) is used to report their age
+        std::cout << "Accuracy H-V(UBX):       " << buf.hacc_ubx << " [m]" << " | " << buf.vacc_ubx << " [m]" << "\tAge[us]: " << COMPUTE_EPOCH_TS_VALIDITY(buf.lu_pos_ubx) << '\n' << '\n';
+        line_counter += 2;
 
         // TODO: compute also the age of the fix, to report is as "Unavailable" or "Serial stream error" in case the serial stream stops suddenly
         std::cout << "Fix(NMEA):               " << std::string(buf.fix_nmea) << '\n';
@@ -1859,6 +1917,17 @@ UBXNMEAParserSingleThread::parseNavPvt(std::vector<uint8_t> response) {
     std::reverse(alt.begin(),alt.end());
     out_pvt.alt = static_cast<double>(hexToSigned(alt)) * 0.001; // Convert from mm (UBX unit) to m
     out_pvt.alt_ubx = out_pvt.alt;
+
+    // Extract the horizontal accuracy estimate (byte 40) - 4 bytes (U4, unsigned)
+    // hexToSigned<int64_t> is used so that the full unsigned 32-bit range is represented without being misinterpreted as negative
+    std::vector<uint8_t> hacc(response.begin() + m_UBX_PAYLOAD_OFFSET + 40, response.begin() + m_UBX_PAYLOAD_OFFSET + 44);
+    std::reverse(hacc.begin(),hacc.end());
+    out_pvt.hacc_ubx = static_cast<double>(hexToSigned<int64_t>(hacc)) * 0.001; // Convert from mm (UBX unit) to m
+
+    // Extract the vertical accuracy estimate (byte 44) - 4 bytes (U4, unsigned)
+    std::vector<uint8_t> vacc(response.begin() + m_UBX_PAYLOAD_OFFSET + 44, response.begin() + m_UBX_PAYLOAD_OFFSET + 48);
+    std::reverse(vacc.begin(),vacc.end());
+    out_pvt.vacc_ubx = static_cast<double>(hexToSigned<int64_t>(vacc)) * 0.001; // Convert from mm (UBX unit) to m
 
     // Extract the fix (byte 20-21) - 2 bytes containing the fix mode and fix flags
     uint8_t fix_mode  = response[m_UBX_PAYLOAD_OFFSET + 20];

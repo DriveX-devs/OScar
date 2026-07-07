@@ -61,6 +61,8 @@ class UBXNMEAParserSingleThread {
         double getAltitude(long *age_us, bool print_timestamp_and_age);
         double getAltitudeUbx(long *age_us, bool print_timestamp_and_age);
         double getAltitudeNmea(long *age_us, bool print_timestamp_and_age);
+        double getHorizontalAccuracyUbx(long *age_us, bool print_timestamp_and_age); // hAcc from UBX-NAV-PVT, in meters
+        double getVerticalAccuracyUbx(long *age_us, bool print_timestamp_and_age);   // vAcc from UBX-NAV-PVT, in meters
         double getYawRate(long *age_us, bool print_timestamp_and_age);
         double getLongitudinalAcceleration(long *age_us, bool print_timestamp_and_age);
         std::string getFixMode();
@@ -132,6 +134,7 @@ class UBXNMEAParserSingleThread {
             double lat, lon, alt,
                     lat_ubx, lon_ubx, alt_ubx,
                     lat_nmea, lon_nmea, alt_nmea;           // Latitude, longitude and altitude above sea level
+            double hacc_ubx, vacc_ubx;                      // Horizontal and vertical accuracy estimates, from UBX-NAV-PVT
             double raw_acc_x, raw_acc_y, raw_acc_z,         // Raw and compensated accelerations
                    comp_acc_x, comp_acc_y, comp_acc_z,
                    comp_ang_rate_x,                         // Compensated angular rates

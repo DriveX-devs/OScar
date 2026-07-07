@@ -23,6 +23,7 @@ const GREEN_CIRCLE_ICO_IDX = 2;
 const DETECTED_CAR_ICO_IDX = 3;
 const DETECTED_PEDESTRIAN_ICO_IDX = 4;
 const DETECTED_TRUCK_ICO_IDX = 5;
+const EGO_CAR_ICO_IDX = 6;
 
 // Start socket.io()
 const socket = io();
@@ -53,6 +54,15 @@ var icon_height_car = 300;
 var icon_scale_factor = 10;
 var carIcon = L.icon({
     iconUrl: './img/car1.png',
+
+    iconSize:     [icon_length_car/icon_scale_factor, icon_height_car/icon_scale_factor*1.4], // size of the icon
+    iconAnchor:   [icon_length_car/(icon_scale_factor*2), icon_height_car/(icon_scale_factor*2)], // point of the icon which will correspond to marker's location
+	popupAnchor:  [0, 0] // point from which the popup should open relative to the iconAnchor
+});
+
+// Icon used for the ego vehicle (i.e., the vehicle running OScar), to distinguish it from the remote vehicles
+var egoCarIcon = L.icon({
+    iconUrl: './img/ego-car.png',
 
     iconSize:     [icon_length_car/icon_scale_factor, icon_height_car/icon_scale_factor*1.4], // size of the icon
     iconAnchor:   [icon_length_car/(icon_scale_factor*2), icon_height_car/(icon_scale_factor*2)], // point of the icon which will correspond to marker's location
@@ -158,12 +168,13 @@ socket.on('message', (msg) => {
 					}
 				}
 				break;
-			// "object update"/vehicle update message: "object,<unique object ID>,<lat>,<lon>,<stationtype>,<heading>"
+			// "object update"/vehicle update message: "object,<unique object ID>,<lat>,<lon>,<stationtype>,<heading>,<isEgo>"
+			// <isEgo> is "1" for the ego vehicle (i.e., the one actually running OScar) and "0" for any remote/detected vehicle
 			case 'object':
-				if(msg_fields.length !== 6) {
+				if(msg_fields.length !== 7) {
 					console.error("VehicleVisualizer: Error: received a corrupted object update message from the server.");
 				} else {
-					update_marker(leafletmap,msg_fields[1],parseFloat(msg_fields[2]),parseFloat(msg_fields[3]),parseInt(msg_fields[4]),parseFloat(msg_fields[5]));
+					update_marker(leafletmap,msg_fields[1],parseFloat(msg_fields[2]),parseFloat(msg_fields[3]),parseInt(msg_fields[4]),parseFloat(msg_fields[5]),parseInt(msg_fields[6]) === 1);
 				}
 				break;
 			// "object clean"/vehicle removal message: "objclean,<unique object ID>"
@@ -192,7 +203,7 @@ socket.on('message', (msg) => {
 });
 
 // This function is used to update the position (and heading/rotation) of a marker/moving object on the map
-function update_marker(mapref,id,lat,lon,stationtype,heading)
+function update_marker(mapref,id,lat,lon,stationtype,heading,isEgo)
 {
 	console.log("Station type:",stationtype)
 	if(mapref == null) {
@@ -221,8 +232,14 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
                         initial_icon = detectedTruckIcon;
                         initial_icon_idx = DETECTED_TRUCK_ICO_IDX;
                     } else { // Anything else is threated like a car, for the time being
-                        initial_icon = carIcon;
-                        initial_icon_idx = CAR_ICO_IDX;
+                        // The ego vehicle (i.e., the one running OScar) uses a dedicated car icon to be told apart from remote vehicles
+                        if(isEgo) {
+                            initial_icon = egoCarIcon;
+                            initial_icon_idx = EGO_CAR_ICO_IDX;
+                        } else {
+                            initial_icon = carIcon;
+                            initial_icon_idx = CAR_ICO_IDX;
+                        }
                     }}
 				}
 			}
@@ -260,7 +277,7 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
             //marker.setRotationAngle(heading);
 			// Update the popup content if the heading value becomes invalid/unavailable after being available
 			// or if the heading value if actually available (to specify the most up-to-date heading value)
-			if(heading >= VIS_HEADING_INVALID && markersicons[id] === CAR_ICO_IDX) {
+			if(heading >= VIS_HEADING_INVALID && (markersicons[id] === CAR_ICO_IDX || markersicons[id] === EGO_CAR_ICO_IDX)) {
 				marker.setPopupContent("ID: "+id+" - Heading: unavailable");
 			} else if(heading < VIS_HEADING_INVALID) {
 				marker.setPopupContent("ID: "+id+" - Heading: "+heading+" deg");
@@ -268,11 +285,12 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
 
 			if(stationtype !== 0) {
 				// If the heading becomes unavailable or invalid (but it was not before), change the icon of the vehicle to a circle
-				if(heading >= VIS_HEADING_INVALID && (markersicons[id] === CAR_ICO_IDX || markersicons[id] === GREEN_CIRCLE_ICO_IDX)) {
+				// This applies both to the remote vehicles (CAR_ICO_IDX) and to the ego vehicle (EGO_CAR_ICO_IDX)
+				if(heading >= VIS_HEADING_INVALID && (markersicons[id] === CAR_ICO_IDX || markersicons[id] === EGO_CAR_ICO_IDX || markersicons[id] === GREEN_CIRCLE_ICO_IDX)) {
 					marker.setIcon(circleIcon);
 					markersicons[id] = CIRCLE_ICO_IDX;
                 } else {
-                    // If the heading becomes available after being unavailable, change the icon of the vehicle to the "car" icon
+                    // If the heading becomes available after being unavailable, change the icon of the vehicle back to the proper icon
                     if(heading < VIS_HEADING_INVALID && (markersicons[id] === CIRCLE_ICO_IDX || markersicons[id] === GREEN_CIRCLE_ICO_IDX)) {
                        if(stationtype === 1) {
                            marker.setIcon(detectedPedestrianIcon);
@@ -281,8 +299,14 @@ function update_marker(mapref,id,lat,lon,stationtype,heading)
                             marker.setIcon(detectedTruckIcon);
                             markersicons[id] = DETECTED_TRUCK_ICO_IDX;
                         } else {
-                           marker.setIcon(carIcon);
-                           markersicons[id] = CAR_ICO_IDX;
+                           // The ego vehicle is restored to its dedicated icon, the remote vehicles to the regular car icon
+                           if(isEgo) {
+                               marker.setIcon(egoCarIcon);
+                               markersicons[id] = EGO_CAR_ICO_IDX;
+                           } else {
+                               marker.setIcon(carIcon);
+                               markersicons[id] = CAR_ICO_IDX;
+                           }
                        }
                     }
                 }
