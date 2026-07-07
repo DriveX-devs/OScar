@@ -5,19 +5,19 @@
 </div>
 <br>
 
-Maintainers and Contects:
+Maintainers and contacts:
 - Francesco RAVIGLIONE [francescorav.es483@gmail.com]
 - Carlos Mateo RISMA CARLETTI [carlosrisma@gmail.com]
-- Diego GASCO [diego.gasco99@gmail.com, diego.gasco@polito.it]
-- Giuseppe Perrone [giuseppe.perrone@polito.it]
+- Diego GASCO [diego.gasco99@gmail.com]
+- Giuseppe PERRONE [giuseppe.perrone@polito.it]
 - Marco RAPELLI [rapelli.m@libero.it]
-- Stefano ALLUCI [supersteca@gmail.com, stefanoalluci00@gmail.com]
+- Stefano ALLUCI [supersteca@gmail.com]
 - Claudio CASETTI [claudio.casetti@polito.it]
 
-Other Contributors
+Other contributors:
 - Alessandro GENOVESE [alessandro.genovese@icloud.com]
-- Alessandro GIACCAGLINI
-- Mauro VITTORIO
+- Alessandro GIACCAGLINI [alessandro.giaccaglini@gmail.com]
+- Mauro VITTORIO [mauro.vittorioo@gmail.com]
 
 
 ## License
@@ -45,6 +45,8 @@ where permitted by law.
 * M. Rapelli, F. Raviglione and C. Casetti,
 *"OScar: An ETSI-Compliant C-ITS Stack for Field-Testing with Embedded Hardware Devices"* in
 2024 22nd Mediterranean Communication and Computer Networking Conference (MedComNet), June 2024. DOI: 10.1109/MedComNet62012.2024.10578207 [URL](https://ieeexplore.ieee.org/document/10578207) [BibTeX](cite.bib)
+
+
 
 ## Overview
 
@@ -254,6 +256,12 @@ When running as a service, the output of OScar is not directly available, but it
 ```
 logread
 ```
+
+## Sending and receiving DENMs and MCMs
+
+This part, which has been recently introduced in OScar, will be included soon in the README. Stay tuned!
+
+In the meantime, if you have any doubt, feel free to contact us!
 
 ## Used libraries
 
