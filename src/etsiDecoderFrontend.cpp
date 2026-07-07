@@ -154,7 +154,19 @@ namespace etsiDecoder {
                     delete[] gndataIndication.data;
                     return ETSI_DECODER_ERROR;
                 }
-            } else {
+            } else if (btpDataIndication.destPort == MC_PORT)
+			{
+				decoded_data.type = ETSI_DECODED_MCM;
+
+                decode_result = asn_decode(0, ATS_UNALIGNED_BASIC_PER, &asn_DEF_MCM, &decoded_, btpDataIndication.data, btpDataIndication.lenght);
+
+                if(decode_result.code!=RC_OK || decoded_==nullptr) {
+                    std::cerr << "[WARN] [Decoder] Warning: unable to decode a received MCM." << std::endl;
+                    if(decoded_) free(decoded_);
+                    delete[] gndataIndication.data;
+                    return ETSI_DECODER_ERROR;
+                }
+			} else {
 					decoded_data.type = ETSI_DECODED_ERROR;
                     delete[] gndataIndication.data;
 					return ETSI_DECODER_ERROR;
@@ -211,7 +223,18 @@ namespace etsiDecoder {
                         if(decoded_) free(decoded_);
                         return ETSI_DECODER_ERROR;
                     }
-                }else {
+                } else if(messageID == MCM)
+				{
+					decoded_data.type = ETSI_DECODED_MCM_NOGN;
+
+                    decode_result = asn_decode(0, ATS_UNALIGNED_BASIC_PER, &asn_DEF_MCM, &decoded_, buffer, buflen);
+
+                    if(decode_result.code!=RC_OK || decoded_==nullptr) {
+                        std::cerr << "[WARN] [Decoder] Warning: unable to decode a received MCM (no BTP/GN)." << std::endl;
+                        if(decoded_) free(decoded_);
+                        return ETSI_DECODER_ERROR;
+                    }
+				} else {
 					std::cerr << "[WARN] [Decoder] Unable to decode a reveived message with unknown/unsupported messageID: " << messageID << std::endl;
 					std::cerr << "[ERROR] [Decoder] Error: this point in the code should never be reached. Please report this bug to the developers. Thank you!" << std::endl;
 					decoded_data.type = ETSI_DECODED_ERROR;

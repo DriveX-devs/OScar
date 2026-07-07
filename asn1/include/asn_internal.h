@@ -5,19 +5,19 @@
 /*
  * Declarations internally useful for the ASN.1 support code.
  */
-#ifndef	ASN_INTERNAL_H
-#define	ASN_INTERNAL_H
+#ifndef ASN_INTERNAL_H
+#define ASN_INTERNAL_H
 #ifndef __EXTENSIONS__
 #define __EXTENSIONS__          /* for Sun */
 #endif
 
-#include "asn_application.h"	/* Application-visible API */
+#include "asn_application.h"    /* Application-visible API */
 
-#ifndef	__NO_ASSERT_H__		/* Include assert.h only for internal use. */
-#include "assert.h"		/* for assert() macro */
+#ifndef __NO_ASSERT_H__         /* Include assert.h only for internal use. */
+#include "assert.h"             /* for assert() macro */
 #endif
 
-#ifdef	__cplusplus
+#ifdef  __cplusplus
 extern "C" {
 #endif
 
@@ -31,20 +31,20 @@ extern "C" {
 #endif  /* !defined(ASN_DISABLE_APER_SUPPORT) */
 
 /* Environment version might be used to avoid running with the old library */
-#define	ASN1C_ENVIRONMENT_VERSION	923	/* Compile-time version */
-int get_asn1c_environment_version(void);	/* Run-time version */
+#define ASN1C_ENVIRONMENT_VERSION       923     /* Compile-time version */
+int get_asn1c_environment_version(void);        /* Run-time version */
 
-#define	CALLOC(nmemb, size)	calloc(nmemb, size)
-#define	MALLOC(size)		malloc(size)
-#define	REALLOC(oldptr, size)	realloc(oldptr, size)
-#define	FREEMEM(ptr)		free(ptr)
+#define CALLOC(nmemb, size)     calloc(nmemb, size)
+#define MALLOC(size)            malloc(size)
+#define REALLOC(oldptr, size)   realloc(oldptr, size)
+#define FREEMEM(ptr)            free(ptr)
 
 #define asn_debug_indent    0
 #define ASN_DEBUG_INDENT_ADD(i) do{}while(0)
 
 // Uncomment this line (i.e., set ASN_EMIT_DEBUG to 1) to enable ASN.1 debugging
-//#define ASN_EMIT_DEBUG 1
-//#define ASN_THREAD_SAFE 0
+// #define ASN_EMIT_DEBUG 1
+// #define ASN_THREAD_SAFE 0
 
 #ifdef  EMIT_ASN_DEBUG
 #warning "Use ASN_EMIT_DEBUG instead of EMIT_ASN_DEBUG"
@@ -55,37 +55,37 @@ int get_asn1c_environment_version(void);	/* Run-time version */
  * A macro for debugging the ASN.1 internals.
  * You may enable or override it.
  */
-#ifndef	ASN_DEBUG	/* If debugging code is not defined elsewhere... */
-#if	ASN_EMIT_DEBUG == 1	/* And it was asked to emit this code... */
+#ifndef ASN_DEBUG       /* If debugging code is not defined elsewhere... */
+#if     ASN_EMIT_DEBUG == 1     /* And it was asked to emit this code... */
 #if __STDC_VERSION__ >= 199901L
-#ifdef	ASN_THREAD_SAFE
+#ifdef  ASN_THREAD_SAFE
 /* Thread safety requires sacrifice in output indentation:
  * Retain empty definition of ASN_DEBUG_INDENT_ADD. */
-#else	/* !ASN_THREAD_SAFE */
+#else   /* !ASN_THREAD_SAFE */
 #undef  ASN_DEBUG_INDENT_ADD
 #undef  asn_debug_indent
 extern int asn_debug_indent;
 #define ASN_DEBUG_INDENT_ADD(i) do { asn_debug_indent += i; } while(0)
-#endif	/* ASN_THREAD_SAFE */
-#define	ASN_DEBUG(fmt, args...)	do {			\
-		int adi = asn_debug_indent;		\
-		while(adi--) fprintf(stderr, " ");	\
-		fprintf(stderr, fmt, ##args);		\
-		fprintf(stderr, " (%s:%d)\n",		\
-			__FILE__, __LINE__);		\
-	} while(0)
-#else	/* !C99 */
+#endif  /* ASN_THREAD_SAFE */
+#define ASN_DEBUG(fmt, args...) do {                    \
+                int adi = asn_debug_indent;             \
+                while(adi--) fprintf(stderr, " ");      \
+                fprintf(stderr, fmt, ##args);           \
+                fprintf(stderr, " (%s:%d)\n",           \
+                        __FILE__, __LINE__);            \
+        } while(0)
+#else   /* !C99 */
 void CC_PRINTFLIKE(1, 2) ASN_DEBUG_f(const char *fmt, ...);
-#define	ASN_DEBUG	ASN_DEBUG_f
-#endif	/* C99 */
-#else	/* ASN_EMIT_DEBUG != 1 */
+#define ASN_DEBUG       ASN_DEBUG_f
+#endif  /* C99 */
+#else   /* ASN_EMIT_DEBUG != 1 */
 #if __STDC_VERSION__ >= 199901L
 #define ASN_DEBUG(...) do{}while(0)
 #else   /* not C99 */
 static void CC_PRINTFLIKE(1, 2) ASN_DEBUG(const char *fmt, ...) { (void)fmt; }
 #endif  /* C99 or better */
-#endif	/* ASN_EMIT_DEBUG */
-#endif	/* ASN_DEBUG */
+#endif  /* ASN_EMIT_DEBUG */
+#endif  /* ASN_DEBUG */
 
 /*
  * Print to a callback.
@@ -128,7 +128,7 @@ asn__format_to_callback(
         for(tmp_i = 0; tmp_i < tmp_level; tmp_i++) ASN__CALLBACK("    ", 4); \
     } while(0)
 
-#define	_i_INDENT(nl)	do {                        \
+#define _i_INDENT(nl)   do {                        \
         int tmp_i;                                  \
         if((nl) && cb("\n", 1, app_key) < 0)        \
             return -1;                              \
@@ -149,14 +149,14 @@ asn__format_to_callback(
 * Clang: https://clang.llvm.org/docs/AddressSanitizer.html#conditional-compilation-with-has-feature-address-sanitizer
 */
 #if defined(__SANITIZE_ADDRESS__)
-	#define ASN__SANITIZE_ENABLED 1
+        #define ASN__SANITIZE_ENABLED 1
 #elif defined(__has_feature)
 #if __has_feature(address_sanitizer)
-	#define ASN__SANITIZE_ENABLED 1
+        #define ASN__SANITIZE_ENABLED 1
 #endif
 #endif
 
-#define	ASN__DEFAULT_STACK_MAX	(30000)
+#define ASN__DEFAULT_STACK_MAX  (30000)
 
 #if defined(ASN__SANITIZE_ENABLED) || defined(ASN_DISABLE_STACK_OVERFLOW_CHECK)
 static int CC_NOTUSED
@@ -167,25 +167,25 @@ ASN__STACK_OVERFLOW_CHECK(const asn_codec_ctx_t *ctx) {
 #else
 static int CC_NOTUSED
 ASN__STACK_OVERFLOW_CHECK(const asn_codec_ctx_t *ctx) {
-	if(ctx && ctx->max_stack_size) {
+        if(ctx && ctx->max_stack_size) {
 
-		/* ctx MUST be allocated on the stack */
-		ptrdiff_t usedstack = ((const char *)ctx - (const char *)&ctx);
-		if(usedstack > 0) usedstack = -usedstack; /* grows up! */
+                /* ctx MUST be allocated on the stack */
+                ptrdiff_t usedstack = ((const char *)ctx - (const char *)&ctx);
+                if(usedstack > 0) usedstack = -usedstack; /* grows up! */
 
-		/* double negative required to avoid int wrap-around */
-		if(usedstack < -(ptrdiff_t)ctx->max_stack_size) {
-			ASN_DEBUG("Stack limit %ld reached",
-				(long)ctx->max_stack_size);
-			return -1;
-		}
-	}
-	return 0;
+                /* double negative required to avoid int wrap-around */
+                if(usedstack < -(ptrdiff_t)ctx->max_stack_size) {
+                        ASN_DEBUG("Stack limit %ld reached",
+                                (long)ctx->max_stack_size);
+                        return -1;
+                }
+        }
+        return 0;
 }
 #endif
 
-#ifdef	__cplusplus
+#ifdef  __cplusplus
 }
 #endif
 
-#endif	/* ASN_INTERNAL_H */
+#endif  /* ASN_INTERNAL_H */

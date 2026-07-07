@@ -26,6 +26,9 @@ void MetricSupervisor::signalSentPacket(MessageId_t messageId) {
         case MessageId_vam:
             m_tx_VAMs++;
             break;
+        case MessageId_mcm:
+            m_tx_MCMs ++;
+            break;
         default:
             m_tx_others++;
             break;
@@ -45,6 +48,9 @@ void MetricSupervisor::signalReceivedPacket(MessageId_t messageId) {
             break;
         case MessageId_vam:
             m_rx_VAMs++;
+            break;
+        case MessageId_mcm:
+            m_rx_MCMs ++;
             break;
         default:
             m_rx_others++;

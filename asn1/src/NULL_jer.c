@@ -4,11 +4,12 @@
  * Redistribution and modifications are permitted subject to BSD license.
  */
 #include "asn_internal.h"
+#include "jer_support.h"
 #include "asn_codecs_prim.h"
 #include "NULL.h"
 
 asn_enc_rval_t
-NULL_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr, int ilevel,
+NULL_encode_jer(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr, int ilevel,
                 enum jer_encoder_flags_e flags, asn_app_consume_bytes_f *cb,
                 void *app_key) {
     asn_enc_rval_t er = {0,0,0};
@@ -44,7 +45,7 @@ NULL__jer_body_decode(const asn_TYPE_descriptor_t *td, void *sptr,
 
 asn_dec_rval_t
 NULL_decode_jer(const asn_codec_ctx_t *opt_codec_ctx,
-                const asn_TYPE_descriptor_t *td, void **sptr,
+                const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, void **sptr,
                 const void *buf_ptr, size_t size) {
     return jer_decode_primitive(opt_codec_ctx, td,
         sptr, sizeof(NULL_t), buf_ptr, size,

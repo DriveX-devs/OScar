@@ -62,3 +62,5 @@ GN_log_TX.csv
 Biella_1_tunnel.json
 log_da_POLITO_a_Sfinge.json
 static.json
+
+.cache/*

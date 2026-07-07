@@ -12,6 +12,7 @@
 #include "LDMmap.h"
 #include "utils.h"
 #include "MetricSupervisor.h"
+#include "JSONserver.h"
 
 #include "gpsc.h"
 
@@ -48,6 +49,8 @@ class SocketClient {
 
 		std::string m_client_id;
 
+		JSONserver* m_json_server;
+
         std::map<uint64_t, std::map<uint64_t,uint64_t>> m_recvCPMmap;  //! Structure mapping, for each CV that we have received a CPM from, the CPM's PO ids with the ego LDM's PO ids
 
 
@@ -75,6 +78,7 @@ class SocketClient {
 		// std::atomic<bool> m_terminate_routeros_rssi_flag;
 
 		bool denm_decoding_enabled;
+		bool mcm_decoding_enabled;
 
 		VDPGPSClient *m_gpsc_ptr;
 
@@ -87,8 +91,10 @@ class SocketClient {
         // Metric Supervisor pointer
         MetricSupervisor *m_met_sup_ptr = nullptr;
 
+
+
 	public:
-		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn);
+		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn, JSONserver* json_server=nullptr);
 		
 		~SocketClient() = default;
 
@@ -103,8 +109,13 @@ class SocketClient {
 		void enableDENMdecoding() {denm_decoding_enabled=true;}
 		void disableDENMdecoding() {denm_decoding_enabled=false;}
 
+		void enableMCMdecoding() {mcm_decoding_enabled=true;}
+		void disableMCMdecoding() {mcm_decoding_enabled=false;}
+
 		void startReception(void);
 		void stopReception(void);
+
+		void setJSONServer (JSONserver* json_server) {m_json_server = json_server;};
 
 		void setLoggingGNSSClient(VDPGPSClient *gpsc_ptr) {m_gpsc_ptr=gpsc_ptr;}
 

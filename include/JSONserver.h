@@ -5,10 +5,30 @@
 #include <atomic>
 #include "json11.h"
 #include "denBasicService.h"
+#include "mcBasicService.h"
 #include "LDMmap.h" 
 
+#include <set>
+#include <mutex>
+
 class JSONserver {
+
 	public:
+		enum Container {
+			NotPresent,
+			VehicleManeuverContainer,
+			ManeuverAdviseContainer,
+			AcknowledgmentContainer,
+			ResponseContainer,
+			TerminationContainer,
+		};
+		struct ContainerMapping {
+			std::string name;
+			JSONserver::Container type;
+		};
+		static std::vector<ContainerMapping> m_containers_mapping;
+		static std::vector<std::string> m_basic_fields;
+
 		JSONserver(ldmmap::LDMMap *db_ptr, DENBasicService *den_service) :
 			m_range_m(m_range_m_default), m_db_ptr(db_ptr), m_den_service(den_service) {m_port=49000; m_thread_running=false;};
 
@@ -39,8 +59,15 @@ class JSONserver {
 
 		void setDENService(DENBasicService *debns_ptr) {m_den_service = debns_ptr;}
 
-		json11::Json::object handleRequest(const json11::Json &request);
+		void setMCService(MCBasicService *mcbs_ptr) {m_mc_service = mcbs_ptr;}
+
+		json11::Json::object handleRequest(const json11::Json &request, int client_fd);
 		json11::Json::object handleDENMRequest(const json11::Json &request);
+		json11::Json::object handleMCMRequest(const json11::Json &request);
+		json11::Json::object handleMCMConnection(int client_fd);
+		json11::Json::object handleMCMDisconnection(int client_fd);
+		void createJSONFromMCM(MCM_t* decoded_mcm);
+
 	private:
 		json11::Json::object make_vehicle_standard(uint64_t stationID, 
 			double lat, 
@@ -63,6 +90,7 @@ class JSONserver {
 		double m_range_m;
 		ldmmap::LDMMap *m_db_ptr;
 		DENBasicService *m_den_service;
+		MCBasicService *m_mc_service=nullptr;
 		long m_port;
 		std::atomic<bool> m_thread_running;
 
@@ -70,6 +98,9 @@ class JSONserver {
 
 		int m_sockd = -1;
 		pthread_t m_tid = -1;
+
+		std::set<int> m_mcm_subscribers;
+		std::mutex   m_mcm_mtx;
 };
 
 #endif // AIM_JSONSERVER_H

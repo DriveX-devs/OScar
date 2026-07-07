@@ -31,12 +31,14 @@ class MetricSupervisor {
         // Statistics
         std::atomic<uint64_t> m_tx_CAMs=0;
         std::atomic<uint64_t> m_tx_VAMs=0;
+        std::atomic<uint64_t> m_tx_MCMs=0;
         std::atomic<uint64_t> m_tx_CPMs=0;
         std::atomic<uint64_t> m_tx_others=0;
         std::atomic<uint64_t> m_tx_total=0;
 
         std::atomic<uint64_t> m_rx_CAMs=0;
         std::atomic<uint64_t> m_rx_VAMs=0;
+        std::atomic<uint64_t> m_rx_MCMs=0;
         std::atomic<uint64_t> m_rx_CPMs=0;
         std::atomic<uint64_t> m_rx_others=0;
         std::atomic<uint64_t> m_rx_total=0;

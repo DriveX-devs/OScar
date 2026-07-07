@@ -11,6 +11,7 @@ extern "C" {
     #include "CAM.h"
     #include "DENM.h"
     #include "VAM.h"
+	#include "MCM.h"
     #include "CollectivePerceptionMessage.h"
 }
 
@@ -25,7 +26,8 @@ extern "C" {
 	MSGTYPE(DENM,=1) \
 	MSGTYPE(CAM,=2)  \
     MSGTYPE(CPM,=14) \
-	MSGTYPE(VAM,=16)
+	MSGTYPE(VAM,=16) \
+	MSGTYPE(MCM,=20)
 
 NAMED_ENUM_DECLARE(etsi_message_t,MSGTYPES);
 
@@ -38,11 +40,13 @@ namespace etsiDecoder {
 		ETSI_DECODED_IVIM,
 		ETSI_DECODED_CPM,
 		ETSI_DECODED_VAM,
+		ETSI_DECODED_MCM,
 		ETSI_DECODED_CAM_NOGN,
 		ETSI_DECODED_DENM_NOGN,
 		ETSI_DECODED_IVIM_NOGN,
 		ETSI_DECODED_CPM_NOGN,
-		ETSI_DECODED_VAM_NOGN
+		ETSI_DECODED_VAM_NOGN,
+		ETSI_DECODED_MCM_NOGN,
 	} etsiDecodedType_e;
 
 	typedef struct etsiDecodedData {

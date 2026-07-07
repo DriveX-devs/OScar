@@ -95,7 +95,6 @@ CPBasicService::setStationProperties(unsigned long fixed_stationid,long fixed_st
 {
     m_station_id=fixed_stationid;
     m_stationtype=fixed_stationtype;
-    m_btp->setStationProperties(fixed_stationid,fixed_stationtype);
 }
 
 

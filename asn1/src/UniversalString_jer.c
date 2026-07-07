@@ -8,7 +8,7 @@
 #include "UTF8String.h"
 
 asn_enc_rval_t
-UniversalString_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr,
+UniversalString_encode_jer(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr,
                            int ilevel, enum jer_encoder_flags_e flags,
                            asn_app_consume_bytes_f *cb, void *app_key) {
     const UniversalString_t *st = (const UniversalString_t *)sptr;

@@ -1,0 +1,12 @@
+{
+  "request_type": "MCM_trigger",
+  "MCMCost": 1,
+  "MCMType": 3,
+  "MCMManeuverID": 45,
+  "MCMITSRole": 1,
+  "MCMStationType": 3,
+  "MCMStationID": 1,
+  "MCAcknowledgmentContainer": {
+    "MCAcknowledgmentType": 1
+  }
+}

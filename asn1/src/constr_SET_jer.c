@@ -7,7 +7,7 @@
 #include "constr_SET.h"
 
 asn_enc_rval_t
-SET_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr, int ilevel,
+SET_encode_jer(const asn_TYPE_descriptor_t *td, const struct asn_jer_constraints_s *constraints, const void *sptr, int ilevel,
                enum jer_encoder_flags_e flags, asn_app_consume_bytes_f *cb,
                void *app_key) {
     const asn_SET_specifics_t *specs = (const asn_SET_specifics_t *)td->specifics;
@@ -53,7 +53,7 @@ SET_encode_jer(const asn_TYPE_descriptor_t *td, const void *sptr, int ilevel,
         ASN__CALLBACK3("\"", 1, mname, mlen, "\"", 1);
 
         /* Print the member itself */
-        tmper = elm->type->op->jer_encoder(elm->type, memb_ptr,
+        tmper = elm->type->op->jer_encoder(elm->type, constraints, memb_ptr,
                                            ilevel + 1, flags,
                                            cb, app_key);
         if(tmper.encoded == -1) return tmper;

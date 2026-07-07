@@ -231,7 +231,7 @@ private:
     btp *m_btp; // The BTP object has a reference to a GeoNetworking object, which in turn has the right socket descriptor to enable the transmission of DENMs
     bool CheckMainAttributes(void);
 
-    DENBasicService_error_t fillDENM(asn1cpp::Seq<DENM>&denm, denData&data, const denData::DEN_ActionID_t actionID, long referenceTimeLong);
+    DENBasicService_error_t fillDENM(asn1cpp::Seq<DENM_t>&denm, denData&data, const denData::DEN_ActionID_t actionID, long referenceTimeLong);
 
     template < typename MEM_PTR > void
     setDENTimer(DENTimer & timer, uint64_t delay_ms, MEM_PTR callback_fcn, denData::DEN_ActionID_t actionID);

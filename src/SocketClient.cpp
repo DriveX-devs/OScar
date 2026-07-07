@@ -52,7 +52,7 @@ inline bool compare_mac(uint8_t mac_a[6],uint8_t mac_b[6]) {
 		mac_a[5]==mac_b[5]);
 }
 
-SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn)
+SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn, JSONserver* json_server)
 {
 	m_raw_rx_sock = raw_rx_sock;
 	m_opts_ptr = opts_ptr;
@@ -72,7 +72,9 @@ SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::L
 	m_self_mac_set=false;
 	memset(m_self_mac,0,6);
 	denm_decoding_enabled=false;
+	mcm_decoding_enabled=false;
 	m_gpsc_ptr=nullptr;
+	m_json_server = json_server;
 	// m_routeros_rssi={};
 	// m_terminate_routeros_rssi_flag=false;
 }
@@ -339,8 +341,6 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		vehdata.speed_ms = decoded_cam->cam.camParameters.highFrequencyContainer.choice.basicVehicleContainerHighFrequency.speed.speedValue/100.0;
 		vehdata.camTimestamp = static_cast<long>(decoded_cam->cam.generationDeltaTime);
 		vehdata.stationType = static_cast<ldmmap::e_StationTypeLDM>(decoded_cam->cam.camParameters.basicContainer.stationType);
-
-        vehdata.stationType = ldmmap::StationType_LDM_passengerCar;
         vehdata.detected = false;
 
 		vehdata.gnTimestamp = gn_timestamp;
@@ -831,8 +831,66 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
                 }
             }
         }
-    } else {
-		std::cerr << "[WARN] Warning! Only CAM, CPM and VAM messages (and, optionally, DENMs) are supported for the time being!" << std::endl;
+    } else if(mcm_decoding_enabled==true && (decodedData.type == etsiDecoder::ETSI_DECODED_MCM || decodedData.type == etsiDecoder::ETSI_DECODED_MCM_NOGN)) {
+		MCM_t *decoded_mcm = (MCM_t *) decodedData.decoded_msg;
+
+		if(decoded_mcm == nullptr) {
+			return;
+		}
+
+		// Signal to the Metric Supervisor that a MCM has been received
+		if(m_met_sup_ptr != nullptr) {
+			m_met_sup_ptr->signalReceivedPacket(MessageId_mcm);
+		}
+
+		// Get the stationID from the MCM header
+		long stationID = decoded_mcm->header.stationId;
+
+		// Get the originator position (basicContainer carries the position of the transmitter,
+		// not of an event as in DENM)
+		double origin_latitude  = decoded_mcm->payload.basicContainer.position.latitude  / 1e7;
+		double origin_longitude = decoded_mcm->payload.basicContainer.position.longitude / 1e7;
+
+		// Get the GN timestamp
+		uint32_t gn_ts = decodedData.gnTimestamp;
+
+		// Get the MAC address of the sending ITS-S (last 6 Bytes of the GN Address)
+		uint8_t sender_mac[6];
+		memcpy(sender_mac, &(decodedData.GNaddress[0]) + 2, 6);
+
+		// Retrieve the RSSI for the sender's MAC via nl80211
+		double rssi = RSSI_UNAVAILABLE;
+		if(m_nl_sock_info.sock_valid == true) {
+			rssi = get_rssi_from_netlink(sender_mac, m_nl_sock_info);
+		}
+
+		if(m_logfile_name != "") {
+			fprintf(m_logfile_file,
+				"[MCM] Current_timestamp=%" PRIu64 " StationID=%ld RSSI_dbm=%.1lf"
+				" GN_ts=%" PRIu32 " Origin_lat=%.7lf Origin_lon=%.7lf"
+				" Sender_MAC=%02X:%02X:%02X:%02X:%02X:%02X\n",
+				get_timestamp_us(), stationID, rssi, gn_ts,
+				origin_latitude, origin_longitude,
+				sender_mac[0], sender_mac[1], sender_mac[2],
+				sender_mac[3], sender_mac[4], sender_mac[5]);
+			fflush(m_logfile_file);
+		} else {
+			printf("[MCM] Current_timestamp=%" PRIu64 " StationID=%ld RSSI_dbm=%.1lf"
+				" GN_ts=%" PRIu32 " Origin_lat=%.7lf Origin_lon=%.7lf"
+				" Sender_MAC=%02X:%02X:%02X:%02X:%02X:%02X\n",
+				get_timestamp_us(), stationID, rssi, gn_ts,
+				origin_latitude, origin_longitude,
+				sender_mac[0], sender_mac[1], sender_mac[2],
+				sender_mac[3], sender_mac[4], sender_mac[5]);
+		}
+
+		if(m_json_server != nullptr) {
+			m_json_server->createJSONFromMCM(decoded_mcm);
+		}
+
+		ASN_STRUCT_FREE(asn_DEF_MCM, decoded_mcm);
+	} else {
+		std::cerr << "[WARN] Warning! Only CAM, CPM and VAM messages (and, optionally, DENMs and MCMs) are supported for the time being!" << std::endl;
 		return;
 	}
 }
