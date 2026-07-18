@@ -545,8 +545,7 @@ double get_rssi_from_iw(uint8_t macaddr[6],std::string interface_name) {
 		return signal_lv;
 }
 
-void setNewTxPower(double txPower, std::string dissemination_interface)
-{
+void setNewTxPower(double txPower, std::string dissemination_interface) {
     int mbm = static_cast<int> (txPower * 100);
 
     nl_sock_info_t nl_sock_info = open_nl_socket(dissemination_interface);
@@ -568,38 +567,32 @@ void setNewTxPower(double txPower, std::string dissemination_interface)
 
     int err = nl_send_auto_complete(nl_sock_info.nl_sock, nl_msg);
 
-    if (err < 0)
-    {
+    if (err < 0) {
         std::cerr << "Failed to send message" << std::endl;
     }
 
     err = nl_recvmsgs_default(nl_sock_info.nl_sock);
 
-    if (err < 0)
-    {
+    if (err < 0) {
         std::cerr << "Failed to receive response" << std::endl;
     }
 
     free_nl_socket(nl_sock_info);
 }
 
-std::unordered_map<std::string,float> get_current_rssi()
-{
-    try
-    {
+std::unordered_map<std::string,float> get_current_rssi() {
+    try {
         std::lock_guard<std::mutex> lock(rssiMutex);
         return currentRssiUtils;
     }
-    catch(const std::exception& e)
-    {
+    catch(const std::exception& e) {
         std::cerr << e.what() << '\n';
     }
 
 	return {};
 }
 
-uint32_t getTxPower()
-{
+uint32_t getTxPower() {
     // TODO: enhancement with netlink
     return 24;
 }
@@ -608,5 +601,16 @@ std::string doubleToString(double value, int precision) {
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(precision) << value;
     return oss.str();
+}
+
+double tip_exponential(double t2c, double t2c_min, double k) {
+    double exp_term = std::exp(-k * (t2c - t2c_min));
+    return std::min(1.0, exp_term);
+}
+
+double tip_gaussian(double ttc, double sigma) {
+    double numerator = -(ttc * ttc);
+    double denominator = 2.0 * (sigma * sigma);
+    return std::exp(numerator / denominator);
 }
 

@@ -506,8 +506,7 @@ void VRUBasicService::checkVamConditions(){
   		
   		data_safed = "[SAFE DISTANCES] LongSafeDist="+std::to_string(m_long_safe_d)+" LatSafeDist="+std::to_string(m_lat_safe_d)+" VertSafeDist="+std::to_string(m_vert_safe_d)+" MinLongDistVeh="+printMinDist(m_min_dist[1].longitudinal)+" MinLatDistVeh="+printMinDist(m_min_dist[1].lateral)+" MinVertDistVeh="+printMinDist(m_min_dist[1].vertical)+" MinLongDistPed="+printMinDist(m_min_dist[0].longitudinal)+" MinLatDistPed="+printMinDist(m_min_dist[0].lateral)+" MinVertDistPed="+printMinDist(m_min_dist[0].vertical)+"\n";
   		
-  		if (!condition_verified && m_min_dist[1].longitudinal < m_long_safe_d && m_min_dist[1].lateral < m_lat_safe_d && m_min_dist[1].vertical < m_vert_safe_d)
-    	{
+  		if (!condition_verified && m_min_dist[1].longitudinal < m_long_safe_d && m_min_dist[1].lateral < m_lat_safe_d && m_min_dist[1].vertical < m_vert_safe_d) {
       	m_N_GenVam_red = 0;
 
       	m_trigg_cond = SAFE_DISTANCES;
@@ -522,16 +521,14 @@ void VRUBasicService::checkVamConditions(){
           std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
         }
     	} else{
-      	if(!condition_verified && !vamredmit_verified && m_min_dist[0].longitudinal < m_long_safe_d && m_min_dist[0].lateral < m_lat_safe_d && m_min_dist[0].vertical < m_vert_safe_d)
-        {
+      	if(!condition_verified && !vamredmit_verified && m_min_dist[0].longitudinal < m_long_safe_d && m_min_dist[0].lateral < m_lat_safe_d && m_min_dist[0].vertical < m_vert_safe_d) {
           if(!redundancy_mitigation && (m_N_GenVam_red==0 || m_N_GenVam_red==m_N_GenVam_max_red)){
             m_N_GenVam_red = 0;
 
             m_trigg_cond = SAFE_DISTANCES;
             m_min_dist[0].safe_dist = true;
             vam_error = generateAndEncodeVam ();
-            if(vam_error==VAM_NO_ERROR)
-            {
+            if(vam_error==VAM_NO_ERROR) {
               condition_verified = true;
               m_safedist_sent++;
             } else {

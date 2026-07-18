@@ -52,6 +52,91 @@ inline bool compare_mac(uint8_t mac_a[6],uint8_t mac_b[6]) {
 		mac_a[5]==mac_b[5]);
 }
 
+std::tuple<double, double> 
+SocketClient::compute_ttc_stc(const ldmmap::vehicleData_t &vehdata) {
+	double ttc = -1.0;
+	double stc = -1.0;
+	// Extract data from the VDP
+	VDPGPSClient::VRU_position_latlon_t ped_pos = m_gpsc_ptr->getPedPosition();
+	auto speed_value = m_gpsc_ptr->getSpeedValue();
+	double speed = static_cast<double>(speed_value.getValue()) / CENTI;
+	double ped_heading = m_gpsc_ptr->getPedHeadingValue();
+
+	// Reference longitude for the TM projection (same convention as get_min_distance)
+	double lon0 = ped_pos.lon;
+
+	// Ego (VRU) position in XYZ
+	VDPGPSClient::VRU_position_XYZ_t pos_ped = m_gpsc_ptr->convertLatLontoXYZ_TM(ped_pos,lon0);
+
+	// Remote vehicle position in XYZ
+	VDPGPSClient::VRU_position_latlon_t pos_node;
+	pos_node.lat = vehdata.lat;
+	pos_node.lon = vehdata.lon;
+	VDPGPSClient::VRU_position_XYZ_t pos_node_xyz = m_gpsc_ptr->convertLatLontoXYZ_TM(pos_node,lon0);
+
+	double node_heading = vehdata.heading;
+
+	// Same "no heading available at all" bail-out as get_min_distance
+	if(node_heading==LDM_HEADING_UNAVAILABLE && ped_heading==LDM_HEADING_UNAVAILABLE) {
+		return {ttc, stc};
+	} else {
+		// Same fallback: borrow the ego heading if the remote one is missing
+		if(node_heading==LDM_HEADING_UNAVAILABLE) {
+			node_heading = ped_heading;
+		}
+
+		// Relative position vector, vehicle w.r.t. VRU
+		double dx = pos_node_xyz.x - pos_ped.x;
+		double dy = pos_node_xyz.y - pos_ped.y;
+		double distance = sqrt(dx*dx + dy*dy);
+
+		// Heading -> velocity components on the x=East, y=North axes
+		double veh_heading_rad = DEG_2_RAD_ASN_UTILS(node_heading);
+		double ped_heading_rad = DEG_2_RAD_ASN_UTILS(ped_heading);
+
+		double vx_veh = vehdata.speed_ms * sin(veh_heading_rad);
+		double vy_veh = vehdata.speed_ms * cos(veh_heading_rad);
+
+		double vx_ped = speed * sin(ped_heading_rad);
+		double vy_ped = speed * cos(ped_heading_rad);
+
+		// Relative velocity of the vehicle w.r.t. the VRU
+		double dvx = vx_veh - vx_ped;
+		double dvy = vy_veh - vy_ped;
+
+		// Closing speed = -(d/dt) of the distance between the two nodes
+		double closing_speed = (distance > 0) ? -(dx*dvx + dy*dvy)/distance : 0;
+
+		if(distance > 0 && closing_speed > 0) {
+			ttc = distance / closing_speed;
+		} else {
+			// Not approaching each other (or already colocated) -> no meaningful TTC
+			ttc = -1.0;
+		}
+
+		if(ttc >= m_vrubs->getTTCMax() || ttc < 0) {
+			// No collision predicted (diverging, parallel courses, or already colocated)
+			return {-1.0, -1.0};
+		}
+
+		// Linearly project the relative position (vehicle - VRU) forward to t = ttc.
+		// This is the SAME linear-motion assumption already baked into the ttc formula,
+		// so this is consistent with it rather than an extra approximation.
+		double dx_at_ttc = dx + dvx * ttc;
+		double dy_at_ttc = dy + dvy * ttc;
+
+		stc = sqrt(dx_at_ttc*dx_at_ttc + dy_at_ttc*dy_at_ttc);
+
+		if(stc < m_vrubs->getSTCMin()) {
+			// The projected separation at the predicted collision time is below the minimum threshold
+			// -> treat this as a "no collision" case
+			return {-1.0, -1.0};
+		}
+
+		return {ttc, stc};
+	}
+}
+
 SocketClient::SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn, JSONserver* json_server)
 {
 	m_raw_rx_sock = raw_rx_sock;
@@ -434,7 +519,15 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 			// 	stationID,lat,lon,
 			// 	l_inst_period,
 			// 	vehdata.camTimestamp,vehdata.gnTimestamp,get_timestamp_ms_cam()-vehdata.camTimestamp,get_timestamp_ms_gn()-vehdata.gnTimestamp,
-			// 	(main_af-main_bf)/1000000.0);	
+			// 	(main_af-main_bf)/1000000.0);
+			
+			// If the OScar user is a VRU, check the TTC with the received VAM
+			if(m_stationType == StationType_pedestrian || m_stationType == StationType_cyclist) {
+				auto [ttc, stc] = compute_ttc_stc(vehdata);
+				// TODO arrived here with the flowchart
+			}
+
+			ASN_STRUCT_FREE(asn_DEF_CAM,decoded_cam);
 		}
 	} else if(denm_decoding_enabled==true && (decodedData.type == etsiDecoder::ETSI_DECODED_DENM || decodedData.type == etsiDecoder::ETSI_DECODED_DENM_NOGN)) {
 		// For DENMs, if reception is enabled, print just some basic information, for the time being
@@ -630,9 +723,16 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 		if(db_retval!=ldmmap::LDMMap::LDMMAP_OK && db_retval!=ldmmap::LDMMap::LDMMAP_UPDATED) {
 			std::cerr << "Warning! Insert on the database for VRU " << (int) stationID << "failed!" << std::endl;
 		}
+
+		// If the OScar user is a VRU, check the TTC with the received VAM
+		if(m_stationType == StationType_pedestrian || m_stationType == StationType_cyclist) {
+			 auto [ttc, stc] = compute_ttc_stc(vehdata);
+			 // TODO arrived here with the flowchart
+		}
 		
 		ASN_STRUCT_FREE(asn_DEF_VAM,decoded_vam);
 	} else if(decodedData.type == etsiDecoder::ETSI_DECODED_CPM || decodedData.type == etsiDecoder::ETSI_DECODED_CPM_NOGN)   {
+		CollectivePerceptionMessage_t *decoded_cpm = (CollectivePerceptionMessage_t *) decodedData.decoded_msg;
         uint64_t fromStationID;
 
         // Signal to the Metric Supervisor that a CPM has been received
@@ -640,10 +740,10 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
             m_met_sup_ptr->signalReceivedPacket(MessageId_cpm);
         }
 
-        double fromLat = asn1cpp::getField (decodedData.decoded_cpm->payload.managementContainer.referencePosition.latitude, double) / 10000000.0;
-        double fromLon = asn1cpp::getField (decodedData.decoded_cpm->payload.managementContainer.referencePosition.longitude, double) / 10000000.0;
+        double fromLat = asn1cpp::getField (decoded_cpm->payload.managementContainer.referencePosition.latitude, double) / 10000000.0;
+        double fromLon = asn1cpp::getField (decoded_cpm->payload.managementContainer.referencePosition.longitude, double) / 10000000.0;
 
-        fromStationID = asn1cpp::getField (decodedData.decoded_cpm->header.stationId, uint64_t);
+        fromStationID = asn1cpp::getField (decoded_cpm->header.stationId, uint64_t);
 
         double l_inst_period=0.0;
 
@@ -651,10 +751,10 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
             bf=get_timestamp_ns();
         }
 
-        int wrappedContainer_size = asn1cpp::sequenceof::getSize(decodedData.decoded_cpm->payload.cpmContainers);
+        int wrappedContainer_size = asn1cpp::sequenceof::getSize(decoded_cpm->payload.cpmContainers);
         for (int i=0; i<wrappedContainer_size; i++)
         {
-            auto wrappedContainer = asn1cpp::sequenceof::getSeq(decodedData.decoded_cpm->payload.cpmContainers,WrappedCpmContainer,i);
+            auto wrappedContainer = asn1cpp::sequenceof::getSeq(decoded_cpm->payload.cpmContainers,WrappedCpmContainer,i);
             WrappedCpmContainer__containerData_PR present = asn1cpp::getField(wrappedContainer->containerData.present,WrappedCpmContainer__containerData_PR);
             if(present == WrappedCpmContainer__containerData_PR_PerceivedObjectContainer)
             {
@@ -689,8 +789,8 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
                     TransverseMercator_Reverse(&tmerc, fromLon, from_x, from_y, &latPO, &lonPO, &gammar, &kr);
                     PO_data.lat = latPO;
                     PO_data.lon = lonPO;
-                    PO_data.camTimestamp = static_cast<long>(asn1cpp::getField(decodedData.decoded_cpm->payload.managementContainer.referenceTime,long)) - static_cast<long>(asn1cpp::getField(PO_seq->measurementDeltaTime,long));
-                    PO_data.perceivedBy = asn1cpp::getField(decodedData.decoded_cpm->header.stationId,long);
+                    PO_data.camTimestamp = static_cast<long>(asn1cpp::getField(decoded_cpm->payload.managementContainer.referenceTime,long)) - static_cast<long>(asn1cpp::getField(PO_seq->measurementDeltaTime,long));
+                    PO_data.perceivedBy = asn1cpp::getField(decoded_cpm->header.stationId,long);
                     PO_data.stationType = ldmmap::StationType_LDM_detectedPassengerCar;
 
                     if(m_recvCPMmap[fromStationID].find(asn1cpp::getField(PO_seq->objectId,long)) == m_recvCPMmap[fromStationID].end()){
@@ -831,6 +931,8 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
                 }
             }
         }
+		ASN_STRUCT_FREE(asn_DEF_CollectivePerceptionMessage,decoded_cpm);
+
     } else if(mcm_decoding_enabled==true && (decodedData.type == etsiDecoder::ETSI_DECODED_MCM || decodedData.type == etsiDecoder::ETSI_DECODED_MCM_NOGN)) {
 		MCM_t *decoded_mcm = (MCM_t *) decodedData.decoded_msg;
 

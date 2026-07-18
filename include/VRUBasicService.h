@@ -92,6 +92,10 @@ public:
 
     uint64_t get_VAM_sent() {return m_vam_sent;};
 
+    double getTTCMax() {return m_TTC_max;}
+    double getTTCMin() {return m_TTC_min;}
+    double getSTCMin() {return m_STC_min;}
+
 private:
     const size_t m_MaxPHLength = 23;
     
@@ -136,6 +140,15 @@ private:
     double m_lat_safe_d;
     double m_vert_safe_d;
 
+    // Trajectory Interception Probability parameters and thresholds
+    std::string m_modality;
+    double m_TTC_k;
+    double m_TTC_max;
+    double m_TTC_sigma;
+    double m_TTC_min;
+    double m_STC_min;
+    double m_TIP_th;
+
     // Statistic: number of VAMs successfully sent since the VRU Basic Service has been started
     // The VRU Basic Service can count up to 18446744073709551615 (UINT64_MAX) VAMs
     uint64_t m_vam_sent;
@@ -146,6 +159,7 @@ private:
     uint64_t m_head_sent;
     uint64_t m_safedist_sent;
     uint64_t m_time_sent;
+    uint64_t m_tip_sent;
     
     // Logging file
     std::string m_log_filename;

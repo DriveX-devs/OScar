@@ -50,4 +50,6 @@ void setNewTxPower(double txPower, std::string dissemination_interface);
 uint32_t getTxPower();
 // Function to convert a double to a string, with a given number of digits after the comma ("precision", by default 7)
 std::string doubleToString(double value, int precision = 7);
+double tip_exponential(double t2c, double t2c_min, double k);
+double tip_gaussian(double ttc, double sigma);
 #endif // OSCAR_UTILS_H

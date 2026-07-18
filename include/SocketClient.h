@@ -13,6 +13,7 @@
 #include "utils.h"
 #include "MetricSupervisor.h"
 #include "JSONserver.h"
+#include "VRUBasicService.h"
 
 #include "gpsc.h"
 
@@ -91,7 +92,11 @@ class SocketClient {
         // Metric Supervisor pointer
         MetricSupervisor *m_met_sup_ptr = nullptr;
 
+		StationType m_stationType = StationType_unknown;
 
+		VRUBasicService *m_vrubs = nullptr;
+
+		std::tuple<double, double> compute_ttc_stc(const ldmmap::vehicleData_t &vehdata);
 
 	public:
 		SocketClient(const int &raw_rx_sock,options_t* opts_ptr, ldmmap::LDMMap *db_ptr, std::string logfile_name,bool enable_security, std::string logfile_security, GeoNet* gn, JSONserver* json_server=nullptr);
@@ -103,6 +108,8 @@ class SocketClient {
 		void setPrintMsg(bool printMsgEnable) {m_printMsg = printMsgEnable;}
 
 		void setClientID(std::string id) {m_client_id=id;}
+
+		void setStationType(StationType stationType) {m_stationType = stationType;}
 
 		void setSelfMAC(uint8_t self_mac[6]) {memcpy(m_self_mac,self_mac,6); m_self_mac_set=true;}
 
