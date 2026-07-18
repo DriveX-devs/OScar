@@ -848,12 +848,10 @@ GeoNet::processSHB (GNDataIndication_t* dataIndication)
 {
         shbHeader shbH;
         double cbrr0 = 0.0, cbrr1 = 0.0;
-        if(dataIndication->GNType == BEACON)
-        {
+        if(dataIndication->GNType == BEACON){
            // TODO
         }
-        else
-        {
+        else{
             shbH.removeHeader(dataIndication->data);
             dataIndication->data += 28;
             dataIndication->SourcePV = shbH.GetLongPositionV ();

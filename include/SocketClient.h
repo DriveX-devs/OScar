@@ -92,7 +92,7 @@ class SocketClient {
         // Metric Supervisor pointer
         MetricSupervisor *m_met_sup_ptr = nullptr;
 
-		StationType m_stationType = StationType_unknown;
+		StationType_t m_stationType = StationType_unknown;
 
 		VRUBasicService *m_vrubs = nullptr;
 
@@ -109,7 +109,9 @@ class SocketClient {
 
 		void setClientID(std::string id) {m_client_id=id;}
 
-		void setStationType(StationType stationType) {m_stationType = stationType;}
+		void setStationType(StationType_t stationType) {m_stationType = stationType;}
+
+		void setVRUBasicService(VRUBasicService *vrubs) {m_vrubs = vrubs;}
 
 		void setSelfMAC(uint8_t self_mac[6]) {memcpy(m_self_mac,self_mac,6); m_self_mac_set=true;}
 

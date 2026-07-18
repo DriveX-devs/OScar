@@ -260,6 +260,7 @@ void VRUBasicService::initDissemination(){
   m_trigg_cond = DISSEMINATION_START;
   #pragma GCC diagnostic push
   #pragma GCC diagnostic ignored "-Wunused-variable"
+  std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
   VRUBasicService_error_t vam_error = generateAndEncodeVam();
   #pragma GCC diagnostic pop
 
@@ -358,6 +359,7 @@ void VRUBasicService::checkVamConditions(){
   		*/
 
       if(m_force_20Hz_freq || m_force_10Hz_freq) {
+          std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
           auto vam_result = generateAndEncodeVam();
 
           if(vam_result==VAM_NO_ERROR)
@@ -392,6 +394,7 @@ void VRUBasicService::checkVamConditions(){
               m_N_GenVam_red = 0;
 
               m_trigg_cond = HEADING_CHANGE;
+              std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
               vam_error = generateAndEncodeVam ();
               if(vam_error==VAM_NO_ERROR)
               {
@@ -433,6 +436,7 @@ void VRUBasicService::checkVamConditions(){
             m_N_GenVam_red = 0;
 
             m_trigg_cond = POSITION_CHANGE;
+            std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
             vam_error = generateAndEncodeVam ();
             if(vam_error==VAM_NO_ERROR)
             {
@@ -468,6 +472,7 @@ void VRUBasicService::checkVamConditions(){
               m_N_GenVam_red = 0;
 
               m_trigg_cond = SPEED_CHANGE;
+              std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
               vam_error = generateAndEncodeVam ();
               if(vam_error==VAM_NO_ERROR)
               {
@@ -511,6 +516,7 @@ void VRUBasicService::checkVamConditions(){
 
       	m_trigg_cond = SAFE_DISTANCES;
       	m_min_dist[1].safe_dist = true;
+        std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
       	vam_error = generateAndEncodeVam ();
       	if(vam_error==VAM_NO_ERROR)
         {
@@ -527,6 +533,7 @@ void VRUBasicService::checkVamConditions(){
 
             m_trigg_cond = SAFE_DISTANCES;
             m_min_dist[0].safe_dist = true;
+            std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
             vam_error = generateAndEncodeVam ();
             if(vam_error==VAM_NO_ERROR) {
               condition_verified = true;
@@ -558,6 +565,7 @@ void VRUBasicService::checkVamConditions(){
             m_N_GenVam_red = 0;
 
             m_trigg_cond = MAX_TIME_ELAPSED;
+            std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
             vam_error = generateAndEncodeVam ();
             if(vam_error==VAM_NO_ERROR)
             {

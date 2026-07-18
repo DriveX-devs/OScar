@@ -702,6 +702,13 @@ int main (int argc, char *argv[]) {
     bool disable_selfMAC_check = false;
     bool enable_sensor_classification = false;
     bool verbose = false;
+    std::string tip_modality;
+    double tip_TTC_k;
+    double tip_TTC_max;
+    double tip_TTC_sigma;
+    double tip_TTC_min;
+    double tip_STC_min;
+    double tip_TIP_th;
 
     int json_over_tcp_port = 49000;
     bool enable_security = false;
@@ -911,6 +918,42 @@ int main (int argc, char *argv[]) {
         TCLAP::ValueArg<int> VAMsPriority("", "VAMs-priority", "Set the queue priority for VAMs (DCC), values come from 0 (highest priority) to 3 (lowest priority). Default: 0 (highest).",
                                      false, 0, "integer");
         cmd.add(VAMsPriority);
+
+        // Trajectory Interception Probability (TIP) parameters and thresholds
+        TCLAP::ValueArg<std::string> TIPModalityArg("", "tip-modality",
+            "Modality used for the Trajectory Interception Probability (TIP) computation, possibilities are: 'exp' and 'gaus', for Exponential and Gaussian respectively. Default: 'exp'.",
+            false, "exp", "string");
+        cmd.add(TIPModalityArg);
+
+        TCLAP::ValueArg<double> TIPThresholdArg("", "tip-threshold",
+            "Trajectory Interception Probability (TIP) threshold above which a warning/trigger condition is raised. Default: 0.1.",
+            false, 0.1, "double");
+        cmd.add(TIPThresholdArg);
+
+        TCLAP::ValueArg<double> STCMinArg("", "stc-min",
+            "Minimum Space To Collision (STC) threshold, below which the STC condition contributes to triggering a warning. Default: 5.0 (meters).",
+            false, 5.0, "double");
+        cmd.add(STCMinArg);
+
+        TCLAP::ValueArg<double> TTCKArg("", "ttc-k",
+            "Scaling factor (k) applied in the Time To Collision (TTC) probability/weighting function. Default: 0.27.",
+            false, 0.27, "double");
+        cmd.add(TTCKArg);
+
+        TCLAP::ValueArg<double> TTCMaxArg("", "ttc-max",
+            "Maximum Time To Collision (TTC) considered relevant; TTC values above this are treated as not dangerous. Default: 10.0 (seconds).",
+            false, 10.0, "double");
+        cmd.add(TTCMaxArg);
+
+        TCLAP::ValueArg<double> TTCMinArg("", "ttc-min",
+            "Minimum Time To Collision (TTC) threshold, below which the TTC condition contributes to triggering a warning. Default: 1.5 (seconds).",
+            false, 1.5, "double");
+        cmd.add(TTCMinArg);
+
+        TCLAP::ValueArg<double> TTCSigmaArg("", "ttc-sigma",
+            "Standard deviation (sigma) used in the Gaussian probability function for Trajectory Interception Probability (TIP). Default: 2.0.",
+            false, 2.0, "double");
+        cmd.add(TTCSigmaArg);
 
         TCLAP::SwitchArg SecurityArg("w", "enable-security",
                                      "Enable the the transmission and reception of secured messages (tested on CAMs and CPMs)",
@@ -1159,6 +1202,13 @@ int main (int argc, char *argv[]) {
         DENMs_priority = DENMsPriority.getValue();
         enable_MCM_tx = MCMsTxArg.getValue();
         MCMs_priority = MCMsPriority.getValue();
+        tip_modality = TIPModalityArg.getValue();
+        tip_TTC_k = TTCKArg.getValue();
+        tip_TTC_max = TTCMaxArg.getValue();
+        tip_TTC_sigma = TTCSigmaArg.getValue();
+        tip_TTC_min = TTCMinArg.getValue();
+        tip_STC_min = STCMinArg.getValue();
+        tip_TIP_th = TIPThresholdArg.getValue();
 
         if (CAMs_priority < 0 || CAMs_priority > 3) {
             std::cerr << "[ERROR] CAMs priority for DCC is out of range [0, 3]." << std::endl;
@@ -1227,8 +1277,8 @@ int main (int argc, char *argv[]) {
         }
 
         // Set the ego station type -> if CAMs are enabled, set it to passenger car, otherwise to pedestrian
-        if (enable_VAM_dissemination && ego_station_type != StationType_pedestrian) {
-            std::cerr << "[WARN] VAM dissemination enabled but station type is not pedestrian. Switching station type to pedestrian." << std::endl;
+        if (enable_VAM_dissemination && ego_station_type != StationType_pedestrian && ego_station_type != StationType_cyclist) {
+            std::cerr << "[WARN] VAM dissemination enabled but station type is not pedestrian or cyclist. Switching station type to pedestrian." << std::endl;
             ego_station_type = StationType_pedestrian;
         }
 
@@ -1546,7 +1596,7 @@ int main (int argc, char *argv[]) {
     ldmmap::LDMMap *db_ptr = new ldmmap::LDMMap();
     if (ego_station_type == StationType_passengerCar) {
         db_ptr->setStationID(vehicleID);
-    } else if (ego_station_type == StationType_pedestrian) {
+    } else if (ego_station_type == StationType_pedestrian || ego_station_type == StationType_cyclist) {
         db_ptr->setStationID(VRUID);
     } else {
         // For the time being, use the vehicle ID as a fallback in case an unexpected station type is encountered
@@ -1635,19 +1685,19 @@ int main (int argc, char *argv[]) {
 
     CABasicService cabs;
     CABasicService *cabs_ptr = &cabs;
-    if (enable_metric_supervisor) {
+    if (enable_metric_supervisor && enable_CAM_dissemination) {
         cabs_ptr->setMetricSupervisor(&metric_supervisor);
     }
 
     CPBasicService cpbs;
     CPBasicService *cpbs_ptr = &cpbs;
-    if (enable_metric_supervisor) {
+    if (enable_metric_supervisor && enable_CPM_dissemination) {
         cpbs_ptr->setMetricSupervisor(&metric_supervisor);
     }
 
     VRUBasicService vrubs;
     VRUBasicService* vrubs_ptr = &vrubs;
-    if(enable_metric_supervisor) {
+    if(enable_metric_supervisor && enable_VAM_dissemination) {
         vrubs_ptr->setMetricSupervisor(&metric_supervisor);
     }
 
@@ -1690,6 +1740,15 @@ int main (int argc, char *argv[]) {
 	    dcc = nullptr;
     }
 
+    // Set the parameters for TIP in VRU Basic Service if VAM dissemination is enabled
+    if (enable_VAM_dissemination) {
+        vrubs.setTTCMax(tip_TTC_max);
+        vrubs.setTTCMin(tip_TTC_min);
+        vrubs.setSTCMin(tip_STC_min);
+        vrubs.setTIPThreshold(tip_TIP_th);
+        vrubs.setModality(tip_modality);
+    }
+
     // This must be defined here, otherwise the goto will jump over its definition
     SocketClient *mainRecvClient = nullptr;
 
@@ -1712,8 +1771,7 @@ int main (int argc, char *argv[]) {
         GN.setLogFileReceiving(log_filename_receiving_GN);
     }
 
-    if (enable_CAM_dissemination || enable_CPM_dissemination)
-    {
+    if (enable_CAM_dissemination || enable_CPM_dissemination) {
         // GN.setStationProperties(vehicleID, ego_station_type); Already done by BTP
         GN.setVDP(vdpgpsc);
         if (enable_CAM_dissemination) {
@@ -1745,8 +1803,7 @@ int main (int argc, char *argv[]) {
             GN.setMessageType(MessageId_cpm);
         }
     }
-    else if (enable_VAM_dissemination)
-    {
+    else if (enable_VAM_dissemination) {
         // GN.setStationProperties(vehicleID, ego_station_type); Already done by BTP
         GN.setVRUdp(vdpgpsc);
         int vam_cnt_test=0;
@@ -1931,6 +1988,11 @@ int main (int argc, char *argv[]) {
 
             if(enable_metric_supervisor) {
                 mainRecvClient->setMetricSupervisor(&metric_supervisor);
+            }
+
+            if(ego_station_type==StationType_pedestrian || ego_station_type==StationType_cyclist) {
+                mainRecvClient->setStationType(ego_station_type);
+                mainRecvClient->setVRUBasicService(vrubs_ptr);
             }
 
 			// Set the "self" MAC address, so that all the messages coming from this address will be discarded

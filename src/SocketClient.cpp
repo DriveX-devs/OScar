@@ -337,6 +337,7 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 	if(decodedData.type == etsiDecoder::ETSI_DECODED_CAM || decodedData.type == etsiDecoder::ETSI_DECODED_CAM_NOGN) {
 		CAM_t *decoded_cam = (CAM_t *) decodedData.decoded_msg;
 
+		double previous_tip = -1.0;
 		double lat, lon;
 		uint64_t stationID;
 
@@ -467,6 +468,12 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 		// std::cout << "[DEBUG] Updating vehicle with stationID: " << vehdata.stationID << std::endl;
 
+		// Check the old TIP value for the VRU, if available, to compute the delta TIP before updating the database with the new VAM data
+		ldmmap::LDMMap::returnedVehicleData_t retveh;
+		if(m_db_ptr->lookup(stationID,retveh)==ldmmap::LDMMap::LDMMAP_OK) {
+			previous_tip = retveh.vehData.tip;
+		}
+
 		db_retval=m_db_ptr->insert(vehdata);
 
 		if(db_retval!=ldmmap::LDMMap::LDMMAP_OK && db_retval!=ldmmap::LDMMap::LDMMAP_UPDATED) {
@@ -524,7 +531,29 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 			// If the OScar user is a VRU, check the TTC with the received VAM
 			if(m_stationType == StationType_pedestrian || m_stationType == StationType_cyclist) {
 				auto [ttc, stc] = compute_ttc_stc(vehdata);
-				// TODO arrived here with the flowchart
+				if (ttc > 0 && stc > 0) {
+					// If the TTC is below the configured threshold, and the STC is below the configured threshold, then we can trigger a VAM
+					if (ttc < m_vrubs->getTTCMax() && stc < m_vrubs->getSTCMin()) {
+						std::string tip_modality = m_vrubs->getTIPModality();
+						double tip = -1;
+						if (tip_modality == "exp") {
+							tip = tip_exponential(ttc, m_vrubs->getSTCMin(), m_vrubs->getK());
+						} else if (tip_modality == "gaus") {
+							tip = tip_gaussian(ttc, m_vrubs->getSigma());
+						} else {
+							std::cerr << "[ERROR] Unknown TIP modality: " << tip_modality << std::endl;
+						}
+						if (tip >= 0) {
+							if (previous_tip < 0) previous_tip = 0; // If there was no previous TIP, assume it was 0
+							double delta_tip = tip - previous_tip;
+							if (delta_tip >= m_vrubs->getTIPThreshold()) m_vrubs->wrapper_generateAndEncodeVam();
+							// Update the TIP value in the LDM
+							vehdata.tip = tip;
+							// Update the database with the new CAM data
+							db_retval = m_db_ptr->insert(vehdata);
+						}
+					}
+				}
 			}
 
 			ASN_STRUCT_FREE(asn_DEF_CAM,decoded_cam);
@@ -599,6 +628,7 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 	} else if(decodedData.type == etsiDecoder::ETSI_DECODED_VAM || decodedData.type == etsiDecoder::ETSI_DECODED_VAM_NOGN) {
 		VAM_t *decoded_vam = (VAM_t *) decodedData.decoded_msg;
 
+		double previous_tip = -1.0;
 		double lat, lon;
 		uint64_t stationID;
 
@@ -717,6 +747,12 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 				fprintf(m_logfile_file,"\n");
 			}
 		}
+
+		// Check the old TIP value for the VRU, if available, to compute the delta TIP before updating the database with the new VAM data
+		ldmmap::LDMMap::returnedVehicleData_t retveh;
+		if(m_db_ptr->lookup(stationID,retveh)==ldmmap::LDMMap::LDMMAP_OK) {
+			previous_tip = retveh.vehData.tip;
+		}
 		
 		db_retval=m_db_ptr->insert(vehdata);
 
@@ -726,8 +762,30 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 
 		// If the OScar user is a VRU, check the TTC with the received VAM
 		if(m_stationType == StationType_pedestrian || m_stationType == StationType_cyclist) {
-			 auto [ttc, stc] = compute_ttc_stc(vehdata);
-			 // TODO arrived here with the flowchart
+			auto [ttc, stc] = compute_ttc_stc(vehdata);
+			if (ttc > 0 && stc > 0) {
+				// If the TTC is below the configured threshold, and the STC is below the configured threshold, then we can trigger a VAM
+				if (ttc < m_vrubs->getTTCMax() && stc < m_vrubs->getSTCMin()) {
+					std::string tip_modality = m_vrubs->getTIPModality();
+					double tip = -1;
+					if (tip_modality == "exp") {
+						tip = tip_exponential(ttc, m_vrubs->getSTCMin(), m_vrubs->getK());
+					} else if (tip_modality == "gaus") {
+						tip = tip_gaussian(ttc, m_vrubs->getSigma());
+					} else {
+						std::cerr << "[ERROR] Unknown TIP modality: " << tip_modality << std::endl;
+					}
+					if (tip >= 0) {
+						if (previous_tip < 0) previous_tip = 0; // If there was no previous TIP, assume it was 0
+						double delta_tip = tip - previous_tip;
+						if (delta_tip >= m_vrubs->getTIPThreshold()) m_vrubs->wrapper_generateAndEncodeVam();
+						// Update the TIP value in the LDM
+						vehdata.tip = tip;
+						// Update the database with the new VAM data
+						db_retval = m_db_ptr->insert(vehdata);
+					}
+				}
+			}
 		}
 		
 		ASN_STRUCT_FREE(asn_DEF_VAM,decoded_vam);

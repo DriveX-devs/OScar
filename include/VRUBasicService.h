@@ -76,6 +76,12 @@ public:
     void setSafeLateralDistance(double safe_lat_d) {m_lat_safe_d = safe_lat_d;}
     void setSafeVerticalDistance(double safe_vert_d) {m_vert_safe_d = safe_vert_d;}
 
+    void setTTCMax(double ttc_max) {m_TTC_max = ttc_max;}
+    void setTTCMin(double ttc_min) {m_TTC_min = ttc_min;}
+    void setSTCMin(double stc_min) {m_STC_min = stc_min;}
+    void setTIPThreshold(double tip_th) {m_TIP_th = tip_th;}
+    void setModality(std::string modality) {m_tip_modality = modality;}
+
     void force20HzFreq() {m_force_20Hz_freq=true;}
     void disable20HzFreq() {m_force_20Hz_freq=false;}
 
@@ -95,6 +101,16 @@ public:
     double getTTCMax() {return m_TTC_max;}
     double getTTCMin() {return m_TTC_min;}
     double getSTCMin() {return m_STC_min;}
+    std::string getTIPModality() {return m_tip_modality;}
+    double getTIPThreshold() {return m_TIP_th;}
+    double getK() {return m_TTC_k;}
+    double getSigma() {return m_TTC_sigma;}
+
+    void wrapper_generateAndEncodeVam() {
+        std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
+        generateAndEncodeVam();
+        std::cout << "[INFO] VAM generated and encoded for TIP threshold exceeded." << std::endl;
+    }
 
 private:
     const size_t m_MaxPHLength = 23;
@@ -141,7 +157,7 @@ private:
     double m_vert_safe_d;
 
     // Trajectory Interception Probability parameters and thresholds
-    std::string m_modality;
+    std::string m_tip_modality;
     double m_TTC_k;
     double m_TTC_max;
     double m_TTC_sigma;
