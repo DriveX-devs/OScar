@@ -337,6 +337,7 @@ void VRUBasicService::checkVamConditions(){
       std::string data_safed="";
       std::string data_vamredmit="";
       std::string data_time="";
+      std::string data_tip="";
       		
       // If no initial VAM has been triggered before checkVamConditions() has been called, throw an error
       if(m_prev_heading==-1 || m_prev_speed==-1 || m_prev_pos.lat==-DBL_MAX || m_prev_pos.lon==-DBL_MAX)
@@ -547,7 +548,15 @@ void VRUBasicService::checkVamConditions(){
           }
         }
     	}
-    		
+
+      
+      // TODO Diego
+      data_tip = "[TIP] TriggerCondition="+std::to_string(m_trigg_cond)+" RedundancyMitigation="+std::to_string(redundancy_mitigation)+" ConditionVerified="+std::to_string(condition_verified)+" VAMRedMitVerified="+std::to_string(vamredmit_verified)+"\n";
+    	// Check in the TIP map if there are any TIPs that require a VAM to be sent
+    	if(!condition_verified && !vamredmit_verified) {
+
+      }
+
     	/* 2)
    		* The time elapsed since the last VAM generation is equal to or greater than T_GenVam
   		*/
@@ -798,6 +807,18 @@ VRUBasicService::generateAndEncodeVam(){
                     vam_mandatory_data.longAcceleration.getValue ());
   asn1cpp::setField(vam->vam.vamParameters.vruHighFrequencyContainer.longitudinalAcceleration.longitudinalAccelerationConfidence,
                     vam_mandatory_data.longAcceleration.getConfidence ());
+  
+  
+  // TODO Diego
+  long numberOfTIPs = 0;
+  auto TIP_container = asn1cpp::makeSeq (VruMotionPredictionContainer);
+  auto TIPs = asn1cpp::makeSeq (SequenceOfTrajectoryInterceptionIndication);
+  auto TIP = asn1cpp::makeSeq(TrajectoryInterceptionIndication);
+  asn1cpp::sequenceof::pushList (*TIPs, TIP);
+  if (numberOfTIPs != 0) {
+      asn1cpp::setField (TIP_container->trajectoryInterceptionIndication, TIPs);
+      asn1cpp::setField(vam->vam.vamParameters.vruMotionPredictionContainer, TIP_container);
+  }
 
   // Store all the "previous" values used in checkVamConditions()
   m_prev_pos = m_VRUdp->getPedPosition();
@@ -877,4 +898,28 @@ int64_t VRUBasicService::computeTimestampUInt64(){
   int_tstamp=tv.tv_sec*1e9+tv.tv_nsec;
 
   return int_tstamp;
+}
+
+void VRUBasicService::addNewTIPToMap(uint64_t id, double time, double tip) {
+  // First of all, clean the map from old elements
+  cleanTIPMap(time);
+  m_tip_map[id] = std::make_tuple(time, tip);
+}
+
+double VRUBasicService::getPreviousTIP(uint64_t id, double time) {
+  cleanTIPMap(time);
+  if (m_tip_map.find(id) != m_tip_map.end()) return std::get<1>(m_tip_map[id]);
+  else return -1;
+}
+
+void VRUBasicService::cleanTIPMap(double time) {
+  for (auto it = m_tip_map.begin(); it != m_tip_map.end();) {
+      double tmp_time = std::get<0>(it->second);
+      
+      if (time - tmp_time >= MAX_TIP_MAP_TIME) {
+          it = m_tip_map.erase(it); 
+      } else {
+          ++it;
+      }
+  }
 }

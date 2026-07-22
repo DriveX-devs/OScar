@@ -96,7 +96,6 @@ namespace ldmmap {
             void setStationID(unsigned long fixed_stationid) {m_station_id=fixed_stationid;}
             StationId_t getStationID() {return m_station_id;}
 
-
 		private:
 			// Main database structure
 			std::unordered_map<uint32_t,std::pair<std::shared_mutex*,std::unordered_map<uint32_t,returnedVehicleData_t>>> m_ldmmap;

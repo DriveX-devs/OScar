@@ -343,8 +343,7 @@ CPBasicService::generateAndEncodeCPM()
             }
             // The check for the Perceived Object Container is independent from the one of the Sensor Information Container
             // If we have no objects to include, we may include only the Sensor Information Container
-            if (numberOfPOs != 0)
-            {
+            if (numberOfPOs != 0) {
                 asn1cpp::setField (POsContainer->perceivedObjects, CPM_POs);
                 asn1cpp::setField (POsContainer->numberOfPerceivedObjects, numberOfPOs);
             }

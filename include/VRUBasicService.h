@@ -16,6 +16,8 @@ extern "C" {
   #include "VAM.h"
 }
 
+#define MAX_TIP_MAP_TIME 10000 // Maximum time in milliseconds to keep TIP values in the map (10 seconds)
+
 typedef enum{
     VAM_NO_ERROR = 0,
     VAM_WRONG_INTERVAL = 1,
@@ -106,11 +108,9 @@ public:
     double getK() {return m_TTC_k;}
     double getSigma() {return m_TTC_sigma;}
 
-    void wrapper_generateAndEncodeVam() {
-        std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
-        generateAndEncodeVam();
-        std::cout << "[INFO] VAM generated and encoded for TIP threshold exceeded." << std::endl;
-    }
+    void addNewTIPToMap(uint64_t id, double time, double tip);
+    void cleanTIPMap(double time);
+    double getPreviousTIP(uint64_t id, double time);
 
 private:
     const size_t m_MaxPHLength = 23;
@@ -202,6 +202,9 @@ private:
 
     bool m_force_20Hz_freq=false;
     bool m_force_10Hz_freq=false;
+
+    std::unordered_map<uint64_t, std::tuple<double, double>> m_tip_map;
+    uint8_t m_tip_map_size = 0;
 };
 
 #endif /* VRUBasicService_h */

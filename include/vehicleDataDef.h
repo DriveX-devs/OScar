@@ -100,7 +100,6 @@ namespace ldmmap {
         long confidence;
         long angle;
         bool detected;
-		double tip; // Trajectory Interception Probability (TIP) value, if available. If not available, the value is set to -1.0
 	} vehicleData_t;
 }
 
