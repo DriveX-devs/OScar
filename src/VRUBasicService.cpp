@@ -72,6 +72,7 @@ VRUBasicService::VRUBasicService(){
   m_head_sent = 0;
   m_safedist_sent = 0;
   m_time_sent = 0;
+  m_tip_sent = 0;
 
   m_VRU_role = VRU_ROLE_ON;
   m_VRU_clust_state = VRU_IDLE;
@@ -364,7 +365,6 @@ void VRUBasicService::checkVamConditions(){
   		*/
 
       if(m_force_20Hz_freq || m_force_10Hz_freq) {
-          std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
           auto vam_result = generateAndEncodeVam();
 
           if(vam_result==VAM_NO_ERROR)
@@ -558,7 +558,7 @@ void VRUBasicService::checkVamConditions(){
               vam_error = generateAndEncodeVam();
               if (vam_error == VAM_NO_ERROR) {
                 condition_verified = true;
-                m_time_sent++;
+                m_tip_sent++;
               } else {
                 std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
               }
@@ -690,7 +690,7 @@ void VRUBasicService::checkVamConditions(){
             if (m_tip_array.size() > 0) {
               motivation="TIP";
               joint=joint+"TI";
-              num_VAMs_sent=std::to_string(m_time_sent);
+              num_VAMs_sent=std::to_string(m_tip_sent);
               numConditions++;
             }
 
@@ -860,7 +860,9 @@ VRUBasicService::generateAndEncodeVam(){
       double tip = std::get<1>(*it);
       auto TIP = asn1cpp::makeSeq(TrajectoryInterceptionIndication);
       asn1cpp::setField(TIP->subjectStation, stationId);
-      asn1cpp::setField(TIP->trajectoryInterceptionProbability, tip);
+      long tip_scaled = static_cast<long>(std::lround(tip * 63.0));
+      tip_scaled = std::clamp(tip_scaled, 0L, 63L);
+      asn1cpp::setField(TIP->trajectoryInterceptionProbability, tip_scaled);
       asn1cpp::setField(TIP->trajectoryInterceptionConfidence, TrajectoryInterceptionConfidence_above90Percent);
       asn1cpp::sequenceof::pushList(*TIPs, TIP);
     }
