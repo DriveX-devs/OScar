@@ -860,8 +860,7 @@ VRUBasicService::generateAndEncodeVam(){
       double tip = std::get<1>(*it);
       auto TIP = asn1cpp::makeSeq(TrajectoryInterceptionIndication);
       asn1cpp::setField(TIP->subjectStation, stationId);
-      long tip_scaled = static_cast<long>(std::lround(tip * 63.0));
-      tip_scaled = std::clamp(tip_scaled, 0L, 63L);
+      long tip_scaled = std::lround(tip * 50.0);
       asn1cpp::setField(TIP->trajectoryInterceptionProbability, tip_scaled);
       asn1cpp::setField(TIP->trajectoryInterceptionConfidence, TrajectoryInterceptionConfidence_above90Percent);
       asn1cpp::sequenceof::pushList(*TIPs, TIP);
