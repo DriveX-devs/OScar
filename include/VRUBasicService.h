@@ -17,6 +17,7 @@ extern "C" {
 }
 
 #define MAX_TIP_MAP_TIME 10000 // Maximum time in milliseconds to keep TIP values in the map (10 seconds)
+#define DELTA_TIP 0.1
 
 typedef enum{
     VAM_NO_ERROR = 0,
@@ -46,6 +47,7 @@ typedef enum{
     POSITION_CHANGE = 3,
     SPEED_CHANGE = 4,
     SAFE_DISTANCES = 5,
+    TIP_TRIGGER = 6,
 } triggcond_t;
 
 typedef struct distance {
@@ -97,6 +99,7 @@ public:
     
     const long T_GenVamMin_ms = 100;
     const long T_GenVamMax_ms = 5000;
+    const long T_GenVamLFMin_ms = 2000;
 
     uint64_t get_VAM_sent() {return m_vam_sent;};
 
@@ -109,8 +112,9 @@ public:
     double getSigma() {return m_TTC_sigma;}
 
     void addNewTIPToMap(uint64_t id, double time, double tip);
+    void updatePreviousSentTIPOnMap(uint64_t id, double previous_tip);
     void cleanTIPMap(double time);
-    double getPreviousTIP(uint64_t id, double time);
+    void searchFirstEightTIPs();
 
 private:
     const size_t m_MaxPHLength = 23;
@@ -132,6 +136,9 @@ private:
     long m_T_GenVam_ms;
     long m_T_CheckVamGen_ms;
     int64_t lastVamGen;
+    int64_t m_last_vam_gen_LF;
+    int64_t m_T_GenVamLFMin_ms;
+
 
     int16_t m_N_GenVam_red;
     int16_t m_N_GenVam_max_red;
@@ -203,8 +210,10 @@ private:
     bool m_force_20Hz_freq=false;
     bool m_force_10Hz_freq=false;
 
-    std::unordered_map<uint64_t, std::tuple<double, double>> m_tip_map;
+    std::unordered_map<uint64_t, std::tuple<double, double, double>> m_tip_map;
     uint8_t m_tip_map_size = 0;
+    std::mutex m_tip_mutex;
+    std::vector<std::tuple<uint64_t, double>> m_tip_array;
 };
 
 #endif /* VRUBasicService_h */

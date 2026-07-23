@@ -13,6 +13,7 @@
 #include <iostream>
 #include <cfloat>
 #include <cmath>
+#include <mutex>
 #include <sys/sysinfo.h>
 #include <netinet/ether.h>
 #include <algorithm>
@@ -43,6 +44,7 @@ VRUBasicService::VRUBasicService(){
 
   m_T_GenVam_ms = T_GenVamMax_ms;
   m_T_CheckVamGen_ms = T_GenVamMin_ms;
+  m_T_GenVamLFMin_ms = T_GenVamLFMin_ms;
 
   m_N_GenVam_red = 0;
   m_N_GenVam_max_red = 2;
@@ -61,6 +63,7 @@ VRUBasicService::VRUBasicService(){
   m_vert_safe_d = 5;
 
   lastVamGen = -1;
+  m_last_vam_gen_LF = -1;
 
   m_vam_sent = 0;
 
@@ -270,6 +273,7 @@ void VRUBasicService::initDissemination(){
 
 void VRUBasicService::checkVamConditions(){
   int64_t now = computeTimestampUInt64()/NANO_TO_MILLI;
+  double now_ms = static_cast<double>(get_timestamp_us()) / 1000.0; // Convert to milliseconds
   VRUBasicService_error_t vam_error;
   bool condition_verified;
   bool redundancy_mitigation;
@@ -385,17 +389,14 @@ void VRUBasicService::checkVamConditions(){
   			head_diff += (head_diff>180.0) ? -360.0 : (head_diff<-180.0) ? 360.0 : 0.0;
 
   			// Create the data for the log print
-            data_head="[HEADING] HeadingUnavailable="+std::to_string((float)HeadingValue_unavailable/10)+" PrevHead="+std::to_string(m_prev_heading)+" CurrHead="+std::to_string(currHead)+" HeadDiff="+std::to_string(head_diff)+"\n";
+        data_head="[HEADING] HeadingUnavailable="+std::to_string((float)HeadingValue_unavailable/10)+" PrevHead="+std::to_string(m_prev_heading)+" CurrHead="+std::to_string(currHead)+" HeadDiff="+std::to_string(head_diff)+"\n";
         		
-  			if (head_diff > m_head_th || head_diff < -m_head_th)
-    		{
+  			if (head_diff > m_head_th || head_diff < -m_head_th) {
       		if(!redundancy_mitigation && (m_N_GenVam_red==0 || m_N_GenVam_red==m_N_GenVam_max_red)){
-            if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc)
-            {
+            if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc){
               m_N_GenVam_red = 0;
 
               m_trigg_cond = HEADING_CHANGE;
-              std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
               vam_error = generateAndEncodeVam ();
               if(vam_error==VAM_NO_ERROR)
               {
@@ -437,7 +438,6 @@ void VRUBasicService::checkVamConditions(){
             m_N_GenVam_red = 0;
 
             m_trigg_cond = POSITION_CHANGE;
-            std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
             vam_error = generateAndEncodeVam ();
             if(vam_error==VAM_NO_ERROR)
             {
@@ -463,17 +463,14 @@ void VRUBasicService::checkVamConditions(){
   		if(currSpeed != (double)SpeedValue_unavailable && abs(currSpeed) < 1000000) { // Check if the speed has an out of range value
   			speed_diff = currSpeed - m_prev_speed;
 
-            data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
+        data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
         
-  			if (!condition_verified && !vamredmit_verified && (speed_diff > m_speed_th || speed_diff < -m_speed_th))
-    		{
+  			if (!condition_verified && !vamredmit_verified && (speed_diff > m_speed_th || speed_diff < -m_speed_th)) {
       		if(!redundancy_mitigation && (m_N_GenVam_red==0 || m_N_GenVam_red==m_N_GenVam_max_red)){
-            if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc)
-            {
+            if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc) {
               m_N_GenVam_red = 0;
 
               m_trigg_cond = SPEED_CHANGE;
-              std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
               vam_error = generateAndEncodeVam ();
               if(vam_error==VAM_NO_ERROR)
               {
@@ -490,11 +487,11 @@ void VRUBasicService::checkVamConditions(){
     		}
   		} else{
   			m_prev_speed=SpeedValue_unavailable;
-            currSpeed=SpeedValue_unavailable;
-            speed_diff = currSpeed - m_prev_speed;
+        currSpeed=SpeedValue_unavailable;
+        speed_diff = currSpeed - m_prev_speed;
 
-            // Create the data for the log print
-            data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
+        // Create the data for the log print
+        data_speed="[SPEED] SpeedUnavailable="+std::to_string((float)SpeedValue_unavailable)+" PrevSpeed="+std::to_string(m_prev_speed)+" CurrSpeed="+std::to_string(currSpeed)+" SpeedDiff="+std::to_string(speed_diff)+"\n";
   		}
   		
   		// Computation of the longitudinal safe distance
@@ -517,7 +514,6 @@ void VRUBasicService::checkVamConditions(){
 
       	m_trigg_cond = SAFE_DISTANCES;
       	m_min_dist[1].safe_dist = true;
-        std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
       	vam_error = generateAndEncodeVam ();
       	if(vam_error==VAM_NO_ERROR)
         {
@@ -534,7 +530,6 @@ void VRUBasicService::checkVamConditions(){
 
             m_trigg_cond = SAFE_DISTANCES;
             m_min_dist[0].safe_dist = true;
-            std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
             vam_error = generateAndEncodeVam ();
             if(vam_error==VAM_NO_ERROR) {
               condition_verified = true;
@@ -549,12 +544,33 @@ void VRUBasicService::checkVamConditions(){
         }
     	}
 
-      
-      // TODO Diego
-      data_tip = "[TIP] TriggerCondition="+std::to_string(m_trigg_cond)+" RedundancyMitigation="+std::to_string(redundancy_mitigation)+" ConditionVerified="+std::to_string(condition_verified)+" VAMRedMitVerified="+std::to_string(vamredmit_verified)+"\n";
-    	// Check in the TIP map if there are any TIPs that require a VAM to be sent
-    	if(!condition_verified && !vamredmit_verified) {
+      // Clean the TIP map from old data
+      cleanTIPMap(now_ms);
+      searchFirstEightTIPs();
+      if (m_tip_array.size() > 0) {
+        data_tip += "[TIP] TIPs found in the TIP map that require a VAM to be sent:\n";
+        if (!condition_verified && !vamredmit_verified) {
+          if (!redundancy_mitigation && (m_N_GenVam_red == 0 || m_N_GenVam_red == m_N_GenVam_max_red)) {
+            if (m_T_next_dcc == -1 || now - lastVamGen >= m_T_next_dcc) {
+              m_N_GenVam_red = 0;
 
+              m_trigg_cond = TIP_TRIGGER;
+              vam_error = generateAndEncodeVam();
+              if (vam_error == VAM_NO_ERROR) {
+                condition_verified = true;
+                m_time_sent++;
+              } else {
+                std::cerr << "Cannot generate VAM. Error code: " << std::to_string(vam_error) << std::endl;
+              }
+            }
+          } else {
+            m_N_GenVam_red++;
+            vamredmit_verified = true;
+          }
+        }
+      } else {
+        // Create the data for the log print
+        data_tip += "[TIP] No TIPs found in the TIP map that require a VAM to be sent\n";
       }
 
     	/* 2)
@@ -574,7 +590,6 @@ void VRUBasicService::checkVamConditions(){
             m_N_GenVam_red = 0;
 
             m_trigg_cond = MAX_TIME_ELAPSED;
-            std::lock_guard<std::mutex> lock(m_vam_gen_mutex);
             vam_error = generateAndEncodeVam ();
             if(vam_error==VAM_NO_ERROR)
             {
@@ -672,6 +687,13 @@ void VRUBasicService::checkVamConditions(){
               numConditions++;
             }
 
+            if (m_tip_array.size() > 0) {
+              motivation="TIP";
+              joint=joint+"TI";
+              num_VAMs_sent=std::to_string(m_time_sent);
+              numConditions++;
+            }
+
             if(abs(time_difference - m_T_GenVam_ms) <= 10 || (m_T_GenVam_ms - time_difference) <= 0 ) {
               motivation="time";
               joint=joint+"T";
@@ -694,6 +716,9 @@ void VRUBasicService::checkVamConditions(){
               if(joint=="DT") {
                 motivation="safe_distances";
               }
+              if(joint=="TI") {
+                motivation="TIP";
+              }
             }
 
             if(condition_verified && strlen(motivation.c_str())==0) {
@@ -709,8 +734,8 @@ void VRUBasicService::checkVamConditions(){
         }
 
         // Create the data for the log print
-        data+="[LOG] Timestamp="+std::to_string(time)+" VAMSent="+sent+" Motivation="+motivation+" NUMVAMsSent="+num_VAMs_sent+" HeadDiff="+std::to_string(head_diff)+" PosDiff="+std::to_string(pos_diff)+" SpeedDiff="+std::to_string(speed_diff)+" TimeDiff="+std::to_string(time_difference)+"\n";
-        data=data+data_head+data_pos+data_speed+data_safed+data_time+data_vamredmit+"\n";
+        data+="[LOG] Timestamp="+std::to_string(time)+" VAMSent="+sent+" Motivation="+motivation+" NUMVAMsSent="+num_VAMs_sent+" HeadDiff="+std::to_string(head_diff)+" PosDiff="+std::to_string(pos_diff)+" SpeedDiff="+std::to_string(speed_diff)+" TIP="+std::to_string(m_tip_map.size())+" TimeDiff="+std::to_string(time_difference)+"\n";
+        data=data+data_head+data_pos+data_speed+data_safed+data_tip+data_time+data_vamredmit+"\n";
 
         // Print the data for the log
         fprintf(f_out,"%s", data.c_str());
@@ -807,23 +832,54 @@ VRUBasicService::generateAndEncodeVam(){
                     vam_mandatory_data.longAcceleration.getValue ());
   asn1cpp::setField(vam->vam.vamParameters.vruHighFrequencyContainer.longitudinalAcceleration.longitudinalAccelerationConfidence,
                     vam_mandatory_data.longAcceleration.getConfidence ());
+
+  /* Fill the lowFrequencyContainer */
+  now = computeTimestampUInt64 ()/NANO_TO_MILLI;
+  if(m_last_vam_gen_LF == -1 || now - m_last_vam_gen_LF >= m_T_GenVamLFMin_ms) {
+    if (m_stationtype == StationType_cyclist)
+      asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer->profileAndSubprofile.present, VruProfileAndSubprofile_PR_bicyclistAndLightVruVehicle);
+    else if (m_stationtype == StationType_pedestrian)
+      asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer->profileAndSubprofile.present, VruProfileAndSubprofile_PR_pedestrian);
+    asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer->sizeClass, VruSizeClass_medium);
+    // We do not set the exteriorLights field, as it is not used in the current implementation with pedestrians and cyclists.
+    // If needed, it can be set here using the following line: asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer->exteriorLights);
+
+    // Store the time in which the last VAM LF has been generated and successfully sent
+    m_last_vam_gen_LF = now;
+  }
   
-  
-  // TODO Diego
+  // Fill the motionPredictionContainer using the m_tip_array, which contains the first 8 TIPs that require a VAM to be sent
+  // If the array is empty, the motionPredictionContainer will not be created and filled and the VAM will not contain any TIPs
   long numberOfTIPs = 0;
-  auto TIP_container = asn1cpp::makeSeq (VruMotionPredictionContainer);
-  auto TIPs = asn1cpp::makeSeq (SequenceOfTrajectoryInterceptionIndication);
-  auto TIP = asn1cpp::makeSeq(TrajectoryInterceptionIndication);
-  asn1cpp::sequenceof::pushList (*TIPs, TIP);
-  if (numberOfTIPs != 0) {
-      asn1cpp::setField (TIP_container->trajectoryInterceptionIndication, TIPs);
-      asn1cpp::setField(vam->vam.vamParameters.vruMotionPredictionContainer, TIP_container);
+  if (m_tip_array.size() > 0) {
+    numberOfTIPs = m_tip_array.size();
+    auto TIP_container = asn1cpp::makeSeq (VruMotionPredictionContainer);
+    auto TIPs = asn1cpp::makeSeq (SequenceOfTrajectoryInterceptionIndication);
+    for (auto it = m_tip_array.begin(); it != m_tip_array.end(); ++it) {
+      uint64_t stationId = std::get<0>(*it);
+      double tip = std::get<1>(*it);
+      auto TIP = asn1cpp::makeSeq(TrajectoryInterceptionIndication);
+      asn1cpp::setField(TIP->subjectStation, stationId);
+      asn1cpp::setField(TIP->trajectoryInterceptionProbability, tip);
+      asn1cpp::setField(TIP->trajectoryInterceptionConfidence, TrajectoryInterceptionConfidence_above90Percent);
+      asn1cpp::sequenceof::pushList(*TIPs, TIP);
+    }
+    // Set the TIPs in the motionPredictionContainer
+    asn1cpp::setField(TIP_container->trajectoryInterceptionIndication, TIPs);
+    // Set the motionPredictionContainer in the VAM
+    asn1cpp::setField(vam->vam.vamParameters.vruMotionPredictionContainer, TIP_container);
   }
 
   // Store all the "previous" values used in checkVamConditions()
   m_prev_pos = m_VRUdp->getPedPosition();
   m_prev_speed = m_VRUdp->getPedSpeedValue ();
   m_prev_heading = m_VRUdp->getPedHeadingValue ();
+  // Previous TIPs are updated in the map when a VAM is sent, so no need to update them here
+  for (const auto& entry : m_tip_array) {
+    uint64_t id = std::get<0>(entry);
+    double tip = std::get<1>(entry);
+    updatePreviousSentTIPOnMap(id, tip);
+  }
 
   /* VAM encoding */
   std::string encode_result = asn1cpp::uper::encode(vam);
@@ -901,18 +957,51 @@ int64_t VRUBasicService::computeTimestampUInt64(){
 }
 
 void VRUBasicService::addNewTIPToMap(uint64_t id, double time, double tip) {
-  // First of all, clean the map from old elements
-  cleanTIPMap(time);
-  m_tip_map[id] = std::make_tuple(time, tip);
+  std::lock_guard<std::mutex> lock(m_tip_mutex);
+  if (m_tip_map.find(id) == m_tip_map.end()) {
+    // Set the first previous TIP to 0
+    m_tip_map[id] = std::make_tuple(time, tip, 0);
+  } else {
+    // Preserve the previous sent tip and update with the new tip
+    double previous_sent_tip = std::get<2>(m_tip_map[id]);
+    m_tip_map[id] = std::make_tuple(time, tip, previous_sent_tip);
+  }
 }
 
-double VRUBasicService::getPreviousTIP(uint64_t id, double time) {
-  cleanTIPMap(time);
-  if (m_tip_map.find(id) != m_tip_map.end()) return std::get<1>(m_tip_map[id]);
-  else return -1;
+void VRUBasicService::updatePreviousSentTIPOnMap(uint64_t id, double previous_sent_tip) {
+  std::lock_guard<std::mutex> lock(m_tip_mutex);
+  // Preserve the information about the last computed TIP
+  double time = std::get<0>(m_tip_map[id]);
+  double tip = std::get<1>(m_tip_map[id]);
+  m_tip_map[id] = std::make_tuple(time, tip, previous_sent_tip);
+}
+
+void VRUBasicService::searchFirstEightTIPs() {
+  // Find the first weight station IDs and the associated TIP
+  // Focus on the difference between latest registered TIP and previous TIP (>= DELTA_TIP)
+  m_tip_array.clear();
+  std::lock_guard<std::mutex> lock(m_tip_mutex);
+  for (const auto& entry : m_tip_map) {
+    uint64_t id = entry.first;
+    double time = std::get<0>(entry.second);
+    double tip = std::get<1>(entry.second);
+    double previous_sent_tip = std::get<2>(entry.second);
+    if (tip - previous_sent_tip >= DELTA_TIP) {
+      m_tip_array.push_back(std::make_tuple(id, tip));
+    }
+  }
+  // Sort the vector based on the TIP values in descending order
+  std::sort(m_tip_array.begin(), m_tip_array.end(), [](const std::tuple<uint64_t, double>& a, const std::tuple<uint64_t, double>& b) {
+    return std::get<1>(a) > std::get<1>(b);
+  });
+  // Keep only the first 8 elements if there are more than 8
+  if (m_tip_array.size() > 8) {
+    m_tip_array.resize(8);
+  }
 }
 
 void VRUBasicService::cleanTIPMap(double time) {
+  std::lock_guard<std::mutex> lock(m_tip_mutex);
   for (auto it = m_tip_map.begin(); it != m_tip_map.end();) {
       double tmp_time = std::get<0>(it->second);
       
