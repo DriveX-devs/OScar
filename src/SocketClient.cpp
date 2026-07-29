@@ -127,9 +127,8 @@ SocketClient::compute_ttc_stc(const ldmmap::vehicleData_t &vehdata) {
 
 		stc = sqrt(dx_at_ttc*dx_at_ttc + dy_at_ttc*dy_at_ttc);
 
-		if(stc < m_vrubs->getSTCMin()) {
-			// The projected separation at the predicted collision time is below the minimum threshold
-			// -> treat this as a "no collision" case
+		if(stc > m_vrubs->getSTCMin()) {
+			// The projected separation at the predicted collision time is below the minimum threshold -> treat this as a "no collision" case
 			return {-1.0, -1.0};
 		}
 
