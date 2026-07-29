@@ -80,9 +80,11 @@ SocketClient::compute_ttc_stc(const ldmmap::vehicleData_t &vehdata) {
 	if(node_heading==LDM_HEADING_UNAVAILABLE && ped_heading==LDM_HEADING_UNAVAILABLE) {
 		return {ttc, stc};
 	} else {
-		// Same fallback: borrow the ego heading if the remote one is missing
+		// Same fallback: borrow the ego heading if the remote one is missing and vice versa
 		if(node_heading==LDM_HEADING_UNAVAILABLE) {
 			node_heading = ped_heading;
+		} else if (ped_heading==LDM_HEADING_UNAVAILABLE) {
+			ped_heading = node_heading;
 		}
 
 		// Relative position vector, vehicle w.r.t. VRU
