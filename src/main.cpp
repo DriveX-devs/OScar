@@ -930,30 +930,30 @@ int main (int argc, char *argv[]) {
             false, 0.1, "double");
         cmd.add(TIPThresholdArg);
 
-        TCLAP::ValueArg<double> STCMinArg("", "stc-min",
+        TCLAP::ValueArg<double> TIPSTCMinArg("", "tip-stc-min",
             "Minimum Space To Collision (STC) threshold, below which the STC condition contributes to triggering a warning. Default: 5.0 (meters).",
             false, 5.0, "double");
-        cmd.add(STCMinArg);
+        cmd.add(TIPSTCMinArg);
 
-        TCLAP::ValueArg<double> TTCKArg("", "ttc-k",
+        TCLAP::ValueArg<double> TIPTTCKArg("", "tip-ttc-k",
             "Scaling factor (k) applied in the Time To Collision (TTC) probability/weighting function. Default: 0.27.",
             false, 0.27, "double");
-        cmd.add(TTCKArg);
+        cmd.add(TIPTTCKArg);
 
-        TCLAP::ValueArg<double> TTCMaxArg("", "ttc-max",
+        TCLAP::ValueArg<double> TIPTTCMaxArg("", "tip-ttc-max",
             "Maximum Time To Collision (TTC) considered relevant; TTC values above this are treated as not dangerous. Default: 10.0 (seconds).",
             false, 10.0, "double");
-        cmd.add(TTCMaxArg);
+        cmd.add(TIPTTCMaxArg);
 
-        TCLAP::ValueArg<double> TTCMinArg("", "ttc-min",
+        TCLAP::ValueArg<double> TIPTTCMinArg("", "tip-ttc-min",
             "Minimum Time To Collision (TTC) threshold, below which the TTC condition contributes to triggering a warning. Default: 1.5 (seconds).",
             false, 1.5, "double");
-        cmd.add(TTCMinArg);
+        cmd.add(TIPTTCMinArg);
 
-        TCLAP::ValueArg<double> TTCSigmaArg("", "ttc-sigma",
+        TCLAP::ValueArg<double> TIPTTCSigmaArg("", "tip-ttc-sigma",
             "Standard deviation (sigma) used in the Gaussian probability function for Trajectory Interception Probability (TIP). Default: 2.0.",
             false, 2.0, "double");
-        cmd.add(TTCSigmaArg);
+        cmd.add(TIPTTCSigmaArg);
 
         TCLAP::SwitchArg SecurityArg("w", "enable-security",
                                      "Enable the the transmission and reception of secured messages (tested on CAMs and CPMs)",
@@ -1203,11 +1203,11 @@ int main (int argc, char *argv[]) {
         enable_MCM_tx = MCMsTxArg.getValue();
         MCMs_priority = MCMsPriority.getValue();
         tip_modality = TIPModalityArg.getValue();
-        tip_TTC_k = TTCKArg.getValue();
-        tip_TTC_max = TTCMaxArg.getValue();
-        tip_TTC_sigma = TTCSigmaArg.getValue();
-        tip_TTC_min = TTCMinArg.getValue();
-        tip_STC_min = STCMinArg.getValue();
+        tip_TTC_k = TIPTTCKArg.getValue();
+        tip_TTC_max = TIPTTCMaxArg.getValue();
+        tip_TTC_sigma = TIPTTCSigmaArg.getValue();
+        tip_TTC_min = TIPTTCMinArg.getValue();
+        tip_STC_min = TIPSTCMinArg.getValue();
         tip_TIP_th = TIPThresholdArg.getValue();
 
         if (CAMs_priority < 0 || CAMs_priority > 3) {
@@ -1742,11 +1742,13 @@ int main (int argc, char *argv[]) {
 
     // Set the parameters for TIP in VRU Basic Service if VAM dissemination is enabled
     if (enable_VAM_dissemination) {
-        vrubs.setTTCMax(tip_TTC_max);
-        vrubs.setTTCMin(tip_TTC_min);
-        vrubs.setSTCMin(tip_STC_min);
-        vrubs.setTIPThreshold(tip_TIP_th);
-        vrubs.setModality(tip_modality);
+        vrubs.setTTCMax_TIP(tip_TTC_max);
+        vrubs.setTTCMin_TIP(tip_TTC_min);
+        vrubs.setSTCMin_TIP(tip_STC_min);
+        vrubs.setTIPThreshold_TIP(tip_TIP_th);
+        vrubs.setModality_TIP(tip_modality);
+        vrubs.setK_TIP(tip_TTC_k);
+        vrubs.setSigma_TIP(tip_TTC_sigma);
     }
 
     // This must be defined here, otherwise the goto will jump over its definition

@@ -80,11 +80,13 @@ public:
     void setSafeLateralDistance(double safe_lat_d) {m_lat_safe_d = safe_lat_d;}
     void setSafeVerticalDistance(double safe_vert_d) {m_vert_safe_d = safe_vert_d;}
 
-    void setTTCMax(double ttc_max) {m_TTC_max = ttc_max;}
-    void setTTCMin(double ttc_min) {m_TTC_min = ttc_min;}
-    void setSTCMin(double stc_min) {m_STC_min = stc_min;}
-    void setTIPThreshold(double tip_th) {m_TIP_th = tip_th;}
-    void setModality(std::string modality) {m_tip_modality = modality;}
+    void setTTCMax_TIP(double ttc_max) {m_TTC_max = ttc_max;}
+    void setTTCMin_TIP(double ttc_min) {m_TTC_min = ttc_min;}
+    void setSTCMin_TIP(double stc_min) {m_STC_min = stc_min;}
+    void setTIPThreshold_TIP(double tip_th) {m_TIP_th = tip_th;}
+    void setModality_TIP(std::string modality) {m_tip_modality = modality;}
+    void setK_TIP (double k) {m_TTC_k = k;}
+    void setSigma_TIP (double sigma) {m_TTC_sigma = sigma;}
 
     void force20HzFreq() {m_force_20Hz_freq=true;}
     void disable20HzFreq() {m_force_20Hz_freq=false;}
