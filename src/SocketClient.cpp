@@ -749,12 +749,12 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
 			if(m_stationType == StationType_pedestrian || m_stationType == StationType_cyclist) {
 				auto [ttc, stc] = compute_ttc_stc(vehdata);
 				if (ttc > 0 && stc > 0) {
-					// If the TTC is below the configured threshold, and the STC is below the configured threshold, then we can trigger a VAM
+					// If the TTC is below the configured threshold (i.e. the two objects are quite close in time), and the STC is below the configured threshold (i.e. the two objects at TTC would be very close in space), then we can trigger a VAM
 					if (ttc < m_vrubs->getTTCMax() && stc < m_vrubs->getSTCMin()) {
 						std::string tip_modality = m_vrubs->getTIPModality();
 						double tip = -1;
 						if (tip_modality == "exp") {
-							tip = tip_exponential(ttc, m_vrubs->getSTCMin(), m_vrubs->getK());
+							tip = tip_exponential(ttc, m_vrubs->getTTCMin(), m_vrubs->getK());
 						} else if (tip_modality == "gaus") {
 							tip = tip_gaussian(ttc, m_vrubs->getSigma());
 						} else {
