@@ -941,13 +941,13 @@ int main (int argc, char *argv[]) {
         cmd.add(TIPTTCKArg);
 
         TCLAP::ValueArg<double> TIPTTCMaxArg("", "tip-ttc-max",
-            "Maximum Time To Collision (TTC) considered relevant; TTC values above this are treated as not dangerous. Default: 10.0 (seconds).",
-            false, 10.0, "double");
+            "Maximum Time To Collision (TTC) considered relevant; TTC values above this are treated as not dangerous. Default: 4.0 (seconds).",
+            false, 4.0, "double");
         cmd.add(TIPTTCMaxArg);
 
         TCLAP::ValueArg<double> TIPTTCMinArg("", "tip-ttc-min",
-            "Minimum Time To Collision (TTC) threshold, below which the TTC condition contributes to triggering a warning. Default: 1.5 (seconds).",
-            false, 1.5, "double");
+            "Minimum Time To Collision (TTC) threshold, below which the TTC condition contributes to triggering a warning. Default: 1.0 (seconds).",
+            false, 1.0, "double");
         cmd.add(TIPTTCMinArg);
 
         TCLAP::ValueArg<double> TIPTTCSigmaArg("", "tip-ttc-sigma",

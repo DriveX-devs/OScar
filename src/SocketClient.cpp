@@ -88,29 +88,29 @@ SocketClient::compute_ttc_stc(const ldmmap::vehicleData_t &vehdata) {
 		}
 
 		// Relative position vector, vehicle w.r.t. VRU
-		double dx = pos_node_xyz.x - pos_ped.x;
-		double dy = pos_node_xyz.y - pos_ped.y;
+		double dx = pos_ped.x - pos_node_xyz.x;
+		double dy = pos_ped.y - pos_node_xyz.y;
 		double distance = sqrt(dx*dx + dy*dy);
 
 		// Heading -> velocity components on the x=East, y=North axes
-		double veh_heading_rad = DEG_2_RAD_ASN_UTILS(node_heading);
+		double node_heading_rad = DEG_2_RAD_ASN_UTILS(node_heading);
 		double ped_heading_rad = DEG_2_RAD_ASN_UTILS(ped_heading);
 
-		double vx_veh = vehdata.speed_ms * sin(veh_heading_rad);
-		double vy_veh = vehdata.speed_ms * cos(veh_heading_rad);
+		double vx_node = vehdata.speed_ms * sin(node_heading_rad);
+		double vy_node = vehdata.speed_ms * cos(node_heading_rad);
 
 		double vx_ped = speed * sin(ped_heading_rad);
 		double vy_ped = speed * cos(ped_heading_rad);
 
 		// Relative velocity of the vehicle w.r.t. the VRU
-		double dvx = vx_veh - vx_ped;
-		double dvy = vy_veh - vy_ped;
+		double dvx = vx_ped - vx_node;
+		double dvy = vy_ped - vx_node;
 
 		// Closing speed = -(d/dt) of the distance between the two nodes
-		double closing_speed = (distance > 0) ? -(dx*dvx + dy*dvy)/distance : 0;
+		double closing_speed = (distance > 0.0) ? ((dx * dvx + dy * dvy) / distance) : 0.0;
 
-		if(distance > 0 && closing_speed > 0) {
-			ttc = distance / closing_speed;
+		if(distance > 0.0 && closing_speed < 0.0) {
+			ttc = distance / (-closing_speed);
 		} else {
 			// Not approaching each other (or already colocated) -> no meaningful TTC
 			ttc = -1.0;

@@ -836,14 +836,16 @@ VRUBasicService::generateAndEncodeVam(){
   /* Fill the lowFrequencyContainer */
   now = computeTimestampUInt64 ()/NANO_TO_MILLI;
   if(m_last_vam_gen_LF == -1 || now - m_last_vam_gen_LF >= m_T_GenVamLFMin_ms) {
-    if (m_stationtype == StationType_cyclist)
-      asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer->profileAndSubprofile.present, VruProfileAndSubprofile_PR_bicyclistAndLightVruVehicle);
-    else if (m_stationtype == StationType_pedestrian)
-      asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer->profileAndSubprofile.present, VruProfileAndSubprofile_PR_pedestrian);
-    asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer->sizeClass, VruSizeClass_medium);
+    auto lowFreqContainer = asn1cpp::makeSeq(VruLowFrequencyContainer);
+    if (m_stationtype == StationType_cyclist) {
+      asn1cpp::setField(lowFreqContainer->profileAndSubprofile.present, VruProfileAndSubprofile_PR_bicyclistAndLightVruVehicle);
+    } else if (m_stationtype == StationType_pedestrian) {
+      asn1cpp::setField(lowFreqContainer->profileAndSubprofile.present, VruProfileAndSubprofile_PR_pedestrian);
+    }
+    asn1cpp::setField(lowFreqContainer->sizeClass, VruSizeClass_medium);
     // We do not set the exteriorLights field, as it is not used in the current implementation with pedestrians and cyclists.
     // If needed, it can be set here using the following line: asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer->exteriorLights);
-
+    asn1cpp::setField(vam->vam.vamParameters.vruLowFrequencyContainer, lowFreqContainer);
     // Store the time in which the last VAM LF has been generated and successfully sent
     m_last_vam_gen_LF = now;
   }
