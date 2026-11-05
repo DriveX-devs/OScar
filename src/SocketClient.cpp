@@ -834,6 +834,8 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
                             fprintf(m_logfile_file,"\n");
                         }
                     }
+                    // Store the GN timestamp, so that the age check can be properly performed on the next CPMs carrying this same object
+                    PO_data.gnTimestamp = gn_timestamp;
                     db_retval=m_db_ptr->insert(PO_data);
 
                     if(db_retval!=ldmmap::LDMMap::LDMMAP_OK && db_retval!=ldmmap::LDMMap::LDMMAP_UPDATED) {
