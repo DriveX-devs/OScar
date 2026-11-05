@@ -667,13 +667,13 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
                     PO_seq = asn1cpp::sequenceof::getSeq(POcontainer->perceivedObjects,PerceivedObject,j);
 
                     //Translate to ego vehicle coordinates
-                    ldmmap::vehicleData_t PO_data;
+                    ldmmap::vehicleData_t PO_data{};
                     PO_data.detected = true;
                     PO_data.vehicleLength = asn1cpp::getField(PO_seq->objectDimensionX->value,long);
                     PO_data.vehicleWidth = asn1cpp::getField(PO_seq->objectDimensionY->value,long);
                     PO_data.heading = asn1cpp::getField(PO_seq->angles->zAngle.value,double) / DECI;
                     PO_data.xSpeed = asn1cpp::getField(PO_seq->velocity->choice.cartesianVelocity.xVelocity.value,long);
-                    PO_data.xSpeed = asn1cpp::getField(PO_seq->velocity->choice.cartesianVelocity.yVelocity.value,long);
+                    PO_data.ySpeed = asn1cpp::getField(PO_seq->velocity->choice.cartesianVelocity.yVelocity.value,long);
                     PO_data.speed_ms = (sqrt (pow(PO_data.xSpeed,2) +
                                              pow(PO_data.ySpeed,2)))/CENTI;
 
@@ -689,6 +689,17 @@ SocketClient::manageMessage(uint8_t *message_bin_buf,size_t bufsize) {
                     TransverseMercator_Reverse(&tmerc, fromLon, from_x, from_y, &latPO, &lonPO, &gammar, &kr);
                     PO_data.lat = latPO;
                     PO_data.lon = lonPO;
+
+                    // The LDM Kalman filter of detected objects works on xDistance/yDistance relative to the receiving vehicle, hence we re-express the object position 
+                    // with respect to the ego position of the ITS-S running OScar and receiving the CPMs
+                    if(m_gpsc_ptr!=nullptr) {
+                        std::pair<double,double> ego_latlon = m_gpsc_ptr->getCurrentPositionDbl();
+                        double ego_x, ego_y, obj_x, obj_y;
+                        TransverseMercator_Forward(&tmerc, ego_latlon.second, ego_latlon.first, ego_latlon.second, &ego_x, &ego_y, &gammar, &kr);
+                        TransverseMercator_Forward(&tmerc, ego_latlon.second, latPO, lonPO, &obj_x, &obj_y, &gammar, &kr);
+                        PO_data.xDistance = (long) ((obj_x-ego_x)*CENTI);
+                        PO_data.yDistance = (long) ((obj_y-ego_y)*CENTI);
+                    }
                     PO_data.camTimestamp = static_cast<long>(asn1cpp::getField(decodedData.decoded_cpm->payload.managementContainer.referenceTime,long)) - static_cast<long>(asn1cpp::getField(PO_seq->measurementDeltaTime,long));
                     PO_data.perceivedBy = asn1cpp::getField(decodedData.decoded_cpm->header.stationId,long);
                     PO_data.stationType = ldmmap::StationType_LDM_detectedPassengerCar;

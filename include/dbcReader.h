@@ -5,6 +5,7 @@
 // Currently, the dbcReader does not support CAN signals that use enums (BA_, BA_DEF_, VAL_) or multiplexed signals
 // Comments (CM_) will also not be imported
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <map>
